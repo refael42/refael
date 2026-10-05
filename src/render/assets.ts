@@ -52,6 +52,8 @@ export interface RenderAssets {
     night: SkPaint;
     /** Red for money going out (payday). */
     redText: SkPaint;
+    /** Building-site dust (alpha set per draw). */
+    dust: SkPaint;
   };
   background: SkPicture;
   /** The same background pre-rendered once; drawn instead of the vectors when zoomed out. */
@@ -197,6 +199,7 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       evening: solid('#FF7A2A', 0),
       night: solid('#12123F', 0),
       redText: tint('#FF6A5E'),
+      dust: tint('#FFF3DC'),
     },
     background,
     backgroundImage: bakeBackground(background, world),

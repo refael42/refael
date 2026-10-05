@@ -39,7 +39,7 @@ export interface BalanceReport {
   bulkMinutes: { minute: number; count: number }[];
   /** Sample windows where income jumped by more than `BALANCE.incomeJump` at once. */
   incomeJumps: { time: number; factor: number }[];
-  firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null; hire: number | null };
+  firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null; hire: number | null; building: number | null };
 }
 
 export interface BalanceOptions {
@@ -119,6 +119,7 @@ export function runBalance(o: BalanceOptions): BalanceReport {
       table: firstTime(p, (x) => x.item === 'tables'),
       burger: firstTime(p, (x) => x.item === 'burger'),
       hire: bot.hires[0]?.time ?? null,
+      building: firstTime(p, (x) => x.item === 'building'),
     },
   };
 }

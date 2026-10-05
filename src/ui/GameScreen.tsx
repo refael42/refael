@@ -2,17 +2,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { STAND_MAP } from '../data/maps';
+import { TIERS } from '../data/buildings';
+import { mapForTier, STAND_MAP } from '../data/maps';
 import { LINEUP } from '../data/scenes';
 import { UPGRADES } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
-import type { BackgroundDef } from '../render/art/background';
+import { mapBackground, type BackgroundDef } from '../render/art/background';
 import type { Camera } from '../render/draw/fx';
 import { isoX, isoY } from '../render/iso';
 import { SceneCanvas } from '../render/SceneCanvas';
 import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulation';
 import { toSave } from '../sim/big';
-import { canBuy } from '../sim/economy/upgrades';
+import { canBuy, levelOf } from '../sim/economy/upgrades';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
@@ -25,12 +26,11 @@ import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
 import { GearButton, SettingsPanel } from './SettingsPanel';
 import { theme } from './theme';
+import { ConstructionNote, TierBanner } from './TierBanner';
 import { UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
 
-const GAME_BG: BackgroundDef = { width: STAND_MAP.width, height: STAND_MAP.height, areas: STAND_MAP.areas, building: STAND_MAP.building, wallHeight: STAND_MAP.wallHeight, backdrop: STAND_MAP.backdrop };
 const CAST_BG: BackgroundDef = { width: LINEUP.width, height: LINEUP.height, areas: LINEUP.areas };
-const GAME_FOCUS = { x: 8.6, y: 6.4, zoom: 1 };
 const CAST_FOCUS = { x: 7.6, y: 4.9, zoom: 1.7 };
 const GAME_SEED = 20251005;
 
@@ -68,8 +68,12 @@ function CornerButton({ label, count, onPress, color }: { label: string; count: 
   );
 }
 
+/** The building on screen, and the tier going up on the lot next door (-1 = none). */
+const readTier = (s: GameState) => s.map.tier;
+const readConstruction = (s: GameState) => s.construction?.tier ?? -1;
+
 /** What the corner buttons need, read twice a second. */
-const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, waiting: s.applicants.filter((a) => a.state === 'waiting').length });
+const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, map: s.map, waiting: s.applicants.filter((a) => a.state === 'waiting').length });
 
 /** The live restaurant: scene, upgrade and staff panels, decisions, welcome-back screen. */
 function GameRunner({ boot }: { boot: GameBoot }) {
@@ -87,13 +91,31 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const [staff, setStaff] = useState<StaffView | null>(null);
   const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
-  const affordable = wallet ? UPGRADES.filter((u) => canBuy(u, wallet.levels, wallet.coins)).length : 0;
+  const affordable = wallet ? UPGRADES.filter((u) => canBuy(u, wallet.levels, wallet.coins, wallet.map)).length : 0;
   const t = useT();
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
   const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
   const panelOpen = useRef(false);
   panelOpen.current = panel !== null || staff !== null;
+
+  // The building: its background, where the camera looks (the building site while the
+  // scaffolding is up), and a celebration when the bigger place opens.
+  const tier = usePoll(gameRef, readTier, 4) ?? (boot.save ? levelOf(boot.save.levels, 'building') : 0);
+  const building = usePoll(gameRef, readConstruction, 4) ?? -1;
+  const background = useMemo(() => mapBackground(mapForTier(tier)), [tier]);
+  const focus = useMemo(() => {
+    if (building < 0) return TIERS[tier]!.focus;
+    const from = mapForTier(tier).building.x1;
+    return { x: (from + mapForTier(building).building.x1) / 2, y: 7, zoom: 0.9 };
+  }, [tier, building]);
+  const [banner, setBanner] = useState<number | null>(null);
+  const shownTier = useRef(tier);
+  useEffect(() => {
+    if (tier > shownTier.current) setBanner(tier);
+    shownTier.current = tier;
+  }, [tier]);
+  const endBanner = useCallback(() => setBanner(null), []);
 
   const open = useCallback(
     (station: PropKind | null) => {
@@ -119,6 +141,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     setPanel(null);
     setStaff(null);
   }, [selected, selectedId]);
+  // Building work starts: get the menus out of the way of the show.
+  useEffect(() => {
+    if (building >= 0) close();
+  }, [building, close]);
   const onTap = useCallback(
     (x: number, y: number, cam: Camera) => {
       const hit = tap(x, y, cam);
@@ -138,7 +164,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={GAME_BG} focus={GAME_FOCUS} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} />
+      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && (
@@ -157,6 +183,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onClose={close}
         />
       )}
+      {building >= 0 && <ConstructionNote />}
+      {banner !== null && <TierBanner tier={banner} onDone={endBanner} />}
       {welcome && <WelcomeBack earnings={welcome} onCollect={collect} />}
     </>
   );
@@ -167,7 +195,7 @@ function GameView() {
   const [boot, setBoot] = useState<GameBoot | null>(null);
   useEffect(() => {
     let alive = true;
-    void bootGame(STAND_MAP).then((b) => {
+    void bootGame().then((b) => {
       trace(`boot: ${b.save ? 'save loaded' : 'new game'}${b.offline ? ', welcome back' : ''}`);
       if (alive) setBoot(b);
     });

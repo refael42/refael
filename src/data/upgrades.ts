@@ -1,18 +1,19 @@
 import { PropKind as K, type PropKind } from '../sim/types';
+import { TIERS } from './buildings';
 import { Dish } from './dishes';
 
 // The upgrade catalog. Adding an upgrade = adding a row here (plus its strings in i18n).
 // Every row is an endless level track, except capacity rows (new tables) that floor space caps.
 
-export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'decor' | 'marketing';
-export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'decor', 'marketing'];
+export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'decor' | 'marketing' | 'building';
+export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'decor', 'marketing', 'building'];
 
 /**
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
  * `plates` and `tables` are counts. `price` is per dish.
  */
-export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves'];
+export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'building'];
 
 export interface Effect {
   stat: Stat;
@@ -43,6 +44,8 @@ export interface UpgradeDef {
   milestone: MilestoneBonus | null;
   /** Capacity tracks stop here; endless tracks leave it out. */
   max?: number;
+  /** Capacity tracks limited by the free spots of the current building instead. */
+  spots?: 'tables' | 'stoves';
   /** Level 1 adds this dish to the menu. */
   unlocksDish?: Dish;
   requires?: { item: string; level: number };
@@ -66,8 +69,8 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // Global multipliers grow slowly on purpose: they stack with every recipe level.
   { id: 'stove', category: 'kitchen', anchor: K.Stove, restyle: 'anchor', baseCost: 12, growth: 1.15,
     effect: { stat: 'cookSpeed', per: 0.08 }, milestone: { stat: 'cookSpeed', factor: 1.5 } },
-  // A second stove makes room for a second cook.
-  { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 3, max: 1,
+  // Another stove makes room for another cook.
+  { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 3, spots: 'stoves',
     effect: { stat: 'stoves', per: 1 }, milestone: null },
   { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17,
     effect: { stat: 'quality', per: 0.04 }, milestone: { stat: 'quality', factor: 1.25 } },
@@ -79,7 +82,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'plates', per: 1 }, milestone: { stat: 'tips', factor: 1.1 } },
 
   // Front of house.
-  { id: 'tables', category: 'front', anchor: K.TableSlot, restyle: null, baseCost: 120, growth: 2.6, max: 4,
+  { id: 'tables', category: 'front', anchor: K.TableSlot, restyle: null, baseCost: 120, growth: 2.6, spots: 'tables',
     effect: { stat: 'tables', per: 1 }, milestone: null },
   { id: 'cloth', category: 'front', anchor: K.Table, restyle: 'anchor', baseCost: 25, growth: 1.16,
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
@@ -93,6 +96,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'arrivals', per: 0.05 }, milestone: { stat: 'tips', factor: 1.1 } },
   { id: 'sign', category: 'marketing', anchor: K.StreetSign, restyle: 'anchor', baseCost: 8, growth: 1.15,
     effect: { stat: 'arrivals', per: 0.06 }, milestone: { stat: 'arrivals', factor: 1.1 } },
+
+  // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
+  { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 2e6, growth: 30, max: TIERS.length - 1,
+    effect: { stat: 'building', per: 1 }, milestone: null },
 ];
 
 export const UPGRADE_BY_ID: Readonly<Record<string, UpgradeDef>> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));

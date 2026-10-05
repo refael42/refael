@@ -1,3 +1,4 @@
+import { TIERS } from '../../data/buildings';
 import { DAY, ROLES, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { followPath, setPose } from '../movement';
@@ -23,7 +24,7 @@ export function notify(s: GameState, notice: NewNotice): void {
 
 /** How many people this job can take right now (cooks need a stove each). */
 export function capacity(s: GameState, role: Role): number {
-  return role === 'cook' ? s.stoves.length : ROLES[role].cap;
+  return role === 'cook' ? s.stoves.length : ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0);
 }
 
 export function headcount(s: GameState, role: Role): number {

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { TIERS } from '../data/buildings';
+import { mapForTier, type MapDef } from '../data/maps';
+import { ROLES } from '../data/staff';
 import { CATEGORIES, COUNT_STATS, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
@@ -15,6 +18,8 @@ import { gold, panel } from './theme';
 export interface Wallet {
   coins: Big;
   levels: Levels;
+  /** The current building: it caps how many tables and stoves fit. */
+  map: MapDef;
 }
 
 interface Props {
@@ -65,12 +70,42 @@ function BuyButton({ cost, affordable, onPress }: { cost: Big; affordable: boole
   );
 }
 
+/** What the next building brings: its name, more room, more people, higher prices. */
+function NextBuilding({ level }: { level: number }) {
+  const t = useT();
+  const now = TIERS[level];
+  const next = TIERS[level + 1];
+  if (!now || !next) return null;
+  const tables = mapForTier(level + 1).tables.length - mapForTier(level).tables.length;
+  const staff = Object.keys(ROLES).reduce((sum, r) => sum + ((next.staff[r as keyof typeof ROLES] ?? 0) - (now.staff[r as keyof typeof ROLES] ?? 0)), 0);
+  const perk = (value: string, label: string) => (
+    <View style={styles.perk}>
+      <Text style={styles.valueNext}>{value}</Text>
+      <Text style={styles.stat}>{label}</Text>
+    </View>
+  );
+  return (
+    <>
+      <View style={styles.line}>
+        <Text style={styles.stat}>{t('ui.nextTier')}</Text>
+        <Text style={styles.valueNext}>{t(`tier.${next.id}`)}</Text>
+      </View>
+      <View style={[styles.line, styles.perks]}>
+        {perk(`+${tables}`, t('ui.perkTables'))}
+        {staff > 0 && perk(`+${staff}`, t('ui.perkStaff'))}
+        {perk(`x${+(next.arrivals / now.arrivals).toFixed(2)}`, t('stat.arrivals'))}
+        {perk(`x${+(next.price / now.price).toFixed(2)}`, t('stat.price'))}
+      </View>
+    </>
+  );
+}
+
 function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (id: string) => void }) {
   const t = useT();
   const rtl = isRTL(useSettings((s) => s.lang));
   const level = levelOf(wallet.levels, def.id);
   const unlocked = isUnlocked(def, wallet.levels);
-  const maxed = isMaxed(def, level);
+  const maxed = isMaxed(def, level, wallet.map);
   const next = nextMilestone(level);
   const prev = prevMilestone(level);
   const share = def.milestone ? Math.min(1, (level - prev) / Math.max(1, next - prev)) : 0;
@@ -85,12 +120,16 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
           <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
           <Text style={styles.lv}>{level}</Text>
         </View>
-        <View style={styles.line}>
-          <Text style={styles.stat}>{t(`stat.${def.effect.stat}`)}</Text>
-          <Text style={styles.value}>{valueText(def, level)}</Text>
-          {!maxed && <Text style={styles.arrow}>{rtl ? '‹' : '›'}</Text>}
-          {!maxed && <Text style={styles.valueNext}>{valueText(def, level + 1)}</Text>}
-        </View>
+        {def.effect.stat === 'building' ? (
+          <NextBuilding level={level} />
+        ) : (
+          <View style={styles.line}>
+            <Text style={styles.stat}>{t(`stat.${def.effect.stat}`)}</Text>
+            <Text style={styles.value}>{valueText(def, level)}</Text>
+            {!maxed && <Text style={styles.arrow}>{rtl ? '‹' : '›'}</Text>}
+            {!maxed && <Text style={styles.valueNext}>{valueText(def, level + 1)}</Text>}
+          </View>
+        )}
         {def.unlocksDish !== undefined && level === 0 && <Text style={styles.note}>{t('ui.unlocksDish')}</Text>}
         {def.milestone && (
           <View style={styles.line}>
@@ -115,7 +154,7 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
       ) : maxed ? (
         <Text style={styles.max}>{t('ui.max')}</Text>
       ) : (
-        <BuyButton cost={costOf(def, level)} affordable={canBuy(def, wallet.levels, wallet.coins)} onPress={() => onBuy(def.id)} />
+        <BuyButton cost={costOf(def, level)} affordable={canBuy(def, wallet.levels, wallet.coins, wallet.map)} onPress={() => onBuy(def.id)} />
       )}
     </View>
   );
@@ -147,7 +186,7 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
       {station === null && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsInner}>
           {CATEGORIES.map((c) => {
-            const count = UPGRADES.filter((u) => u.category === c && canBuy(u, wallet.levels, wallet.coins)).length;
+            const count = UPGRADES.filter((u) => u.category === c && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length;
             return (
               <Pressable key={c} onPress={() => setCategory(c)} style={[styles.tab, c === category && styles.tabOn]}>
                 <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{t(`cat.${c}`)}</Text>
@@ -204,6 +243,8 @@ const styles = StyleSheet.create({
   icon: { width: ICON_PX, height: ICON_PX },
   rowBody: { flex: 1, gap: 2 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  perks: { flexWrap: 'wrap', columnGap: 10, rowGap: 2 },
+  perk: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   name: { color: '#FFF4E3', fontWeight: '900', fontSize: 14, flexShrink: 1 },
   lvLabel: { color: '#C9B3D6', fontWeight: '800', fontSize: 12, marginStart: 4 },
   lv: { color: gold, fontWeight: '900', fontSize: 14 },

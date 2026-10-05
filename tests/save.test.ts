@@ -25,7 +25,7 @@ describe('save format', () => {
     const save = savedGame();
     const loaded = parseSave(JSON.stringify(save));
     expect(loaded).toEqual({ ok: true, save });
-    const s = restoreGame(STAND_MAP, save, 2);
+    const s = restoreGame(save, 2);
     expect(s.levels).toEqual({ fries: 12, tables: 1, plates: 1, stove: 1 });
     expect(s.tables).toHaveLength(STAND_MAP.startTables + 1);
     expect(s.rating).toBe(4.2);
@@ -35,7 +35,7 @@ describe('save format', () => {
   it('keeps giant numbers exact', () => {
     const save = { ...savedGame(), coins: '1.2345e500' };
     const loaded = parseSave(JSON.stringify(save));
-    expect(loaded.ok && restoreGame(STAND_MAP, loaded.save, 1).coins.exponent).toBe(500);
+    expect(loaded.ok && restoreGame(loaded.save, 1).coins.exponent).toBe(500);
   });
 
   it('tells empty, corrupt and newer-version saves apart', () => {
@@ -57,7 +57,7 @@ describe('save format', () => {
     const loaded = parseSave(JSON.stringify(v1));
     expect(loaded.ok && loaded.save.version).toBe(SAVE_VERSION);
     expect(loaded.ok && loaded.save.team.map((w) => w.role)).toEqual(['cook', 'waiter', 'washer']);
-    const s = loaded.ok ? restoreGame(STAND_MAP, loaded.save, 1) : null;
+    const s = loaded.ok ? restoreGame(loaded.save, 1) : null;
     expect(s?.staff).toHaveLength(3);
     expect(s?.levels).toEqual({ stove: 3 });
     // A missing step in the chain is never guessed at.
@@ -66,7 +66,7 @@ describe('save format', () => {
 
   it('keeps the team: names, stats, levels, wages', () => {
     const save = savedGame();
-    const s = restoreGame(STAND_MAP, save, 3);
+    const s = restoreGame(save, 3);
     expect(s.staff.map((st) => st.role)).toEqual(['cook', 'waiter', 'washer']);
     const again = makeSave(s, NOW);
     expect(again.team).toEqual(save.team);
@@ -75,14 +75,14 @@ describe('save format', () => {
 
 describe('offline progress', () => {
   it('pays nothing for short breaks', () => {
-    expect(offlineEarnings(STAND_MAP, savedGame(), NOW + 30_000)).toBeNull();
+    expect(offlineEarnings(savedGame(), NOW + 30_000)).toBeNull();
   });
 
   it('pays for time away, up to the cap', () => {
     const save = savedGame();
-    const hour = offlineEarnings(STAND_MAP, save, NOW + 3600_000)!;
+    const hour = offlineEarnings(save, NOW + 3600_000)!;
     expect(hour.coins.gt(0)).toBe(true);
-    const long = offlineEarnings(STAND_MAP, save, NOW + 24 * 3600_000)!;
+    const long = offlineEarnings(save, NOW + 24 * 3600_000)!;
     expect(long.paidSeconds).toBe(OFFLINE.capHours * 3600);
     expect(long.coins.toNumber()).toBeCloseTo(hour.coins.toNumber() * OFFLINE.capHours, -2);
   });
@@ -91,11 +91,11 @@ describe('offline progress', () => {
     const basic = savedGame();
     const better = { ...basic, levels: { ...basic.levels, fries: 30, fridge: 10 } };
     const away = NOW + 3600_000;
-    expect(offlineEarnings(STAND_MAP, better, away)!.coins.gt(offlineEarnings(STAND_MAP, basic, away)!.coins)).toBe(true);
+    expect(offlineEarnings(better, away)!.coins.gt(offlineEarnings(basic, away)!.coins)).toBe(true);
   });
 
   it('nobody earns while you are away if nobody serves', () => {
     const lonelyCook = { ...savedGame(), team: savedGame().team.filter((w) => w.role === 'cook') };
-    expect(offlineEarnings(STAND_MAP, lonelyCook, NOW + 3600_000)).toBeNull();
+    expect(offlineEarnings(lonelyCook, NOW + 3600_000)).toBeNull();
   });
 });

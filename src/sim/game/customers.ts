@@ -37,7 +37,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 
 /** Poisson arrivals: exponential gaps whose rate grows with the rating. */
 export function updateArrivals(s: GameState): void {
-  if (s.time < s.nextArrival) return;
+  if (s.construction || s.time < s.nextArrival) return;
   const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
@@ -121,7 +121,8 @@ function changeRating(s: GameState, delta: number, at: Point): void {
   emit(s, Ev.Rating, at.x, at.y, delta);
 }
 
-function leave(s: GameState, c: Customer): void {
+/** Off home along the street (also used when the place closes for building work). */
+export function sendHome(s: GameState, c: Customer): void {
   c.path = route(s, c, pick(s.rng, s.map.spawns));
   c.queueSlot = -1;
   c.table = -1;
@@ -155,7 +156,7 @@ function walkout(s: GameState, c: Customer): void {
     t.customer = -1;
     t.since = s.time;
   }
-  leave(s, c);
+  sendHome(s, c);
 }
 
 /** Manager action: seat a customer from the line at the nearest free table (shortest walk). */
@@ -317,7 +318,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           t.dish = -1;
           t.customer = -1;
           t.since = s.time;
-          leave(s, c);
+          sendHome(s, c);
         }
         break;
       case CustomerState.Leaving:

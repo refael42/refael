@@ -1,7 +1,7 @@
 import { DAY } from '../data/staff';
 import { UPGRADES } from '../data/upgrades';
 import { ZERO, type Big } from './big';
-import { canBuy, costOf, levelOf } from './economy/upgrades';
+import { canBuy, costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
 import { signingFee } from './game/applicants';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
@@ -42,6 +42,13 @@ export interface Bot {
 const WASH_TAP_SECONDS = 0.35;
 /** Past this share of the day, the bot keeps the wages aside. */
 const PAYDAY_SAVING = 0.75;
+/**
+ * A player saves up for the next building once it is within reach: when it costs no more than
+ * this many minutes of income, the bot stops buying small things until it can pay for it.
+ */
+const SAVE_FOR_BUILDING_MINUTES = 3;
+/** Income is measured over this window (sim seconds). */
+const INCOME_WINDOW = 60;
 
 const keyOf = (c: Command): string => {
   switch (c.type) {
@@ -78,7 +85,7 @@ export function cheapestAffordable(s: GameState, budget: Big = s.coins): string 
   let best: string | null = null;
   let bestCost = Infinity;
   for (const def of UPGRADES) {
-    if (!canBuy(def, s.levels, budget)) continue;
+    if (!canBuy(def, s.levels, budget, s.map)) continue;
     const cost = costOf(def, levelOf(s.levels, def.id)).toNumber();
     if (cost < bestCost) {
       bestCost = cost;
@@ -92,7 +99,28 @@ export function createBot(options: BotOptions): Bot {
   const seen = new Map<string, number>();
   const purchases: Purchase[] = [];
   const hires: Hire[] = [];
+  const earnedAt: { time: number; earned: Big }[] = [];
+  const buy = (s: GameState, item: string) => {
+    const level = levelOf(s.levels, item);
+    purchases.push({ time: s.time, item, level: level + 1, cost: costOf(upgradeDef(item), level).toNumber() });
+    queueCommand(s, { type: 'buy', item });
+  };
+  /** True while saving up for the next building (and buys it once the money is there). */
+  const saveForBuilding = (s: GameState, budget: Big): boolean => {
+    const def = upgradeDef('building');
+    const level = levelOf(s.levels, def.id);
+    if (s.construction || isMaxed(def, level, s.map) || earnedAt.length < 2) return false;
+    const first = earnedAt[0]!;
+    const minutes = (s.time - first.time) / 60;
+    const perMinute = s.stats.earned.sub(first.earned).div(Math.max(1 / 60, minutes));
+    const cost = costOf(def, level);
+    if (cost.gt(perMinute.mul(SAVE_FOR_BUILDING_MINUTES))) return false;
+    if (budget.gte(cost)) buy(s, def.id);
+    return true;
+  };
   const act = (s: GameState) => {
+    if (earnedAt.length === 0 || s.time - earnedAt[earnedAt.length - 1]!.time >= 5) earnedAt.push({ time: s.time, earned: s.stats.earned });
+    while (earnedAt.length > 2 && earnedAt[0]!.time < s.time - INCOME_WINDOW) earnedAt.shift();
     const live = new Set<string>();
     const freeTable = s.tables.some((t) => t.state === TableState.Free);
     const washer = s.staff.some((st) => st.role === 'washer' && !st.leaving);
@@ -129,11 +157,9 @@ export function createBot(options: BotOptions): Bot {
       }
       return;
     }
+    if (saveForBuilding(s, budget)) return;
     const item = cheapestAffordable(s, budget);
-    if (!item) return;
-    const level = levelOf(s.levels, item);
-    purchases.push({ time: s.time, item, level: level + 1, cost: costOf(UPGRADES.find((u) => u.id === item)!, level).toNumber() });
-    queueCommand(s, { type: 'buy', item });
+    if (item) buy(s, item);
   };
   return { act, purchases, hires };
 }

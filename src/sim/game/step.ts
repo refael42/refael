@@ -9,6 +9,7 @@ import { Bubble, PropKind } from '../types';
 import { DAY } from '../../data/staff';
 import { updateApplicants } from './applicants';
 import { applyCommands } from './commands';
+import { updateConstruction } from './construction';
 import { updateArrivals, updateCustomers } from './customers';
 import { packEvents, pruneEvents } from './events';
 import { anchorPoints } from './purchase';
@@ -35,6 +36,7 @@ export function stepGame(s: GameState, dt: number): void {
     c.prevY = c.y;
   }
   applyCommands(s);
+  updateConstruction(s);
   updateArrivals(s);
   updateCustomers(s, dt);
   updateStaff(s, dt);
@@ -105,11 +107,24 @@ function dynamicProps(s: GameState): PropView[] {
     }),
   );
   // The next table and stove spots show as ghosts you can buy (variant 1 = affordable now).
-  const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins)) ? 1 : 0);
+  const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins, s.map)) ? 1 : 0);
   const spot = s.map.tables[s.tables.length];
   if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4 }));
   const stoveSpot = s.map.stoves[s.stoves.length];
   if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
+  if (s.construction) out.push(...scaffolding(s.construction));
+  return out;
+}
+
+/** Scaffolding around the lot under construction: back and front edges, then the far side. */
+function scaffolding(k: NonNullable<GameState['construction']>): PropView[] {
+  const out: PropView[] = [];
+  const { x0, y0, x1, y1 } = k.site;
+  const add = (x: number, y: number, variant: number) =>
+    out.push(prop(SYNTH - 100 - out.length, PropKind.Scaffold, x, y, { variant, since: k.start + out.length * 0.06 }));
+  for (let x = x0 + 0.5; x < x1; x++) add(x, y0, 0);
+  for (let y = y0 + 0.5; y < y1; y++) add(x1, y, 1);
+  for (let x = x0 + 0.5; x < x1; x++) add(x, y1, 0);
   return out;
 }
 
@@ -124,7 +139,7 @@ function upgradeViews(s: GameState) {
     const level = levelOf(s.levels, def.id);
     if (def.restyle === 'anchor') tiers[def.anchor] = tierOf(level);
     else if (def.restyle === 'dish' && def.effect.dish !== undefined) dishTiers[def.effect.dish] = tierOf(level);
-    if (badged.has(def.anchor) || def.anchor === PropKind.TableSlot || !canBuy(def, s.levels, s.coins)) continue;
+    if (badged.has(def.anchor) || def.anchor === PropKind.TableSlot || !canBuy(def, s.levels, s.coins, s.map)) continue;
     const at = anchorPoints(s, def.anchor)[0];
     if (!at) continue;
     badged.add(def.anchor);
@@ -134,7 +149,9 @@ function upgradeViews(s: GameState) {
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
-  return packSnapshot([...s.staff, ...s.customers, ...s.walkers, ...s.applicants], [...s.props, ...dynamicProps(s)], seq, s.time, {
+  // The "for sale" sign comes down while the lot is being built on.
+  const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
+  return packSnapshot([...s.staff, ...s.customers, ...s.walkers, ...s.applicants], [...props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
     hud: {
       coins: s.coins.toNumber(),

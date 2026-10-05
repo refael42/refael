@@ -87,6 +87,24 @@ export interface SavedWorker extends Omit<Person, 'wage'> {
   trial: boolean;
 }
 
+/** A worker as the save (and a rebuilt restaurant) keeps them. */
+export function workerOf(st: Staff): SavedWorker {
+  return {
+    role: st.role,
+    name: st.name,
+    stats: { ...st.stats },
+    traits: [...st.traits],
+    level: st.level,
+    wage: st.wage,
+    xp: st.xp,
+    morale: st.morale,
+    look: { ...st.look },
+    hiredDay: st.hiredDay,
+    lastRaiseDay: st.lastRaiseDay,
+    trial: st.trial,
+  };
+}
+
 export interface GameSetup {
   /** Fresh plain workers for these jobs (new games, tests)... */
   roster?: readonly Role[];
@@ -142,6 +160,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     dayTime: 0,
     notices: [],
     nextNoticeId: 1,
+    construction: null,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);

@@ -19,6 +19,8 @@ const DISPOSE_PICTURES = Platform.OS === 'web';
 const KEEP_PICTURES = 3;
 /** Touches logged to the dev terminal (enough to see where a phone-only crash happens). */
 const TRACED_TOUCHES = 3;
+/** How long the camera takes to pan to a new focus (ms). */
+const PAN_MS = 900;
 
 type NativeTouch = { identifier?: number | string; pageX: number; pageY: number };
 
@@ -141,20 +143,40 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
   }, [camera]);
   const settled = useCallback(() => callbacks.current.onCamera?.({ ...cam.current }), []);
 
-  // Start centered on the focus point.
-  useEffect(() => {
-    if (W === 0) return;
-    centerOn(cam.current, isoX(focus.x, focus.y), isoY(focus.x, focus.y), focus.zoom, W, H);
-    publish();
-    settled();
-  }, [W, H, focus, publish, settled]);
-
-  // The glide after a flick, on the JS thread like the rest of the camera.
+  // The glide after a flick and the pans to a new focus, on the JS thread like the rest of the camera.
   const glideFrame = useRef(0);
   const stopGlide = useCallback(() => {
     if (glideFrame.current) cancelAnimationFrame(glideFrame.current);
     glideFrame.current = 0;
   }, []);
+
+  // Start centered on the focus point; later focus changes (a building site, a new building)
+  // pan there smoothly instead of jumping.
+  const focused = useRef(false);
+  useEffect(() => {
+    if (W === 0) return;
+    const to: Cam = { x: 0, y: 0, zoom: 1 };
+    centerOn(to, isoX(focus.x, focus.y), isoY(focus.x, focus.y), focus.zoom, W, H);
+    if (!focused.current) {
+      focused.current = true;
+      cam.current = to;
+      publish();
+      settled();
+      return;
+    }
+    stopGlide();
+    const from = { ...cam.current };
+    const start = performance.now();
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / PAN_MS);
+      const e = p * p * (3 - 2 * p);
+      cam.current = { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e, zoom: from.zoom + (to.zoom - from.zoom) * e };
+      publish();
+      glideFrame.current = p < 1 ? requestAnimationFrame(step) : 0;
+      if (p >= 1) settled();
+    };
+    glideFrame.current = requestAnimationFrame(step);
+  }, [W, H, focus, publish, settled, stopGlide]);
   const startGlide = useCallback(
     (vel: { x: number; y: number }) => {
       stopGlide();

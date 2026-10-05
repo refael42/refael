@@ -244,6 +244,18 @@ export interface GameState {
   dayTime: number;
   notices: Notice[];
   nextNoticeId: number;
+  /** The next building tier going up (closed meanwhile), or null. */
+  construction: Construction | null;
+}
+
+export interface Construction {
+  /** The tier being built (the new building level). */
+  tier: number;
+  start: number;
+  end: number;
+  nextDust: number;
+  /** The lot under scaffolding (tiles). */
+  site: { x0: number; y0: number; x1: number; y1: number };
 }
 
 export interface SimEventRecord {

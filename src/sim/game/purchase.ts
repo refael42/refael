@@ -1,6 +1,7 @@
 import type { Point } from '../../data/maps';
 import { canBuy, computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { PropKind } from '../types';
+import { startConstruction } from './construction';
 import { addStove, addTable } from './create';
 import { route } from './customers';
 import { emit, Ev } from './events';
@@ -32,7 +33,7 @@ function rerouteWalkers(s: GameState): void {
 /** Buys one level if allowed and affordable. Returns whether it happened. */
 export function buyUpgrade(s: GameState, id: string): boolean {
   const def = upgradeDef(id);
-  if (!canBuy(def, s.levels, s.coins)) return false;
+  if (!canBuy(def, s.levels, s.coins, s.map)) return false;
   const level = levelOf(s.levels, id);
   s.coins = s.coins.sub(costOf(def, level));
   const before = s.mods;
@@ -40,6 +41,11 @@ export function buyUpgrade(s: GameState, id: string): boolean {
   s.mods = computeMods(s.levels);
   // Bought plates go straight onto the clean stack.
   s.cleanPlates += s.mods.plates - before.plates;
+  // A new building is a show of its own (and rebuilds the whole place when it is done).
+  if (s.mods.building > before.building) {
+    startConstruction(s);
+    return true;
+  }
 
   let at = anchorPoints(s, def.anchor);
   if (s.mods.tables > before.tables) {

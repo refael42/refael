@@ -210,6 +210,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
       const pulse = 1 + Math.sin(t * 5) * 0.08;
       sprXf(c, A, S.plusBadge, 0, -40 - Math.abs(Math.sin(t * 2.6)) * 3, 0, pulse * 1.2, pulse * 1.2, plain);
     }
+  } else if (kind === PropKind.Scaffold) {
+    // Goes up piece by piece, with a little overshoot.
+    const age = t - d[o + PF.since]!;
+    const pop = age < 0 ? 0 : age < 0.4 ? easeOutBack(clamp01(age / 0.4)) : 1;
+    if (pop > 0) sprXf(c, A, variant === 1 ? S.scaffoldY : S.scaffoldX, 0, 0, 0, 1, pop, plain);
   } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, plain);
   else if (kind === PropKind.PassDish) {
     // Ready dish pops onto the pass, then bobs and sparkles until someone serves it.

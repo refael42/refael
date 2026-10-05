@@ -61,6 +61,8 @@ export const PropKind = {
   StreetSign: 16,
   /** Ghost of the next stove you can buy (a second cook needs a second stove). */
   StoveSlot: 17,
+  /** Building work on the lot next door (variant 0 runs along x, 1 along y). */
+  Scaffold: 18,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

@@ -1,11 +1,12 @@
 import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/looks';
-import type { MapDef } from '../data/maps';
+import { mapForTier, STAND_MAP, type MapDef } from '../data/maps';
 import { NAMES } from '../data/names';
 import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { TRAITS, type TraitId } from '../data/traits';
 import { UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave } from './big';
-import { createGame, type SavedWorker } from './game/create';
+import { capOf, levelOf } from './economy/upgrades';
+import { createGame, workerOf, type SavedWorker } from './game/create';
 import type { GameState } from './game/types';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
@@ -76,22 +77,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     hires: s.stats.hires,
     day: s.day,
     levels: { ...s.levels },
-    team: s.staff
-      .filter((st) => !st.leaving)
-      .map((st) => ({
-        role: st.role,
-        name: st.name,
-        stats: { ...st.stats },
-        traits: [...st.traits],
-        level: st.level,
-        wage: toSave(st.wage),
-        xp: st.xp,
-        morale: st.morale,
-        look: { ...st.look },
-        hiredDay: st.hiredDay,
-        lastRaiseDay: st.lastRaiseDay,
-        trial: st.trial,
-      })),
+    team: s.staff.filter((st) => !st.leaving).map((st) => ({ ...workerOf(st), wage: toSave(st.wage) })),
   };
 }
 
@@ -105,8 +91,13 @@ function cleanLevels(raw: unknown): Record<string, number> | null {
   for (const [id, level] of Object.entries(raw)) {
     const def = UPGRADE_BY_ID[id];
     if (!def || !finite(level) || level <= 0) continue;
-    out[id] = Math.min(Math.floor(level), def.max ?? Infinity);
+    out[id] = Math.floor(level);
   }
+  // Caps depend on the building (free table spots...), so the building level is settled first.
+  const building = UPGRADE_BY_ID.building!;
+  if (out.building) out.building = Math.min(out.building, capOf(building, STAND_MAP) ?? Infinity);
+  const map = mapForTier(levelOf(out, 'building'));
+  for (const id of Object.keys(out)) out[id] = Math.min(out[id]!, capOf(UPGRADE_BY_ID[id]!, map) ?? Infinity);
   return out;
 }
 
@@ -193,9 +184,12 @@ export function parseSave(text: string | null, migrations: Readonly<Record<numbe
 
 export const savedTeam = (save: SaveData): SavedWorker[] => save.team.map((w) => ({ ...w, wage: fromSave(w.wage) }));
 
+/** The building the save was in. */
+export const mapOfSave = (save: SaveData): MapDef => mapForTier(levelOf(save.levels, 'building'));
+
 /** A fresh day in the saved restaurant, with the saved team. */
-export function restoreGame(map: MapDef, save: SaveData, seed: number): GameState {
-  return createGame(map, seed, {
+export function restoreGame(save: SaveData, seed: number): GameState {
+  return createGame(mapOfSave(save), seed, {
     levels: save.levels,
     coins: fromSave(save.coins),
     earned: fromSave(save.earned),

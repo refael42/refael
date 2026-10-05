@@ -1,9 +1,12 @@
+import { TIERS } from '../../data/buildings';
 import { DISHES } from '../../data/dishes';
+import type { MapDef } from '../../data/maps';
 import { COUNT_STATS, MILESTONES, UPGRADE_BY_ID, UPGRADES, type Stat, type UpgradeDef } from '../../data/upgrades';
 import { big, type Big } from '../big';
 
 // The upgrade engine: pure functions over a { id: level } map. Nothing here knows about the
-// map, the renderer or the UI, so the balance bot and offline progress use the exact same math.
+// game state, the renderer or the UI (only the building's free spots cap a few rows), so the
+// balance bot and offline progress use the exact same math.
 
 export type Levels = Readonly<Record<string, number>>;
 
@@ -15,10 +18,11 @@ export interface Mods {
   patience: number;
   arrivals: number;
   quality: number;
-  /** Extra plates, tables and stoves on top of the starting ones. */
+  /** Extra plates, tables and stoves on top of the starting ones; the building tier. */
   plates: number;
   tables: number;
   stoves: number;
+  building: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -59,16 +63,26 @@ export function costOf(def: UpgradeDef, level: number): Big {
   return big(def.growth).pow(level).mul(def.baseCost).ceil();
 }
 
-export const isMaxed = (def: UpgradeDef, level: number): boolean => def.max !== undefined && level >= def.max;
+/** How many levels a track can have here: capacity rows are limited by this building's free spots. */
+export function capOf(def: UpgradeDef, map: MapDef): number | undefined {
+  if (def.spots === 'tables') return map.tables.length - map.startTables;
+  if (def.spots === 'stoves') return map.stoves.length - map.startStoves;
+  return def.max;
+}
+
+export function isMaxed(def: UpgradeDef, level: number, map: MapDef): boolean {
+  const cap = capOf(def, map);
+  return cap !== undefined && level >= cap;
+}
 
 export function isUnlocked(def: UpgradeDef, levels: Levels): boolean {
   return !def.requires || levelOf(levels, def.requires.item) >= def.requires.level;
 }
 
-/** Can this level be bought right now with these coins? */
-export function canBuy(def: UpgradeDef, levels: Levels, coins: Big): boolean {
+/** Can this level be bought right now with these coins, in this building? */
+export function canBuy(def: UpgradeDef, levels: Levels, coins: Big, map: MapDef): boolean {
   const level = levelOf(levels, def.id);
-  return isUnlocked(def, levels) && !isMaxed(def, level) && coins.gte(costOf(def, level));
+  return isUnlocked(def, levels) && !isMaxed(def, level, map) && coins.gte(costOf(def, level));
 }
 
 /**
@@ -92,6 +106,7 @@ function emptyMods(): Mods {
     plates: 0,
     tables: 0,
     stoves: 0,
+    building: 0,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };
@@ -123,6 +138,10 @@ export function computeMods(levels: Levels): Mods {
     else m[stat] *= 1 + value;
   }
   priceAdd.forEach((value, dish) => (m.price[dish]! *= 1 + value));
+  // A bigger, fancier place draws more people and charges more for everything.
+  const tier = TIERS[Math.min(m.building, TIERS.length - 1)]!;
+  m.arrivals *= tier.arrivals;
+  m.price = m.price.map((p) => p * tier.price);
   return m;
 }
 

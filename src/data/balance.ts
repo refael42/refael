@@ -11,5 +11,5 @@ export const BALANCE = {
   /** Income per minute multiplying by more than this between samples = something exploded. */
   incomeJump: 4,
   /** Targets from the design brief, in seconds. */
-  targets: { firstUpgrade: 20, firstMilestone: 300, firstHire: 120 },
+  targets: { firstUpgrade: 20, firstMilestone: 300, firstHire: 120, firstBuilding: [1800, 2700] as const },
 } as const;

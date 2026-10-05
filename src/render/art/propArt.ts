@@ -140,8 +140,18 @@ const saleSign = sprite([-34, -70, 34, 10], (c) => {
   c.drawPath(path.smooth([[cx - 2, cy - 1.4], [cx - 2, cy - 4], [cx, cy - 5.4], [cx + 2, cy - 4], [cx + 2, cy - 1.4]], false), stroke('#5A3A1A', 1.2));
 });
 
+/** One tile of scaffolding: steel poles, wooden planks and a green safety net. */
+function scaffold(c: SkCanvas, alongX: boolean) {
+  const [ax, ay] = alongX ? [1, 0] : [0, 1];
+  for (const k of [-0.47, 0.47]) box(c, { x: ax * k, y: ay * k, w: 0.07, d: 0.07, h: 86, color: '#B9BEC8' });
+  box(c, { x: 0, y: 0, z: 30, w: alongX ? 0.94 : 0.03, d: alongX ? 0.03 : 0.94, h: 24, color: '#3FAE5A', alpha: 0.5 });
+  for (const z of [28, 56, 84]) box(c, { x: 0, y: 0, z, w: alongX ? 1 : 0.32, d: alongX ? 0.32 : 1, h: 3, color: '#C8914F', rim: true });
+}
+const scaffoldX = sprite([-26, -100, 26, 18], (c) => scaffold(c, true));
+const scaffoldY = sprite([-26, -100, 26, 18], (c) => scaffold(c, false));
+
 export const propSprites = {
   ovenGlow, pan, patty, pot, flame, pass, washPlate, plateDirty, glass, glassEmpty, stain,
-  ticket, plateSingleDirty, treePalm, treeRound, lamp, glowHalo, saleSign,
+  ticket, plateSingleDirty, treePalm, treeRound, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
 };
 

@@ -33,6 +33,12 @@ export const Ev = {
   Payday: 16,
   /** Someone got hired. */
   Hired: 17,
+  /** Construction of the next building tier started; (x,y) = the site. a = tier */
+  Build: 18,
+  /** A dust cloud on the building site. */
+  Dust: 19,
+  /** The bigger restaurant opened; (x,y) = its middle. a = tier */
+  Built: 20,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

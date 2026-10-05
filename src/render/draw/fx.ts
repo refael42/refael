@@ -14,7 +14,7 @@ import { drawText } from './text';
 
 export const FxKind = {
   Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
-  LevelUp: 13, Confetti: 14, ScreenText: 15,
+  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16,
 } as const;
 const STRIDE = 10;
 const CAP = 160;
@@ -167,6 +167,17 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       // Wages leave the till: a red "-N" under the coin counter.
       if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX + 44, hud.coinY + 34, 0, 0, a, TextStyle.Wages);
       if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX + 44, hud.coinY + 58, 0, 0, ev[o + E.b]!, TextStyle.Combo);
+    } else if (type === Ev.Build) {
+      // Work starts: the ground shakes and the lot disappears in a dust cloud.
+      s.shakeAt = t;
+      for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Dust, t + k * 0.05, 1.6, wx + Math.sin(k * 2.1) * 90, wy - 20 - (k % 3) * 18, 0, 0, 1.6);
+    } else if (type === Ev.Dust) {
+      spawnFx(s, FxKind.Dust, t, 1.2, wx, wy - 10 - Math.abs(Math.sin(ex * 7.1 + ey)) * 60, 0, 0, 1);
+    } else if (type === Ev.Built) {
+      // The new restaurant opens: a big shake, confetti everywhere.
+      s.shakeAt = t;
+      for (let k = 0; k < 40; k++) spawnFx(s, FxKind.Confetti, t + k * 0.01, 1.8, wx + Math.sin(k * 1.3) * 120, wy - 80, (k / 40) * Math.PI * 2, 0, k);
+      for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Burst, t + k * 0.08, 0.8, wx + Math.sin(k * 2.4) * 140, wy - 60 + Math.cos(k * 1.9) * 40);
     } else if (type === Ev.Bonus) {
       const n = 24;
       for (let k = 0; k < n; k++) {
@@ -220,6 +231,14 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
         const ang = (k / 8) * Math.PI * 2;
         const r = 6 + easeOutBack(p) * 18;
         sprFade(c, A, A.S.sparkle, x + Math.cos(ang) * r, y + Math.sin(ang) * r * 0.6, 0.9 - p * 0.5, 1 - p);
+      }
+    } else if (kind === FxKind.Dust) {
+      // Building dust: big tan clouds that swell and drift up.
+      const size = d[o + VALUE]!;
+      for (let k = 0; k < 4; k++) {
+        const ang = (k / 4) * Math.PI * 2 + d[o + X0]! * 0.01;
+        P.dust.setAlphaf((1 - p) * 0.85);
+        sprXf(c, A, A.S.puff, x + Math.cos(ang) * p * 20 * size, y + Math.sin(ang) * p * 9 * size - p * 26, 0, (1 + p * 1.8) * size, (1 + p * 1.8) * size, P.dust);
       }
     } else if (kind === FxKind.Poof) {
       for (let k = 0; k < 5; k++) {

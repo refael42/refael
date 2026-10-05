@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Dish } from '../src/data/dishes';
-import { STAND_MAP } from '../src/data/maps';
+import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { KITCHEN } from '../src/data/staff';
 import { UPGRADES } from '../src/data/upgrades';
@@ -87,9 +87,11 @@ describe('mods', () => {
 
   it('respect requirements and caps', () => {
     const burger = upgradeDef('burger');
-    expect(canBuy(burger, { fries: 4 }, big(1e9))).toBe(false);
-    expect(canBuy(burger, { fries: 5 }, big(1e9))).toBe(true);
-    expect(canBuy(upgradeDef('tables'), { tables: 4 }, big(1e30))).toBe(false);
+    expect(canBuy(burger, { fries: 4 }, big(1e9), STAND_MAP)).toBe(false);
+    expect(canBuy(burger, { fries: 5 }, big(1e9), STAND_MAP)).toBe(true);
+    // Tables are capped by the free spots of the building: a bigger one has room for more.
+    expect(canBuy(upgradeDef('tables'), { tables: 4 }, big(1e30), STAND_MAP)).toBe(false);
+    expect(canBuy(upgradeDef('tables'), { tables: 4 }, big(1e30), mapForTier(1))).toBe(true);
   });
 });
 

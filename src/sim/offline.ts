@@ -1,12 +1,11 @@
 import { OFFLINE } from '../data/economy';
-import type { MapDef } from '../data/maps';
 import { STEP_SEC } from '../data/sim';
 import { DAY } from '../data/staff';
 import { fromSave, ZERO, type Big } from './big';
 import { createBot } from './bot';
 import { createGame } from './game/create';
 import { stepGame } from './game/step';
-import { savedTeam, type SaveData } from './save';
+import { mapOfSave, savedTeam, type SaveData } from './save';
 
 // Offline progress: instead of guessing, run the real simulation headless for a few minutes
 // with the saved upgrades (staff seating people a bit slowly), measure coins per second, and
@@ -20,8 +19,8 @@ export interface OfflineEarnings {
 }
 
 /** Coins per second this restaurant makes with nobody tapping except slow seating. */
-export function measureIncomeRate(map: MapDef, save: SaveData, seed: number): Big {
-  const s = createGame(map, seed, { levels: save.levels, rating: save.rating, coins: ZERO, team: savedTeam(save) });
+export function measureIncomeRate(save: SaveData, seed: number): Big {
+  const s = createGame(mapOfSave(save), seed, { levels: save.levels, rating: save.rating, coins: ZERO, team: savedTeam(save) });
   const bot = createBot({ reaction: OFFLINE.reactionSeconds, helpStaff: false, buy: false });
   const run = (seconds: number) => {
     for (let i = Math.round(seconds / STEP_SEC); i > 0; i--) {
@@ -36,12 +35,12 @@ export function measureIncomeRate(map: MapDef, save: SaveData, seed: number): Bi
   return s.stats.earned.sub(before).div(measured);
 }
 
-export function offlineEarnings(map: MapDef, save: SaveData, now: number): OfflineEarnings | null {
+export function offlineEarnings(save: SaveData, now: number): OfflineEarnings | null {
   const awaySeconds = (now - save.savedAt) / 1000;
   if (!(awaySeconds >= OFFLINE.minSeconds)) return null;
   const paidSeconds = Math.min(awaySeconds, OFFLINE.capHours * 3600);
   // Seeded from the save time: the same save always measures the same rate.
-  const rate = measureIncomeRate(map, save, Math.floor(save.savedAt % 2147483647));
+  const rate = measureIncomeRate(save, Math.floor(save.savedAt % 2147483647));
   // The staff still get paid while you are away (shorter shifts, like the earnings): profit only.
   const wagesPerSecond = save.team.reduce((sum, w) => sum.add(fromSave(w.wage)), ZERO).div(DAY.seconds);
   const coins = rate.sub(wagesPerSecond).mul(paidSeconds * OFFLINE.efficiency).floor();
