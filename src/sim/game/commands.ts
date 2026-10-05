@@ -4,7 +4,9 @@ import { fromSave } from '../big';
 import { emit, Ev } from './events';
 import { seatCustomer } from './customers';
 import { PropKind } from '../types';
-import { anchorPoints, buyUpgrade, siteOf } from './purchase';
+import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf } from './purchase';
+import { moveDecor } from './create';
+import { canPlaceAt } from './build';
 import { finishWorkNow, hurryWork } from './works';
 import type { BulkStep } from '../../data/works';
 import { handWash, serveOrder } from './staff';
@@ -138,6 +140,12 @@ function apply(s: GameState, cmd: Command): void {
     if (w) hurryWork(s, w.id, siteOf(s, w));
   } else if (cmd.type === 'finish') {
     finishWorkNow(s, cmd.work);
+  } else if (cmd.type === 'move') {
+    if (moveDecor(s, cmd.from, cmd.to, canPlaceAt)) {
+      rerouteWalkers(s);
+      emit(s, Ev.Poof, cmd.from.x, cmd.from.y);
+      emit(s, Ev.Ding, Math.floor(cmd.to.x) + 0.5, Math.floor(cmd.to.y) + 0.5);
+    }
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
     s.coins = s.coins.add(coins);

@@ -108,6 +108,8 @@ export type Command =
   | { type: 'buy'; item: string; at?: Point; step?: BulkStep }
   /** Speed up a big upgrade in progress (a tap on its site), or finish it now with gems. */
   | { type: 'hurry'; work: number }
+  /** Build mode: carry a placed decor piece to another free tile. */
+  | { type: 'move'; from: Point; to: Point }
   | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }

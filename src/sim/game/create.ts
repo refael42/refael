@@ -53,6 +53,28 @@ export function placeDecor(s: GameState, item: DecorId, at: Point): Point {
   return tile;
 }
 
+const sameTile = (a: Point, b: Point) => Math.floor(a.x) === Math.floor(b.x) && Math.floor(a.y) === Math.floor(b.y);
+
+/** The decor piece standing on this tile, if any. */
+export const decorAt = (s: GameState, at: Point): PlacedDecor | undefined => s.placed.find((p) => sameTile(p, at));
+
+/**
+ * Moves a placed piece to another tile (build mode). The new tile is checked as if the piece
+ * were already gone from the old one; if it does not work, the piece stays where it was.
+ */
+export function moveDecor(s: GameState, from: Point, to: Point, canPlace: (s: GameState, x: number, y: number) => boolean): boolean {
+  const piece = decorAt(s, from);
+  if (!piece || sameTile(from, to)) return false;
+  const kind = DECOR_BY_ID[piece.item]!.kind;
+  const prop = s.props.find((p) => p.kind === kind && sameTile(p, from));
+  s.placed = s.placed.filter((p) => p !== piece);
+  s.props = s.props.filter((p) => p !== prop);
+  rebuildGrid(s);
+  const ok = canPlace(s, to.x, to.y);
+  placeDecor(s, piece.item as DecorId, ok ? to : piece);
+  return ok;
+}
+
 /**
  * Decor from a save goes back where it was. A piece whose spot is gone (another building, a
  * changed layout) moves to the nearest free tile; with no room left it is dropped (and so is its level).

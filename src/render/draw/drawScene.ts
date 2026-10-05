@@ -29,6 +29,8 @@ export interface BuildOverlay {
   tiles: number[];
   /** [x, y, prop kind] of the picked tile, or empty. */
   pick: number[];
+  /** [x, y] of a placed piece being moved, or empty: its tile glows under it. */
+  from: number[];
 }
 
 function decorLook(A: RenderAssets, kind: number): number {
@@ -96,6 +98,7 @@ export function drawScene(
   if (build) {
     const glow = 0.65 + Math.sin(t * 3) * 0.2;
     for (let i = 0; i < build.tiles.length; i += 2) sprFade(c, A, A.S.tileFree, isoX(build.tiles[i]!, build.tiles[i + 1]!), isoY(build.tiles[i]!, build.tiles[i + 1]!), 1, glow);
+    if (build.from.length === 2) sprFade(c, A, A.S.tilePicked, isoX(build.from[0]!, build.from[1]!), isoY(build.from[0]!, build.from[1]!), 1.05 + Math.sin(t * 6) * 0.05, 0.95);
   }
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;

@@ -33,7 +33,7 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
 }
 
 /** New furniture blocks tiles: everyone already walking re-plans around it. */
-function rerouteWalkers(s: GameState): void {
+export function rerouteWalkers(s: GameState): void {
   for (const c of [...s.customers, ...s.staff]) {
     const goal = c.path[c.path.length - 1];
     if (goal) c.path = route(s, c, goal);

@@ -21,7 +21,7 @@ import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
 import { crewCount } from '../sim/economy/works';
 import { buildableTiles } from '../sim/game/build';
 import type { OfflineEarnings } from '../sim/offline';
-import type { GameState } from '../sim/game/types';
+import type { GameState, PlacedDecor } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
 import { markReady } from '../store/launch';
@@ -51,6 +51,11 @@ import { WorksTray } from './WorksTray';
 const CAST_BG: BackgroundDef = { width: LINEUP.width, height: LINEUP.height, areas: LINEUP.areas };
 const CAST_FOCUS = { x: 7.6, y: 4.9, zoom: 1.7 };
 const GAME_SEED = 20251005;
+/** Build mode: a tap this close (tiles) to a free tile picks it. */
+const SNAP_TILES = 1.3;
+/** Build mode: a placed piece is picked within this many px (at zoom 1) of its middle, this high up. */
+const PICK_PX = 34;
+const PICK_HEIGHT = 30;
 
 /** Name tags under the cast and props, so the owner can review each piece. */
 function Labels({ camera }: { camera: Camera }) {
@@ -153,7 +158,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   panelOpen.current = panel !== null || staff !== null;
 
   // Build mode: what is picked, which tile, and the free tiles shown on the floor.
-  const [build, setBuild] = useState<{ item: string | null; tile: Point | null } | null>(null);
+  // `moving`: a placed piece picked up to go on another tile.
+  const [build, setBuild] = useState<{ item: string | null; tile: Point | null; moving?: Point } | null>(null);
   const buildRef = useRef(build);
   buildRef.current = build;
   const overlay = useSharedValue<BuildOverlay | null>(null);
@@ -171,8 +177,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       freeTiles.current = game ? buildableTiles(game) : [];
       setFreeCount(freeTiles.current.length);
       overlay.value = {
-        tiles: decor ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
+        tiles: decor || build.moving ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
         pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : [],
+        from: build.moving ? [build.moving.x, build.moving.y] : [],
       };
     };
     refresh();
@@ -260,10 +267,37 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       camera.current = cam;
       const b = buildRef.current;
       if (b) {
-        // In build mode a tap picks the tile under the finger (if something can go there).
+        // In build mode a tap picks the free tile nearest the finger (a near miss still counts),
+        // or picks up a piece that is already placed so it can go somewhere else.
         const p = floorAt(x, y, cam.x, cam.y, cam.zoom);
-        const tile = freeTiles.current.find((f) => Math.floor(f.x) === Math.floor(p.x) && Math.floor(f.y) === Math.floor(p.y));
-        if (tile && b.item && b.item !== 'tables') setBuild({ item: b.item, tile });
+        let tile: Point | null = null;
+        let best = SNAP_TILES;
+        for (const f of freeTiles.current) {
+          const d = Math.hypot(f.x - p.x, f.y - p.y);
+          if (d < best) {
+            best = d;
+            tile = f;
+          }
+        }
+        const game = gameRef.current;
+        // A piece is picked by what you see: its body stands up from its tile.
+        let piece: PlacedDecor | undefined;
+        let near = PICK_PX * cam.zoom;
+        for (const d of game?.placed ?? []) {
+          const dist = Math.hypot(cam.x + isoX(d.x, d.y) * cam.zoom - x, cam.y + isoY(d.x, d.y, PICK_HEIGHT) * cam.zoom - y);
+          if (dist < near) {
+            near = dist;
+            piece = d;
+          }
+        }
+        if (b.moving) {
+          if (piece && !tile) setBuild({ item: null, tile: null, moving: { x: piece.x, y: piece.y } });
+          else if (tile) {
+            command({ type: 'move', from: b.moving, to: tile });
+            setBuild({ item: null, tile: null });
+          }
+        } else if (piece) setBuild({ item: null, tile: null, moving: { x: piece.x, y: piece.y } });
+        else if (tile && b.item && b.item !== 'tables') setBuild({ item: b.item, tile });
         return;
       }
       const hit = tap(x, y, cam);
@@ -321,6 +355,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           item={build.item}
           tile={build.tile}
           freeTiles={freeCount}
+          moving={build.moving ?? null}
+          onCancelMove={() => setBuild({ item: null, tile: null })}
           onItem={(item) => setBuild({ item, tile: null })}
           onPlace={placeBuild}
           onDone={() => setBuild(null)}

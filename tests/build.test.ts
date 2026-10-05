@@ -8,6 +8,7 @@ import { big } from '../src/sim/big';
 import { canBuy, upgradeDef } from '../src/sim/economy/upgrades';
 import { autoTile, buildableTiles, canPlaceAt } from '../src/sim/game/build';
 import { createGame } from '../src/sim/game/create';
+import { queueCommand } from '../src/sim/game/commands';
 import { buyUpgrade } from '../src/sim/game/purchase';
 import { stepGame } from '../src/sim/game/step';
 import type { GameState } from '../src/sim/game/types';
@@ -113,5 +114,29 @@ describe('build mode', () => {
     for (let i = Math.round((CONSTRUCTION.seconds + 0.2) / STEP_SEC); i > 0; i--) stepGame(s, STEP_SEC);
     expect(s.map.tier).toBe(1);
     expect(s.placed).toEqual([where]);
+  });
+});
+
+describe('moving decor', () => {
+  it('carries a placed piece to another free tile; the old one is free again', () => {
+    const s = rich(createGame(STAND_MAP, 30));
+    const [a, b] = buildableTiles(s);
+    buyUpgrade(s, 'place_flowers', a);
+    queueCommand(s, { type: 'move', from: a!, to: b! });
+    stepGame(s, STEP_SEC);
+    expect(s.placed).toEqual([{ item: 'flowers', x: b!.x, y: b!.y }]);
+    expect(canPlaceAt(s, a!.x, a!.y)).toBe(true);
+    expect(canPlaceAt(s, b!.x, b!.y)).toBe(false);
+    expect(s.props.filter((p) => p.kind === PropKind.Flowers).map((p) => [p.x, p.y])).toEqual([[b!.x, b!.y]]);
+  });
+
+  it('a tile that does not work leaves the piece where it was', () => {
+    const s = rich(createGame(STAND_MAP, 31));
+    const a = buildableTiles(s)[0]!;
+    buyUpgrade(s, 'place_flowers', a);
+    const table = STAND_MAP.tables[0]!;
+    queueCommand(s, { type: 'move', from: a, to: table });
+    stepGame(s, STEP_SEC);
+    expect(s.placed).toEqual([{ item: 'flowers', x: a.x, y: a.y }]);
   });
 });

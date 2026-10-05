@@ -30,13 +30,16 @@ interface Props {
   tile: Point | null;
   /** Free tiles right now (0 = nowhere left to put decor). */
   freeTiles: number;
+  /** A placed piece picked up to move (tap a green tile to put it there). */
+  moving: Point | null;
+  onCancelMove: () => void;
   onItem: (item: string) => void;
   onPlace: () => void;
   onDone: () => void;
 }
 
 /** Build mode's bottom bar: pick a piece, tap a green tile, place it. */
-export function BuildPanel({ wallet, item, tile, freeTiles, onItem, onPlace, onDone }: Props) {
+export function BuildPanel({ wallet, item, tile, freeTiles, moving, onCancelMove, onItem, onPlace, onDone }: Props) {
   const t = useT();
   const rise = useSharedValue(1);
   useEffect(() => {
@@ -46,7 +49,7 @@ export function BuildPanel({ wallet, item, tile, freeTiles, onItem, onPlace, onD
   const chosen = item ? upgradeDef(item) : null;
   const isDecor = chosen?.build === true;
   const affordable = chosen ? canBuyNow(chosen, wallet) : false;
-  const hint = !chosen ? t('ui.buildPick') : !isDecor ? t('ui.tableSpot') : freeTiles === 0 ? t('ui.noTile') : tile ? null : t('ui.buildTap');
+  const hint = moving ? (freeTiles === 0 ? t('ui.noTile') : t('ui.moveHint')) : !chosen ? t('ui.buildPick') : !isDecor ? t('ui.tableSpot') : freeTiles === 0 ? t('ui.noTile') : tile ? null : t('ui.buildTap');
   return (
     <Animated.View style={[styles.wrap, riseStyle]} pointerEvents="box-none">
       <View style={styles.bar}>
@@ -60,6 +63,11 @@ export function BuildPanel({ wallet, item, tile, freeTiles, onItem, onPlace, onD
             <View style={styles.coin} />
             <Text style={styles.placeText}>{formatBig(costOf(chosen, levelOf(wallet.levels, chosen.id)))}</Text>
             <Text style={styles.placeText}>{t('ui.place')}</Text>
+          </Pressable>
+        )}
+        {moving && (
+          <Pressable onPress={onCancelMove} style={styles.done}>
+            <Text style={styles.doneText}>{t('ui.cancel')}</Text>
           </Pressable>
         )}
         <Pressable onPress={onDone} style={styles.done}>
