@@ -41,6 +41,21 @@ export function sprXf(
   c.restore();
 }
 
+/** A sprite drawn from its vector picture (sharp at any size); falls back to the atlas. */
+export function vecSpr(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number): void {
+  'worklet';
+  const pic = A.vec[i];
+  if (!pic) {
+    sprXf(c, A, i, x, y, 0, scale, scale, A.paints.plain);
+    return;
+  }
+  c.save();
+  c.translate(x, y);
+  c.scale(scale, scale);
+  c.drawPicture(pic);
+  c.restore();
+}
+
 /** Sprite with an alpha fade, using the shared fade paint. */
 export function sprFade(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number, alpha: number): void {
   'worklet';

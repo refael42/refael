@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -80,21 +80,31 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const wallet = usePoll(gameRef, (s) => ({ coins: s.coins, levels: s.levels }), panel ? 6 : 2);
   const affordable = wallet ? UPGRADES.filter((u) => canBuy(u, wallet.levels, wallet.coins)).length : 0;
-  const hud = { left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 };
+  // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
+  // touch handlers, and swapping them in the middle of a touch crashes on phones.
+  const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
+  const panelOpen = useRef(false);
+  panelOpen.current = panel !== null;
 
-  const open = (station: PropKind | null) => {
-    selected.value = station ?? -1;
-    setPanel({ station });
-  };
-  const close = () => {
+  const open = useCallback(
+    (station: PropKind | null) => {
+      selected.value = station ?? -1;
+      setPanel({ station });
+    },
+    [selected],
+  );
+  const close = useCallback(() => {
     selected.value = -1;
     setPanel(null);
-  };
-  const onTap = (x: number, y: number, cam: Camera) => {
-    const hit = tap(x, y, cam);
-    if (hit && hit !== 'action') open(hit.station);
-    else if (!hit && panel) close();
-  };
+  }, [selected]);
+  const onTap = useCallback(
+    (x: number, y: number, cam: Camera) => {
+      const hit = tap(x, y, cam);
+      if (hit && hit !== 'action') open(hit.station);
+      else if (!hit && panelOpen.current) close();
+    },
+    [tap, open, close],
+  );
   const collect = (multiplier: number) => {
     if (welcome) command({ type: 'grant', coins: toSave(welcome.coins.mul(multiplier)) });
     paused.current = false;

@@ -1,5 +1,5 @@
 import { Canvas, Picture, Skia, TileMode, vec, type SkPaint, type SkPicture, type SkPictureRecorder } from '@shopify/react-native-skia';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PixelRatio, Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { cancelAnimation, runOnUI, useFrameCallback, useSharedValue, withDecay, type FrameInfo, type SharedValue } from 'react-native-reanimated';
@@ -14,6 +14,9 @@ import type { HudLayout } from './draw/hud';
 import { isoX, isoY } from './iso';
 
 const MAX_ZOOM = 2.8;
+const DISPOSE_PICTURES = Platform.OS === 'web';
+/** Pictures kept alive after they leave the screen (web only). */
+const KEEP_PICTURES = 3;
 const EDGE = 60;
 
 function emptyPicture(): SkPicture {
@@ -70,7 +73,7 @@ interface Props {
  * entities, effects, HUD. Camera pan/zoom runs on the UI thread too; React never re-renders
  * per frame.
  */
-export function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected }: Props) {
+export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -222,14 +225,18 @@ export function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, 
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
       drawScene(c, assets, snap, alpha, t, dt, { x: camX.value, y: camY.value, zoom: zoom.value }, s, hud ?? null, vignette, W, H, selected ? selected.value : -1);
       const next = recorder.value.finishRecordingAsPicture();
-      // Free pictures two frames old: the one on screen is still in use until the next draw.
-      const prev = previous.value;
-      if (prev.length >= 2) {
-        const stale = prev[0]!;
-        if (stale !== empty) stale.dispose();
-        previous.value = [prev[1]!, picture.value];
-      } else {
-        previous.value = [...prev, picture.value];
+      // Web (CanvasKit/WASM) never garbage-collects Skia objects: free pictures a few frames old.
+      // Native frees them by itself, and freeing by hand there can pull a picture out from under
+      // a redraw that runs late (a crash), so we never do.
+      if (DISPOSE_PICTURES) {
+        const prev = previous.value;
+        if (prev.length >= KEEP_PICTURES) {
+          const stale = prev[0]!;
+          if (stale !== empty) stale.dispose();
+          previous.value = [...prev.slice(1), picture.value];
+        } else {
+          previous.value = [...prev, picture.value];
+        }
       }
       picture.value = next;
       buildMs.value = buildMs.value * 0.9 + (performance.now() - started) * 0.1;
@@ -254,7 +261,7 @@ export function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, 
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },

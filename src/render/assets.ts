@@ -1,9 +1,10 @@
-import { BlendMode, Skia, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
+import { BlendMode, Skia, TileMode, vec, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 import { HAIR_COLORS, PANTS_COLORS, SHIRT_COLORS, SKIN_TONES } from '../data/looks';
 import { bakeAtlas, type Atlas, type Rect } from './atlas';
 import { recordBackground, type BackgroundDef } from './art/background';
 import { isoBounds } from './iso';
-import { LAYERS, S, SPRITE_DEFS, type Layers } from './sprites';
+import { GLYPH_CHARS } from './art/glyphArt';
+import { LAYERS, S, SPRITE_DEFS, type Layers, type SpriteName } from './sprites';
 
 /** Everything the UI-thread renderer needs, as plain data + Skia host objects (worklet friendly). */
 export interface RenderAssets {
@@ -12,6 +13,11 @@ export interface RenderAssets {
   dst: Rect[];
   S: typeof S;
   L: Layers;
+  /**
+   * The same art as vector pictures, for the few sprites drawn big on screen (HUD icons and
+   * digits): razor sharp on any screen. Indexed like the atlas; null = atlas only.
+   */
+  vec: (SkPicture | null)[];
   paints: {
     plain: SkPaint;
     /** Reused for anything that fades; its alpha is set right before each draw. */
@@ -30,13 +36,15 @@ export interface RenderAssets {
     barGood: SkPaint;
     barMid: SkPaint;
     barLow: SkPaint;
-    panel: SkPaint;
-    panelEdge: SkPaint;
     ripple: SkPaint;
     ring: SkPaint;
     /** Sprite silhouettes: the selection outline (white) and the top-tier aura (gold). */
     outline: SkPaint;
     aura: SkPaint;
+    /** HUD pills: a vertical gradient (drawn in local coords, centered on y = 0) and rims. */
+    hudFill: SkPaint;
+    hudRim: SkPaint;
+    hudShine: SkPaint;
   };
   background: SkPicture;
   /** The same background pre-rendered once; drawn instead of the vectors when zoomed out. */
@@ -112,6 +120,35 @@ function bakeBackground(picture: SkPicture, world: RenderAssets['world']): Rende
   };
 }
 
+/** Height of the HUD pills (px); the gradient is built for it. */
+export const HUD_PILL_H = 40;
+
+function gradientPaint(colors: [string, string], height: number): SkPaint {
+  const p = plainPaint();
+  p.setShader(Skia.Shader.MakeLinearGradient(vec(0, -height / 2), vec(0, height / 2), colors.map((c) => Skia.Color(c)), null, TileMode.Clamp));
+  return p;
+}
+
+const VECTOR_SPRITES: readonly string[] = ['coin', 'star', 'starGray', ...GLYPH_CHARS.map((ch) => `glyph_${ch}`)];
+
+let sharedVectors: (SkPicture | null)[] | null = null;
+
+/** Records the chosen sprites once as pictures (vectors), shared by every scene. */
+function getVectors(): (SkPicture | null)[] {
+  if (sharedVectors) return sharedVectors;
+  const out: (SkPicture | null)[] = SPRITE_DEFS.map(() => null);
+  for (const name of VECTOR_SPRITES) {
+    const i = S[name as SpriteName];
+    const def = SPRITE_DEFS[i]!;
+    const [l, t, r, b] = def.bounds;
+    const rec = Skia.PictureRecorder();
+    def.draw(rec.beginRecording(Skia.XYWHRect(l - 2, t - 2, r - l + 4, b - t + 4)));
+    out[i] = rec.finishRecordingAsPicture();
+  }
+  sharedVectors = out;
+  return out;
+}
+
 export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelRatio: number): RenderAssets {
   const atlas = getAtlas(atlasScale);
   const background = recordBackground(def);
@@ -122,6 +159,7 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
     dst: atlas.dst,
     S,
     L: LAYERS,
+    vec: getVectors(),
     paints: {
       plain: plainPaint(),
       fade: plainPaint(),
@@ -139,12 +177,13 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       barGood: solid('#5CD66E'),
       barMid: solid('#F4C542'),
       barLow: solid('#F0443A'),
-      panel: solid('#2A1530', 0.86),
-      panelEdge: strokePaint('#E2B13C', 2),
       ripple: strokePaint('#FFFFFF', 2.5),
       ring: strokePaint('#FFFFFF', 3),
       outline: silhouette('#FFFFFF'),
       aura: silhouette('#FFD23F'),
+      hudFill: gradientPaint(['#5A2A66', '#2E1238'], HUD_PILL_H),
+      hudRim: strokePaint('#F2C14E', 2.4),
+      hudShine: strokePaint('#FFFFFF', 1.2, 0.22),
     },
     background,
     backgroundImage: bakeBackground(background, world),
