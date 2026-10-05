@@ -197,8 +197,9 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: number[], 
     c.drawRRect({ rect: { x: x - w / 2 - 1.5, y: top - 1.5, width: w + 3, height: 6 }, rx: 3, ry: 3 }, P.barBack);
     const fillPaint = patience > 0.5 ? P.barGood : patience > 0.25 ? P.barMid : P.barLow;
     c.drawRRect({ rect: { x: x - w / 2, y: top, width: Math.max(2, w * patience), height: 3 }, rx: 1.5, ry: 1.5 }, fillPaint);
-    // The clock icon means the bar never relies on color alone.
-    sprXf(c, A, A.S.clock, x - w / 2 - 5, top + 1.5, 0, 0.55, 0.55, P.plain);
+    // The icon means the bar never relies on color alone, and tells how long they will wait.
+    const kind = d[o + C.patienceKind]!;
+    sprXf(c, A, kind === 1 ? A.S.bolt : kind === 2 ? A.S.snail : A.S.clock, x - w / 2 - 5, top + 1.5, 0, 0.55, 0.55, P.plain);
     top -= 4;
   }
   if (emote !== 0) {

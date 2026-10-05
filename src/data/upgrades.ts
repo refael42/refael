@@ -12,8 +12,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
  * `plates` and `tables` are counts. `price` is per dish.
  */
-export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'building'];
+export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'building'];
 
 export interface Effect {
   stat: Stat;
@@ -44,8 +44,8 @@ export interface UpgradeDef {
   milestone: MilestoneBonus | null;
   /** Capacity tracks stop here; endless tracks leave it out. */
   max?: number;
-  /** Capacity tracks limited by the free spots of the current building instead. */
-  spots?: 'tables' | 'stoves';
+  /** Capacity tracks limited by the free spots of the current building instead (or, for chairs, by the tables). */
+  spots?: 'tables' | 'stoves' | 'seats';
   /** Level 1 adds this dish to the menu. */
   unlocksDish?: Dish;
   requires?: { item: string; level: number };
@@ -84,6 +84,9 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // Front of house.
   { id: 'tables', category: 'front', anchor: K.TableSlot, restyle: null, baseCost: 120, growth: 2.6, spots: 'tables',
     effect: { stat: 'tables', per: 1 }, milestone: null },
+  // A second chair at the next table: room for a couple (who only come once there is room).
+  { id: 'seats', category: 'front', anchor: K.Table, restyle: null, baseCost: 200, growth: 2.3, spots: 'seats',
+    effect: { stat: 'seats', per: 1 }, milestone: null },
   { id: 'cloth', category: 'front', anchor: K.Table, restyle: 'anchor', baseCost: 25, growth: 1.16,
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
   { id: 'chairs', category: 'front', anchor: K.Chair, restyle: 'anchor', baseCost: 20, growth: 1.15,

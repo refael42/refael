@@ -1,5 +1,5 @@
 import type { MapDef, Point } from '../data/maps';
-import { CHAIR_OFFSET } from '../data/maps';
+import { SEAT_OFFSETS } from '../data/maps';
 
 /**
  * Walkability grid + A*. Walls sit on tile edges, so crossing the building boundary is only
@@ -32,8 +32,11 @@ function markFootprint(g: Grid, cx: number, cy: number, w: number, d: number): v
   }
 }
 
-/** How many of the map's table and stove spots are in use (bought furniture blocks tiles too). */
-export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves): Grid {
+/**
+ * How many of the map's table and stove spots are in use, and how many tables (the first ones)
+ * have their second chair: bought furniture blocks tiles too.
+ */
+export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves, pairTables = 0): Grid {
   const g: Grid = {
     w: map.width,
     h: map.height,
@@ -52,10 +55,10 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
   }
   const stoves = map.stoves.slice(0, stoveCount).map((s) => s.stove);
   for (const f of [...stoves, map.pass, map.sink, ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
-  for (const t of map.tables.slice(0, tableCount)) {
+  map.tables.slice(0, tableCount).forEach((t, i) => {
     markFootprint(g, t.x, t.y, 1, 1);
-    markFootprint(g, t.x + CHAIR_OFFSET.x, t.y + CHAIR_OFFSET.y, 1, 1);
-  }
+    for (const seat of SEAT_OFFSETS.slice(0, i < pairTables ? 2 : 1)) markFootprint(g, t.x + seat.x, t.y + seat.y, 1, 1);
+  });
   for (const door of map.doors) {
     const a = tileIndex(g, Math.floor(door.inside.x), Math.floor(door.inside.y));
     const c = tileIndex(g, Math.floor(door.outside.x), Math.floor(door.outside.y));

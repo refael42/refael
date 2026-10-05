@@ -65,7 +65,7 @@ describe('customer lifecycle (manager taps)', () => {
 
     runUntil(s, () => customer.state === CustomerState.Eating, 5);
     expect(table.state).toBe(TableState.Occupied);
-    expect(table.dish).toBe(customer.dish);
+    expect(table.dishes[customer.seat]).toBe(customer.dish);
 
     const before = s.coins;
     runUntil(s, () => customer.state === CustomerState.Paying, 15);

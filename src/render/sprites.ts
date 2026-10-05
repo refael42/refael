@@ -77,6 +77,8 @@ export const LAYERS = {
     fridge: looks('fridge'),
     table: looks('table'),
     chair: looks('chair'),
+    chairSeat: looks('chairSeat'),
+    chairRest: looks('chairRest'),
     plantPalm: looks('plantPalm'),
     plantBush: looks('plantBush'),
     neonBoard: looks('neonBoard'),

@@ -47,6 +47,11 @@ export interface Customer extends CharacterView {
   /** Set when served: the cook's quality multiplies the price, the server's charm the tip. */
   dishQuality: number;
   tipBoost: number;
+  /** Who they came with: the party leader's id (their own when alone), and the party size. */
+  party: number;
+  partySize: number;
+  /** Their chair at the table (-1 until seated). */
+  seat: number;
 }
 
 export interface Table {
@@ -57,9 +62,13 @@ export interface Table {
   x: number;
   y: number;
   state: TableState;
-  customer: number;
-  /** Dish on the table while eating (-1 none). */
-  dish: number;
+  /** Chairs at it (1, or 2 with "More chairs"). */
+  seats: number;
+  /** Who sits in each chair (-1 empty) and the dish in front of them (-1 none). */
+  party: number[];
+  dishes: number[];
+  /** Dirty plates left behind for whoever clears it. */
+  plates: number;
   progress: number;
   since: number;
 }
@@ -129,7 +138,7 @@ export interface StationTarget {
 export type Job =
   | { kind: 'cook'; order: number; phase: 'cooking' | 'plating' }
   | { kind: 'pickup'; order: number; phase: 'toPass' | 'handoff' | 'toTable' | 'serve' }
-  | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop' }
+  | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop'; plates?: number }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */

@@ -18,10 +18,11 @@ export interface Mods {
   patience: number;
   arrivals: number;
   quality: number;
-  /** Extra plates, tables and stoves on top of the starting ones; the building tier. */
+  /** Extra plates, tables and stoves on top of the starting ones; tables with a second chair; the building tier. */
   plates: number;
   tables: number;
   stoves: number;
+  seats: number;
   building: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
@@ -63,16 +64,20 @@ export function costOf(def: UpgradeDef, level: number): Big {
   return big(def.growth).pow(level).mul(def.baseCost).ceil();
 }
 
-/** How many levels a track can have here: capacity rows are limited by this building's free spots. */
-export function capOf(def: UpgradeDef, map: MapDef): number | undefined {
+/**
+ * How many levels a track can have here: capacity rows are limited by this building's free
+ * spots, and second chairs by the tables there are to put them at.
+ */
+export function capOf(def: UpgradeDef, map: MapDef, levels: Levels): number | undefined {
   if (def.spots === 'tables') return map.tables.length - map.startTables;
   if (def.spots === 'stoves') return map.stoves.length - map.startStoves;
+  if (def.spots === 'seats') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'));
   return def.max;
 }
 
-export function isMaxed(def: UpgradeDef, level: number, map: MapDef): boolean {
-  const cap = capOf(def, map);
-  return cap !== undefined && level >= cap;
+export function isMaxed(def: UpgradeDef, levels: Levels, map: MapDef): boolean {
+  const cap = capOf(def, map, levels);
+  return cap !== undefined && levelOf(levels, def.id) >= cap;
 }
 
 export function isUnlocked(def: UpgradeDef, levels: Levels): boolean {
@@ -82,7 +87,7 @@ export function isUnlocked(def: UpgradeDef, levels: Levels): boolean {
 /** Can this level be bought right now with these coins, in this building? */
 export function canBuy(def: UpgradeDef, levels: Levels, coins: Big, map: MapDef): boolean {
   const level = levelOf(levels, def.id);
-  return isUnlocked(def, levels) && !isMaxed(def, level, map) && coins.gte(costOf(def, level));
+  return isUnlocked(def, levels) && !isMaxed(def, levels, map) && coins.gte(costOf(def, level));
 }
 
 /**
@@ -106,6 +111,7 @@ function emptyMods(): Mods {
     plates: 0,
     tables: 0,
     stoves: 0,
+    seats: 0,
     building: 0,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),

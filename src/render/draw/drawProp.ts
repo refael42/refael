@@ -42,7 +42,7 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.Sink) return look(L.sink, tier);
   if (kind === PropKind.Fridge) return look(L.fridge, tier);
   if (kind === PropKind.Table) return look(L.table, tier);
-  if (kind === PropKind.Chair) return look(L.chair, tier);
+  if (kind === PropKind.Chair) return look(variant === 2 ? L.chairRest : variant === 1 ? L.chairSeat : L.chair, tier);
   if (kind === PropKind.Plant) return look(variant === 1 ? L.plantBush : L.plantPalm, tier);
   if (kind === PropKind.Neon) return look(L.neonBoard, tier);
   if (kind === PropKind.StreetSign) return look(L.streetSign, tier);
@@ -139,18 +139,30 @@ function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier
   sparkles(c, A, x, y - 4, t, 6, 0.3);
 }
 
-function drawTable(c: SkCanvas, A: RenderAssets, variant: number, dish: number, progress: number, bubble: number, t: number, tier: number, dishTier: number): void {
+/**
+ * A table and what is on it. `level` packs it (see the sim's table snapshot): while eating,
+ * each chair's dish + 1 in base 8 (chair 0 first); when dirty, the number of plates left.
+ */
+function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: number[]): void {
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
   spr(c, A, look(A.L.look.table, tier), 0, 0, plain);
   const top = oy(0, 0, 17);
   if (variant === 1) {
-    spr(c, A, look(A.L.plate[dish]!, dishTier), ox(0.06, 0.06), oy(0.06, 0.06, 17), plain);
-    spr(c, A, S.glass, ox(-0.12, -0.14), oy(-0.12, -0.14, 17), plain);
+    const d0 = (level % 8) - 1;
+    const d1 = (Math.floor(level / 8) % 8) - 1;
+    // Alone at the table the plate sits in the middle; a couple each get theirs on their side.
+    const meal = (dish: number, x: number, y: number, gx: number) => {
+      spr(c, A, look(A.L.plate[dish]!, dishTiers[dish] ?? 0), ox(x, y), oy(x, y, 17), plain);
+      spr(c, A, S.glass, ox(gx, -0.14), oy(gx, -0.14, 17), plain);
+    };
+    if (d0 >= 0) meal(d0, d1 >= 0 ? -0.12 : 0.06, 0.06, -0.12);
+    if (d1 >= 0) meal(d1, 0.16, 0.06, 0.18);
   } else if (variant === 2) {
     spr(c, A, S.stain, 0, 0, plain);
     spr(c, A, S.plateDirty, ox(0.05, 0.05), oy(0.05, 0.05, 17), plain);
+    if (level >= 2) spr(c, A, S.plateDirty, ox(-0.16, 0.1), oy(-0.16, 0.1, 17), plain);
     spr(c, A, S.glassEmpty, ox(-0.12, -0.14), oy(-0.12, -0.14, 17), plain);
     if (bubble !== 0 || progress > 0) hint(c, A, 0, top - 18, A.S.clean, progress, t);
   }
@@ -189,9 +201,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
   if (kind === PropKind.Stove) drawStove(c, A, active, t, tier);
   else if (kind === PropKind.Sink) drawSink(c, A, active, t, tier);
   else if (kind === PropKind.Table) {
-    const dish = d[o + PF.level]!;
-    drawTable(c, A, variant, dish, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers[dish] ?? 0);
-  } else if (kind === PropKind.Chair) spr(c, A, look(A.L.look.chair, tier), 0, 0, plain);
+    drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers);
+  } else if (kind === PropKind.Chair) {
+    // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
+    spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);
+  }
   else if (kind === PropKind.Pass) spr(c, A, S.pass, 0, 0, plain);
   else if (kind === PropKind.TableSlot) {
     // Floor space for one more table: a dashed spot with ghost furniture and a "+" when affordable.

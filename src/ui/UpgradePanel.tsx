@@ -105,7 +105,7 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
   const rtl = isRTL(useSettings((s) => s.lang));
   const level = levelOf(wallet.levels, def.id);
   const unlocked = isUnlocked(def, wallet.levels);
-  const maxed = isMaxed(def, level, wallet.map);
+  const maxed = isMaxed(def, wallet.levels, wallet.map);
   const next = nextMilestone(level);
   const prev = prevMilestone(level);
   const share = def.milestone ? Math.min(1, (level - prev) / Math.max(1, next - prev)) : 0;

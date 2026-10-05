@@ -5,7 +5,7 @@ import { EntityType } from './types';
  * The render snapshot: a flat number array the UI thread can read cheaply. One fixed-size record
  * per entity, already sorted back-to-front, so the renderer just walks it in order.
  */
-export const STRIDE = 24;
+export const STRIDE = 25;
 
 /** Fields shared by every record. */
 export const F = { type: 0, x: 1, y: 2, px: 3, py: 4, id: 5 } as const;
@@ -30,6 +30,7 @@ export const C = {
   patience: 21,
   bubble: 22,
   rank: 23,
+  patienceKind: 24,
 } as const;
 
 /** Prop record fields. */
@@ -115,6 +116,7 @@ function writeCharacter(d: number[], o: number, c: CharacterView): void {
   d[o + C.patience] = c.patience;
   d[o + C.bubble] = c.bubble;
   d[o + C.rank] = c.rank ?? 0;
+  d[o + C.patienceKind] = c.patienceKind ?? 0;
 }
 
 function writeProp(d: number[], o: number, p: PropView): void {

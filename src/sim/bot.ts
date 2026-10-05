@@ -109,7 +109,7 @@ export function createBot(options: BotOptions): Bot {
   const saveForBuilding = (s: GameState, budget: Big): boolean => {
     const def = upgradeDef('building');
     const level = levelOf(s.levels, def.id);
-    if (s.construction || isMaxed(def, level, s.map) || earnedAt.length < 2) return false;
+    if (s.construction || isMaxed(def, s.levels, s.map) || earnedAt.length < 2) return false;
     const first = earnedAt[0]!;
     const minutes = (s.time - first.time) / 60;
     const perMinute = s.stats.earned.sub(first.earned).div(Math.max(1 / 60, minutes));

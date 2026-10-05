@@ -28,8 +28,8 @@ const seatAll = (s: GameState) => () => {
 /** Every plate is somewhere: clean, dirty, on the pass, in a hand, or on a table. */
 function platesAccounted(s: GameState): number {
   const inOrders = s.orders.filter((o) => o.state === OrderState.Plating || o.state === OrderState.Ready || o.state === OrderState.Flying || o.state === OrderState.Carried).length;
-  const onTables = s.tables.filter((t) => (t.state === TableState.Occupied && t.dish >= 0) || t.state === TableState.Dirty || (t.state === TableState.Cleaning && t.waiter < 0)).length;
-  const inHands = s.staff.filter((st) => st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop' || st.job.phase === 'wipe')).length;
+  const onTables = s.tables.reduce((sum, t) => sum + (t.state === TableState.Dirty || t.state === TableState.Cleaning ? t.plates : t.dishes.filter((d) => d >= 0).length), 0);
+  const inHands = s.staff.reduce((sum, st) => sum + (st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop') ? (st.job.plates ?? 0) : 0), 0);
   return s.cleanPlates + s.dirtyPlates + inOrders + onTables + inHands;
 }
 

@@ -6,14 +6,17 @@ import { TRAIT_FX } from '../../data/traits';
 import { followPath, setPose } from '../movement';
 import { chance } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
-import { emote, route, seatCustomer, startEating } from './customers';
+import { dishSpot, emote, route, seatCustomer, startEating, tableFor } from './customers';
 import { emit, Ev } from './events';
 import { has, statFactor, workRate } from './people';
 import { CustomerState, OrderState, TableState, type GameState, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
-export const besideTable = (t: Table): Point => ({ x: t.x + 0.8, y: t.y });
+/** Where staff stand to serve or clear a table: its front edge, clear of both chairs. */
+export const besideTable = (t: Table): Point => ({ x: t.x, y: t.y + 0.75 });
+/** ...facing the table from there. */
+const FACING_TABLE = Facing.BackRight;
 
 /** Each worker's own spot: their stove, their idle place, the host stand... */
 export function homeOf(s: GameState, st: Staff): Point {
@@ -239,7 +242,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
   if (job.phase === 'toTable') {
     if (walkTo(s, st, besideTable(t), dt)) {
       setPose(st, Pose.Idle);
-      st.facing = Facing.BackLeft;
+      st.facing = FACING_TABLE;
       setJob(st, { kind: 'pickup', order: order.id, phase: 'serve' });
     }
     return;
@@ -277,7 +280,7 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
     }
     if (walkTo(s, st, besideTable(t), dt)) {
       setPose(st, Pose.Wash);
-      st.facing = Facing.BackLeft;
+      st.facing = FACING_TABLE;
       t.state = TableState.Cleaning;
       t.progress = 0;
       t.since = s.time;
@@ -288,10 +291,10 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
   if (job.phase === 'wipe') {
     t.progress = Math.min(1, t.progress + (dt * workRate(s, st)) / KITCHEN.bussSeconds);
     if (t.state !== TableState.Cleaning || t.progress >= 1) {
-      if (t.state === TableState.Cleaning) finishCleaning(s, t, false);
+      const plates = t.state === TableState.Cleaning ? finishCleaning(s, t, false) : 0;
       st.held = Held.DirtyPlates;
       st.path = [];
-      setJob(st, { kind: 'buss', table: t.index, phase: 'toSink' });
+      setJob(st, { kind: 'buss', table: t.index, phase: 'toSink', plates });
     }
     return;
   }
@@ -299,13 +302,13 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
     if (walkTo(s, st, s.map.dirtyDrop, dt)) {
       setPose(st, Pose.Idle);
       st.facing = Facing.BackLeft;
-      setJob(st, { kind: 'buss', table: t.index, phase: 'drop' });
+      setJob(st, { ...job, phase: 'drop' });
     }
     return;
   }
   st.jobTime += dt * workRate(s, st);
   if (st.jobTime >= KITCHEN.handoffSeconds) {
-    s.dirtyPlates += 1;
+    s.dirtyPlates += job.plates ?? 0;
     gainXp(s, st);
     release(st);
   }
@@ -330,7 +333,7 @@ function updateHost(s: GameState, st: Staff, dt: number): boolean {
   if (!walkTo(s, st, homeOf(s, st), dt)) return true;
   st.facing = HOME_FACING.host;
   const front = s.customers.find((c) => c.state === CustomerState.Queued && c.queueSlot === 0 && c.path.length === 0);
-  const free = s.tables.some((t) => t.state === TableState.Free);
+  const free = front !== undefined && tableFor(s, front.partySize, front) !== undefined;
   if (!front || !free || st.leaving) {
     st.jobTime = 0;
     setPose(st, Pose.Idle);
@@ -351,19 +354,22 @@ function updateHost(s: GameState, st: Staff, dt: number): boolean {
 // ---------- tables & dishwashing ----------
 
 /**
- * A table is clean again. `toPile` = the player wiped it, so the dirty plate flies straight to
- * the dish pile; a waiter carries it there instead.
+ * A table is clean again. `toPile` = the player wiped it, so the dirty plates fly straight to
+ * the dish pile; a waiter carries them there instead. Returns how many plates came off it.
  */
-export function finishCleaning(s: GameState, t: Table, toPile: boolean): void {
+export function finishCleaning(s: GameState, t: Table, toPile: boolean): number {
+  const plates = t.plates;
   t.state = TableState.Free;
+  t.plates = 0;
   t.progress = 0;
   t.since = s.time;
   t.waiter = -1;
   emit(s, Ev.Burst, t.x, t.y);
   if (toPile) {
-    s.dirtyPlates += 1;
-    emit(s, Ev.PlateFly, t.x, t.y, s.map.dirtyStack.x, s.map.dirtyStack.y);
+    s.dirtyPlates += plates;
+    for (let i = 0; i < plates; i++) emit(s, Ev.PlateFly, t.x + (i - (plates - 1) / 2) * 0.3, t.y, s.map.dirtyStack.x, s.map.dirtyStack.y);
   }
+  return plates;
 }
 
 /** Scrubs plates; returns how many came out clean. */
@@ -460,9 +466,9 @@ export function switchRole(s: GameState, st: Staff, role: Role): void {
 export function serveOrder(s: GameState, order: Order): void {
   const c = s.customers.find((x) => x.id === order.customer);
   if (!c || c.table < 0) return;
-  const t = s.tables[c.table]!;
+  const to = dishSpot(s.tables[c.table]!, c.seat);
   const p = s.map.passSlots[order.slot]!;
-  emit(s, Ev.DishFly, p.x, p.y, t.x, t.y, order.dish);
+  emit(s, Ev.DishFly, p.x, p.y, to.x, to.y, order.dish);
   order.state = OrderState.Flying;
   order.slot = -1;
   order.waiter = -1;

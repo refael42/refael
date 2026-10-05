@@ -17,6 +17,7 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   neon: { base: 'neonIcon', looks: false },
   sign: { base: 'streetSign', looks: true },
   building: { base: 'saleSign', looks: false },
+  seats: { base: 'chair0', looks: false },
 };
 
 export function upgradeIcon(id: string, tier: number): SpriteName {

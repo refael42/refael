@@ -1,26 +1,40 @@
-import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, type CustomerType } from '../../data/customers';
+import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
-import { CHAIR_OFFSET, type Point } from '../../data/maps';
+import { SEAT_OFFSETS, type Point } from '../../data/maps';
 import { big, type Big } from '../big';
 import { findPath } from '../grid';
 import { customerLook } from '../looks';
 import { followPath, setPose } from '../movement';
-import { next, pick, range, type Rng } from '../rng';
+import { next, pick, range } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
-export const chairOf = (t: Table): Point => ({ x: t.x + CHAIR_OFFSET.x, y: t.y + CHAIR_OFFSET.y });
+export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
 
-function pickType(rng: Rng): CustomerType {
-  const total = CUSTOMER_TYPE_LIST.reduce((sum, t) => sum + t.weight, 0);
-  let roll = next(rng) * total;
-  for (const t of CUSTOMER_TYPE_LIST) {
+/** Where the dish lands: in front of its chair. */
+export const dishSpot = (t: Table, seat: number): Point => ({ x: t.x + (seat === 0 ? -0.12 : 0.12), y: t.y });
+
+/** Everyone who came in together (just them, when alone). */
+const partyOf = (s: GameState, c: Customer): Customer[] => s.customers.filter((o) => o.party === c.party);
+const leaderOf = (s: GameState, c: Customer): Customer => s.customers.find((o) => o.id === c.party) ?? c;
+
+/** Where a party member waits in line: the leader on the spot, a friend right beside them. */
+function queueSpot(s: GameState, c: Customer, slot: number): Point {
+  const p = s.map.queue[slot]!;
+  return c.party === c.id ? p : { x: p.x + PARTY.queueOffset.x, y: p.y + PARTY.queueOffset.y };
+}
+
+function pickType(s: GameState): CustomerType {
+  const types = CUSTOMER_TYPE_LIST.filter((t) => s.stats.served >= (t.minServed ?? 0));
+  const total = types.reduce((sum, t) => sum + t.weight, 0);
+  let roll = next(s.rng) * total;
+  for (const t of types) {
     roll -= t.weight;
     if (roll < 0) return t;
   }
-  return CUSTOMER_TYPE_LIST[0]!;
+  return types[0]!;
 }
 
 function freeQueueSlot(s: GameState): number {
@@ -43,11 +57,22 @@ export function updateArrivals(s: GameState): void {
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
   if (slot < 0) return; // The line is full: this one walks on by.
-  const type = pickType(s.rng);
+  const type = pickType(s);
   const spawn = s.stats.served === 0 && s.customers.length === 0 ? s.map.firstSpawn : pick(s.rng, s.map.spawns);
   const start = { x: spawn.x, y: spawn.y + range(s.rng, -0.3, 0.3) };
-  s.customers.push({
-    id: s.nextId++,
+  // Friends come along only once there are tables for two: the more of them, the more pairs.
+  const pairTables = s.tables.filter((t) => t.seats >= 2).length;
+  const pair = type.pairs && pairTables > 0 && next(s.rng) < (PARTY.pairChance * pairTables) / s.tables.length;
+  const leader = newCustomer(s, type, start, slot, -1, pair ? 2 : 1);
+  s.customers.push(leader);
+  if (pair) s.customers.push(newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2));
+}
+
+/** A newcomer heading for the line; `party` = their leader's id (-1: they lead), `slot` = their place in line. */
+function newCustomer(s: GameState, type: CustomerType, start: Point, slot: number, party: number, partySize: number): Customer {
+  const id = s.nextId++;
+  const c: Customer = {
+    id,
     type: type.id,
     look: customerLook(s.rng, type),
     x: start.x,
@@ -66,7 +91,7 @@ export function updateArrivals(s: GameState): void {
     state: CustomerState.Arriving,
     stateTime: 0,
     walkSpeed: type.walkSpeed,
-    path: route(s, start, s.map.queue[slot]!),
+    path: [],
     queueSlot: slot,
     table: -1,
     order: -1,
@@ -79,7 +104,14 @@ export function updateArrivals(s: GameState): void {
     angryEmoted: false,
     dishQuality: 1,
     tipBoost: 1,
-  });
+    party: party < 0 ? id : party,
+    partySize,
+    seat: -1,
+    patienceKind: PATIENCE_ICON[type.patience],
+  };
+  const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
+  c.path = route(s, start, queueSpot(s, c, leader.queueSlot));
+  return c;
 }
 
 function setState(c: Customer, state: Customer['state']): void {
@@ -132,13 +164,28 @@ export function sendHome(s: GameState, c: Customer): void {
   setState(c, CustomerState.Leaving);
 }
 
-/** Ran out of patience: no money, lower rating, and everyone sees them go. */
+/** A table everyone left: dirty if anyone ate at it, otherwise ready for the next guests. */
+function vacate(s: GameState, t: Table): void {
+  t.plates = t.dishes.filter((d) => d >= 0).length;
+  t.state = t.plates > 0 ? TableState.Dirty : TableState.Free;
+  t.party.fill(-1);
+  t.dishes.fill(-1);
+  t.since = s.time;
+}
+
+/** Ran out of patience: no money, lower rating, and everyone sees them go (with their friends). */
 function walkout(s: GameState, c: Customer): void {
   s.stats.walkouts += 1;
+  changeRating(s, ECONOMY.rating.walkout, c);
+  const table = c.table >= 0 ? s.tables[c.table]! : null;
+  for (const m of partyOf(s, c)) storm(s, m);
+  if (table) vacate(s, table);
+}
+
+function storm(s: GameState, c: Customer): void {
   emote(c, Emote.Anger);
   c.expression = Expression.Angry;
   emit(s, Ev.Poof, c.x, c.y);
-  changeRating(s, ECONOMY.rating.walkout, c);
   const orderIndex = s.orders.findIndex((o) => o.id === c.order);
   if (orderIndex >= 0) {
     const order = s.orders[orderIndex]!;
@@ -150,41 +197,46 @@ function walkout(s: GameState, c: Customer): void {
     if (order.state === OrderState.Plating || order.state === OrderState.Ready || order.state === OrderState.Carried) s.dirtyPlates += 1;
     s.orders.splice(orderIndex, 1);
   }
-  if (c.table >= 0) {
-    const t = s.tables[c.table]!;
-    t.state = TableState.Free;
-    t.customer = -1;
-    t.since = s.time;
-  }
   sendHome(s, c);
 }
 
-/** Manager action: seat a customer from the line at the nearest free table (shortest walk). */
-export function seatCustomer(s: GameState, c: Customer): boolean {
+/** A free table with a chair for everyone; a short walk, and a table for two only when needed. */
+export function tableFor(s: GameState, size: number, from: Point): Table | undefined {
   let table: Table | undefined;
   let best = Infinity;
   for (const t of s.tables) {
-    const d = Math.hypot(t.x - c.x, t.y - c.y);
-    if (t.state === TableState.Free && d < best) {
-      best = d;
+    if (t.state !== TableState.Free || t.seats < size) continue;
+    const score = Math.hypot(t.x - from.x, t.y - from.y) + (t.seats - size) * 6;
+    if (score < best) {
+      best = score;
       table = t;
     }
   }
+  return table;
+}
+
+/** Manager action: seat someone from the line (and whoever came with them) at a table that fits. */
+export function seatCustomer(s: GameState, c: Customer): boolean {
+  const leader = leaderOf(s, c);
+  const table = tableFor(s, leader.partySize, leader);
   if (!table) {
     emote(c, Emote.Exclaim);
     emit(s, Ev.NoTable, c.x, c.y);
     return false;
   }
-  endWait(c);
   table.state = TableState.Reserved;
-  table.customer = c.id;
   table.since = s.time;
-  c.table = table.index;
-  c.queueSlot = -1;
-  c.bubble = Bubble.None;
-  c.expression = Expression.Happy;
-  c.path = route(s, c, chairOf(table));
-  setState(c, CustomerState.ToTable);
+  partyOf(s, leader).forEach((m, seat) => {
+    if (m.patience >= 0) endWait(m);
+    table.party[seat] = m.id;
+    m.table = table.index;
+    m.seat = seat;
+    m.queueSlot = -1;
+    m.bubble = Bubble.None;
+    m.expression = Expression.Happy;
+    m.path = route(s, m, chairOf(table, seat));
+    setState(m, CustomerState.ToTable);
+  });
   return true;
 }
 
@@ -208,7 +260,7 @@ export function startEating(s: GameState, c: Customer, dish: number, quality: nu
   endWait(c);
   const t = s.tables[c.table]!;
   t.state = TableState.Occupied;
-  t.dish = dish;
+  t.dishes[c.seat] = dish;
   t.since = s.time;
   c.order = -1;
   c.bubble = Bubble.None;
@@ -251,6 +303,20 @@ function pay(s: GameState, c: Customer): void {
   setState(c, CustomerState.Paying);
 }
 
+/** A friend in line stays next to their leader as the line moves up. */
+function followLeader(s: GameState, c: Customer, dt: number): void {
+  const leader = leaderOf(s, c);
+  if (leader.queueSlot >= 0) {
+    const spot = queueSpot(s, c, leader.queueSlot);
+    const end = c.path[c.path.length - 1] ?? c;
+    if (Math.hypot(end.x - spot.x, end.y - spot.y) > 0.05) c.path = route(s, c, spot);
+  }
+  if (c.path.length > 0 && followPath(c, c.path, c.walkSpeed, dt)) {
+    setPose(c, Pose.Idle);
+    c.facing = Facing.BackLeft;
+  }
+}
+
 export function updateCustomers(s: GameState, dt: number): void {
   for (const c of s.customers) {
     c.stateTime += dt;
@@ -259,17 +325,24 @@ export function updateCustomers(s: GameState, dt: number): void {
         if (followPath(c, c.path, c.walkSpeed, dt)) {
           setPose(c, Pose.Idle);
           c.facing = Facing.BackLeft;
-          c.bubble = Bubble.Seat;
-          startWait(c, CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience);
+          // The party's leader asks for a table and keeps the time; friends just wait with them.
+          if (c.party === c.id) {
+            c.bubble = Bubble.Seat;
+            startWait(c, CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience);
+          }
           setState(c, CustomerState.Queued);
         }
         break;
       case CustomerState.Queued: {
+        if (c.party !== c.id) {
+          followLeader(s, c, dt);
+          break;
+        }
         // Shuffle forward when the spot ahead frees up.
         const ahead = c.queueSlot - 1;
         if (c.path.length === 0 && ahead >= 0 && !s.customers.some((o) => o.queueSlot === ahead)) {
           c.queueSlot = ahead;
-          c.path = route(s, c, s.map.queue[ahead]!);
+          c.path = route(s, c, queueSpot(s, c, ahead));
         }
         if (c.path.length > 0 && followPath(c, c.path, c.walkSpeed, dt)) {
           setPose(c, Pose.Idle);
@@ -282,7 +355,8 @@ export function updateCustomers(s: GameState, dt: number): void {
       case CustomerState.ToTable:
         if (followPath(c, c.path, c.walkSpeed, dt)) {
           setPose(c, Pose.Sit);
-          c.facing = Facing.FrontRight;
+          // Seat 0 faces the table toward +x, the chair opposite faces back toward -x.
+          c.facing = c.seat === 1 ? Facing.BackLeft : Facing.FrontRight;
           c.held = Held.Menu;
           setState(c, CustomerState.Reading);
         }
@@ -311,16 +385,20 @@ export function updateCustomers(s: GameState, dt: number): void {
       case CustomerState.Eating:
         if (c.stateTime >= dishDef(c.dish).eatSeconds) pay(s, c);
         break;
-      case CustomerState.Paying:
-        if (c.stateTime >= ECONOMY.paySeconds) {
-          const t = s.tables[c.table]!;
-          t.state = TableState.Dirty;
-          t.dish = -1;
-          t.customer = -1;
-          t.since = s.time;
-          sendHome(s, c);
+      case CustomerState.Paying: {
+        // Friends leave together, once everyone at the table has paid.
+        const t = s.tables[c.table]!;
+        const done = (id: number) => {
+          const m = s.customers.find((o) => o.id === id);
+          return !m || m.table !== t.index || (m.state === CustomerState.Paying && m.stateTime >= ECONOMY.paySeconds);
+        };
+        if (t.party.every((id) => id < 0 || done(id))) {
+          const party = t.party.map((id) => s.customers.find((o) => o.id === id)).filter((m): m is Customer => m !== undefined);
+          vacate(s, t);
+          for (const m of party) sendHome(s, m);
         }
         break;
+      }
       case CustomerState.Leaving:
         followPath(c, c.path, c.walkSpeed, dt);
         break;

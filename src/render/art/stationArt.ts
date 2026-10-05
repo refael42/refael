@@ -1,4 +1,5 @@
 import { Skia, type SkCanvas } from '@shopify/react-native-skia';
+import { BACKREST_SHIFT } from '../../data/maps';
 import { HALF_H, HALF_W } from '../iso';
 import { sprite, type SpriteDef } from '../sprite';
 import { darken, lighten } from './color';
@@ -198,12 +199,36 @@ const CHAIR = [
   { frame: '#FFD54A', leg: GOLD, seat: '#B3202E', back: 28 },
 ] as const;
 
-const chairs = looks('chair', [-20, -54, 20, 10], (c, t) => {
+/**
+ * A chair: 'whole' has its back on the -x side (the first chair, facing the table toward +x);
+ * the chair opposite comes as 'seat' (no back) and 'rest' (the back alone, on the +x side,
+ * drawn BACKREST_SHIFT ahead of its prop so it can sort in front of the sitter).
+ */
+function chair(c: SkCanvas, t: number, part: 'whole' | 'seat' | 'rest') {
   const s = CHAIR[t]!;
+  if (part === 'rest') {
+    const x = 0.16 - BACKREST_SHIFT;
+    box(c, { x, y: 0, z: 9, w: 0.06, d: 0.36, h: s.back, color: s.frame });
+    // Its back faces the camera: upholstered like the front of the first chair.
+    box(c, { x: x + 0.01, y: 0, z: 12, w: 0.06, d: 0.3, h: s.back - 5, color: s.seat });
+    if (t === 3) {
+      for (const y of [-0.15, 0.15]) {
+        const [x0, y0] = P(x, y, 9 + s.back + 3);
+        c.drawCircle(x0, y0, 1.8, fill('#FFE08A'));
+        c.drawCircle(x0, y0, 1.8, stroke('#B8892A', 0.6));
+      }
+    }
+    return;
+  }
   floorShadow(c, 0, 0, 0.26, 0.25);
   for (const [x, y] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]] as const) {
     box(c, { x, y, w: 0.04, d: 0.04, h: 9, color: s.leg });
     if (t >= 1) box(c, { x, y, w: 0.05, d: 0.05, h: 1.2, color: GOLD });
+  }
+  if (part === 'seat') {
+    box(c, { x: 0, y: 0, z: 9, w: 0.36, d: 0.36, h: 2, color: s.frame });
+    box(c, { x: -0.01, y: 0, z: 11, w: 0.32, d: 0.32, h: 2.5, color: s.seat, rim: true });
+    return;
   }
   box(c, { x: -0.16, y: 0, z: 9, w: 0.06, d: 0.36, h: s.back, color: s.frame });
   box(c, { x: -0.15, y: 0, z: 12, w: 0.06, d: 0.3, h: s.back - 5, color: s.seat });
@@ -224,7 +249,11 @@ const chairs = looks('chair', [-20, -54, 20, 10], (c, t) => {
   }
   box(c, { x: 0, y: 0, z: 9, w: 0.36, d: 0.36, h: 2, color: s.frame });
   box(c, { x: 0.01, y: 0, z: 11, w: 0.32, d: 0.32, h: 2.5, color: s.seat, rim: true });
-});
+}
+
+const chairs = looks('chair', [-20, -54, 20, 10], (c, t) => chair(c, t, 'whole'));
+const chairSeats = looks('chairSeat', [-20, -24, 20, 10], (c, t) => chair(c, t, 'seat'));
+const chairRests = looks('chairRest', [-26, -60, 14, 4], (c, t) => chair(c, t, 'rest'));
 
 // ---------- plants: pots get fancier and the plants fuller ----------
 
@@ -471,6 +500,8 @@ export const stationSprites = {
   ...fridges,
   ...tables,
   ...chairs,
+  ...chairSeats,
+  ...chairRests,
   ...palms,
   ...bushes,
   ...neonBoards,

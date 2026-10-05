@@ -95,9 +95,12 @@ function cleanLevels(raw: unknown): Record<string, number> | null {
   }
   // Caps depend on the building (free table spots...), so the building level is settled first.
   const building = UPGRADE_BY_ID.building!;
-  if (out.building) out.building = Math.min(out.building, capOf(building, STAND_MAP) ?? Infinity);
+  if (out.building) out.building = Math.min(out.building, capOf(building, STAND_MAP, out) ?? Infinity);
   const map = mapForTier(levelOf(out, 'building'));
-  for (const id of Object.keys(out)) out[id] = Math.min(out[id]!, capOf(UPGRADE_BY_ID[id]!, map) ?? Infinity);
+  // Twice: second chairs are capped by the tables, which the first pass may have cut down.
+  for (let pass = 0; pass < 2; pass++) {
+    for (const id of Object.keys(out)) out[id] = Math.min(out[id]!, capOf(UPGRADE_BY_ID[id]!, map, out) ?? Infinity);
+  }
   return out;
 }
 

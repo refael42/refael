@@ -2,8 +2,8 @@ import type { Point } from '../../data/maps';
 import { canBuy, computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { PropKind } from '../types';
 import { startConstruction } from './construction';
-import { addStove, addTable } from './create';
-import { route } from './customers';
+import { addSeat, addStove, addTable } from './create';
+import { chairOf, route } from './customers';
 import { emit, Ev } from './events';
 import type { GameState } from './types';
 
@@ -57,6 +57,11 @@ export function buyUpgrade(s: GameState, id: string): boolean {
     const stove = addStove(s);
     rerouteWalkers(s);
     at = stove ? [stove] : [];
+  }
+  if (s.mods.seats > before.seats) {
+    const table = addSeat(s);
+    rerouteWalkers(s);
+    at = table ? [chairOf(table, 1)] : [];
   }
   const milestone = milestonesReached(level + 1) > milestonesReached(level) ? 1 : 0;
   for (const p of at) emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone, def.anchor);

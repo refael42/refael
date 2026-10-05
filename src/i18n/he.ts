@@ -43,6 +43,8 @@ export const he: Record<TKey, string> = {
   'cat.marketing': 'שיווק',
   'cat.building': 'בניין',
   'up.building': 'מסעדה גדולה יותר',
+  'up.seats': 'עוד כיסאות',
+  'stat.seats': 'שולחנות לזוגות',
   'stat.building': 'בניין',
   'tier.diner': 'דיינר',
   'tier.bistro': 'ביסטרו',

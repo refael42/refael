@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/data/buildings';
-import { mapForTier, STAND_MAP, type MapDef } from '../src/data/maps';
+import { mapForTier, SEAT_OFFSETS, STAND_MAP, type MapDef } from '../src/data/maps';
 import { PropKind as K } from '../src/sim/types';
 import { buildGrid, findPath } from '../src/sim/grid';
 
@@ -138,10 +138,15 @@ describe('map generator', () => {
   it('with every table bought, every chair and the kitchen can be reached from the door', () => {
     TIERS.forEach((_, t) => {
       const map = mapForTier(t);
-      const grid = buildGrid(map, map.tables.length, map.stoves.length);
+      // Every table with both chairs: the tightest the room can get.
+      const grid = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length);
       const door = map.doors[0]!.inside;
       for (const spot of map.tables) {
-        expect(findPath(grid, door, { x: spot.x - 0.62, y: spot.y }), `tier ${t} table ${spot.x},${spot.y}`).not.toBeNull();
+        for (const seat of SEAT_OFFSETS) {
+          expect(findPath(grid, door, { x: spot.x + seat.x, y: spot.y + seat.y }), `tier ${t} table ${spot.x},${spot.y}`).not.toBeNull();
+        }
+        // ...and the spot where staff serve and clear it.
+        expect(findPath(grid, door, { x: spot.x, y: spot.y + 0.75 }), `tier ${t} serve ${spot.x},${spot.y}`).not.toBeNull();
       }
       for (const p of [...map.pickupSpots, map.washerSpot, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, ...map.queue]) {
         expect(findPath(grid, door, p), `tier ${t} spot ${p.x},${p.y}`).not.toBeNull();

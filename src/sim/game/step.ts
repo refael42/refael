@@ -60,10 +60,12 @@ function dynamicProps(s: GameState): PropView[] {
   const out: PropView[] = [];
   for (const t of s.tables) {
     const dirty = t.state === TableState.Dirty || t.state === TableState.Cleaning;
+    // level packs what is on it: the dirty plates, or each chair's dish (+1, 0 = none) in base 8.
+    const dishes = t.dishes.reduce((sum, d, seat) => sum + (d + 1) * 8 ** seat, 0);
     out.push(
       prop(t.propId, PropKind.Table, t.x, t.y, {
-        variant: dirty ? 2 : t.state === TableState.Occupied && t.dish >= 0 ? 1 : 0,
-        level: Math.max(0, t.dish),
+        variant: dirty ? 2 : t.state === TableState.Occupied && dishes > 0 ? 1 : 0,
+        level: dirty ? t.plates : dishes,
         since: t.since,
         progress: t.state === TableState.Cleaning ? t.progress : 0,
         bubble: t.state === TableState.Dirty && t.waiter < 0 ? Bubble.Clean : 0,

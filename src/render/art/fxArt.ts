@@ -42,6 +42,19 @@ const clock = sprite(ICON, (c) => {
   c.drawCircle(0, 0, 4, fill('#FFFFFF'));
   c.drawPath(path.polyline([[0, -3], [0, 0], [2.2, 0.8]]), stroke(EDGE, 1.1));
 });
+/** In a hurry: a lightning bolt. */
+const bolt = sprite(ICON, (c) => {
+  glossy(c, path.circle(0, 0, 5.6), '#E5483B');
+  c.drawPath(path.poly([[0.9, -4], [-2.2, 0.6], [0.2, 0.6], [-0.9, 4], [2.4, -0.8], [0, -0.8]]), fill('#FFE14A'));
+});
+/** Takes their time: a snail. */
+const snail = sprite(ICON, (c) => {
+  glossy(c, path.circle(0, 0, 5.6), '#3FAE5A');
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-4, 1, 8, 2.2), 1.1, 1.1), fill('#F2D6A8'));
+  c.drawCircle(-0.6, -0.4, 2.8, fill('#C8814A'));
+  c.drawPath(path.polyline([[-0.6, -0.4], [0.6, -0.9], [0.3, 0.6], [-1.6, 0.3], [-1.4, -2.2], [1.2, -2.4], [2, 0]]), stroke('#7A4A22', 0.6));
+  c.drawPath(path.polyline([[3, 1.2], [3.6, -1.6]]), stroke('#F2D6A8', 0.6));
+});
 const coin = sprite(ICON, (c) => {
   glossy(c, path.circle(0, 0, 5.8), '#FFC21A', '#9A6A00');
   c.drawCircle(0, 0, 3.9, stroke('#E09A00', 1));
@@ -231,7 +244,7 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
 });
 
 export const fxSprites = {
-  bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
+  bubble, heart, anger, clock, bolt, snail, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
   arrowUp, plusBadge, confetti, gear, cv, raise, rankStar, sun, moon,
   steam, sparkle, soap, puff, ring,
 };

@@ -1,6 +1,6 @@
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
-import { CHAIR_OFFSET, type Furniture, type MapDef } from '../../data/maps';
+import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef } from '../../data/maps';
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
 import { computeMods, type Levels } from '../economy/upgrades';
@@ -38,29 +38,61 @@ export function propFrom(id: number, f: Furniture): PropView {
 }
 
 const rebuildGrid = (s: GameState) => {
-  s.grid = buildGrid(s.map, s.tables.length, s.stoves.length);
+  s.grid = buildGrid(s.map, s.tables.length, s.stoves.length, s.tables.filter((t) => t.seats > 1).length);
 };
 
-/** Opens the next table spot: the table, its chair, and the tiles they now block. */
+/**
+ * Chair props for one seat. The first chair has its back to the wall side and is one piece;
+ * the second one faces it, so its backrest is a separate prop drawn in front of the sitter.
+ */
+function addChair(s: GameState, t: { x: number; y: number }, seat: number): void {
+  const o = SEAT_OFFSETS[seat]!;
+  const at = { x: t.x + o.x, y: t.y + o.y, w: 1, d: 1, blocks: true };
+  if (seat === 0) {
+    s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, ...at }));
+    return;
+  }
+  s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, ...at, variant: 1 }));
+  s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, ...at, x: at.x + BACKREST_SHIFT, variant: 2 }));
+}
+
+/** Opens the next table spot: the table, its chairs, and the tiles they now block. */
 export function addTable(s: GameState): Table | null {
   const spot = s.map.tables[s.tables.length];
   if (!spot) return null;
-  s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, x: spot.x + CHAIR_OFFSET.x, y: spot.y + CHAIR_OFFSET.y, w: 1, d: 1, blocks: true }));
+  const index = s.tables.length;
+  // Tables are paired up in order: the first `seats` of them have their second chair.
+  const seats = index < s.mods.seats ? 2 : 1;
+  for (let seat = 0; seat < seats; seat++) addChair(s, spot, seat);
   const table: Table = {
-    index: s.tables.length,
+    index,
     propId: s.nextId++,
     x: spot.x,
     y: spot.y,
     state: TableState.Free,
     waiter: -1,
-    customer: -1,
-    dish: -1,
+    seats,
+    party: new Array<number>(seats).fill(-1),
+    dishes: new Array<number>(seats).fill(-1),
+    plates: 0,
     progress: 0,
     since: s.time,
   };
   s.tables.push(table);
   rebuildGrid(s);
   return table;
+}
+
+/** "More chairs": the next single table gets a chair opposite the first one. */
+export function addSeat(s: GameState): Table | null {
+  const t = s.tables.find((x) => x.seats < SEAT_OFFSETS.length);
+  if (!t) return null;
+  addChair(s, t, t.seats);
+  t.seats += 1;
+  t.party.push(-1);
+  t.dishes.push(-1);
+  rebuildGrid(s);
+  return t;
 }
 
 /** Installs the next stove spot (room for one more cook). */

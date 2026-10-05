@@ -94,6 +94,8 @@ export interface CharacterView {
   bubble: number;
   /** Staff uniform rank (0 none, 1 silver badge, 2 gold badge). */
   rank?: number;
+  /** Icon next to the patience bar: 0 clock, 1 in a hurry, 2 takes their time. */
+  patienceKind?: number;
 }
 
 /** What the renderer needs to draw a prop. */

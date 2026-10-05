@@ -41,6 +41,8 @@ export const en = {
   'cat.marketing': 'Marketing',
   'cat.building': 'Building',
   'up.building': 'Bigger restaurant',
+  'up.seats': 'More chairs',
+  'stat.seats': 'Tables for two',
   'stat.building': 'Building',
   'tier.diner': 'Diner',
   'tier.bistro': 'Bistro',
