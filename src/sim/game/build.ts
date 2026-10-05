@@ -1,6 +1,6 @@
 import { TIERS } from '../../data/buildings';
 import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, type MapDef, type Point } from '../../data/maps';
-import { buildGrid, canReach, reachableFrom } from '../grid';
+import { buildGrid, canReach, reachableFrom, type Grid } from '../grid';
 import type { GameState } from './types';
 import { reservedBy } from './works';
 
@@ -32,34 +32,64 @@ const RESERVED: readonly Set<number>[] = TIERS.map((_, tier) => {
 });
 
 /** Where everything must stay reachable from (staff spots and the seats; chairs count via a neighbor). */
+const MUST_REACH = new WeakMap<MapDef, Point[]>();
 function mustReach(map: MapDef): Point[] {
-  return spotsOf(map).filter((p) => !map.tables.some((t) => t.x === p.x && t.y === p.y));
+  let out = MUST_REACH.get(map);
+  if (!out) {
+    out = spotsOf(map).filter((p) => !map.tables.some((t) => t.x === p.x && t.y === p.y));
+    MUST_REACH.set(map, out);
+  }
+  return out;
 }
 
 function isDiningFloor(map: MapDef, x: number, y: number): boolean {
   return map.areas.some((a) => DINING_FLOORS.includes(a.floor) && x >= a.x0 && x < a.x1 && y >= a.y0 && y < a.y1);
 }
 
+/** The cheap checks: dining floor, free right now, not needed by anything. */
+function looksFree(s: GameState, tx: number, ty: number): boolean {
+  const map = s.map;
+  if (s.construction || !isDiningFloor(map, tx, ty) || RESERVED[map.tier]!.has(key(tx, ty))) return false;
+  return s.grid.walk[ty * s.grid.w + tx] === 1 && !reservedBy(s, tx, ty);
+}
+
+/** The worst case: every table bought, every second chair, all decor (and pieces on the way). */
+function worstCase(s: GameState): Grid {
+  const map = s.map;
+  const pending = s.works.flatMap((w) => (w.at ? [w.at] : []));
+  return buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, ...pending]);
+}
+
+/** With tile (tx, ty) taken too, can everything still be reached from the door? */
+function keepsRoomOpen(g: Grid, map: MapDef, tx: number, ty: number): boolean {
+  const i = ty * g.w + tx;
+  const was = g.walk[i]!;
+  g.walk[i] = 0;
+  const reach = reachableFrom(g, map.doors[0]!.inside);
+  const ok = mustReach(map).every((p) => canReach(g, reach, p));
+  g.walk[i] = was;
+  return ok;
+}
+
 /** Can a decor piece go on the tile at (x, y) right now? */
 export function canPlaceAt(s: GameState, x: number, y: number): boolean {
   const tx = Math.floor(x);
   const ty = Math.floor(y);
-  const map = s.map;
-  if (s.construction || !isDiningFloor(map, tx, ty) || RESERVED[map.tier]!.has(key(tx, ty))) return false;
-  if (!s.grid.walk[ty * s.grid.w + tx] || reservedBy(s, tx, ty)) return false;
-  // The worst case: every table bought, every second chair, all decor, and this new piece.
-  const tile = { x: tx + 0.5, y: ty + 0.5 };
-  const pending = s.works.flatMap((w) => (w.at ? [w.at] : []));
-  const g = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, ...pending, tile]);
-  const reach = reachableFrom(g, map.doors[0]!.inside);
-  return mustReach(map).every((p) => canReach(g, reach, p));
+  return looksFree(s, tx, ty) && keepsRoomOpen(worstCase(s), s.map, tx, ty);
 }
 
-/** Every tile decor can go on now (tile centers), back rows first. */
+/** Every tile decor can go on now (tile centers), back rows first. One worst-case grid for all of them. */
 export function buildableTiles(s: GameState): Point[] {
   const out: Point[] = [];
   const b = s.map.building;
-  for (let y = b.y0; y < b.y1; y++) for (let x = b.x0; x < b.x1; x++) if (canPlaceAt(s, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
+  let g: Grid | null = null;
+  for (let y = b.y0; y < b.y1; y++) {
+    for (let x = b.x0; x < b.x1; x++) {
+      if (!looksFree(s, x, y)) continue;
+      g ??= worstCase(s);
+      if (keepsRoomOpen(g, s.map, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
+    }
+  }
   return out;
 }
 
