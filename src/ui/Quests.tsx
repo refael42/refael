@@ -98,7 +98,7 @@ export function QuestButton({ gameRef, onPress, style }: { gameRef: GameRef; onP
     <Animated.View style={[styles.buttonWrap, style, pulseStyle]}>
       <Pressable accessibilityRole="button" accessibilityLabel="quests" onPress={onPress} hitSlop={6} style={styles.button}>
         <Text style={styles.scroll}>📜</Text>
-        <Text style={styles.buttonLevel}>{`${t('ui.lv')} ${q.level}`}</Text>
+        <Text style={styles.buttonLevel}>{`${t('quest.stage')} ${q.level}`}</Text>
       </Pressable>
       {q.ready > 0 && (
         <View style={styles.badge}>
@@ -161,8 +161,11 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
   );
 }
 
-/** The restaurant leveled up: a card that pops and fades (confetti comes from the canvas). */
-export function LevelBanner({ level, onDone }: { level: number; onDone: () => void }) {
+/**
+ * A card that pops and fades (confetti comes from the canvas): the next stage, or (`rank`) the
+ * next restaurant level and how far the upgrades go now.
+ */
+export function LevelBanner({ level, onDone, rank }: { level: number; onDone: () => void; rank?: { opens: number } }) {
   const t = useT();
   const restaurant = useSettings((s) => s.profile?.restaurant);
   const pop = useSharedValue(0);
@@ -175,12 +178,18 @@ export function LevelBanner({ level, onDone }: { level: number; onDone: () => vo
   return (
     <View style={styles.bannerWrap} pointerEvents="none">
       <Animated.View style={[styles.banner, popStyle]}>
-        <Text style={styles.bannerTop}>{t('quest.levelUp')}</Text>
+        <Text style={styles.bannerTop}>{t(rank ? 'ui.rankUp' : 'quest.levelUp')}</Text>
         {restaurant && <Text style={styles.bannerName}>{restaurant}</Text>}
         <View style={styles.bannerLine}>
-          <Text style={styles.bannerSmall}>{t('quest.title')}</Text>
+          <Text style={styles.bannerSmall}>{t(rank ? 'ui.rankNow' : 'quest.title')}</Text>
           <Text style={styles.bannerBig}>{level}</Text>
         </View>
+        {rank && (
+          <View style={styles.bannerLine}>
+            <Text style={styles.bannerSmall}>{t('ui.rankUpOpens')}</Text>
+            <Text style={styles.bannerSmall}>{rank.opens}</Text>
+          </View>
+        )}
       </Animated.View>
     </View>
   );

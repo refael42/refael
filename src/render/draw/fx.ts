@@ -202,6 +202,14 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       s.shakeAt = t;
       for (let k = 0; k < 40; k++) spawnFx(s, FxKind.Confetti, t + k * 0.01, 1.8, wx + Math.sin(k * 1.3) * 120, wy - 80, (k / 40) * Math.PI * 2, 0, k);
       for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Burst, t + k * 0.08, 0.8, wx + Math.sin(k * 2.4) * 140, wy - 60 + Math.cos(k * 1.9) * 40);
+    } else if (type === Ev.WorkStart) {
+      // A crew gets to work: a little cloud of dust.
+      for (let k = 0; k < 4; k++) spawnFx(s, FxKind.Dust, t + k * 0.06, 1.1, wx + Math.sin(k * 2.1) * 22, wy - 8 - (k % 2) * 14, 0, 0, 0.8);
+    } else if (type === Ev.WorkTap) {
+      spawnFx(s, FxKind.Burst, t, 0.45, wx, wy - 50);
+      spawnFx(s, FxKind.Dust, t, 0.8, wx + 14, wy - 20, 0, 0, 0.6);
+    } else if (type === Ev.WorkDone) {
+      spawnFx(s, FxKind.Ding, t, 0.7, wx, wy - 46);
     } else if (type === Ev.Bonus) {
       const n = 24;
       for (let k = 0; k < n; k++) {

@@ -7,6 +7,7 @@ import type { Levels, Mods, Perks } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
 import type { CharacterView, PropKind, PropView } from '../types';
+import type { BulkStep } from '../../data/works';
 
 export const CustomerState = {
   Arriving: 0,
@@ -103,14 +104,18 @@ export type Command =
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
-  /** `at` = the tile for decor placed in build mode. */
-  | { type: 'buy'; item: string; at?: Point }
+  /** `at` = the tile for decor placed in build mode; `step` = levels at once (bulk buying). */
+  | { type: 'buy'; item: string; at?: Point; step?: BulkStep }
+  /** Speed up a big upgrade in progress (a tap on its site), or finish it now with gems. */
+  | { type: 'hurry'; work: number }
+  | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }
   | { type: 'reject'; applicant: number }
   | { type: 'fire'; staff: number }
   | { type: 'bonus'; staff: number }
-  | { type: 'train'; staff: number }
+  /** Paid training for `count` levels at once. */
+  | { type: 'train'; staff: number; count?: number }
   | { type: 'scold'; staff: number }
   | { type: 'reassign'; staff: number; role: Role }
   /** Yes/no on a raise request or the end of a trial shift. */
@@ -306,6 +311,23 @@ export interface GameState {
   construction: Construction | null;
   /** Decor placed in build mode (tile centers); `item` is a DecorId. */
   placed: PlacedDecor[];
+  /** Big upgrades a crew is working on (they count when done). */
+  works: Work[];
+  nextWorkId: number;
+}
+
+/** A big upgrade in progress (src/data/works.ts). */
+export interface Work {
+  id: number;
+  item: string;
+  /** The level it brings. */
+  level: number;
+  total: number;
+  left: number;
+  /** The tile picked for decor (kept free meanwhile), else null. */
+  at: Point | null;
+  /** Sim time of the last tap that sped it up. */
+  lastTap: number;
 }
 
 export interface PlacedDecor {

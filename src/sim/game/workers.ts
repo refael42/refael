@@ -1,6 +1,7 @@
 import { TIERS } from '../../data/buildings';
 import { DAY, ROLES, RUSH, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
+import { ZERO, type Big } from '../big';
 import { followPath } from '../movement';
 import { chance, pick } from '../rng';
 import { Emote, Expression } from '../types';
@@ -8,6 +9,7 @@ import { emote, route } from './customers';
 import { emit, Ev } from './events';
 import { clampStat, FLOOR_TEAM, has, levelUpStat, managerOnShift, rankOf, wageFor, xpToNext } from './people';
 import type { GameState, Notice, Staff } from './types';
+import type { BulkStep } from '../../data/works';
 
 // The team over time: experience, energy, the daily payroll, raises, quitting, and everything
 // the manager can do to a worker. Pure sim code; the UI only sends commands.
@@ -41,11 +43,12 @@ export function gainXp(s: GameState, st: Staff): void {
   }
 }
 
-function levelUp(s: GameState, st: Staff): void {
+function levelUp(s: GameState, st: Staff, show = true): void {
   st.level += 1;
   const stat = levelUpStat(s.rng, st.role);
   st.stats[stat] = clampStat(st.stats[stat] + 1);
   st.rank = rankOf(st.level);
+  if (!show) return;
   emote(st, Emote.Star);
   emit(s, Ev.LevelUp, st.x, st.y, st.level);
 }
@@ -201,17 +204,37 @@ export function giveBonus(s: GameState, id: number): void {
   emit(s, Ev.Burst, st.x, st.y);
 }
 
-export const trainingCost = (st: Staff) => st.wage.mul(STAFF.trainDays * st.level).ceil();
+export const trainingCost = (st: Pick<Staff, 'wage' | 'level'>, level = st.level) => st.wage.mul(STAFF.trainDays * level).ceil();
 
-/** Paid training: one level up on the spot. */
-export function train(s: GameState, id: number): void {
+/** Bulk "max" training never looks further than this many levels. */
+const MAX_TRAINING = 1000;
+
+/**
+ * What one tap on "train" buys (bulk buying, owner request): `step` levels, or as many as the
+ * coins pay for ('max', at least one). Each level costs a little more than the one before.
+ */
+export function trainingPlan(st: Pick<Staff, 'wage' | 'level'>, coins: Big, step: BulkStep): { count: number; cost: Big } {
+  const want = step === 'max' ? MAX_TRAINING : step;
+  let cost = ZERO;
+  let count = 0;
+  while (count < want) {
+    const next = trainingCost(st, st.level + count);
+    if (step === 'max' && count > 0 && cost.add(next).gt(coins)) break;
+    cost = cost.add(next);
+    count += 1;
+  }
+  return { count, cost };
+}
+
+/** Paid training: `step` levels up on the spot, if the coins cover all of them. */
+export function train(s: GameState, id: number, step: BulkStep = 1): void {
   const st = worker(s, id);
   if (!st) return;
-  const cost = trainingCost(st);
-  if (s.coins.lt(cost)) return;
-  s.coins = s.coins.sub(cost);
+  const plan = trainingPlan(st, s.coins, step);
+  if (s.coins.lt(plan.cost)) return;
+  s.coins = s.coins.sub(plan.cost);
   st.xp = 0;
-  levelUp(s, st);
+  for (let i = 0; i < plan.count; i++) levelUp(s, st, i === plan.count - 1);
 }
 
 /** Works faster for a while, likes you less. */

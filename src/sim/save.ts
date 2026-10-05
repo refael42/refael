@@ -4,10 +4,10 @@ import { NAMES } from '../data/names';
 import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { DECOR_BY_ID } from '../data/decor';
 import { TRAITS, type TraitId } from '../data/traits';
-import { UPGRADE_BY_ID } from '../data/upgrades';
+import { RANK, UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave } from './big';
-import { capOf, levelOf } from './economy/upgrades';
-import { createGame, workerOf, type SavedWorker } from './game/create';
+import { capOf, isCappedTrack, levelOf } from './economy/upgrades';
+import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
 import type { GameState, PlacedDecor, QuestState } from './game/types';
 import { questLevel } from './quests';
 import { GEMS, SHOP_BY_ID } from '../data/shop';
@@ -16,7 +16,7 @@ import { GEMS, SHOP_BY_ID } from '../data/shop';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -46,6 +46,8 @@ export interface SaveData {
   gems: number;
   perks: Record<string, number>;
   boost: { mult: number; seconds: number };
+  /** Big upgrades in progress (seconds left when saved; the time away counts too). */
+  works: SavedWork[];
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -79,7 +81,23 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   3: (old) => ({ ...old, quests: { level: 1, claimed: [] }, fiveStars: 0, rushes: 0, bestCombo: 0 }),
   // v4 (M7) had no item shop: everyone gets the starting gems.
   4: (old) => ({ ...old, gems: GEMS.start, perks: {}, boost: { mult: 1, seconds: 0 } }),
+  // v5 (M8) had no build times (nothing in progress) and no restaurant level capping the
+  // tracks: the restaurant starts at the level its highest track already needs.
+  5: (old) => ({ ...old, works: [], levels: withRankFor(old.levels) }),
 };
+
+/** Old levels plus the restaurant level that keeps every one of them (nothing is taken away). */
+function withRankFor(raw: unknown): unknown {
+  if (!isRecord(raw)) return raw;
+  let top = 0;
+  for (const [id, level] of Object.entries(raw)) {
+    const def = UPGRADE_BY_ID[id];
+    if (def && isCappedTrack(def) && finite(level)) top = Math.max(top, level);
+  }
+  const rank = Math.max(0, Math.ceil(top / RANK.levels) - 1);
+  const had = raw[RANK.id];
+  return rank > 0 ? { ...raw, [RANK.id]: Math.max(rank, finite(had) ? had : 0) } : raw;
+}
 
 export type LoadResult =
   | { ok: true; save: SaveData }
@@ -106,6 +124,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     gems: s.gems,
     perks: { ...s.perks },
     boost: { mult: s.boost.mult, seconds: Math.max(0, s.boost.until - s.time) },
+    works: s.works.map((w) => ({ item: w.item, level: w.level, total: w.total, left: Math.max(0, w.left), at: w.at ? { ...w.at } : null })),
   };
 }
 
@@ -201,9 +220,23 @@ function validate(o: Record<string, unknown>): SaveData | null {
     bestCombo: count(o.bestCombo),
     gems: count(o.gems),
     // Only perks the shop still sells.
-    perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk').map((id) => [id, 1])),
+    perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk' || SHOP_BY_ID[id]?.kind === 'crew').map((id) => [id, 1])),
+    works: cleanWorks(o.works, levels),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
+}
+
+/** Jobs on upgrades that still exist, one per item, each bringing the next level. */
+function cleanWorks(raw: unknown, levels: Record<string, number>): SavedWork[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SavedWork[] = [];
+  for (const w of raw) {
+    if (!isRecord(w) || typeof w.item !== 'string' || !UPGRADE_BY_ID[w.item] || out.some((x) => x.item === w.item)) continue;
+    if (!finite(w.level) || w.level !== (levels[w.item] ?? 0) + 1 || !finite(w.total) || w.total <= 0 || !finite(w.left)) continue;
+    const at = isRecord(w.at) && finite(w.at.x) && finite(w.at.y) ? { x: w.at.x, y: w.at.y } : null;
+    out.push({ item: w.item, level: w.level, total: w.total, left: Math.max(0, Math.min(w.total, w.left)), at });
+  }
+  return out;
 }
 
 /** A level of 1 or more and the claimed goals of it (valid indices, no repeats). */
@@ -240,8 +273,9 @@ export const savedTeam = (save: SaveData): SavedWorker[] => save.team.map((w) =>
 /** The building the save was in. */
 export const mapOfSave = (save: SaveData): MapDef => mapForTier(levelOf(save.levels, 'building'));
 
-/** A fresh day in the saved restaurant, with the saved team. */
-export function restoreGame(save: SaveData, seed: number): GameState {
+/** A fresh day in the saved restaurant, with the saved team (`now`: the crews kept working meanwhile). */
+export function restoreGame(save: SaveData, seed: number, now: number = save.savedAt): GameState {
+  const away = Math.max(0, (now - save.savedAt) / 1000);
   return createGame(mapOfSave(save), seed, {
     levels: save.levels,
     coins: fromSave(save.coins),
@@ -259,5 +293,6 @@ export function restoreGame(save: SaveData, seed: number): GameState {
     gems: save.gems,
     perks: save.perks,
     boost: save.boost,
+    works: save.works.map((w) => ({ ...w, left: Math.max(0, w.left - away) })),
   });
 }

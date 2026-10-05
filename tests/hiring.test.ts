@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buyNow } from './helpers';
 import { STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { APPLICANTS, DAY, ROLES, STAFF } from '../src/data/staff';
@@ -222,7 +223,7 @@ describe('growth and management', () => {
     const s = createGame(STAND_MAP, 14);
     rich(s);
     expect(capacity(s, 'cook')).toBe(1);
-    expect(buyUpgrade(s, 'stove2')).toBe(true);
+    expect(buyNow(s, 'stove2')).toBe(true);
     expect(capacity(s, 'cook')).toBe(2);
     expect(s.stoves).toHaveLength(2);
     const a = waitForApplicant(s, 'cook');

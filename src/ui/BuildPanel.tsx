@@ -7,10 +7,10 @@ import type { Point } from '../data/maps';
 import { useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
-import { canBuy, capOf, costOf, isUnlocked, levelOf, upgradeDef } from '../sim/economy/upgrades';
+import { capOf, costOf, isUnlocked, levelOf, upgradeDef } from '../sim/economy/upgrades';
 import { formatBig } from '../sim/format';
 import { gold, panel } from './theme';
-import type { Wallet } from './UpgradePanel';
+import { canBuyNow, type Wallet } from './UpgradePanel';
 
 /** What build mode offers: a table on the next dashed spot, then the decor pieces. */
 export const BUILD_ITEMS: readonly string[] = ['tables', ...DECOR.map((d) => placeRow(d.id))];
@@ -45,7 +45,7 @@ export function BuildPanel({ wallet, item, tile, freeTiles, onItem, onPlace, onD
   const riseStyle = useAnimatedStyle(() => ({ transform: [{ translateY: rise.value * 160 }] }));
   const chosen = item ? upgradeDef(item) : null;
   const isDecor = chosen?.build === true;
-  const affordable = chosen ? canBuy(chosen, wallet.levels, wallet.coins, wallet.map) : false;
+  const affordable = chosen ? canBuyNow(chosen, wallet) : false;
   const hint = !chosen ? t('ui.buildPick') : !isDecor ? t('ui.tableSpot') : freeTiles === 0 ? t('ui.noTile') : tile ? null : t('ui.buildTap');
   return (
     <Animated.View style={[styles.wrap, riseStyle]} pointerEvents="box-none">
@@ -92,7 +92,7 @@ export function BuildPanel({ wallet, item, tile, freeTiles, onItem, onPlace, onD
                 </View>
               )}
               <View style={styles.row}>
-                <Text style={[styles.cost, !canBuy(def, wallet.levels, wallet.coins, wallet.map) && styles.costOff]}>{full ? t('ui.max') : formatBig(costOf(def, level))}</Text>
+                <Text style={[styles.cost, !canBuyNow(def, wallet) && styles.costOff]}>{full ? t('ui.max') : formatBig(costOf(def, level))}</Text>
                 {cap !== Infinity && <Text style={styles.small}>{`${level}/${cap}`}</Text>}
               </View>
             </Pressable>

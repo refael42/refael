@@ -1,5 +1,6 @@
 import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
-import { F, P as PF } from '../../sim/snapshot';
+import { F, P as PF, W, WORK_STRIDE } from '../../sim/snapshot';
+import { drawText } from './text';
 import { PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
@@ -302,6 +303,13 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     spr(c, A, S.lamp, 0, 0, plain);
     sprFade(c, A, S.glowHalo, 0, oy(0, 0, 76), 1, 0.75 + Math.sin(t * 2 + seed) * 0.2);
   } else if (kind === PropKind.SaleSign) spr(c, A, S.saleSign, 0, 0, plain);
+  else if (kind === PropKind.WorkSite) {
+    // Jolts when tapped (the crew speeds up), the warning lamp blinks.
+    const age = t - d[o + PF.since]!;
+    const jolt = age >= 0 && age < 0.25 ? Math.sin(age * 60) * (1 - age / 0.25) * 6 : 0;
+    sprXf(c, A, variant === 1 ? S.workCrate : S.workBarrier, 0, 0, jolt, 1, 1, plain);
+    if (variant === 0 && Math.sin(t * 7 + seed) > 0) sprFade(c, A, S.glowHalo, ox(0.36, 0), oy(0.36, 0, 24), 0.35, 0.9);
+  }
   else if (kind === PropKind.Neon) {
     spr(c, A, look(A.L.look.neonBoard, tier), 0, 0, plain);
     // Mostly on, with the occasional cheap-neon stutter (fancier signs stutter less).
@@ -341,5 +349,38 @@ export function drawBadges(c: SkCanvas, A: RenderAssets, badges: number[], best:
     const bob = Math.abs(Math.sin(t * 2.8 + i)) * 4;
     const pulse = 1 + Math.sin(t * 5 + i) * 0.06;
     sprXf(c, A, A.S.arrowUp, isoX(x, y), isoY(x, y, lift + (BADGE_HEIGHT[kind] ?? 50)) - bob, 0, pulse, pulse, A.paints.plain);
+  }
+}
+
+/** "1:05", "42s", "2h05": seconds left on a job. */
+function timeText(left: number): string {
+  'worklet';
+  const s = Math.max(0, Math.ceil(left));
+  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  if (s >= 3600) return `${Math.floor(s / 3600)}h${pad(Math.floor((s % 3600) / 60))}`;
+  if (s >= 60) return `${Math.floor(s / 60)}:${pad(s % 60)}`;
+  return `${s}s`;
+}
+
+/** Over each big upgrade in progress: a swinging hammer, the time left and a progress bar. */
+export function drawWorks(c: SkCanvas, A: RenderAssets, works: number[], t: number): void {
+  'worklet';
+  const P = A.paints;
+  for (let i = 0; i < works.length; i += WORK_STRIDE) {
+    const wx = works[i + W.x]!;
+    const wy = works[i + W.y]!;
+    const kind = works[i + W.kind]!;
+    const progress = works[i + W.progress]!;
+    const lift = kind === PropKind.PlatesClean ? 22 : 0;
+    const x = isoX(wx, wy);
+    const y = isoY(wx, wy, lift + (BADGE_HEIGHT[kind] ?? 50)) - Math.abs(Math.sin(t * 2.2 + i)) * 2;
+    // The hammer comes down on the station again and again.
+    const swing = Math.max(0, Math.sin(t * 7 + i));
+    sprXf(c, A, A.S.workHammer, x + 30, y + 2, -60 + swing * 70, 0.9, 0.9, P.plain);
+    sprXf(c, A, A.S.workDial, x, y - 10, 0, 1, 1, P.plain);
+    drawText(c, A, timeText(works[i + W.left]!), x, y - 10, 0.82, P.plain, 0.5);
+    const w = 42;
+    c.drawRRect({ rect: { x: x - w / 2 - 1.5, y: y + 3, width: w + 3, height: 7 }, rx: 3.5, ry: 3.5 }, P.barBack);
+    c.drawRRect({ rect: { x: x - w / 2, y: y + 4.5, width: Math.max(3, w * progress), height: 4 }, rx: 2, ry: 2 }, P.barMid);
   }
 }

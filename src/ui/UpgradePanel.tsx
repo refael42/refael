@@ -4,30 +4,41 @@ import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, wi
 import { TIERS } from '../data/buildings';
 import { mapForTier, type MapDef } from '../data/maps';
 import { ROLES } from '../data/staff';
-import { CATEGORIES, COUNT_STATS, EXPAND, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
+import { CATEGORIES, COUNT_STATS, EXPAND, RANK, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
 import type { Big } from '../sim/big';
-import { canBuy, costOf, isMaxed, isUnlocked, itemValue, levelOf, nextMilestone, prevMilestone, tierOf, upgradeDef, type Levels } from '../sim/economy/upgrades';
+import { isCappedTrack, isMaxed, isUnlocked, itemValue, levelCap, levelOf, nextMilestone, prevMilestone, restaurantLevel, tierOf, tracksAtCap, upgradeDef, type Levels } from '../sim/economy/upgrades';
+import { gemsToFinish, planBuy, type Crews } from '../sim/economy/works';
 import { bestValue } from '../sim/economy/value';
-import { formatBig, formatNumber } from '../sim/format';
+import { formatBig, formatDuration, formatNumber } from '../sim/format';
 import type { PropKind } from '../sim/types';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
+import { BulkToggle } from './Bulk';
+import type { BulkStep } from '../data/works';
 
 export interface Wallet {
   coins: Big;
   levels: Levels;
   /** The current building: it caps how many tables and stoves fit. */
   map: MapDef;
+  /** Big upgrades in progress and how many crews there are; gems to finish them now. */
+  crews: Crews;
+  gems: number;
 }
+
+/** Can one level of this be bought right now (the crews and the building allowing)? */
+export const canBuyNow = (def: UpgradeDef, w: Wallet): boolean => planBuy(def, w.levels, w.coins, w.map, w.crews, 1).status === 'ok';
 
 interface Props {
   wallet: Wallet;
   /** A tapped station's upgrades, or null for the full catalog with category tabs. */
   station: PropKind | null;
-  onBuy: (id: string) => void;
+  onBuy: (id: string, step: BulkStep) => void;
+  /** Finish a big upgrade now with gems. */
+  onFinish: (work: number) => void;
   onShowAll: () => void;
   onClose: () => void;
 }
@@ -42,7 +53,7 @@ function valueText(def: UpgradeDef, level: number): string {
 }
 
 /** The buy button pulses while affordable: the "one more upgrade" itch. */
-function BuyButton({ cost, affordable, onPress }: { cost: Big; affordable: boolean; onPress: () => void }) {
+function BuyButton({ cost, affordable, count, seconds, onPress }: { cost: Big; affordable: boolean; count: number; seconds: number; onPress: () => void }) {
   const scale = useSharedValue(1);
   useEffect(() => {
     if (affordable) scale.value = withRepeat(withSequence(withTiming(1.06, { duration: 420 }), withTiming(1, { duration: 420 })), -1);
@@ -64,8 +75,14 @@ function BuyButton({ cost, affordable, onPress }: { cost: Big; affordable: boole
       hitSlop={6}
     >
       <Animated.View style={[styles.buy, !affordable && styles.buyOff, style]}>
-        <View style={styles.coin} />
-        <Text style={[styles.buyText, !affordable && styles.buyTextOff]}>{formatBig(cost)}</Text>
+        <View style={styles.buyLine}>
+          <View style={styles.coin} />
+          <Text style={[styles.buyText, !affordable && styles.buyTextOff]}>{formatBig(cost)}</Text>
+        </View>
+        {/* How many levels this tap buys, and the build time the last one needs. */}
+        {(count > 1 || seconds > 0) && (
+          <Text style={[styles.buyNote, !affordable && styles.buyTextOff]}>{[count > 1 ? `x${count}` : '', seconds > 0 ? `⏱ ${formatDuration(seconds)}` : ''].filter(Boolean).join('  ')}</Text>
+        )}
       </Animated.View>
     </Pressable>
   );
@@ -101,9 +118,29 @@ function NextBuilding({ level }: { level: number }) {
   );
 }
 
-function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; onBuy: (id: string) => void; best: boolean }) {
+/** A crew is on it: the time left, a bar, and "finish now" for gems. */
+function WorkBox({ total, left, gems, onFinish }: { total: number; left: number; gems: number; onFinish: () => void }) {
+  const cost = gemsToFinish(left);
+  const can = gems >= cost;
+  return (
+    <View style={styles.work}>
+      <Text style={styles.workTime}>{`🔨 ${formatDuration(left)}`}</Text>
+      <View style={styles.workBar}>
+        <View style={[styles.workFill, { width: `${Math.min(100, (1 - left / Math.max(1, total)) * 100)}%` }]} />
+      </View>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: !can }} disabled={!can} onPress={onFinish} hitSlop={4} style={[styles.finish, !can && styles.buyOff]}>
+        <Text style={styles.finishText}>{`💎 ${cost}`}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: Wallet; onBuy: (id: string, step: BulkStep) => void; onFinish: (work: number) => void; best: boolean }) {
   const t = useT();
   const rtl = isRTL(useSettings((s) => s.lang));
+  const bulk = useSettings((s) => s.bulk);
+  const plan = planBuy(def, wallet.levels, wallet.coins, wallet.map, wallet.crews, bulk);
+  const work = wallet.crews.works.find((w) => w.item === def.id);
   const level = levelOf(wallet.levels, def.id);
   const unlocked = isUnlocked(def, wallet.levels);
   const maxed = isMaxed(def, wallet.levels, wallet.map);
@@ -133,10 +170,11 @@ function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; on
             <Text style={styles.stat}>{t(`stat.${def.effect.stat}`)}</Text>
             <Text style={styles.value}>{valueText(def, level)}</Text>
             {!maxed && <Text style={styles.arrow}>{rtl ? '‹' : '›'}</Text>}
-            {!maxed && <Text style={styles.valueNext}>{valueText(def, level + 1)}</Text>}
+            {!maxed && <Text style={styles.valueNext}>{valueText(def, level + Math.max(1, plan.count))}</Text>}
           </View>
         )}
         {def.unlocksDish !== undefined && level === 0 && <Text style={styles.note}>{t('ui.unlocksDish')}</Text>}
+        {def.id === RANK.id && <Text style={styles.note}>{`${t('ui.rankOpens')} ${levelCap(wallet.levels) + RANK.levels}`}</Text>}
         {def.milestone && (
           <View style={styles.line}>
             <View style={styles.bar}>
@@ -150,7 +188,13 @@ function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; on
           </View>
         )}
       </View>
-      {!unlocked && def.requires ? (
+      {!unlocked && def.id === RANK.id ? (
+        // The next restaurant level waits for enough tracks to reach the cap.
+        <View style={styles.needs}>
+          <Text style={styles.needsBig}>{`${tracksAtCap(wallet.levels)}/${RANK.ready}`}</Text>
+          <Text style={styles.needsText}>{`${t('ui.rankNeeds')} ${levelCap(wallet.levels)}`}</Text>
+        </View>
+      ) : !unlocked && def.requires ? (
         <View style={styles.needs}>
           <Text style={styles.needsText}>{t('ui.needs')}</Text>
           <Text style={styles.needsText} numberOfLines={1}>
@@ -158,10 +202,23 @@ function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; on
           </Text>
           <Text style={styles.needsText}>{`${t('ui.lv')} ${def.requires.level}`}</Text>
         </View>
+      ) : maxed && isCappedTrack(def) ? (
+        // Level 100, 200...: the restaurant has to level up first.
+        <View style={styles.needs}>
+          <Text style={styles.needsBig}>{'🔒'}</Text>
+          <Text style={styles.needsText}>{`${t('ui.capLocked')} ${restaurantLevel(wallet.levels) + 1}`}</Text>
+        </View>
       ) : maxed ? (
         <Text style={styles.max}>{t('ui.max')}</Text>
+      ) : work ? (
+        <WorkBox total={work.total} left={work.left} gems={wallet.gems} onFinish={() => onFinish(work.id)} />
+      ) : plan.status === 'noCrew' ? (
+        <View style={[styles.buy, styles.buyOff, styles.busy]}>
+          <Text style={styles.busyText}>{'👷'}</Text>
+          <Text style={styles.busyText}>{t('ui.crewsBusy')}</Text>
+        </View>
       ) : (
-        <BuyButton cost={costOf(def, level)} affordable={canBuy(def, wallet.levels, wallet.coins, wallet.map)} onPress={() => onBuy(def.id)} />
+        <BuyButton cost={plan.cost} affordable={plan.status === 'ok'} count={plan.count} seconds={plan.seconds} onPress={() => onBuy(def.id, bulk)} />
       )}
     </View>
   );
@@ -172,14 +229,14 @@ function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; on
 /** The catalog's tabs: "best value" across everything, then the categories. */
 type Tab = Category | 'best';
 
-export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Props) {
+export function UpgradePanel({ wallet, station, onBuy, onFinish, onShowAll, onClose }: Props) {
   const t = useT();
   const rtl = isRTL(useSettings((s) => s.lang));
   const [category, setCategory] = useState<Tab>('best');
   const [query, setQuery] = useState('');
   const [buyableOnly, setBuyableOnly] = useState(false);
   const ranked = useMemo(() => bestValue(wallet.levels, wallet.map), [wallet.levels, wallet.map]);
-  const affordable = (u: UpgradeDef) => canBuy(u, wallet.levels, wallet.coins, wallet.map);
+  const affordable = (u: UpgradeDef) => canBuyNow(u, wallet);
   // The one to buy next: the best value you can pay for now.
   const bestId = ranked.find(affordable)?.id;
   const slide = useSharedValue(1);
@@ -193,7 +250,8 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
   let items: readonly UpgradeDef[];
   if (station !== null) items = listed.filter((u) => u.anchor === station);
   else if (q) items = listed.filter((u) => t(`up.${u.id}`).toLowerCase().includes(q));
-  else if (category === 'best') items = ranked;
+  // The next restaurant level, when it can be built (or is being built), comes first.
+  else if (category === 'best') items = isUnlocked(upgradeDef(RANK.id), wallet.levels) ? [upgradeDef(RANK.id), ...ranked.filter((d) => d.id !== RANK.id)] : ranked;
   else items = listed.filter((u) => u.category === category);
   if (station === null && buyableOnly) items = items.filter(affordable);
   // One upgrade: its name. Several on one station (the pass holds the menu): their category.
@@ -204,6 +262,7 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
+        <BulkToggle />
         <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
           <Text style={styles.closeText}>{'✕'}</Text>
         </Pressable>
@@ -245,14 +304,14 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
       )}
       <ScrollView style={styles.list} contentContainerStyle={styles.listInner}>
         {items.map((def) => (
-          <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} best={def.id === bestId} />
+          <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} onFinish={onFinish} best={def.id === bestId} />
         ))}
         {items.length === 0 && <Text style={styles.empty}>{t('ui.noResults')}</Text>}
         {/* A station's own list: the best buy anywhere right now, if it is something else. */}
         {station !== null && bestId && !items.some((d) => d.id === bestId) && (
           <>
             <Text style={styles.bestHeader}>{`★ ${t('ui.bestNow')}`}</Text>
-            <Row def={upgradeDef(bestId)} wallet={wallet} onBuy={onBuy} best />
+            <Row def={upgradeDef(bestId)} wallet={wallet} onBuy={onBuy} onFinish={onFinish} best />
           </>
         )}
         {station !== null && (
@@ -280,7 +339,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 6px 0px #120818',
     overflow: 'hidden',
   },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingTop: 10, paddingBottom: 6 },
   title: { flex: 1, color: '#FFE9A8', fontSize: 19, fontWeight: '900' },
   close: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#4A2550', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#FFE9A8', fontSize: 16, fontWeight: '900' },
@@ -343,18 +402,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#35B957',
     borderWidth: 2,
     borderColor: '#B9F5A8',
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
-    gap: 5,
     boxShadow: '0px 3px 0px #17602A',
   },
+  buyLine: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  buyNote: { color: '#FFFFFF', fontWeight: '900', fontSize: 10, marginTop: -2 },
+  busy: { flexDirection: 'column', gap: 0 },
+  busyText: { color: '#E8D7F0', fontWeight: '800', fontSize: 10, textAlign: 'center' },
+  work: { width: 92, alignItems: 'center', gap: 3 },
+  workTime: { color: '#FFD23F', fontWeight: '900', fontSize: 13 },
+  workBar: { width: 80, height: 6, borderRadius: 3, backgroundColor: '#1C0E22', overflow: 'hidden' },
+  workFill: { height: 6, backgroundColor: '#F4C542' },
+  finish: { minWidth: 70, height: 28, borderRadius: 10, backgroundColor: '#3E6FE0', borderWidth: 1.5, borderColor: '#BFD4FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, boxShadow: '0px 2px 0px #1E3A80' },
+  finishText: { color: '#FFFFFF', fontWeight: '900', fontSize: 13 },
   buyOff: { backgroundColor: '#5A4E66', borderColor: '#7A6E86', boxShadow: '0px 3px 0px #2A2232' },
   coin: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#FFC21A', borderWidth: 1.5, borderColor: '#9A6A00' },
   buyText: { color: '#FFFFFF', fontWeight: '900', fontSize: 15 },
   buyTextOff: { color: '#D8CFE0' },
   needs: { width: 84, alignItems: 'center' },
+  needsBig: { color: gold, fontSize: 16, fontWeight: '900', textAlign: 'center' },
   needsText: { color: '#E8C76A', fontSize: 11, fontWeight: '800', textAlign: 'center' },
   max: { width: 84, textAlign: 'center', color: gold, fontWeight: '900', fontSize: 15 },
   allButton: { alignSelf: 'center', marginTop: 4, paddingHorizontal: 18, height: 40, borderRadius: 20, borderWidth: 2, borderColor: gold, justifyContent: 'center' },

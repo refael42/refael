@@ -60,7 +60,13 @@ export interface Snapshot {
   badges: number[];
   /** The best buy right now: (x, y, prop kind), or empty. A gold star instead of the arrow. */
   bestBadge: number[];
+  /** Big upgrades in progress, WORK_STRIDE numbers each (see W). */
+  works: number[];
 }
+
+/** Packed work sites: floor position, progress 0..1, seconds left, the station's prop kind. */
+export const WORK_STRIDE = 5;
+export const W = { x: 0, y: 1, progress: 2, left: 3, kind: 4 } as const;
 
 export interface SnapshotExtra {
   events?: number[];
@@ -70,9 +76,10 @@ export interface SnapshotExtra {
   bumps?: number[];
   badges?: number[];
   bestBadge?: number[];
+  works?: number[];
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [] };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [] };
 
 interface SortItem {
   depth: number;
@@ -156,5 +163,6 @@ export function packSnapshot(
     bumps: extra.bumps ?? [],
     badges: extra.badges ?? [],
     bestBadge: extra.bestBadge ?? [],
+    works: extra.works ?? [],
   };
 }

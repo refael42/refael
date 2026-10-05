@@ -23,7 +23,9 @@ export type ShopItem =
   /** A top worker who joins at once. */
   | { id: string; kind: 'star'; cost: number; role: Role }
   /** A permanent multiplier on one stat (one of each). */
-  | { id: string; kind: 'perk'; cost: number; stat: PerkStat; mult: number };
+  | { id: string; kind: 'perk'; cost: number; stat: PerkStat; mult: number }
+  /** One more crew for big upgrades, for good (src/data/works.ts). */
+  | { id: string; kind: 'crew'; cost: number };
 
 export type PerkStat = 'price' | 'arrivals' | 'cookSpeed' | 'tips';
 
@@ -49,6 +51,8 @@ export const SHOP: readonly ShopItem[] = [
   { id: 'vipSign', kind: 'perk', cost: 400, stat: 'arrivals', mult: 1.25 },
   { id: 'turboKitchen', kind: 'perk', cost: 400, stat: 'cookSpeed', mult: 1.5 },
   { id: 'charmSchool', kind: 'perk', cost: 300, stat: 'tips', mult: 2 },
+  { id: 'crew3', kind: 'crew', cost: 250 },
+  { id: 'crew4', kind: 'crew', cost: 600 },
 ];
 
 export const SHOP_BY_ID: Readonly<Record<string, ShopItem>> = Object.fromEntries(SHOP.map((i) => [i.id, i]));

@@ -80,6 +80,8 @@ function finishConstruction(s: GameState): void {
     gems: s.gems,
     boost: s.boost,
     earnLog: s.earnLog,
+    works: s.works,
+    nextWorkId: s.nextWorkId,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.
     nextId: Math.max(s.nextId, fresh.nextId),
   };

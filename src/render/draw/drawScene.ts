@@ -3,7 +3,7 @@ import { F, P as PF, STRIDE, type Snapshot } from '../../sim/snapshot';
 import { EntityType, PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { drawCharacter, drawCharacterOverlay } from './drawCharacter';
-import { drawBadges, drawProp, type PropLooks } from './drawProp';
+import { drawBadges, drawProp, drawWorks, type PropLooks } from './drawProp';
 import { drawScreenFx, drawWorldFx, processEvents, type Camera, type FxState } from './fx';
 import { hudAnchors, type HudLayout } from './hud';
 import { isoX, isoY } from '../iso';
@@ -115,6 +115,7 @@ export function drawScene(
     if (d[o + F.type] === EntityType.Character) drawCharacterOverlay(c, A, d, o, alpha, t);
   }
   drawBadges(c, A, snap.badges, snap.bestBadge, t);
+  drawWorks(c, A, snap.works, t);
   drawWorldFx(c, A, fx, t);
   c.restore();
   // Evening and night: tint the world, then let the lights glow through it.

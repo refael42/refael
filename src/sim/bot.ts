@@ -1,7 +1,9 @@
 import { DAY } from '../data/staff';
 import { UPGRADES } from '../data/upgrades';
 import { ZERO, type Big } from './big';
-import { canBuy, costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
+import { costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
+import { planBuy } from './economy/works';
+import { crewsOf } from './game/works';
 import { signingFee } from './game/applicants';
 import { autoTile } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
@@ -88,8 +90,9 @@ function wanted(s: GameState, role: string): number {
 export function cheapestAffordable(s: GameState, budget: Big = s.coins, skip: ReadonlySet<string> = new Set()): string | null {
   let best: string | null = null;
   let bestCost = Infinity;
+  const crews = crewsOf(s);
   for (const def of UPGRADES) {
-    if (skip.has(def.id) || !canBuy(def, s.levels, budget, s.map)) continue;
+    if (skip.has(def.id) || planBuy(def, s.levels, budget, s.map, crews, 1).status !== 'ok') continue;
     const cost = costOf(def, levelOf(s.levels, def.id)).toNumber();
     if (cost < bestCost) {
       bestCost = cost;
@@ -116,13 +119,14 @@ export function createBot(options: BotOptions): Bot {
   const saveForBuilding = (s: GameState, budget: Big): boolean => {
     const def = upgradeDef('building');
     const level = levelOf(s.levels, def.id);
-    if (s.construction || isMaxed(def, s.levels, s.map) || earnedAt.length < 2) return false;
+    if (s.construction || isMaxed(def, s.levels, s.map) || earnedAt.length < 2 || s.works.some((w) => w.item === def.id)) return false;
     const first = earnedAt[0]!;
     const minutes = (s.time - first.time) / 60;
     const perMinute = s.stats.earned.sub(first.earned).div(Math.max(1 / 60, minutes));
     const cost = costOf(def, level);
     if (cost.gt(perMinute.mul(SAVE_FOR_BUILDING_MINUTES))) return false;
-    if (budget.gte(cost)) buy(s, def.id);
+    // Paid for, but every crew is busy: keep saving until one is free.
+    if (budget.gte(cost) && planBuy(def, s.levels, budget, s.map, crewsOf(s), 1).status === 'ok') buy(s, def.id);
     return true;
   };
   const act = (s: GameState) => {
@@ -134,6 +138,7 @@ export function createBot(options: BotOptions): Bot {
     for (const target of tapTargets(s)) {
       const cmd = target.command;
       if (cmd.type === 'wash' && washer) continue; // The dishwasher's job.
+      if (cmd.type === 'hurry') continue; // Waits for the crews like a patient player.
       if (cmd.type === 'seat' && !freeTable) continue;
       if (!options.helpStaff && cmd.type !== 'seat') continue;
       const key = keyOf(cmd);

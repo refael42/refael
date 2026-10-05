@@ -47,6 +47,12 @@ export const Ev = {
   Rush: 23,
   /** The restaurant reached a new level (all its quests claimed). a = the new level */
   LevelUpRestaurant: 24,
+  /** A crew started on a big upgrade here. a = seconds it takes */
+  WorkStart: 25,
+  /** A tap sped a job up. a = seconds taken off */
+  WorkTap: 26,
+  /** A big upgrade is done. a = the level it brought */
+  WorkDone: 27,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

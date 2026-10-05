@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buyNow } from './helpers';
 import { CONSTRUCTION, TIERS } from '../src/data/buildings';
 import { Dish } from '../src/data/dishes';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
@@ -31,7 +32,7 @@ describe('building tiers', () => {
   it('buying the lot closes the restaurant for a construction show', () => {
     const s = busyDiner();
     const coins = s.coins;
-    expect(buyUpgrade(s, 'building')).toBe(true);
+    expect(buyNow(s, 'building')).toBe(true);
     expect(coins.sub(s.coins).eq(costOf(upgradeDef('building'), 0))).toBe(true);
     expect(s.construction).not.toBeNull();
     expect(s.events.some((e) => e.type === Ev.Build)).toBe(true);
@@ -48,7 +49,7 @@ describe('building tiers', () => {
     const s = busyDiner();
     const team = s.staff.map((st) => `${st.role}:${st.name}:${st.level}`).sort();
     const rating = s.rating;
-    buyUpgrade(s, 'building');
+    buyNow(s, 'building');
     const coins = s.coins;
     run(s, CONSTRUCTION.seconds + STEP_SEC * 2);
     expect(s.construction).toBeNull();

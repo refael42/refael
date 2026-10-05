@@ -6,6 +6,7 @@ import type { SpriteName } from './sprites';
 const ICON: Record<string, { base: string; looks: boolean }> = {
   fries: { base: 'plateFries', looks: true },
   burger: { base: 'plateBurger', looks: true },
+  rank: { base: 'star', looks: false },
   falafel: { base: 'plateFalafel', looks: true },
   shawarma: { base: 'plateShawarma', looks: true },
   hummus: { base: 'plateHummus', looks: true },

@@ -1,7 +1,7 @@
 import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { UPGRADES } from '../../data/upgrades';
-import { canBuy, levelOf, tierOf } from '../economy/upgrades';
+import { canBuy, levelOf, tierOf, upgradeDef } from '../economy/upgrades';
 import { bestBuy } from '../economy/value';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
@@ -10,9 +10,11 @@ import { DAY } from '../../data/staff';
 import { updateApplicants } from './applicants';
 import { applyCommands } from './commands';
 import { updateConstruction } from './construction';
+import { finishWork } from './purchase';
+import { updateWorks } from './works';
 import { updateArrivals, updateCustomers } from './customers';
 import { packEvents, pruneEvents } from './events';
-import { anchorPoints } from './purchase';
+import { anchorPoints, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
@@ -38,6 +40,8 @@ export function stepGame(s: GameState, dt: number): void {
   }
   applyCommands(s);
   updateConstruction(s);
+  // Crews down tools during the building show (the room is being rebuilt under them).
+  if (!s.construction) updateWorks(s, dt, (w) => finishWork(s, w));
   updateArrivals(s);
   updateCustomers(s, dt);
   updateStaff(s, dt);
@@ -117,6 +121,12 @@ function dynamicProps(s: GameState): PropView[] {
   const stoveSpot = s.map.stoves[s.stoves.length];
   if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
   if (s.construction) out.push(...scaffolding(s.construction));
+  // Big upgrades in progress: a crate where a showpiece goes in, a barrier in front of a station.
+  for (const w of s.works) {
+    const p = siteOf(s, w);
+    const crate = w.at !== null;
+    out.push(prop(SYNTH - 200 - w.id, PropKind.WorkSite, p.x + (crate ? 0 : 0.35), p.y + (crate ? 0 : 0.55), { variant: crate ? 1 : 0, since: w.lastTap, depthBias: 0.5 }));
+  }
   return out;
 }
 
@@ -164,6 +174,10 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.
     bumps: [...s.bumpAt],
+    works: s.works.flatMap((w) => {
+      const p = siteOf(s, w);
+      return [p.x, p.y, w.total > 0 ? 1 - w.left / w.total : 1, Math.max(0, w.left), upgradeDef(w.item).anchor];
+    }),
     ...upgradeViews(s),
   });
 }

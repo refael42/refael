@@ -158,6 +158,16 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
   { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 3.6e6, growth: 30, max: TIERS.length - 1,
     effect: { stat: 'building', per: 1 }, milestone: null },
+  // The restaurant level (owner request): opens the next hundred levels of everything, and every
+  // dish sells for a bit more. A crew builds it; it shows up once enough tracks hit the cap.
+  { id: 'rank', category: 'building', anchor: K.Neon, restyle: null, baseCost: 2e6, growth: 50,
+    effect: { stat: 'quality', per: 0.25 }, milestone: null },
 ];
+
+/**
+ * Restaurant levels: every endless track stops at `levels` x the restaurant level, and the next
+ * restaurant level can be built once `ready` tracks have reached that cap.
+ */
+export const RANK = { id: 'rank', levels: 100, ready: 5 } as const;
 
 export const UPGRADE_BY_ID: Readonly<Record<string, UpgradeDef>> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));

@@ -69,3 +69,12 @@ export function formatBig(source: BigSource): string {
   if (value.lt(1000)) return String(Math.floor(value.toNumber() + 1e-9));
   return formatParts(value.mantissa, value.exponent);
 }
+
+/** Time left on a job: "45s", "3:05", "1h05". */
+export function formatDuration(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds));
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (s >= 3600) return `${Math.floor(s / 3600)}h${pad(Math.floor((s % 3600) / 60))}`;
+  if (s >= 60) return `${Math.floor(s / 60)}:${pad(s % 60)}`;
+  return `${s}s`;
+}

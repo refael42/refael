@@ -70,6 +70,8 @@ export const PropKind = {
   Statue: 22,
   Fountain: 23,
   Piano: 24,
+  /** A big upgrade in progress: a barrier by the station (variant 1: a crate where a showpiece goes). */
+  WorkSite: 25,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

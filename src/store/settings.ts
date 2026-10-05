@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import type { BulkStep } from '../data/works';
 
 type Lang = 'he' | 'en';
 export type View = 'game' | 'cast';
@@ -25,6 +26,9 @@ interface SettingsState {
   tutorial: number;
   /** Taps on the "test money" button (testing only); the game grants coins on each new one. */
   moneyTaps: number;
+  /** Levels per tap on a buy or train button (x1, x10, x100, max). */
+  bulk: BulkStep;
+  setBulk: (bulk: BulkStep) => void;
   setLang: (lang: Lang) => void;
   togglePerf: () => void;
   toggleStress: () => void;
@@ -50,6 +54,8 @@ export const useSettings = create<SettingsState>((set) => ({
   profile: null,
   tutorial: 0,
   moneyTaps: 0,
+  bulk: 1,
+  setBulk: (bulk) => set({ bulk }),
   setLang: (lang) => set({ lang }),
   togglePerf: () => set((s) => ({ showPerf: !s.showPerf })),
   toggleStress: () => set((s) => ({ stress: s.stress > 0 ? 0 : STRESS_WALKERS })),

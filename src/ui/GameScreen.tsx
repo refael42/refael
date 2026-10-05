@@ -7,7 +7,7 @@ import { DECOR } from '../data/decor';
 import { mapForTier, STAND_MAP, type Point } from '../data/maps';
 import { TUTORIAL_STEPS } from '../data/tutorial';
 import { LINEUP } from '../data/scenes';
-import { UPGRADES } from '../data/upgrades';
+import { RANK, UPGRADES } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
 import { mapBackground, type BackgroundDef } from '../render/art/background';
 import type { Camera } from '../render/draw/fx';
@@ -17,7 +17,8 @@ import { SceneCanvas, type HudFeed } from '../render/SceneCanvas';
 import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulation';
 import { TEST_MONEY } from '../data/economy';
 import { big, toSave } from '../sim/big';
-import { canBuy, levelOf, upgradeDef } from '../sim/economy/upgrades';
+import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
+import { crewCount } from '../sim/economy/works';
 import { buildableTiles } from '../sim/game/build';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState } from '../sim/game/types';
@@ -43,8 +44,9 @@ import { GemPill, Shop } from './Shop';
 import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
-import { UpgradePanel } from './UpgradePanel';
+import { canBuyNow, UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
+import { WorksTray } from './WorksTray';
 
 const CAST_BG: BackgroundDef = { width: LINEUP.width, height: LINEUP.height, areas: LINEUP.areas };
 const CAST_FOCUS = { x: 7.6, y: 4.9, zoom: 1.7 };
@@ -84,15 +86,23 @@ function CornerButton({ label, count, onPress, color, ref }: { label: string; co
   );
 }
 
-/** The restaurant's quest level (a banner celebrates each new one). */
+/** The restaurant's quest stage and its level (a banner celebrates each new one). */
 const readQuestLevel = (s: GameState) => s.quests.level;
+const readRank = (s: GameState) => restaurantLevel(s.levels);
 
 /** The building on screen, and the tier going up on the lot next door (-1 = none). */
 const readTier = (s: GameState) => s.map.tier;
 const readConstruction = (s: GameState) => s.construction?.tier ?? -1;
 
 /** What the corner buttons need, read twice a second. */
-const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, map: s.map, waiting: s.applicants.filter((a) => a.state === 'waiting').length });
+const readWallet = (s: GameState) => ({
+  coins: s.coins,
+  levels: s.levels,
+  map: s.map,
+  waiting: s.applicants.filter((a) => a.state === 'waiting').length,
+  gems: s.gems,
+  crews: { works: s.works.map((w) => ({ id: w.id, item: w.item, total: w.total, left: w.left })), crews: crewCount(s.perks) },
+});
 
 /** The live restaurant: scene, upgrade and staff panels, decisions, welcome-back screen. */
 function GameRunner({ boot }: { boot: GameBoot }) {
@@ -115,8 +125,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const [staff, setStaff] = useState<StaffView | null>(null);
   const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
-  const affordable = wallet ? UPGRADES.filter((u) => !u.build && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length : 0;
-  const buildable = wallet ? BUILD_ITEMS.filter((id) => canBuy(upgradeDef(id), wallet.levels, wallet.coins, wallet.map)).length : 0;
+  const affordable = wallet ? UPGRADES.filter((u) => !u.build && canBuyNow(u, wallet)).length : 0;
+  const buildable = wallet ? BUILD_ITEMS.filter((id) => canBuyNow(upgradeDef(id), wallet)).length : 0;
+  const bulk = useSettings((s) => s.bulk);
   const t = useT();
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
@@ -196,6 +207,15 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     shownLevel.current = questLevel;
   }, [questLevel]);
   const endLevelBanner = useCallback(() => setLevelBanner(null), []);
+  const rank = usePoll(gameRef, readRank, 2);
+  const [rankBanner, setRankBanner] = useState<number | null>(null);
+  const shownRank = useRef<number | null>(null);
+  useEffect(() => {
+    if (rank === null) return;
+    if (shownRank.current !== null && rank > shownRank.current) setRankBanner(rank);
+    shownRank.current = rank;
+  }, [rank]);
+  const endRankBanner = useCallback(() => setRankBanner(null), []);
   const [banner, setBanner] = useState<number | null>(null);
   const shownTier = useRef(tier);
   useEffect(() => {
@@ -265,6 +285,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} onCamera={onCamera} />
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {!onboarding && <GemPill gameRef={gameRef} onPress={() => setShop(true)} style={{ left: hud.left + 6, top: hud.top + HUD.height + 8 }} />}
+      {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
       <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
@@ -288,7 +309,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         <UpgradePanel
           wallet={wallet}
           station={panel.station}
-          onBuy={(item) => command({ type: 'buy', item })}
+          onBuy={(item, step) => command({ type: 'buy', item, step })}
+          onFinish={(work) => command({ type: 'finish', work })}
           onShowAll={() => open(null)}
           onClose={close}
         />
@@ -309,6 +331,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       )}
       {building >= 0 && <ConstructionNote />}
       {levelBanner !== null && <LevelBanner level={levelBanner} onDone={endLevelBanner} />}
+      {rankBanner !== null && levelBanner === null && <LevelBanner level={rankBanner} rank={{ opens: rankBanner * RANK.levels }} onDone={endRankBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
       {loaded && !profile && (

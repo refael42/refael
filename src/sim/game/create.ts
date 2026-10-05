@@ -199,6 +199,17 @@ export interface GameSetup {
   fiveStars?: number;
   rushes?: number;
   bestCombo?: number;
+  /** Big upgrades a crew was working on. */
+  works?: readonly SavedWork[];
+}
+
+/** A job in progress as the save keeps it. */
+export interface SavedWork {
+  item: string;
+  level: number;
+  total: number;
+  left: number;
+  at: Point | null;
 }
 
 export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
@@ -261,6 +272,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     nextNoticeId: 1,
     construction: null,
     placed: [],
+    works: (setup.works ?? []).map((w, i) => ({ ...w, at: w.at ? { ...w.at } : null, id: i + 1, lastTap: -Infinity })),
+    nextWorkId: (setup.works?.length ?? 0) + 1,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);

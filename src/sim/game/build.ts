@@ -2,6 +2,7 @@ import { TIERS } from '../../data/buildings';
 import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, type MapDef, type Point } from '../../data/maps';
 import { buildGrid, canReach, reachableFrom } from '../grid';
 import type { GameState } from './types';
+import { reservedBy } from './works';
 
 // Build mode: where decor may go. A tile is buildable when it is dining-room floor, nothing
 // stands on it, nothing the restaurant needs (now or in any bigger building) uses it, and
@@ -45,10 +46,11 @@ export function canPlaceAt(s: GameState, x: number, y: number): boolean {
   const ty = Math.floor(y);
   const map = s.map;
   if (s.construction || !isDiningFloor(map, tx, ty) || RESERVED[map.tier]!.has(key(tx, ty))) return false;
-  if (!s.grid.walk[ty * s.grid.w + tx]) return false;
+  if (!s.grid.walk[ty * s.grid.w + tx] || reservedBy(s, tx, ty)) return false;
   // The worst case: every table bought, every second chair, all decor, and this new piece.
   const tile = { x: tx + 0.5, y: ty + 0.5 };
-  const g = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, tile]);
+  const pending = s.works.flatMap((w) => (w.at ? [w.at] : []));
+  const g = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, ...pending, tile]);
   const reach = reachableFrom(g, map.doors[0]!.inside);
   return mustReach(map).every((p) => canReach(g, reach, p));
 }

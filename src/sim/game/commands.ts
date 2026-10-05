@@ -4,7 +4,9 @@ import { fromSave } from '../big';
 import { emit, Ev } from './events';
 import { seatCustomer } from './customers';
 import { PropKind } from '../types';
-import { anchorPoints, buyUpgrade } from './purchase';
+import { anchorPoints, buyUpgrade, siteOf } from './purchase';
+import { finishWorkNow, hurryWork } from './works';
+import type { BulkStep } from '../../data/works';
 import { handWash, serveOrder } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
@@ -18,7 +20,7 @@ export function queueCommand(s: GameState, command: Command): void {
 }
 
 /** Pixel heights of each target's visual center above the floor (for screen-space hit tests). */
-const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26 } as const;
+const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60 } as const;
 
 /** Everything the player can tap right now. The UI projects these and picks the nearest. */
 export function tapTargets(s: GameState): TapTarget[] {
@@ -39,6 +41,11 @@ export function tapTargets(s: GameState): TapTarget[] {
     }
   }
   if (s.dirtyPlates > 0) out.push({ x: s.map.dirtyStack.x, y: s.map.dirtyStack.y, height: HEIGHT.sink, command: { type: 'wash' } });
+  // A big upgrade in progress: tap the timer over it to speed the crew up.
+  for (const w of s.works) {
+    const p = siteOf(s, w);
+    out.push({ x: p.x, y: p.y, height: HEIGHT.work, command: { type: 'hurry', work: w.id } });
+  }
   return out;
 }
 
@@ -97,7 +104,7 @@ function apply(s: GameState, cmd: Command): void {
     case 'bonus':
       return giveBonus(s, cmd.staff);
     case 'train':
-      return train(s, cmd.staff);
+      return train(s, cmd.staff, cmd.count === undefined ? 1 : (cmd.count as BulkStep));
     case 'scold':
       return scold(s, cmd.staff);
     case 'reassign':
@@ -125,7 +132,12 @@ function apply(s: GameState, cmd: Command): void {
   } else if (cmd.type === 'wash') {
     handWash(s);
   } else if (cmd.type === 'buy') {
-    buyUpgrade(s, cmd.item, cmd.at);
+    buyUpgrade(s, cmd.item, cmd.at, cmd.step);
+  } else if (cmd.type === 'hurry') {
+    const w = s.works.find((x) => x.id === cmd.work);
+    if (w) hurryWork(s, w.id, siteOf(s, w));
+  } else if (cmd.type === 'finish') {
+    finishWorkNow(s, cmd.work);
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
     s.coins = s.coins.add(coins);

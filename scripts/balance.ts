@@ -45,7 +45,9 @@ function print(r: BalanceReport): void {
   out.push(`Buildings: ${tiers.join(', ') || 'none'}`);
   const dishes = r.purchases.filter((p) => p.level === 1 && UPGRADES.find((u) => u.id === p.item)?.unlocksDish !== undefined);
   out.push(`Dishes: ${dishes.map((p) => `${p.item} ${clock(p.time)}`).join(', ')}`);
-  out.push(`Restaurant levels: ${r.levelUps.map((t, i) => `L${i + 2} ${clock(t)}`).join(', ') || 'none'}`);
+  const ranks = r.purchases.filter((p) => p.item === 'rank').map((p) => `Lv ${p.level + 1} ${clock(p.time)}`);
+  out.push(`Restaurant levels: ${ranks.join(', ') || 'none'}`);
+  out.push(`Quest stages: ${r.levelUps.map((t, i) => `L${i + 2} ${clock(t)}`).join(', ') || 'none'}`);
   out.push(`Hires: ${r.hires.map((h) => `${clock(h.time)} ${h.role}`).join(', ') || 'none'}  (team at the end: ${r.team}, quit: ${r.quits})`);
   out.push('');
   if (r.deadZones.length === 0) out.push(`Dead zones (> ${BALANCE.deadZoneSeconds}s with nothing to buy): none`);

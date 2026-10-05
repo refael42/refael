@@ -117,7 +117,7 @@ function nearest<T extends { x: number; y: number; height: number }>(targets: T[
 export function useGame(map: MapDef, seed: number, stress: number, boot: GameBoot, paused: { current: boolean }) {
   const gameRef = useRef<GameState | null>(null);
   const loop = useFixedLoop(() => {
-    const game = boot.save ? restoreGame(boot.save, seed) : createGame(map, seed);
+    const game = boot.save ? restoreGame(boot.save, seed, Date.now()) : createGame(map, seed);
     gameRef.current = game;
     return {
       step: () => {

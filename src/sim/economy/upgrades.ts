@@ -2,7 +2,7 @@ import { TIERS } from '../../data/buildings';
 import { DISHES } from '../../data/dishes';
 import type { MapDef } from '../../data/maps';
 import { SHOP } from '../../data/shop';
-import { COUNT_STATS, MILESTONES, UPGRADE_BY_ID, UPGRADES, type Stat, type UpgradeDef } from '../../data/upgrades';
+import { COUNT_STATS, MILESTONES, RANK, UPGRADE_BY_ID, UPGRADES, type Stat, type UpgradeDef } from '../../data/upgrades';
 import { big, type Big } from '../big';
 
 // The upgrade engine: pure functions over a { id: level } map. Nothing here knows about the
@@ -65,15 +65,31 @@ export function costOf(def: UpgradeDef, level: number): Big {
   return big(def.growth).pow(level).mul(def.baseCost).ceil();
 }
 
+/** The restaurant level (1 = the start); it caps every endless track. */
+export const restaurantLevel = (levels: Levels): number => levelOf(levels, RANK.id) + 1;
+
+/** Endless tracks stop here until the restaurant levels up. */
+export const levelCap = (levels: Levels): number => RANK.levels * restaurantLevel(levels);
+
+/** A track the restaurant level caps (not a count of things, not the restaurant level itself). */
+export const isCappedTrack = (def: UpgradeDef): boolean => def.max === undefined && def.spots === undefined && def.id !== RANK.id;
+
+/** How many tracks have reached the cap (the next restaurant level wants RANK.ready of them). */
+export function tracksAtCap(levels: Levels): number {
+  const cap = levelCap(levels);
+  return UPGRADES.filter((d) => isCappedTrack(d) && levelOf(levels, d.id) >= cap).length;
+}
+
 /**
  * How many levels a track can have here: capacity rows are limited by this building's free
- * spots, and second chairs by the tables there are to put them at.
+ * spots, and second chairs by the tables there are to put them at; the rest by the restaurant level.
  */
 export function capOf(def: UpgradeDef, map: MapDef, levels: Levels): number | undefined {
   if (def.spots === 'tables') return map.tables.length - map.startTables;
   if (def.spots === 'stoves') return map.stoves.length - map.startStoves;
   if (def.spots === 'seats') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'));
-  return def.max;
+  if (def.max !== undefined || def.id === RANK.id) return def.max;
+  return levelCap(levels);
 }
 
 export function isMaxed(def: UpgradeDef, levels: Levels, map: MapDef): boolean {
@@ -82,6 +98,7 @@ export function isMaxed(def: UpgradeDef, levels: Levels, map: MapDef): boolean {
 }
 
 export function isUnlocked(def: UpgradeDef, levels: Levels): boolean {
+  if (def.id === RANK.id) return tracksAtCap(levels) >= RANK.ready;
   return !def.requires || levelOf(levels, def.requires.item) >= def.requires.level;
 }
 

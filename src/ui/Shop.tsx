@@ -13,7 +13,7 @@ import { gold, panel, textShadow } from './theme';
 
 type Tab = 'gems' | 'boosts' | 'staff' | 'forever';
 const TABS: readonly Tab[] = ['gems', 'boosts', 'staff', 'forever'];
-const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever' };
+const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever', crew: 'forever' };
 const TAB_ICON: Record<Tab, string> = { gems: '💎', boosts: '⚡', staff: '⭐', forever: '👑' };
 const ICON: Record<string, string> = {
   gems80: '💎',
@@ -28,6 +28,8 @@ const ICON: Record<string, string> = {
   vipSign: '🌟',
   turboKitchen: '🔥',
   charmSchool: '💐',
+  crew3: '👷',
+  crew4: '🏗️',
 };
 
 const gemUri = (px: number) => hudIcon('hudGem', Math.round(px * PixelRatio.get()));
@@ -84,6 +86,8 @@ function Description({ item }: { item: ShopItem }) {
       return <Text style={styles.desc}>{t('shop.starDesc')}</Text>;
     case 'perk':
       return <Text style={styles.desc}>{t(`shop.${item.id}Desc`)}</Text>;
+    case 'crew':
+      return <Text style={styles.desc}>{t('shop.crewDesc')}</Text>;
   }
 }
 
@@ -126,7 +130,7 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
         <ScrollView contentContainerStyle={styles.grid}>
           {items.map((item) => {
             const can = data.can[item.id] ?? false;
-            const owned = item.kind === 'perk' && data.owned[item.id] === 1;
+            const owned = (item.kind === 'perk' || item.kind === 'crew') && data.owned[item.id] === 1;
             const short = item.kind !== 'gems' && data.gems < item.cost;
             return (
               <View key={item.id} style={[styles.item, item.kind === 'gems' && item.tag && styles.itemTagged]}>

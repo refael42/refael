@@ -9,6 +9,7 @@ import { applicantLook, uniformLook, wageFor } from './game/people';
 import { createStaff } from './game/staff';
 import type { GameState } from './game/types';
 import { hasRoom } from './game/workers';
+import { advanceWorks } from './game/works';
 import { int } from './rng';
 import { Emote } from './types';
 
@@ -42,7 +43,7 @@ export function canShop(s: GameState, item: ShopItem): boolean {
   if (item.kind === 'gems') return false;
   if (s.gems < item.cost) return false;
   if (item.kind === 'star') return hasRoom(s, item.role);
-  if (item.kind === 'perk') return !s.perks[item.id];
+  if (item.kind === 'perk' || item.kind === 'crew') return !s.perks[item.id];
   if (item.kind === 'boost') return boostNow(s) <= item.mult;
   return true;
 }
@@ -79,8 +80,13 @@ export function buyShopItem(s: GameState, id: string): boolean {
       s.coins = s.coins.add(coins);
       s.stats.earned = s.stats.earned.add(coins);
       emit(s, Ev.Bonus, 0, 0, coins.toNumber());
+      // The skipped time passes for the crews too.
+      advanceWorks(s, item.hours * 3600);
       break;
     }
+    case 'crew':
+      s.perks = { ...s.perks, [item.id]: 1 };
+      break;
     case 'star':
       hireStar(s, item);
       break;

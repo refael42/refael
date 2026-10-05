@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buyNow } from './helpers';
 import { CONSTRUCTION, TIERS } from '../src/data/buildings';
 import { DECOR } from '../src/data/decor';
 import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, STAND_MAP } from '../src/data/maps';
@@ -108,7 +109,7 @@ describe('build mode', () => {
     const s = rich(createGame(STAND_MAP, 7));
     buyUpgrade(s, 'place_flowers', buildableTiles(s)[0]);
     const where = { ...s.placed[0]! };
-    buyUpgrade(s, 'building');
+    buyNow(s, 'building');
     for (let i = Math.round((CONSTRUCTION.seconds + 0.2) / STEP_SEC); i > 0; i--) stepGame(s, STEP_SEC);
     expect(s.map.tier).toBe(1);
     expect(s.placed).toEqual([where]);

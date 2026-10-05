@@ -13,7 +13,8 @@ import { formatBig } from '../sim/format';
 import { recommended, signingFee } from '../sim/game/applicants';
 import { xpToNext } from '../sim/game/people';
 import type { Command, GameState, Person } from '../sim/game/types';
-import { capacity, headcount, trainingCost } from '../sim/game/workers';
+import { capacity, headcount, trainingCost, trainingPlan } from '../sim/game/workers';
+import { BulkToggle } from './Bulk';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
 
@@ -169,6 +170,9 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
 function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big; room: Record<Role, boolean>; onCommand: (cmd: Command) => void; onBack: () => void }) {
   const t = useT();
   const lang = useSettings((s) => s.lang);
+  const bulk = useSettings((s) => s.bulk);
+  // Training in tens or hundreds (bulk buying): the whole batch is paid at once.
+  const training = trainingPlan(p, coins, bulk);
   const [armed, setArmed] = useState(false);
   useEffect(() => {
     if (!armed) return;
@@ -227,15 +231,17 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
             <>
               <View style={styles.actions}>
                 <Button label={t('ui.bonus')} kind="go" disabled={coins.lt(p.wage)} onPress={() => onCommand({ type: 'bonus', staff: p.id })} />
-                <Button label={t('ui.train')} disabled={coins.lt(p.trainCost)} onPress={() => onCommand({ type: 'train', staff: p.id })} />
+                <Button label={training.count > 1 ? `${t('ui.train')} x${training.count}` : t('ui.train')} disabled={coins.lt(training.cost)} onPress={() => onCommand({ type: 'train', staff: p.id, count: bulk === 'max' ? training.count : bulk })} />
                 <Button label={t('ui.scold')} onPress={() => onCommand({ type: 'scold', staff: p.id })} />
                 <Button label={armed ? t('ui.fireConfirm') : t('ui.fire')} kind="danger" onPress={() => (armed ? onCommand({ type: 'fire', staff: p.id }) : setArmed(true))} />
               </View>
               <View style={styles.line}>
                 <Money value={p.wage} />
                 <Text style={styles.statLabel}>{t('ui.bonus')}</Text>
-                <Money value={p.trainCost} />
+                <Money value={training.cost} />
                 <Text style={styles.statLabel}>{t('ui.train')}</Text>
+                <View style={styles.grow} />
+                <BulkToggle />
               </View>
               <Text style={styles.section}>{t('ui.changeJob')}</Text>
               <View style={styles.actions}>
@@ -301,6 +307,7 @@ export function StaffPanel({ gameRef, view, onView, onCommand, onClose }: Props)
 }
 
 const styles = StyleSheet.create({
+  grow: { flex: 1 },
   panel: {
     position: 'absolute',
     top: 8,
