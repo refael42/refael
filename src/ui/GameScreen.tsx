@@ -21,6 +21,7 @@ import type { OfflineEarnings } from '../sim/offline';
 import type { GameState } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
+import { markReady } from '../store/launch';
 import { useSettings } from '../store/settings';
 import { trace } from '../trace';
 import { JuicyButton } from './JuicyButton';
@@ -216,7 +217,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} />
+      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} />
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
@@ -279,7 +280,7 @@ function CastView() {
   const [camera, setCamera] = useState<Camera | null>(null);
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={CAST_BG} focus={CAST_FOCUS} uiFps={uiFps} buildMs={buildMs} onCamera={setCamera} />
+      <SceneCanvas snapshot={snapshot} background={CAST_BG} focus={CAST_FOCUS} uiFps={uiFps} buildMs={buildMs} onCamera={setCamera} onReady={markReady} />
       {camera && <Labels camera={camera} />}
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
     </>

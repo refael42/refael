@@ -91,6 +91,8 @@ interface Props {
   build?: SharedValue<BuildOverlay | null>;
   /** Filled by the canvas for the HUD overlay: coins in the air, landings so far. */
   hudFeed?: SharedValue<HudFeed>;
+  /** The art is baked: the scene shows from the next frame on. */
+  onReady?: () => void;
 }
 
 export interface HudFeed {
@@ -107,7 +109,7 @@ export interface HudFeed {
  * there too; the UI thread only reads it to draw. (A gesture-handler + worklet setup crashed
  * the app natively on the owner's phone at the first touch, with no error to read.)
  */
-export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId, build, hudFeed }: Props) {
+export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId, build, hudFeed, onReady }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -127,6 +129,8 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
   const H = size.height;
   const vignette = useMemo(() => (W > 0 ? vignettePaint(W, H) : null), [W, H]);
 
+  const readyRef = useRef(onReady);
+  readyRef.current = onReady;
   useEffect(() => {
     if (W === 0) return;
     trace(`canvas ${Math.round(W)}x${Math.round(H)}`);
@@ -135,6 +139,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       const started = Date.now();
       setAssets(buildRenderAssets(background, Math.min(5, PixelRatio.get() * 2), PixelRatio.get()));
       trace(`assets baked in ${Date.now() - started} ms`);
+      readyRef.current?.();
     }, 0);
     return () => clearTimeout(id);
   }, [background, W, H]);

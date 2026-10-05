@@ -3,6 +3,8 @@ import { registerRootComponent } from 'expo';
 
 // On web, Skia is CanvasKit (WASM, served from /public by the postinstall script). It must finish
 // loading before any module that touches Skia is evaluated, so the app is imported dynamically.
+// The opening animation's color while the WASM downloads, instead of a white page.
+document.body.style.backgroundColor = '#2A1230';
 LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(async () => {
   const { default: App } = await import('./src/App');
   registerRootComponent(App);
