@@ -14,7 +14,7 @@ import { drawText } from './text';
 
 export const FxKind = {
   Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
-  LevelUp: 13, Confetti: 14,
+  LevelUp: 13, Confetti: 14, ScreenText: 15,
 } as const;
 const STRIDE = 10;
 const CAP = 160;
@@ -29,7 +29,7 @@ const VALUE = 7;
 const STYLE = 8;
 
 /** Text styles: color + size. */
-export const TextStyle = { Coins: 0, Tip: 1, Combo: 2, Level: 3, Milestone: 4 } as const;
+export const TextStyle = { Coins: 0, Tip: 1, Combo: 2, Level: 3, Milestone: 4, Wages: 5 } as const;
 
 /** Coin style: flies from a world point (default) or from a fixed screen point (bonuses). */
 const FROM_SCREEN = 1;
@@ -152,6 +152,21 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
         s.shakeAt = t;
         for (let k = 0; k < 18; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.4, wx, y, (k / 18) * Math.PI * 2, 0, k);
       }
+    } else if (type === Ev.LevelUp) {
+      spawnFx(s, FxKind.LevelUp, t, 0.9, wx, wy - 50, 0, 0, 0, 0);
+      spawnFx(s, FxKind.Burst, t, 0.6, wx, wy - 50);
+      spawnFx(s, FxKind.Text, t, 1.4, wx, wy - 66, 0, 0, a, TextStyle.Level);
+    } else if (type === Ev.Crash) {
+      spawnFx(s, FxKind.Poof, t, 0.8, wx, wy - 18);
+      spawnFx(s, FxKind.Cross, t, 0.9, wx, wy - 64);
+      for (let k = 0; k < 3; k++) spawnFx(s, FxKind.PlateFly, t, 0.5, wx, wy - 22, wx + (k - 1) * 18, wy + 4);
+    } else if (type === Ev.Hired) {
+      spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 30);
+      for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.015, 1.2, wx, wy - 30, (k / 12) * Math.PI * 2, 0, k);
+    } else if (type === Ev.Payday) {
+      // Wages leave the till: a red "-N" under the coin counter.
+      if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX + 44, hud.coinY + 34, 0, 0, a, TextStyle.Wages);
+      if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX + 44, hud.coinY + 58, 0, 0, ev[o + E.b]!, TextStyle.Combo);
     } else if (type === Ev.Bonus) {
       const n = 24;
       for (let k = 0; k < n; k++) {
@@ -169,6 +184,7 @@ function textFor(value: number, style: number): string {
   if (style === TextStyle.Combo) return 'x' + Math.round(value) + '!';
   if (style === TextStyle.Level) return 'LV ' + Math.round(value);
   if (style === TextStyle.Milestone) return 'LV ' + Math.round(value) + '!';
+  if (style === TextStyle.Wages) return '-' + formatNumber(value);
   return '+' + formatNumber(value);
 }
 
@@ -180,7 +196,7 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
   for (let i = 0; i < CAP; i++) {
     const o = i * STRIDE;
     const kind = d[o + K]!;
-    if (kind === 0 || kind === FxKind.Coin || kind === FxKind.Bill || kind === FxKind.StarFly || kind === FxKind.Ripple) continue;
+    if (kind === 0 || kind === FxKind.Coin || kind === FxKind.Bill || kind === FxKind.StarFly || kind === FxKind.Ripple || kind === FxKind.ScreenText) continue;
     const age = t - d[o + T0]!;
     const dur = d[o + DUR]!;
     if (age < 0) continue;
@@ -257,7 +273,7 @@ export function drawScreenFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number
   for (let i = 0; i < CAP; i++) {
     const o = i * STRIDE;
     const kind = d[o + K]!;
-    if (kind !== FxKind.Coin && kind !== FxKind.Bill && kind !== FxKind.StarFly && kind !== FxKind.Ripple) continue;
+    if (kind !== FxKind.Coin && kind !== FxKind.Bill && kind !== FxKind.StarFly && kind !== FxKind.Ripple && kind !== FxKind.ScreenText) continue;
     const age = t - d[o + T0]!;
     const dur = d[o + DUR]!;
     if (age < 0) continue;
@@ -275,6 +291,16 @@ export function drawScreenFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number
     if (kind === FxKind.Ripple) {
       A.paints.ripple.setAlphaf(1 - p);
       c.drawCircle(d[o + X0]!, d[o + Y0]!, 8 + p * 22, A.paints.ripple);
+      continue;
+    }
+    if (kind === FxKind.ScreenText) {
+      // Payday notes: "-N" wages in red; a second line with an "x N" unpaid count.
+      const style = d[o + STYLE]!;
+      const pop = age < 0.25 ? easeOutBack(clamp01(age / 0.25)) : 1;
+      const paint = style === TextStyle.Wages ? A.paints.redText : A.paints.orange;
+      paint.setAlphaf(clamp01((1 - p) / 0.3));
+      drawText(c, A, textFor(d[o + VALUE]!, style), d[o + X0]!, d[o + Y0]! + p * 8, 1.3 * pop, paint, 0);
+      paint.setAlphaf(1);
       continue;
     }
     // Start in the world (follows the camera) or on screen, end at a fixed HUD point.

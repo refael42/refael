@@ -1,32 +1,62 @@
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import type { Point } from '../../data/maps';
-import { KITCHEN, ROLES, type Role } from '../../data/staff';
+import { KITCHEN, ROLES, STAFF, type Role } from '../../data/staff';
+import { TRAIT_FX } from '../../data/traits';
 import { followPath, setPose } from '../movement';
-import { Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
-import { emote, route, startEating } from './customers';
+import { chance } from '../rng';
+import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
+import { emote, route, seatCustomer, startEating } from './customers';
 import { emit, Ev } from './events';
-import { CustomerState, OrderState, TableState, type GameState, type Order, type Staff, type Table } from './types';
+import { has, statFactor, workRate } from './people';
+import { CustomerState, OrderState, TableState, type GameState, type Order, type Person, type Staff, type Table } from './types';
+import { gainXp, walkOut } from './workers';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => ({ x: t.x + 0.8, y: t.y });
 
-export function homeOf(s: GameState, role: Role): Point {
-  return role === 'cook' ? s.map.cookSpot : role === 'waiter' ? s.map.waiterIdle : s.map.washerSpot;
+/** Each worker's own spot: their stove, their idle place, the host stand... */
+export function homeOf(s: GameState, st: Staff): Point {
+  switch (st.role) {
+    case 'cook':
+      return s.stoves[st.slot]?.cook ?? s.map.stoves[0]!.cook;
+    case 'waiter':
+      return s.map.waiterIdle[st.slot % s.map.waiterIdle.length]!;
+    case 'washer':
+      return s.map.washerSpot;
+    case 'host':
+      return s.map.hostSpot;
+    case 'cleaner':
+      return s.map.cleanerIdle[st.slot % s.map.cleanerIdle.length]!;
+  }
 }
 
-const HOME_FACING: Record<Role, Staff['facing']> = { cook: Facing.BackLeft, waiter: Facing.FrontLeft, washer: Facing.BackLeft };
+const HOME_FACING: Record<Role, Staff['facing']> = {
+  cook: Facing.BackLeft,
+  waiter: Facing.FrontLeft,
+  washer: Facing.BackLeft,
+  host: Facing.FrontRight,
+  cleaner: Facing.FrontLeft,
+};
 
-export function createStaff(s: GameState, role: Role): Staff {
-  const home = homeOf(s, role);
-  return {
+/** The first free slot for a job (stoves for cooks, idle spots for the others). */
+export function freeSlot(s: GameState, role: Role, except?: Staff): number {
+  for (let i = 0; ; i++) {
+    if (!s.staff.some((o) => o !== except && o.role === role && o.slot === i && !o.leaving)) return i;
+  }
+}
+
+/** A hired person, standing at `at` (the door for new hires). */
+export function createStaff(s: GameState, role: Role, person: Person, look: Staff['look'], at?: Point): Staff {
+  const st: Staff = {
+    ...person,
     id: s.nextId++,
     role,
-    look: { ...ROLES[role].look },
-    x: home.x,
-    y: home.y,
-    prevX: home.x,
-    prevY: home.y,
+    look,
+    x: 0,
+    y: 0,
+    prevX: 0,
+    prevY: 0,
     facing: HOME_FACING[role],
     pose: Pose.Idle,
     poseTime: 0,
@@ -41,7 +71,24 @@ export function createStaff(s: GameState, role: Role): Staff {
     job: null,
     jobTime: 0,
     stalled: null,
+    xp: 0,
+    morale: STAFF.morale.start,
+    energy: 1,
+    unpaidDays: 0,
+    hiredDay: s.day,
+    lastRaiseDay: s.day,
+    trial: false,
+    scoldUntil: -1,
+    slot: 0,
+    leaving: false,
+    pendingRole: null,
+    busy: false,
   };
+  st.slot = freeSlot(s, role, st);
+  const p = at ?? homeOf(s, st);
+  st.x = st.prevX = p.x;
+  st.y = st.prevY = p.y;
+  return st;
 }
 
 function freePassSlot(s: GameState): number {
@@ -57,14 +104,14 @@ function setJob(st: Staff, job: Staff['job']): void {
 }
 
 /** Walk toward a point; returns true once standing there. */
-function walkTo(s: GameState, st: Staff, to: Point, dt: number): boolean {
+export function walkTo(s: GameState, st: Staff, to: Point, dt: number): boolean {
   if (st.path.length === 0 && (Math.abs(st.x - to.x) > 0.01 || Math.abs(st.y - to.y) > 0.01)) st.path = route(s, st, to);
   if (st.path.length === 0) return true;
-  return followPath(st, st.path, st.speed, dt);
+  return followPath(st, st.path, st.speed * workRate(s, st), dt);
 }
 
 function goHome(s: GameState, st: Staff, dt: number): void {
-  if (walkTo(s, st, homeOf(s, st.role), dt)) {
+  if (walkTo(s, st, homeOf(s, st), dt)) {
     setPose(st, Pose.Idle);
     st.facing = HOME_FACING[st.role];
     if (st.job?.kind === 'home') st.job = null;
@@ -76,15 +123,15 @@ function goHome(s: GameState, st: Staff, dt: number): void {
 function updateCook(s: GameState, st: Staff, dt: number): boolean {
   let job = st.job;
   if (!job || job.kind !== 'cook') {
+    if (st.leaving || st.pendingRole) return false;
     const next = s.orders.find((o) => o.state === OrderState.Queued);
     if (!next) {
       st.stalled = null;
-      setPose(st, Pose.Idle);
-      st.facing = Facing.BackLeft;
       return false;
     }
     next.state = OrderState.Cooking;
     next.since = s.time;
+    next.quality = statFactor(st.stats.quality);
     setJob(st, { kind: 'cook', order: next.id, phase: 'cooking' });
     job = st.job!;
   }
@@ -94,10 +141,13 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     setJob(st, null);
     return false;
   }
-  st.jobTime += dt;
+  // Cooks work at their own stove: walk there first if they just arrived.
+  if (!walkTo(s, st, homeOf(s, st), dt)) return true;
+  const rate = workRate(s, st);
+  st.jobTime += dt * rate;
   if (job.phase === 'cooking') {
     if (order.progress < 1) {
-      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed) / dishDef(order.dish).cookSeconds);
+      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate) / dishDef(order.dish).cookSeconds);
       setPose(st, Pose.Cook);
       st.facing = Facing.BackLeft;
       return true;
@@ -116,7 +166,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     st.facing = Facing.FrontRight;
     setPose(st, Pose.Idle);
     setJob(st, { kind: 'cook', order: order.id, phase: 'plating' });
-    return false;
+    return true;
   }
   if (st.jobTime >= KITCHEN.plateSeconds) {
     order.state = OrderState.Ready;
@@ -126,21 +176,24 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     emote(st, Emote.Star);
     st.facing = Facing.BackLeft;
     setJob(st, null);
+    gainXp(s, st);
   }
-  return false;
+  return true;
 }
 
-// ---------- waiter ----------
+// ---------- waiter & cleaner ----------
 
-function waiterFindJob(s: GameState, st: Staff): void {
-  const ready = s.orders
-    .filter((o) => o.state === OrderState.Ready && o.waiter < 0)
-    .sort((a, b) => a.since - b.since)[0];
-  if (ready) {
-    ready.waiter = st.id;
-    st.path = [];
-    setJob(st, { kind: 'pickup', order: ready.id, phase: 'toPass' });
-    return;
+function findJob(s: GameState, st: Staff): void {
+  if (st.role === 'waiter') {
+    const ready = s.orders
+      .filter((o) => o.state === OrderState.Ready && o.waiter < 0)
+      .sort((a, b) => a.since - b.since)[0];
+    if (ready) {
+      ready.waiter = st.id;
+      st.path = [];
+      setJob(st, { kind: 'pickup', order: ready.id, phase: 'toPass' });
+      return;
+    }
   }
   const dirty = s.tables.find((t) => t.state === TableState.Dirty && t.waiter < 0);
   if (dirty) {
@@ -150,7 +203,7 @@ function waiterFindJob(s: GameState, st: Staff): void {
   }
 }
 
-function releaseWaiter(st: Staff): void {
+function release(st: Staff): void {
   st.held = Held.None;
   st.path = [];
   setJob(st, { kind: 'home' });
@@ -160,7 +213,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
   const job = st.job as Extract<Staff['job'], { kind: 'pickup' }>;
   if (job.phase === 'toPass' || job.phase === 'handoff') {
     // The player may have served it already (or the customer left).
-    if (!order || order.state !== OrderState.Ready) return releaseWaiter(st);
+    if (!order || order.state !== OrderState.Ready) return release(st);
     if (job.phase === 'toPass') {
       if (walkTo(s, st, s.map.pickupSpots[order.slot]!, dt)) {
         setPose(st, Pose.Idle);
@@ -169,10 +222,10 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
       }
       return;
     }
-    st.jobTime += dt;
+    st.jobTime += dt * workRate(s, st);
     if (st.jobTime < KITCHEN.handoffSeconds) return;
     const c = s.customers.find((x) => x.id === order.customer);
-    if (!c || c.table < 0) return releaseWaiter(st);
+    if (!c || c.table < 0) return release(st);
     order.state = OrderState.Carried;
     order.slot = -1;
     st.held = Held.TrayFull;
@@ -181,7 +234,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     return;
   }
   const c = order ? s.customers.find((x) => x.id === order.customer) : undefined;
-  if (!order || !c || c.table < 0) return releaseWaiter(st);
+  if (!order || !c || c.table < 0) return release(st);
   const t = s.tables[c.table]!;
   if (job.phase === 'toTable') {
     if (walkTo(s, st, besideTable(t), dt)) {
@@ -191,12 +244,26 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     }
     return;
   }
-  st.jobTime += dt;
+  st.jobTime += dt * workRate(s, st);
   if (st.jobTime < KITCHEN.handoffSeconds) return;
+  if (has(st, 'clumsy') && chance(s.rng, TRAIT_FX.clumsyDrop)) {
+    // Oops: the dish hits the floor. The plate goes to the dirty pile, the kitchen cooks again.
+    emit(s, Ev.Crash, st.x, st.y);
+    emote(st, Emote.Exclaim);
+    s.dirtyPlates += 1;
+    order.state = OrderState.Queued;
+    order.progress = 0;
+    order.waiter = -1;
+    order.since = s.time;
+    return release(st);
+  }
   s.orders.splice(s.orders.indexOf(order), 1);
-  if (c.state === CustomerState.Waiting) startEating(s, c, order.dish);
-  st.held = Held.None;
-  setJob(st, { kind: 'home' });
+  if (c.state === CustomerState.Waiting) {
+    const charm = statFactor(st.stats.charm) * (has(st, 'charmer') ? 1 + TRAIT_FX.charmerTips : 1);
+    startEating(s, c, order.dish, order.quality, charm);
+  }
+  gainXp(s, st);
+  release(st);
 }
 
 function updateBuss(s: GameState, st: Staff, dt: number): void {
@@ -206,7 +273,7 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
     // The player may have cleaned it first.
     if (t.state !== TableState.Dirty) {
       t.waiter = -1;
-      return releaseWaiter(st);
+      return release(st);
     }
     if (walkTo(s, st, besideTable(t), dt)) {
       setPose(st, Pose.Wash);
@@ -219,7 +286,7 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
     return;
   }
   if (job.phase === 'wipe') {
-    t.progress = Math.min(1, t.progress + dt / KITCHEN.bussSeconds);
+    t.progress = Math.min(1, t.progress + (dt * workRate(s, st)) / KITCHEN.bussSeconds);
     if (t.state !== TableState.Cleaning || t.progress >= 1) {
       if (t.state === TableState.Cleaning) finishCleaning(s, t, false);
       st.held = Held.DirtyPlates;
@@ -236,19 +303,49 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
     }
     return;
   }
-  st.jobTime += dt;
+  st.jobTime += dt * workRate(s, st);
   if (st.jobTime >= KITCHEN.handoffSeconds) {
     s.dirtyPlates += 1;
-    releaseWaiter(st);
+    gainXp(s, st);
+    release(st);
   }
 }
 
-function updateWaiter(s: GameState, st: Staff, dt: number): void {
-  if (!st.job || st.job.kind === 'home') waiterFindJob(s, st);
+function updateRunner(s: GameState, st: Staff, dt: number): boolean {
+  if ((!st.job || st.job.kind === 'home') && !st.leaving && !st.pendingRole) findJob(s, st);
   const job = st.job;
-  if (!job || job.kind === 'home') return goHome(s, st, dt);
+  if (!job || job.kind === 'home') {
+    goHome(s, st, dt);
+    return false;
+  }
   if (job.kind === 'pickup') updatePickup(s, st, s.orders.find((o) => o.id === job.order), dt);
   else if (job.kind === 'buss') updateBuss(s, st, dt);
+  return true;
+}
+
+// ---------- host ----------
+
+/** The host welcomes the first person in line and sends them to the nearest free table. */
+function updateHost(s: GameState, st: Staff, dt: number): boolean {
+  if (!walkTo(s, st, homeOf(s, st), dt)) return true;
+  st.facing = HOME_FACING.host;
+  const front = s.customers.find((c) => c.state === CustomerState.Queued && c.queueSlot === 0 && c.path.length === 0);
+  const free = s.tables.some((t) => t.state === TableState.Free);
+  if (!front || !free || st.leaving) {
+    st.jobTime = 0;
+    setPose(st, Pose.Idle);
+    return false;
+  }
+  setPose(st, Pose.Cheer);
+  st.jobTime += dt * workRate(s, st) * statFactor(st.stats.charm);
+  if (st.jobTime >= KITCHEN.hostSeconds) {
+    st.jobTime = 0;
+    if (seatCustomer(s, front)) {
+      emote(front, Emote.Heart);
+      gainXp(s, st);
+    }
+  }
+  return true;
 }
 
 // ---------- tables & dishwashing ----------
@@ -269,19 +366,22 @@ export function finishCleaning(s: GameState, t: Table, toPile: boolean): void {
   }
 }
 
-/** One plate scrubbed clean (by the dishwasher or the player's taps). */
-function washProgress(s: GameState, amount: number): void {
+/** Scrubs plates; returns how many came out clean. */
+function washProgress(s: GameState, amount: number): number {
   if (s.dirtyPlates <= 0) {
     s.washProgress = 0;
-    return;
+    return 0;
   }
   s.washProgress += amount;
+  let washed = 0;
   while (s.washProgress >= 1 && s.dirtyPlates > 0) {
     s.washProgress -= 1;
     s.dirtyPlates -= 1;
     s.cleanPlates += 1;
+    washed += 1;
     emit(s, Ev.Washed, s.map.cleanStack.x, s.map.cleanStack.y);
   }
+  return washed;
 }
 
 export function handWash(s: GameState): void {
@@ -289,13 +389,15 @@ export function handWash(s: GameState): void {
 }
 
 function updateWasher(s: GameState, st: Staff, dt: number): boolean {
-  if (s.dirtyPlates <= 0) {
+  if (!walkTo(s, st, homeOf(s, st), dt)) return true;
+  st.facing = Facing.BackLeft;
+  if (s.dirtyPlates <= 0 || st.leaving) {
     setPose(st, Pose.Idle);
     return false;
   }
   setPose(st, Pose.Wash);
-  st.facing = Facing.BackLeft;
-  washProgress(s, (dt * s.mods.washSpeed) / KITCHEN.washSeconds);
+  const washed = washProgress(s, (dt * s.mods.washSpeed * workRate(s, st)) / KITCHEN.washSeconds);
+  for (let i = 0; i < washed; i++) gainXp(s, st);
   return true;
 }
 
@@ -308,18 +410,50 @@ export function updateTables(s: GameState, dt: number): void {
   }
 }
 
+/** Idle and not holding anything: quitters walk out, people changing jobs switch now. */
+function betweenJobs(st: Staff): boolean {
+  return (!st.job || st.job.kind === 'home') && st.held !== Held.TrayFull && st.held !== Held.DirtyPlates;
+}
+
 export function updateStaff(s: GameState, dt: number): void {
-  let cooking = false;
+  const cooking = new Set<number>();
   let washing = false;
   for (const st of s.staff) {
-    if (st.role === 'cook') cooking = updateCook(s, st, dt) || cooking;
-    else if (st.role === 'waiter') updateWaiter(s, st, dt);
-    else washing = updateWasher(s, st, dt) || washing;
+    if (st.leaving && betweenJobs(st)) {
+      walkOut(s, st, dt);
+      continue;
+    }
+    if (st.pendingRole && betweenJobs(st)) switchRole(s, st, st.pendingRole);
+    let busy = false;
+    if (st.role === 'cook') {
+      busy = updateCook(s, st, dt);
+      if (busy) cooking.add(st.slot);
+      else if (!st.job) goHome(s, st, dt);
+    } else if (st.role === 'washer') {
+      busy = updateWasher(s, st, dt);
+      washing = washing || busy;
+    } else if (st.role === 'host') busy = updateHost(s, st, dt);
+    else busy = updateRunner(s, st, dt);
+    st.busy = busy;
+    st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;
   }
   for (const p of s.props) {
-    if (p.kind === PropKind.Stove) p.active = cooking;
+    if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
     else if (p.kind === PropKind.Sink) p.active = washing;
   }
+}
+
+/** Takes the new job's uniform and spot. Stats, level and wage stay. */
+export function switchRole(s: GameState, st: Staff, role: Role): void {
+  st.role = role;
+  st.pendingRole = null;
+  st.look = { ...ROLES[role].look, skin: st.look.skin, hair: st.look.hair, hairColor: st.look.hairColor };
+  st.speed = ROLES[role].walkSpeed;
+  st.held = role === 'cook' ? Held.Spatula : Held.None;
+  st.slot = freeSlot(s, role, st);
+  st.path = [];
+  setJob(st, null);
+  emote(st, Emote.Star);
 }
 
 /** Manager action: tap a ready dish to send it flying to its customer's table. */
@@ -341,6 +475,6 @@ export function landFlyingDishes(s: GameState): void {
   for (const order of landed) {
     s.orders.splice(s.orders.indexOf(order), 1);
     const c = s.customers.find((x) => x.id === order.customer);
-    if (c && c.state === CustomerState.Waiting) startEating(s, c, order.dish);
+    if (c && c.state === CustomerState.Waiting) startEating(s, c, order.dish, order.quality, 1);
   }
 }

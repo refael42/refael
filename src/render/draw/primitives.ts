@@ -41,18 +41,21 @@ export function sprXf(
   c.restore();
 }
 
-/** A sprite drawn from its vector picture (sharp at any size); falls back to the atlas. */
-export function vecSpr(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number): void {
+/**
+ * A HUD sprite from the sharp (screen-resolution) atlas; falls back to the world atlas.
+ * Mipmapped because the HUD draws most of them smaller than they were baked.
+ */
+export function sharpSpr(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number, paint: SkPaint): void {
   'worklet';
-  const pic = A.vec[i];
-  if (!pic) {
-    sprXf(c, A, i, x, y, 0, scale, scale, A.paints.plain);
+  const src = A.sharp.src[i];
+  if (!src) {
+    sprXf(c, A, i, x, y, 0, scale, scale, paint);
     return;
   }
   c.save();
   c.translate(x, y);
   c.scale(scale, scale);
-  c.drawPicture(pic);
+  c.drawImageRectOptions(A.sharp.image, src, A.sharp.dst[i]!, FilterMode.Linear, MipmapMode.Linear, paint);
   c.restore();
 }
 

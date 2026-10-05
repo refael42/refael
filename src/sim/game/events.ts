@@ -25,6 +25,14 @@ export const Ev = {
   Upgrade: 12,
   /** Coins granted from outside (offline earnings...): a shower of coins into the HUD. a = amount */
   Bonus: 13,
+  /** A clumsy waiter dropped a dish. */
+  Crash: 14,
+  /** A worker leveled up. a = new level */
+  LevelUp: 15,
+  /** Wages paid at the end of a day. a = total paid, b = people left unpaid */
+  Payday: 16,
+  /** Someone got hired. */
+  Hired: 17,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

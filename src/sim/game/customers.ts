@@ -77,6 +77,8 @@ export function updateArrivals(s: GameState): void {
     moodCount: 0,
     foodWaited: 0,
     angryEmoted: false,
+    dishQuality: 1,
+    tipBoost: 1,
   });
 }
 
@@ -197,8 +199,10 @@ function chooseDish(s: GameState, type: CustomerType): number {
   return pick(s.rng, menu).id;
 }
 
-/** The dish landed on the table. */
-export function startEating(s: GameState, c: Customer, dish: number): void {
+/** The dish landed on the table. `quality` = the cook's touch (price), `tipBoost` = the server's charm. */
+export function startEating(s: GameState, c: Customer, dish: number, quality: number, tipBoost: number): void {
+  c.dishQuality = quality;
+  c.tipBoost = tipBoost;
   c.foodWaited = c.patienceMax - c.patienceLeft;
   endWait(c);
   const t = s.tables[c.table]!;
@@ -214,14 +218,14 @@ export function startEating(s: GameState, c: Customer, dish: number): void {
 
 function pay(s: GameState, c: Customer): void {
   const type = CUSTOMER_TYPES[c.type];
-  const price = dishPrice(s, c.dish);
+  const price = dishPrice(s, c.dish).mul(c.dishQuality).floor();
   const mood = c.moodCount > 0 ? c.moodSum / c.moodCount : 1;
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.lastPayTime = s.time;
   const comboMult = 1 + ECONOMY.comboTipBonusPerStep * (s.combo - 1);
   let tipShare = type.tipRate * (ECONOMY.tipMoodBase + mood) * comboMult;
   if (type.fastBonus > 0 && c.foodWaited <= type.foodPatience * s.mods.patience * type.fastShare) tipShare += type.fastBonus;
-  const tip = price.mul(tipShare * s.mods.tips).floor();
+  const tip = price.mul(tipShare * s.mods.tips * c.tipBoost).floor();
   s.coins = s.coins.add(price).add(tip);
   s.stats.earned = s.stats.earned.add(price).add(tip);
   s.stats.served += 1;
@@ -286,7 +290,7 @@ export function updateCustomers(s: GameState, dt: number): void {
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
           c.dish = chooseDish(s, CUSTOMER_TYPES[c.type]);
           const id = s.nextId++;
-          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1 });
+          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1 });
           c.order = id;
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;

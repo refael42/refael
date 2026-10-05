@@ -1,7 +1,7 @@
 import type { Point } from '../../data/maps';
 import { canBuy, computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { PropKind } from '../types';
-import { addTable } from './create';
+import { addStove, addTable } from './create';
 import { route } from './customers';
 import { emit, Ev } from './events';
 import type { GameState } from './types';
@@ -12,6 +12,10 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   if (kind === PropKind.TableSlot) {
     const next = s.map.tables[s.tables.length];
     return next ? [next] : [];
+  }
+  if (kind === PropKind.StoveSlot) {
+    const next = s.map.stoves[s.stoves.length];
+    return next ? [next.stove] : [];
   }
   if (kind === PropKind.PlatesClean) return [s.map.cleanStack];
   return s.props.filter((p) => p.kind === kind).map((p) => ({ x: p.x, y: p.y }));
@@ -42,6 +46,11 @@ export function buyUpgrade(s: GameState, id: string): boolean {
     const table = addTable(s);
     rerouteWalkers(s);
     at = table ? [table] : [];
+  }
+  if (s.mods.stoves > before.stoves) {
+    const stove = addStove(s);
+    rerouteWalkers(s);
+    at = stove ? [stove] : [];
   }
   const milestone = milestonesReached(level + 1) > milestonesReached(level) ? 1 : 0;
   for (const p of at) emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone, def.anchor);

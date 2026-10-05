@@ -20,7 +20,7 @@ function ly(viewB: boolean, f: number, r: number, z: number): number {
 }
 
 /** One blocky character. All animation is a pure function of sim state + time. */
-export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number): void {
+export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number, selectedId: number): void {
   'worklet';
   const S = A.S;
   const L = A.L;
@@ -100,6 +100,15 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
 
   c.save();
   c.translate(isoX(wx, wy) + shake, isoY(wx, wy));
+  if (d[o + F.id] === selectedId) {
+    // Selected worker: a breathing ring at their feet.
+    P.ring.setAlphaf(0.6 + Math.sin(t * 6) * 0.3);
+    c.save();
+    c.scale(1, 0.5);
+    c.drawCircle(0, 0, 15 + Math.sin(t * 6) * 1.5, P.ring);
+    c.restore();
+    P.ring.setAlphaf(1);
+  }
   if (showLegs) spr(c, A, S.charShadow, 0, 0, P.plain);
   if (flip) c.scale(-1, 1);
   c.scale(1 - breathe * 0.008, 1 + breathe * 0.012);
@@ -123,6 +132,11 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
   if (outfit === Outfit.Hoodie) spr(c, A, pick(S.hoodF, S.hoodB), 0, up, shirt);
   spr(c, A, viewB ? L.outfit.B[outfit]! : L.outfit.F[outfit]!, 0, up, P.plain);
   if (accessory === Accessory.Camera) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
+  const rank = d[o + C.rank]!;
+  if (rank > 0 && !viewB) {
+    // Senior staff wear a badge: silver, then gold.
+    sprXf(c, A, S.rankStar, lx(false, 0.16, -0.12), ly(false, 0.16, -0.12, 19) + up, 0, 0.75, 0.75, rank >= 2 ? P.gold : P.white);
+  }
   if (accessory === Accessory.Backpack) spr(c, A, pick(S.backpackStrapsF, S.backpackB), 0, up, P.plain);
 
   let hx: number;

@@ -1,6 +1,6 @@
 import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import type { RenderAssets } from '../assets';
-import { sprXf, vecSpr } from './primitives';
+import { sharpSpr, sprXf } from './primitives';
 
 const TRACKING = 0.4;
 
@@ -28,19 +28,18 @@ export function drawText(c: SkCanvas, A: RenderAssets, text: string, x: number, 
 }
 
 /**
- * The same font drawn from vectors, for big on-screen numbers (HUD): sharp on any screen.
- * `tint` (a color-filter paint) colors the white strokes; null keeps them white.
+ * The same font from the sharp atlas, for big on-screen numbers (HUD). `tint` (a
+ * color-filter paint) colors the white strokes; null keeps them white.
  */
 export function drawTextSharp(c: SkCanvas, A: RenderAssets, text: string, x: number, y: number, scale: number, tint: SkPaint | null, align = 0.5): void {
   'worklet';
   let cx = x - textWidth(A, text, scale) * align;
   const top = y - 6 * scale;
-  if (tint) c.saveLayer(tint);
+  const paint = tint ?? A.paints.plain;
   for (let i = 0; i < text.length; i++) {
     const code = text.charCodeAt(i);
     const idx = A.L.glyph[code] ?? -1;
-    if (idx >= 0) vecSpr(c, A, idx, cx, top, scale);
+    if (idx >= 0) sharpSpr(c, A, idx, cx, top, scale, paint);
     cx += ((A.L.advance[code] ?? 6) + TRACKING) * scale;
   }
-  if (tint) c.restore();
 }

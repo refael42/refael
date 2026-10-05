@@ -9,10 +9,13 @@ import { makeSave, parseSave, restoreGame, SAVE_VERSION, type SaveData } from '.
 
 const NOW = 1_800_000_000_000;
 
+const FULL = ['cook', 'waiter', 'washer'] as const;
+
 function savedGame(): SaveData {
-  const s = createGame(STAND_MAP, 1);
+  const s = createGame(STAND_MAP, 1, { roster: FULL });
   s.coins = big(5000);
   for (const id of ['fries', 'fries', 'tables', 'plates', 'stove']) buyUpgrade(s, id);
+  s.levels = { ...s.levels, fries: 12 };
   s.rating = 4.2;
   return makeSave(s, NOW);
 }
@@ -23,7 +26,7 @@ describe('save format', () => {
     const loaded = parseSave(JSON.stringify(save));
     expect(loaded).toEqual({ ok: true, save });
     const s = restoreGame(STAND_MAP, save, 2);
-    expect(s.levels).toEqual({ fries: 2, tables: 1, plates: 1, stove: 1 });
+    expect(s.levels).toEqual({ fries: 12, tables: 1, plates: 1, stove: 1 });
     expect(s.tables).toHaveLength(STAND_MAP.startTables + 1);
     expect(s.rating).toBe(4.2);
     expect(s.coins.toString()).toBe(big(save.coins).toString());
@@ -49,12 +52,24 @@ describe('save format', () => {
   });
 
   it('migrates old versions step by step', () => {
-    // A pretend version-0 save that called coins "money".
-    const v0 = { version: SAVE_VERSION - 1, savedAt: NOW, money: '7e0', earned: '7e0', rating: 3, served: 1, levels: {} };
-    const migrations = { [SAVE_VERSION - 1]: ({ money, ...rest }: Record<string, unknown>) => ({ ...rest, coins: money }) };
-    const loaded = parseSave(JSON.stringify(v0), migrations);
-    expect(loaded.ok && loaded.save.coins).toBe('7e0');
-    expect(parseSave(JSON.stringify(v0), {})).toEqual({ ok: false, reason: 'corrupt' });
+    // An M3 (v1) save: no team stored, because every restaurant had the same three workers.
+    const v1 = { version: 1, savedAt: NOW, coins: '7e0', earned: '7e0', rating: 3, served: 1, levels: { stove: 3 } };
+    const loaded = parseSave(JSON.stringify(v1));
+    expect(loaded.ok && loaded.save.version).toBe(SAVE_VERSION);
+    expect(loaded.ok && loaded.save.team.map((w) => w.role)).toEqual(['cook', 'waiter', 'washer']);
+    const s = loaded.ok ? restoreGame(STAND_MAP, loaded.save, 1) : null;
+    expect(s?.staff).toHaveLength(3);
+    expect(s?.levels).toEqual({ stove: 3 });
+    // A missing step in the chain is never guessed at.
+    expect(parseSave(JSON.stringify(v1), {})).toEqual({ ok: false, reason: 'corrupt' });
+  });
+
+  it('keeps the team: names, stats, levels, wages', () => {
+    const save = savedGame();
+    const s = restoreGame(STAND_MAP, save, 3);
+    expect(s.staff.map((st) => st.role)).toEqual(['cook', 'waiter', 'washer']);
+    const again = makeSave(s, NOW);
+    expect(again.team).toEqual(save.team);
   });
 });
 
@@ -77,5 +92,10 @@ describe('offline progress', () => {
     const better = { ...basic, levels: { ...basic.levels, fries: 30, fridge: 10 } };
     const away = NOW + 3600_000;
     expect(offlineEarnings(STAND_MAP, better, away)!.coins.gt(offlineEarnings(STAND_MAP, basic, away)!.coins)).toBe(true);
+  });
+
+  it('nobody earns while you are away if nobody serves', () => {
+    const lonelyCook = { ...savedGame(), team: savedGame().team.filter((w) => w.role === 'cook') };
+    expect(offlineEarnings(STAND_MAP, lonelyCook, NOW + 3600_000)).toBeNull();
   });
 });

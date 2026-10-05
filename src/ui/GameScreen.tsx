@@ -14,11 +14,14 @@ import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulat
 import { toSave } from '../sim/big';
 import { canBuy } from '../sim/economy/upgrades';
 import type { OfflineEarnings } from '../sim/offline';
+import type { GameState } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
 import { useSettings } from '../store/settings';
 import { JuicyButton } from './JuicyButton';
+import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
+import { StaffPanel, type StaffView } from './StaffPanel';
 import { GearButton, SettingsPanel } from './SettingsPanel';
 import { theme } from './theme';
 import { UpgradePanel } from './UpgradePanel';
@@ -51,11 +54,10 @@ function Labels({ camera }: { camera: Camera }) {
   );
 }
 
-function UpgradesButton({ count, onPress }: { count: number; onPress: () => void }) {
-  const t = useT();
+function CornerButton({ label, count, onPress, color }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' }) {
   return (
     <View>
-      <JuicyButton label={t('ui.upgrades')} onPress={onPress} style={styles.upgradesButton} />
+      <JuicyButton label={label} onPress={onPress} style={[styles.cornerButton, color === 'purple' && styles.staffButton]} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>
@@ -65,7 +67,10 @@ function UpgradesButton({ count, onPress }: { count: number; onPress: () => void
   );
 }
 
-/** The live restaurant: scene, upgrade panel, welcome-back screen. */
+/** What the corner buttons need, read twice a second. */
+const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, waiting: s.applicants.filter((a) => a.state === 'waiting').length });
+
+/** The live restaurant: scene, upgrade and staff panels, decisions, welcome-back screen. */
 function GameRunner({ boot }: { boot: GameBoot }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -77,33 +82,51 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const uiFps = useSharedValue(0);
   const buildMs = useSharedValue(0);
   const selected = useSharedValue(-1);
+  const selectedId = useSharedValue(-1);
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
-  const wallet = usePoll(gameRef, (s) => ({ coins: s.coins, levels: s.levels }), panel ? 6 : 2);
+  const [staff, setStaff] = useState<StaffView | null>(null);
+  const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
   const affordable = wallet ? UPGRADES.filter((u) => canBuy(u, wallet.levels, wallet.coins)).length : 0;
+  const t = useT();
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
   const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
   const panelOpen = useRef(false);
-  panelOpen.current = panel !== null;
+  panelOpen.current = panel !== null || staff !== null;
 
   const open = useCallback(
     (station: PropKind | null) => {
       selected.value = station ?? -1;
+      selectedId.value = -1;
+      setStaff(null);
       setPanel({ station });
     },
-    [selected],
+    [selected, selectedId],
+  );
+  const showStaff = useCallback(
+    (view: StaffView) => {
+      selected.value = -1;
+      selectedId.value = 'person' in view ? view.person : -1;
+      setPanel(null);
+      setStaff(view);
+    },
+    [selected, selectedId],
   );
   const close = useCallback(() => {
     selected.value = -1;
+    selectedId.value = -1;
     setPanel(null);
-  }, [selected]);
+    setStaff(null);
+  }, [selected, selectedId]);
   const onTap = useCallback(
     (x: number, y: number, cam: Camera) => {
       const hit = tap(x, y, cam);
-      if (hit && hit !== 'action') open(hit.station);
-      else if (!hit && panelOpen.current) close();
+      if (hit && hit !== 'action') {
+        if ('station' in hit) open(hit.station);
+        else showStaff({ person: hit.person });
+      } else if (!hit && panelOpen.current) close();
     },
-    [tap, open, close],
+    [tap, open, showStaff, close],
   );
   const collect = (multiplier: number) => {
     if (welcome) command({ type: 'grant', coins: toSave(welcome.coins.mul(multiplier)) });
@@ -113,13 +136,16 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={GAME_BG} focus={GAME_FOCUS} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} />
+      <SceneCanvas snapshot={snapshot} background={GAME_BG} focus={GAME_FOCUS} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
-      {!panel && (
-        <View style={[styles.corner, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
-          <UpgradesButton count={affordable} onPress={() => open(null)} />
+      <Notices gameRef={gameRef} onCommand={command} />
+      {!panel && !staff && (
+        <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
+          <CornerButton label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
+          <CornerButton label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
       )}
+      {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
           wallet={wallet}
@@ -182,7 +208,9 @@ export function GameScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1022' },
   corner: { position: 'absolute' },
-  upgradesButton: { minHeight: 52, paddingHorizontal: 20, backgroundColor: '#35B957', borderColor: '#FFE08A', borderWidth: 2.5 },
+  cornerRow: { flexDirection: 'row', gap: 10 },
+  cornerButton: { minHeight: 52, paddingHorizontal: 20, backgroundColor: '#35B957', borderColor: '#FFE08A', borderWidth: 2.5 },
+  staffButton: { backgroundColor: '#6A2C8F', borderColor: '#E8C9FF' },
   badge: {
     position: 'absolute',
     top: -6,

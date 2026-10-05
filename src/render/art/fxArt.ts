@@ -1,4 +1,4 @@
-import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
+import { PathOp, Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite } from '../sprite';
 import { darken, lighten } from './color';
 import { fill, glowStroke, path, stroke, type Pt } from './kit';
@@ -152,6 +152,46 @@ const gear = sprite([-12, -12, 12, 12], (c) => {
   c.drawCircle(0, 0, 3.6, stroke('#8A6A00', 1));
 });
 
+/** "I'm here about the job": a CV sheet with a photo and lines. */
+const cv = sprite(ICON, (c) => {
+  glossy(c, path.rrect(-5, -6.4, 10, 12.8, 1.4), '#FFFFFF', '#5A6070');
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-3.6, -5, 3.4, 3.8), 0.8, 0.8), fill('#5B8EDB'));
+  c.drawCircle(-1.9, -3.8, 0.9, fill('#FFE1C9'));
+  for (const [y, w] of [[-4.4, 3], [-2.6, 2.4], [0.4, 7], [2.2, 6], [4, 6.6]] as const) {
+    c.drawRect(Skia.XYWHRect(y < 0 ? 0.6 : -3.6, y, w, 0.9), fill('#B8C0CC'));
+  }
+});
+/** "Can we talk about my pay?": a coin with an up arrow. */
+const raise = sprite(ICON, (c) => {
+  glossy(c, path.circle(-1, 1, 5), '#FFC21A', '#9A6A00');
+  c.drawCircle(-1, 1, 3.4, stroke('#E09A00', 0.9));
+  glossy(c, path.poly([[4.4, -6.4], [7.6, -2.4], [5.4, -2.4], [5.4, 1], [3.4, 1], [3.4, -2.4], [1.2, -2.4]]), '#35B957', '#17602A');
+});
+/** Uniform rank badge (white, tinted silver or gold by the renderer). */
+const rankStar = sprite([-5, -5, 5, 5], (c) => {
+  const pts = Array.from({ length: 10 }, (_, i) => {
+    const r = i % 2 === 0 ? 3.4 : 1.5;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    return [Math.cos(a) * r, Math.sin(a) * r] as Pt;
+  });
+  c.drawPath(path.poly(pts), stroke('#3A2A20', 1.2));
+  c.drawPath(path.poly(pts), fill('#FFFFFF'));
+});
+/** Day clock: sun by day, moon by night. */
+const sun = sprite(ICON, (c) => {
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    c.drawPath(path.polyline([[Math.cos(a) * 5.6, Math.sin(a) * 5.6], [Math.cos(a) * 7.6, Math.sin(a) * 7.6]]), stroke('#FFB020', 1.6));
+  }
+  glossy(c, path.circle(0, 0, 4.4), '#FFD23F', '#C88A00');
+});
+const moon = sprite(ICON, (c) => {
+  const disc = Skia.Path.Circle(0, 0, 5.6);
+  const bite = Skia.Path.Circle(2.8, -2, 4.6);
+  const crescent = Skia.Path.MakeFromOp(disc, bite, PathOp.Difference) ?? disc;
+  glossy(c, crescent, '#E8E4FF', '#6A64A8');
+});
+
 /** Confetti piece for milestone celebrations (tinted per piece). */
 const confetti = sprite([-4, -3, 4, 3], (c) => c.drawRect(Skia.XYWHRect(-3, -1.8, 6, 3.6), fill('#FFFFFF')));
 
@@ -192,6 +232,6 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
 
 export const fxSprites = {
   bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
-  arrowUp, plusBadge, confetti, gear,
+  arrowUp, plusBadge, confetti, gear, cv, raise, rankStar, sun, moon,
   steam, sparkle, soap, puff, ring,
 };

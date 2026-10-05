@@ -14,10 +14,12 @@ export interface RenderAssets {
   S: typeof S;
   L: Layers;
   /**
-   * The same art as vector pictures, for the few sprites drawn big on screen (HUD icons and
-   * digits): razor sharp on any screen. Indexed like the atlas; null = atlas only.
+   * The few sprites drawn big on screen (HUD icons and digits) baked again at screen
+   * resolution: sharp on any phone and as cheap as any sprite. Indexed like the atlas;
+   * null = not in it. (They used to be vector pictures: sharp too, but replaying their paths
+   * every frame cost about a third of the frame rate on a software GPU.)
    */
-  vec: (SkPicture | null)[];
+  sharp: { image: SkImage; src: (Rect | null)[]; dst: (Rect | null)[] };
   paints: {
     plain: SkPaint;
     /** Reused for anything that fades; its alpha is set right before each draw. */
@@ -45,6 +47,11 @@ export interface RenderAssets {
     hudFill: SkPaint;
     hudRim: SkPaint;
     hudShine: SkPaint;
+    /** Full-screen evening and night light (alpha set per frame). */
+    evening: SkPaint;
+    night: SkPaint;
+    /** Red for money going out (payday). */
+    redText: SkPaint;
   };
   background: SkPicture;
   /** The same background pre-rendered once; drawn instead of the vectors when zoomed out. */
@@ -129,24 +136,27 @@ function gradientPaint(colors: [string, string], height: number): SkPaint {
   return p;
 }
 
-const VECTOR_SPRITES: readonly string[] = ['coin', 'star', 'starGray', ...GLYPH_CHARS.map((ch) => `glyph_${ch}`)];
+const SHARP_SPRITES: readonly string[] = ['coin', 'star', 'starGray', 'sun', 'moon', ...GLYPH_CHARS.map((ch) => `glyph_${ch}`)];
 
-let sharedVectors: (SkPicture | null)[] | null = null;
+/** The biggest scale the HUD draws a sharp sprite at (the coin); smaller ones mipmap down. */
+const SHARP_MAX_SCALE = 2.7;
 
-/** Records the chosen sprites once as pictures (vectors), shared by every scene. */
-function getVectors(): (SkPicture | null)[] {
-  if (sharedVectors) return sharedVectors;
-  const out: (SkPicture | null)[] = SPRITE_DEFS.map(() => null);
-  for (const name of VECTOR_SPRITES) {
-    const i = S[name as SpriteName];
-    const def = SPRITE_DEFS[i]!;
-    const [l, t, r, b] = def.bounds;
-    const rec = Skia.PictureRecorder();
-    def.draw(rec.beginRecording(Skia.XYWHRect(l - 2, t - 2, r - l + 4, b - t + 4)));
-    out[i] = rec.finishRecordingAsPicture();
-  }
-  sharedVectors = out;
-  return out;
+let sharedSharp: (RenderAssets['sharp'] & { scale: number }) | null = null;
+
+/** Bakes the HUD sprites at device resolution once, shared by every scene. */
+function getSharp(pixelRatio: number): RenderAssets['sharp'] {
+  const scale = Math.min(pixelRatio, 3) * SHARP_MAX_SCALE;
+  if (sharedSharp && sharedSharp.scale >= scale) return sharedSharp;
+  const ids = SHARP_SPRITES.map((name) => S[name as SpriteName]);
+  const atlas = bakeAtlas(ids.map((i) => SPRITE_DEFS[i]!), scale);
+  const src: (Rect | null)[] = SPRITE_DEFS.map(() => null);
+  const dst: (Rect | null)[] = SPRITE_DEFS.map(() => null);
+  ids.forEach((id, k) => {
+    src[id] = atlas.src[k]!;
+    dst[id] = atlas.dst[k]!;
+  });
+  sharedSharp = { image: atlas.image, src, dst, scale };
+  return sharedSharp;
 }
 
 export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelRatio: number): RenderAssets {
@@ -159,7 +169,7 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
     dst: atlas.dst,
     S,
     L: LAYERS,
-    vec: getVectors(),
+    sharp: getSharp(pixelRatio),
     paints: {
       plain: plainPaint(),
       fade: plainPaint(),
@@ -184,6 +194,9 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       hudFill: gradientPaint(['#5A2A66', '#2E1238'], HUD_PILL_H),
       hudRim: strokePaint('#F2C14E', 2.4),
       hudShine: strokePaint('#FFFFFF', 1.2, 0.22),
+      evening: solid('#FF7A2A', 0),
+      night: solid('#12123F', 0),
+      redText: tint('#FF6A5E'),
     },
     background,
     backgroundImage: bakeBackground(background, world),

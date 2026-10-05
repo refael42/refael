@@ -66,6 +66,8 @@ interface Props {
   onCamera?: (cam: Camera) => void;
   /** Prop kind to outline (the station whose upgrades are open), -1 for none. */
   selected?: SharedValue<number>;
+  /** Character id to ring (the worker or applicant whose card is open), -1 for none. */
+  selectedId?: SharedValue<number>;
 }
 
 /**
@@ -73,7 +75,7 @@ interface Props {
  * entities, effects, HUD. Camera pan/zoom runs on the UI thread too; React never re-renders
  * per frame.
  */
-export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected }: Props) {
+export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -223,7 +225,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       const started = performance.now();
       if (!recorder.value) recorder.value = Skia.PictureRecorder();
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
-      drawScene(c, assets, snap, alpha, t, dt, { x: camX.value, y: camY.value, zoom: zoom.value }, s, hud ?? null, vignette, W, H, selected ? selected.value : -1);
+      drawScene(c, assets, snap, alpha, t, dt, { x: camX.value, y: camY.value, zoom: zoom.value }, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1);
       const next = recorder.value.finishRecordingAsPicture();
       // Web (CanvasKit/WASM) never garbage-collects Skia objects: free pictures a few frames old.
       // Native frees them by itself, and freeing by hand there can pull a picture out from under
@@ -241,7 +243,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       picture.value = next;
       buildMs.value = buildMs.value * 0.9 + (performance.now() - started) * 0.1;
     },
-    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camX, camY, zoom, hud, vignette, W, H, selected],
+    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camX, camY, zoom, hud, vignette, W, H, selected, selectedId],
   );
   useFrameCallback(onFrame);
 

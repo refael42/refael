@@ -15,9 +15,10 @@ export interface Mods {
   patience: number;
   arrivals: number;
   quality: number;
-  /** Extra plates and tables on top of the starting ones. */
+  /** Extra plates, tables and stoves on top of the starting ones. */
   plates: number;
   tables: number;
+  stoves: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -90,6 +91,7 @@ function emptyMods(): Mods {
     quality: 1,
     plates: 0,
     tables: 0,
+    stoves: 0,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };

@@ -6,7 +6,9 @@ import { seatCustomer } from './customers';
 import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade } from './purchase';
 import { handWash, serveOrder } from './staff';
-import { CustomerState, OrderState, TableState, type Command, type GameState, type StationTarget, type TapTarget } from './types';
+import { hire, negotiate, reject } from './applicants';
+import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
+import { answer, fire, giveBonus, reassign, scold, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
 export function queueCommand(s: GameState, command: Command): void {
@@ -51,6 +53,7 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Plant]: 30,
   [PropKind.Neon]: 64,
   [PropKind.StreetSign]: 34,
+  [PropKind.StoveSlot]: 10,
 };
 
 const ANCHORS: readonly PropKind[] = [...new Set(UPGRADES.map((u) => u.anchor))];
@@ -64,7 +67,37 @@ export function stationTargets(s: GameState): StationTarget[] {
   return out;
 }
 
+/** People the manager can tap to open their card: the team and waiting applicants. */
+export function peopleTargets(s: GameState): PersonTarget[] {
+  const out: PersonTarget[] = [];
+  for (const st of s.staff) if (!st.leaving) out.push({ x: st.x, y: st.y, height: HEIGHT.customer, id: st.id, applicant: false });
+  for (const a of s.applicants) if (a.state === 'waiting') out.push({ x: a.x, y: a.y, height: HEIGHT.customer, id: a.id, applicant: true });
+  return out;
+}
+
 function apply(s: GameState, cmd: Command): void {
+  switch (cmd.type) {
+    case 'hire':
+      return hire(s, cmd.applicant, cmd.trial);
+    case 'negotiate':
+      return negotiate(s, cmd.applicant);
+    case 'reject':
+      return reject(s, cmd.applicant);
+    case 'fire':
+      return fire(s, cmd.staff);
+    case 'bonus':
+      return giveBonus(s, cmd.staff);
+    case 'train':
+      return train(s, cmd.staff);
+    case 'scold':
+      return scold(s, cmd.staff);
+    case 'reassign':
+      return reassign(s, cmd.staff, cmd.role);
+    case 'answer':
+      return answer(s, cmd.notice, cmd.yes);
+    default:
+      break;
+  }
   if (cmd.type === 'seat') {
     const c = s.customers.find((x) => x.id === cmd.customer);
     if (c && c.state === CustomerState.Queued) seatCustomer(s, c);

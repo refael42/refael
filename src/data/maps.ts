@@ -55,8 +55,9 @@ export interface MapDef {
    */
   tables: Point[];
   startTables: number;
-  cookSpot: Point;
-  stove: Furniture;
+  /** Stove spots and where their cook stands; like tables, the first `startStoves` exist. */
+  stoves: { stove: Furniture; cook: Point }[];
+  startStoves: number;
   pass: Furniture;
   /** Ready dishes wait here (tile centers on top of the pass counter). */
   passSlots: Point[];
@@ -64,7 +65,12 @@ export interface MapDef {
   passTop: number;
   /** Where a waiter stands to pick up from a pass slot (same index), on the dining side. */
   pickupSpots: Point[];
-  waiterIdle: Point;
+  /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
+  waiterIdle: Point[];
+  hostSpot: Point;
+  cleanerIdle: Point[];
+  /** Job applicants wait here outside the door with their CV. */
+  applicantSpots: Point[];
   sink: Furniture;
   washerSpot: Point;
   /** Where dirty plates are dropped for the dishwasher. */
@@ -123,8 +129,12 @@ export const STAND_MAP: MapDef = {
     { x: 8.5, y: 10.5 },
   ],
   startTables: 3,
-  cookSpot: { x: 3.55, y: 4 },
-  stove: { kind: K.Stove, x: 2.5, y: 4, w: 1, d: 2, blocks: true },
+  // The second stove slots in between the first one and the sink: one long cooking line.
+  stoves: [
+    { stove: { kind: K.Stove, x: 2.5, y: 4, w: 1, d: 2, blocks: true }, cook: { x: 3.55, y: 4 } },
+    { stove: { kind: K.Stove, x: 2.5, y: 6, w: 1, d: 2, blocks: true }, cook: { x: 3.55, y: 6 } },
+  ],
+  startStoves: 1,
   // The pass sits one step from the stove: the cook turns around and sets the plate down.
   pass: { kind: K.Pass, x: 4.5, y: 4.5, w: 1, d: 3, blocks: true },
   passSlots: [
@@ -138,10 +148,24 @@ export const STAND_MAP: MapDef = {
     { x: 5.5, y: 4.5 },
     { x: 5.5, y: 5.5 },
   ],
-  waiterIdle: { x: 6.7, y: 6.3 },
+  waiterIdle: [
+    { x: 6.7, y: 6.3 },
+    { x: 6.7, y: 7.4 },
+    { x: 6.7, y: 5.2 },
+  ],
+  hostSpot: { x: 11.6, y: 10.4 },
+  cleanerIdle: [
+    { x: 7.3, y: 11.3 },
+    { x: 10.3, y: 11.3 },
+  ],
+  // Right of the door, clear of the street sign and the customers' way in.
+  applicantSpots: [
+    { x: 14.1, y: 12.7 },
+    { x: 15.0, y: 12.95 },
+  ],
   sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
   washerSpot: { x: 3.55, y: 8 },
-  dirtyDrop: { x: 3.7, y: 6.8 },
+  dirtyDrop: { x: 3.75, y: 7.25 },
   cleanStack: { x: 2.5, y: 8.5 },
   dirtyStack: { x: 2.5, y: 7.5 },
   sinkTop: 22,

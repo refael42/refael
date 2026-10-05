@@ -11,8 +11,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
  * `plates` and `tables` are counts. `price` is per dish.
  */
-export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables'];
+export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves'];
 
 export interface Effect {
   stat: Stat;
@@ -56,9 +56,9 @@ export const MILESTONES = { levels: [10, 25, 50, 75, 100], every: 50, visualTier
 
 export const UPGRADES: readonly UpgradeDef[] = [
   // Menu: the money makers. Linear price per level, doubled at every milestone.
-  { id: 'fries', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 5, growth: 1.13,
+  { id: 'fries', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 5, growth: 1.15,
     effect: { stat: 'price', per: 0.3, dish: Dish.Fries }, milestone: { stat: 'price', factor: 2, dish: Dish.Fries } },
-  { id: 'burger', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 70, growth: 1.14, unlocksDish: Dish.Burger,
+  { id: 'burger', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 70, growth: 1.165, unlocksDish: Dish.Burger,
     requires: { item: 'fries', level: 5 },
     effect: { stat: 'price', per: 0.3, dish: Dish.Burger }, milestone: { stat: 'price', factor: 2, dish: Dish.Burger } },
 
@@ -66,6 +66,9 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // Global multipliers grow slowly on purpose: they stack with every recipe level.
   { id: 'stove', category: 'kitchen', anchor: K.Stove, restyle: 'anchor', baseCost: 12, growth: 1.15,
     effect: { stat: 'cookSpeed', per: 0.08 }, milestone: { stat: 'cookSpeed', factor: 1.5 } },
+  // A second stove makes room for a second cook.
+  { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 3, max: 1,
+    effect: { stat: 'stoves', per: 1 }, milestone: null },
   { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17,
     effect: { stat: 'quality', per: 0.04 }, milestone: { stat: 'quality', factor: 1.25 } },
 

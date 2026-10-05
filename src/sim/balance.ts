@@ -1,7 +1,7 @@
 import { BALANCE } from '../data/balance';
 import type { MapDef } from '../data/maps';
 import { STEP_SEC } from '../data/sim';
-import { createBot, type Purchase } from './bot';
+import { createBot, type Hire, type Purchase } from './bot';
 import { createGame } from './game/create';
 import { stepGame } from './game/step';
 
@@ -29,13 +29,17 @@ export interface DeadZone {
 export interface BalanceReport {
   seconds: number;
   purchases: Purchase[];
+  hires: Hire[];
+  /** Team size at the end, and how many quit along the way. */
+  team: number;
+  quits: number;
   samples: Sample[];
   deadZones: DeadZone[];
   /** Minutes in which the bot bought suspiciously many upgrades. */
   bulkMinutes: { minute: number; count: number }[];
   /** Sample windows where income jumped by more than `BALANCE.incomeJump` at once. */
   incomeJumps: { time: number; factor: number }[];
-  firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null };
+  firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null; hire: number | null };
 }
 
 export interface BalanceOptions {
@@ -54,9 +58,11 @@ export function runBalance(o: BalanceOptions): BalanceReport {
   const steps = Math.round(o.seconds / STEP_SEC);
   const sampleEvery = Math.round(BALANCE.sampleSeconds / STEP_SEC);
   let lastEarned = 0;
+  let quits = 0;
   for (let i = 1; i <= steps; i++) {
     bot.act(s);
     stepGame(s, STEP_SEC);
+    quits += s.notices.filter((n) => n.kind === 'quit' && n.time === s.time).length;
     if (i % sampleEvery === 0) {
       const earned = s.stats.earned.toNumber();
       samples.push({
@@ -73,9 +79,11 @@ export function runBalance(o: BalanceOptions): BalanceReport {
   }
   const p = bot.purchases;
 
+  // Hiring someone is a purchase too: it ends a wait just like an upgrade does.
+  const actions: Purchase[] = [...p, ...bot.hires.map((h) => ({ time: h.time, item: `hire ${h.role}`, level: 1, cost: 0 }))].sort((a, b) => a.time - b.time);
   const deadZones: DeadZone[] = [];
   let prev = 0;
-  for (const purchase of p) {
+  for (const purchase of actions) {
     if (purchase.time - prev > BALANCE.deadZoneSeconds) deadZones.push({ start: prev, seconds: purchase.time - prev, then: purchase });
     prev = purchase.time;
   }
@@ -98,6 +106,9 @@ export function runBalance(o: BalanceOptions): BalanceReport {
   return {
     seconds: s.time,
     purchases: p,
+    hires: bot.hires,
+    team: s.staff.length,
+    quits,
     samples,
     deadZones,
     bulkMinutes,
@@ -107,6 +118,7 @@ export function runBalance(o: BalanceOptions): BalanceReport {
       milestone: firstTime(p, (x) => x.level === 10),
       table: firstTime(p, (x) => x.item === 'tables'),
       burger: firstTime(p, (x) => x.item === 'burger'),
+      hire: bot.hires[0]?.time ?? null,
     },
   };
 }

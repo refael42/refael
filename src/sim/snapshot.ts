@@ -29,6 +29,7 @@ export const C = {
   emoteTime: 20,
   patience: 21,
   bubble: 22,
+  rank: 23,
 } as const;
 
 /** Prop record fields. */
@@ -47,6 +48,9 @@ export interface Hud {
   combo: number;
   /** Sim time of the last payment; the combo badge shows while it is recent. */
   comboAt: number;
+  /** Day number and how far into it we are (0..1): the sun/moon clock and the evening light. */
+  day: number;
+  dayPhase: number;
 }
 
 export interface Snapshot {
@@ -110,6 +114,7 @@ function writeCharacter(d: number[], o: number, c: CharacterView): void {
   d[o + C.emoteTime] = c.emoteTime;
   d[o + C.patience] = c.patience;
   d[o + C.bubble] = c.bubble;
+  d[o + C.rank] = c.rank ?? 0;
 }
 
 function writeProp(d: number[], o: number, p: PropView): void {

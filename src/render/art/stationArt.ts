@@ -454,6 +454,17 @@ const tableSlot = sprite([-58, -30, 40, 22], (c) =>
   }),
 );
 
+/** The floor spot of a stove you can buy: a dashed outline along the cooking line. */
+const stoveSlot = sprite([-44, -30, 44, 30], (c) =>
+  onTop(c, 0, () => {
+    const r = Skia.RRectXY(Skia.XYWHRect(-0.46, -0.96, 0.92, 1.92), 0.14, 0.14);
+    c.drawRRect(r, fill('#FFFFFF', 0.14));
+    const dash = stroke('#FFF4E3', 0.045, 0.85);
+    dash.setPathEffect(Skia.PathEffect.MakeDash([0.14, 0.09], 0));
+    c.drawRRect(r, dash);
+  }),
+);
+
 export const stationSprites = {
   ...stoves,
   ...sinks,
@@ -471,4 +482,5 @@ export const stationSprites = {
   neonIcon,
   plateStack,
   tableSlot,
+  stoveSlot,
 };

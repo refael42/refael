@@ -1,5 +1,6 @@
 import type { CustomerTypeId } from '../../data/customers';
-import type { Role } from '../../data/staff';
+import type { Role, StatId } from '../../data/staff';
+import type { TraitId } from '../../data/traits';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
 import type { Levels, Mods } from '../economy/upgrades';
@@ -43,6 +44,9 @@ export interface Customer extends CharacterView {
   moodCount: number;
   foodWaited: number;
   angryEmoted: boolean;
+  /** Set when served: the cook's quality multiplies the price, the server's charm the tip. */
+  dishQuality: number;
+  tipBoost: number;
 }
 
 export interface Table {
@@ -72,6 +76,8 @@ export interface Order {
   landsAt: number;
   /** Waiter assigned to carry it (-1 none). */
   waiter: number;
+  /** Price multiplier from the cook who made it. */
+  quality: number;
 }
 
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
@@ -81,6 +87,16 @@ export type Command =
   | { type: 'clean'; table: number }
   | { type: 'wash' }
   | { type: 'buy'; item: string }
+  | { type: 'hire'; applicant: number; trial: boolean }
+  | { type: 'negotiate'; applicant: number }
+  | { type: 'reject'; applicant: number }
+  | { type: 'fire'; staff: number }
+  | { type: 'bonus'; staff: number }
+  | { type: 'train'; staff: number }
+  | { type: 'scold'; staff: number }
+  | { type: 'reassign'; staff: number; role: Role }
+  /** Yes/no on a raise request or the end of a trial shift. */
+  | { type: 'answer'; notice: number; yes: boolean }
   /** Coins from outside the restaurant (offline earnings, rewards), as a saved Big string. */
   | { type: 'grant'; coins: string };
 
@@ -90,6 +106,15 @@ export interface TapTarget {
   y: number;
   height: number;
   command: Command;
+}
+
+/** A worker or applicant (tapping them opens their card). */
+export interface PersonTarget {
+  x: number;
+  y: number;
+  height: number;
+  id: number;
+  applicant: boolean;
 }
 
 /** A station with upgrades (tapping it opens them). */
@@ -107,15 +132,61 @@ export type Job =
   | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop' }
   | { kind: 'home' };
 
-export interface Staff extends CharacterView {
+/** A generated person: who applies, and who works here once hired. */
+export interface Person {
+  /** Index into NAMES. */
+  name: number;
+  stats: Record<StatId, number>;
+  traits: TraitId[];
+  level: number;
+  /** Coins per day. */
+  wage: Big;
+}
+
+export interface Staff extends CharacterView, Person {
   role: Role;
+  /** Tiles per second before stats, morale and energy. */
   speed: number;
   path: Point[];
   job: Job | null;
   jobTime: number;
   /** Set while the cook cannot finish a dish (no clean plate or a full pass). */
   stalled: 'plates' | 'pass' | null;
+  xp: number;
+  morale: number;
+  energy: number;
+  unpaidDays: number;
+  hiredDay: number;
+  lastRaiseDay: number;
+  /** On a trial shift: no signing fee yet, decided at the end of the day. */
+  trial: boolean;
+  scoldUntil: number;
+  /** Stove index for cooks, idle-spot index for waiters and cleaners. */
+  slot: number;
+  /** Quit or fired: finishes what they hold, then walks out. */
+  leaving: boolean;
+  /** Switches to this job once the current one is done. */
+  pendingRole: Role | null;
+  /** Busy this step (drains energy). */
+  busy: boolean;
 }
+
+export interface Applicant extends CharacterView, Person {
+  role: Role;
+  state: 'arriving' | 'waiting' | 'leaving';
+  path: Point[];
+  speed: number;
+  spot: number;
+  patienceLeft: number;
+  negotiated: 'no' | 'accepted' | 'refused';
+}
+
+/** Things the manager should know or decide; the UI shows them as cards. */
+export type Notice =
+  | { id: number; time: number; kind: 'raise'; staff: number; wage: Big }
+  | { id: number; time: number; kind: 'trial'; staff: number }
+  | { id: number; time: number; kind: 'quit'; name: number; role: Role; unpaid: boolean }
+  | { id: number; time: number; kind: 'payday'; paid: Big; unpaid: number };
 
 /** Ambient people: sidewalk strollers (always) and stress-test roamers (perf testing). */
 export interface Walker extends CharacterView {
@@ -129,6 +200,7 @@ export interface GameStats {
   served: number;
   walkouts: number;
   earned: Big;
+  hires: number;
 }
 
 export interface GameState {
@@ -163,6 +235,15 @@ export interface GameState {
   mods: Mods;
   /** Sim time of the last upgrade per anchor kind (the renderer bounces that station). */
   bumpAt: number[];
+  /** Stoves in use: their prop and where their cook stands. */
+  stoves: { propId: number; x: number; y: number; cook: Point }[];
+  applicants: Applicant[];
+  nextApplicant: number;
+  /** Day counter (continues across sessions) and seconds into the current day. */
+  day: number;
+  dayTime: number;
+  notices: Notice[];
+  nextNoticeId: number;
 }
 
 export interface SimEventRecord {

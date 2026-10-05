@@ -2,12 +2,16 @@ import { describe, expect, it } from 'vitest';
 import { STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { KITCHEN } from '../src/data/staff';
+import { big } from '../src/sim/big';
 import { queueCommand } from '../src/sim/game/commands';
+import { Ev } from '../src/sim/game/events';
 import { createGame } from '../src/sim/game/create';
 import { gameSnapshot, stepGame } from '../src/sim/game/step';
 import { CustomerState, OrderState, TableState, type GameState } from '../src/sim/game/types';
 import { Bubble, PropKind } from '../src/sim/types';
 import { P, STRIDE, F } from '../src/sim/snapshot';
+
+const FULL = ['cook', 'waiter', 'washer'] as const;
 
 function step(s: GameState, seconds: number, each?: () => void) {
   for (let i = 0; i < Math.round(seconds / STEP_SEC); i++) {
@@ -31,19 +35,38 @@ function platesAccounted(s: GameState): number {
 
 describe('staff automate the restaurant', () => {
   it('waiter delivers and buses, dishwasher washes: customers pay with only seating taps', () => {
-    const s = createGame(STAND_MAP, 11);
+    const s = createGame(STAND_MAP, 11, { roster: FULL });
     step(s, 240, seatAll(s));
     expect(s.stats.served).toBeGreaterThan(8);
     expect(s.coins.gt(0)).toBe(true);
   });
 
   it('never creates or loses plates', () => {
-    const s = createGame(STAND_MAP, 5);
+    const s = createGame(STAND_MAP, 5, { roster: FULL });
     for (let i = 0; i < 6000; i++) {
       seatAll(s)();
       stepGame(s, STEP_SEC);
       expect(platesAccounted(s)).toBe(KITCHEN.plates);
     }
+  });
+});
+
+describe('a clumsy waiter', () => {
+  it('drops dishes now and then, but never loses a plate', () => {
+    let drops = 0;
+    // Several restaurants: a 6 % drop rate needs a few dozen deliveries to show up for sure.
+    for (let seed = 21; seed < 27; seed++) {
+      const s = createGame(STAND_MAP, seed, { roster: FULL });
+      s.staff.find((st) => st.role === 'waiter')!.traits = ['clumsy'];
+      s.coins = big('1e9'); // Paid on time: nobody quits mid-test.
+      for (let i = 0; i < 8000; i++) {
+        seatAll(s)();
+        stepGame(s, STEP_SEC);
+        drops += s.events.filter((e) => e.type === Ev.Crash && e.time === s.time).length;
+        expect(platesAccounted(s)).toBe(KITCHEN.plates);
+      }
+    }
+    expect(drops).toBeGreaterThan(0);
   });
 });
 

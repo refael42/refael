@@ -17,7 +17,7 @@ function pathLength(from: { x: number; y: number }, path: { x: number; y: number
 describe('walkability grid', () => {
   it('blocks furniture and the outside lawn, opens floors and the sidewalk', () => {
     expect(isWalkable(grid, STAND_MAP.tables[0]!)).toBe(false);
-    expect(isWalkable(grid, STAND_MAP.stove)).toBe(false);
+    expect(isWalkable(grid, STAND_MAP.stoves[0]!.stove)).toBe(false);
     expect(isWalkable(grid, { x: 10.5, y: 10.5 })).toBe(true);
     expect(isWalkable(grid, { x: 8.5, y: 12.5 })).toBe(true);
     expect(isWalkable(grid, { x: 8.5, y: 15.5 })).toBe(false);

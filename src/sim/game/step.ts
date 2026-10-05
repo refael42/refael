@@ -6,6 +6,8 @@ import { formatBig } from '../format';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
 import { Bubble, PropKind } from '../types';
+import { DAY } from '../../data/staff';
+import { updateApplicants } from './applicants';
 import { applyCommands } from './commands';
 import { updateArrivals, updateCustomers } from './customers';
 import { packEvents, pruneEvents } from './events';
@@ -13,6 +15,7 @@ import { anchorPoints } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
+import { updateWorkers } from './workers';
 
 function tickTimers(c: CharacterView, dt: number): void {
   c.poseTime += dt;
@@ -26,7 +29,8 @@ function tickTimers(c: CharacterView, dt: number): void {
 export function stepGame(s: GameState, dt: number): void {
   s.tick += 1;
   s.time += dt;
-  for (const c of [...s.staff, ...s.customers, ...s.walkers]) {
+  const everyone = [...s.staff, ...s.customers, ...s.walkers, ...s.applicants];
+  for (const c of everyone) {
     c.prevX = c.x;
     c.prevY = c.y;
   }
@@ -34,10 +38,12 @@ export function stepGame(s: GameState, dt: number): void {
   updateArrivals(s);
   updateCustomers(s, dt);
   updateStaff(s, dt);
+  updateWorkers(s, dt);
+  updateApplicants(s, dt);
   landFlyingDishes(s);
   updateTables(s, dt);
   updateWalkers(s, dt);
-  for (const c of [...s.staff, ...s.customers, ...s.walkers]) tickTimers(c, dt);
+  for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants]) tickTimers(c, dt);
   pruneEvents(s);
 }
 
@@ -98,12 +104,12 @@ function dynamicProps(s: GameState): PropView[] {
       progress: s.washProgress,
     }),
   );
-  // The next table spot shows as a ghost you can buy (variant 1 = affordable right now).
+  // The next table and stove spots show as ghosts you can buy (variant 1 = affordable now).
+  const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins)) ? 1 : 0);
   const spot = s.map.tables[s.tables.length];
-  if (spot) {
-    const affordable = UPGRADES.some((u) => u.anchor === PropKind.TableSlot && canBuy(u, s.levels, s.coins));
-    out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable ? 1 : 0, depthBias: -0.4 }));
-  }
+  if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4 }));
+  const stoveSpot = s.map.stoves[s.stoves.length];
+  if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
   return out;
 }
 
@@ -128,9 +134,17 @@ function upgradeViews(s: GameState) {
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
-  return packSnapshot([...s.staff, ...s.customers, ...s.walkers], [...s.props, ...dynamicProps(s)], seq, s.time, {
+  return packSnapshot([...s.staff, ...s.customers, ...s.walkers, ...s.applicants], [...s.props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
-    hud: { coins: s.coins.toNumber(), coinsText: formatBig(s.coins), rating: s.rating, combo: s.combo, comboAt: s.lastPayTime },
+    hud: {
+      coins: s.coins.toNumber(),
+      coinsText: formatBig(s.coins),
+      rating: s.rating,
+      combo: s.combo,
+      comboAt: s.lastPayTime,
+      day: s.day,
+      dayPhase: s.dayTime / DAY.seconds,
+    },
     bumps: s.bumpAt,
     ...upgradeViews(s),
   });

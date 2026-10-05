@@ -6,6 +6,7 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   fries: { base: 'plateFries', looks: true },
   burger: { base: 'plateBurger', looks: true },
   stove: { base: 'stove', looks: true },
+  stove2: { base: 'stove0', looks: false },
   fridge: { base: 'fridge', looks: true },
   sink: { base: 'sink', looks: true },
   plates: { base: 'plateStack', looks: false },

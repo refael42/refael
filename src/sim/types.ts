@@ -59,6 +59,8 @@ export const PropKind = {
   TableSlot: 15,
   /** Sign on the sidewalk by the door (marketing). */
   StreetSign: 16,
+  /** Ghost of the next stove you can buy (a second cook needs a second stove). */
+  StoveSlot: 17,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -68,7 +70,7 @@ export const EntityType = { Character: 1, Prop: 2 } as const;
  * Persistent icon bubbles (not timed like emotes): what a customer wants, or what a prop needs.
  * Dish bubbles are `DishBase + dish id`.
  */
-export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, DishBase: 10 } as const;
+export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, Cv: 4, Raise: 5, DishBase: 10 } as const;
 
 /** What the renderer needs to draw a character, whatever system drives it. */
 export interface CharacterView {
@@ -88,6 +90,8 @@ export interface CharacterView {
   /** 0..1 shown as a bar over the head; -1 hides it. */
   patience: number;
   bubble: number;
+  /** Staff uniform rank (0 none, 1 silver badge, 2 gold badge). */
+  rank?: number;
 }
 
 /** What the renderer needs to draw a prop. */

@@ -48,6 +48,7 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.StreetSign) return look(L.streetSign, tier);
   if (kind === PropKind.Pass) return A.S.pass;
   if (kind === PropKind.TableSlot) return A.S.tableSlot;
+  if (kind === PropKind.StoveSlot) return A.S.stoveSlot;
   return -1;
 }
 
@@ -201,6 +202,14 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
       const pulse = 1 + Math.sin(t * 5) * 0.08;
       sprXf(c, A, S.plusBadge, 0, -34 - Math.abs(Math.sin(t * 2.6)) * 3, 0, pulse * 1.2, pulse * 1.2, plain);
     }
+  } else if (kind === PropKind.StoveSlot) {
+    // Room for a second cooking line: a dashed spot and a ghost stove.
+    sprFade(c, A, S.stoveSlot, 0, 0, 1, 0.7 + Math.sin(t * 3) * 0.2);
+    sprFade(c, A, look(A.L.look.stove, 0), 0, 0, 1, 0.25);
+    if (variant === 1) {
+      const pulse = 1 + Math.sin(t * 5) * 0.08;
+      sprXf(c, A, S.plusBadge, 0, -40 - Math.abs(Math.sin(t * 2.6)) * 3, 0, pulse * 1.2, pulse * 1.2, plain);
+    }
   } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, plain);
   else if (kind === PropKind.PassDish) {
     // Ready dish pops onto the pass, then bobs and sparkles until someone serves it.
@@ -254,7 +263,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     sprFade(c, A, look(A.L.look.neonLit, tier), 0, 0, 1, stutter ? 0.25 : 0.92 + Math.sin(t * 9) * 0.08);
   }
   // Top-tier stations twinkle.
-  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot) sparkles(c, A, 0, -28, t, 14, seed);
+  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot) sparkles(c, A, 0, -28, t, 14, seed);
   c.restore();
 }
 

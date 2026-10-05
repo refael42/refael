@@ -4,7 +4,7 @@ import { formatNumber } from '../../sim/format';
 import type { Hud } from '../../sim/snapshot';
 import { HUD_PILL_H, type RenderAssets } from '../assets';
 import type { FxState, HudAnchors } from './fx';
-import { vecSpr } from './primitives';
+import { sharpSpr } from './primitives';
 import { drawTextSharp, textWidth } from './text';
 
 export interface HudLayout {
@@ -65,7 +65,7 @@ export function drawHud(c: SkCanvas, A: RenderAssets, hud: Hud, s: FxState, t: n
   c.translate(layout.left, layout.top + PANEL_H / 2);
   c.scale(b, b);
   pill(c, A, 0, tw + PANEL_H + 22);
-  vecSpr(c, A, A.S.coin, PANEL_H / 2, 0, COIN_SCALE + Math.sin(t * 3) * 0.04);
+  sharpSpr(c, A, A.S.coin, PANEL_H / 2, 0, COIN_SCALE + Math.sin(t * 3) * 0.04, A.paints.plain);
   drawTextSharp(c, A, text, PANEL_H + 6, 0.5, COIN_TEXT, null, 0);
   c.restore();
 
@@ -79,16 +79,33 @@ export function drawHud(c: SkCanvas, A: RenderAssets, hud: Hud, s: FxState, t: n
   pill(c, A, 0, pillW);
   for (let i = 0; i < 5; i++) {
     const sx = 18 + i * STAR_STEP;
-    vecSpr(c, A, A.S.starGray, sx, 0, STAR_SCALE);
+    sharpSpr(c, A, A.S.starGray, sx, 0, STAR_SCALE, A.paints.plain);
     const fillPart = Math.max(0, Math.min(1, hud.rating - i));
     if (fillPart > 0) {
       c.save();
       c.clipRect({ x: sx - 10, y: -12, width: 20 * fillPart, height: 24 }, 1, true);
-      vecSpr(c, A, A.S.star, sx, 0, STAR_SCALE);
+      sharpSpr(c, A, A.S.star, sx, 0, STAR_SCALE, A.paints.plain);
       c.restore();
     }
   }
   drawTextSharp(c, A, rText, pillW - 25, 0.5, 1.15, A.paints.gold, 0.5);
+  c.restore();
+
+  // Day clock, top middle: sun or moon on a ring that fills as the day goes by, and the day.
+  const cx = (layout.left + layout.right) / 2;
+  const night = hud.dayPhase >= 0.7;
+  const dayText = '' + hud.day;
+  const dw = textWidth(A, dayText, 1.25) + PANEL_H + 18;
+  c.save();
+  c.translate(cx - dw / 2, layout.top + PANEL_H / 2);
+  pill(c, A, 0, dw);
+  const r = PANEL_H / 2 - 6;
+  A.paints.ring.setAlphaf(0.25);
+  c.drawCircle(PANEL_H / 2, 0, r, A.paints.ring);
+  A.paints.ring.setAlphaf(1);
+  c.drawArc({ x: PANEL_H / 2 - r, y: -r, width: r * 2, height: r * 2 }, -90, hud.dayPhase * 360, false, A.paints.hudRim);
+  sharpSpr(c, A, night ? A.S.moon : A.S.sun, PANEL_H / 2, 0, 1.25, A.paints.plain);
+  drawTextSharp(c, A, dayText, PANEL_H + 4, 0.5, 1.25, null, 0);
   c.restore();
 
   // Combo badge while payments keep chaining.

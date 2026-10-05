@@ -17,7 +17,7 @@ export interface DishDef {
 
 export const DISHES: readonly DishDef[] = [
   { id: Dish.Fries, nameKey: 'dish.fries', price: 4, cookSeconds: 3.5, eatSeconds: 3.5, startsUnlocked: true },
-  { id: Dish.Burger, nameKey: 'dish.burger', price: 8, cookSeconds: 6, eatSeconds: 6, startsUnlocked: false },
+  { id: Dish.Burger, nameKey: 'dish.burger', price: 14, cookSeconds: 6, eatSeconds: 6, startsUnlocked: false },
 ];
 
 export function dishDef(id: number): DishDef {

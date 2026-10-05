@@ -8,8 +8,8 @@
 | M1 | Customer lifecycle end to end + juice; **pivot to isometric, landscape, big pannable/zoomable map** | ✅ Done |
 | M2 | Kitchen tickets, waiter delivery (A* already in), clean-dishes loop with a dishwasher | ✅ Done |
 | M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ✅ Done |
-| M4 | Applicants, hiring, wages, morale, staff cards | ⏳ Next |
-| M5 | Building tiers, construction sequence, build mode, decor | — |
+| M4 | Applicants, hiring, wages, morale, staff cards | ✅ Done |
+| M5 | Building tiers, construction sequence, build mode, decor | ⏳ Next |
 | M6 | Automation, Rush hour, Upgrades screen (search/filter/ROI) | — |
 | M7 | Full polish: audio, haptics, day/night, weather, tutorial, quests, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
@@ -28,6 +28,9 @@
   FPS counter, character gallery, crowd test, reset progress).
 - The restaurant must be able to **grow**: more tables now (M3), more kitchens/cooks with
   hiring (M4) and bigger buildings (M5).
+- The coin counter and the stars must look crisp (the first HUD looked low quality on the
+  phone): chunky gradient pills with a gold rim; icons and digits baked at screen resolution.
+- First phone run crashed after the first touch → fixed in the M3 hotfix (see Known issues).
 
 ## Locked decisions
 
@@ -51,9 +54,17 @@
     software GL.
   - Atlas/background bakes use CPU raster surfaces (no `MakeOffscreen`: each offscreen GPU
     surface costs a WebGL context on web, capped ≈16).
-  - Old per-frame pictures are disposed two frames later (CanvasKit objects are not GC'd).
-- **Camera:** pan (with inertia via `withDecay`) + pinch around the focal point + zoom buttons,
-  all on the UI thread, clamped to the map.
+  - Old per-frame pictures are disposed by hand a few frames later **on web only** (CanvasKit
+    objects are not GC'd). On native the JS GC frees them; disposing by hand there raced the
+    UI thread and was the prime suspect for the first-touch crash on the owner's phone.
+  - The canvas props are stable and the component is memoized: re-rendering it at 2 Hz
+    (HUD polling) used to rebuild the gesture handlers mid-touch.
+  - **HUD sharp sprites:** coin, stars, sun/moon and the digits are baked a second time at
+    screen resolution (`pixelRatio × 2.7`, mipmapped) and drawn like any sprite. They were
+    vector pictures first: as sharp, but replaying their paths every frame cost ~35 % of the
+    frame rate on a software GPU (10 → 14.7 fps after the switch).
+- **Camera:** pan (with inertia via `withDecay`) + pinch around the focal point (mouse wheel
+  on web), all on the UI thread, clamped to the map.
 - **Input:** a tap draws a ripple instantly on the UI thread, then the JS thread hit-tests in
   screen space against `tapTargets()` and queues an explicit command (`seat`/`serve`/`clean`)
   applied at the next fixed step → deterministic, replayable, testable.
@@ -70,7 +81,7 @@
 - **Big numbers:** `break_infinity.js` behind `src/sim/big.ts`; `formatBig` (Big) and
   `formatNumber` (plain number, worklet) produce identical K/M/B/T/aa… strings.
 - **i18n/RTL:** root `direction` style (no app reload), never mix Hebrew + numbers in one Text.
-- **Staff (M2, `src/sim/game/staff.ts`):** cook, waiter and dishwasher are sim entities with
+- **Staff (M2, `src/sim/game/staff.ts`):** staff are sim entities with
   simple job loops (no behavior trees yet). The waiter prefers delivering ready dishes over
   bussing tables. The manager can always step in: tap a ready dish to toss it, a dirty table
   to wipe it, the sink to hand-wash.
@@ -94,21 +105,50 @@
   with an affordable upgrade; the next table spot shows as a dashed ghost with a "+".
 - **Menus** are React Native panels (not canvas). Icons are the game's own sprites rendered
   once to PNG data URIs (no extra Skia canvases: web caps WebGL contexts).
-- **Save (M3, `src/sim/save.ts`, `src/store/persistence.ts`):** versioned JSON (v1) with a
-  migration chain and validation (unknown upgrades dropped, caps enforced). Only progress is
-  saved (coins, rating, levels, stats); a load starts a fresh, empty day. Two slots (latest +
+- **Save (M3, `src/sim/save.ts`, `src/store/persistence.ts`):** versioned JSON (v2 since M4:
+  adds the team, the day number and hires; v1 saves migrate to the old cook + waiter + washer
+  team) with a migration chain and validation (unknown upgrades dropped, caps enforced, bad
+  workers dropped). Only progress is saved (coins, rating, levels, stats, team); a load starts
+  a fresh, empty day. Two slots (latest +
   previous) so an interrupted write never loses everything; an unreadable save is parked, a
   save from a newer app version is never overwritten. Autosave every 5 s and when the app
   goes to the background.
 - **Offline progress (`src/sim/offline.ts`):** the real sim runs headless for 3 minutes with
-  the saved upgrades (staff seat people slowly), measures coins/second, and pays 50 % of that
-  for the time away, capped at 2 h (upgrades will raise it in M6). The sim is paused while the
+  the saved upgrades and team (staff seat people slowly), measures coins/second, subtracts the
+  team's wages, and pays 50 % of that for the time away (nothing if wages eat it all), capped at 2 h (upgrades will raise it in M6). The sim is paused while the
   "Welcome back" screen is up, so collecting is never lost. The ×2 button is a 3-second fake
   ad (placeholder, no ad SDK).
 - **Balance bot (`npm run balance`):** a greedy "cheapest affordable" manager with a 1.2 s
   reaction plays N minutes headless and prints the timeline, dead zones (> 3 min with nothing
   to buy), upgrade floods (> 30 buys/min) and income explosions (> ×4 per minute). A test
   guards the first 15 minutes. Runs through Vite's SSR loader (no new dependency).
+- **Staff management (M4, `src/sim/game/people.ts`, `applicants.ts`, `workers.ts`):**
+  - A worker is a *person* (name, look, 4 stats 1–10: speed, quality, charm, stamina, up to 2
+    traits, level, daily wage) plus job state (XP, morale, energy, unpaid days, trial).
+  - Five jobs with a cap each (`src/data/staff.ts`): cook (one per stove), waiter (3), washer
+    (1), host (1, seats the queue by itself) and cleaner (2, busses tables); host and cleaner
+    open once the team has 3 people. The game starts with **one cook**; everyone else is hired.
+  - Applicants walk to the door with a CV bubble and wait 70 s. A missing cook is always the
+    first applicant (and comes within seconds), so a kitchen can never deadlock.
+  - Hire = pay a signing fee (1 day of wage) · trial = free today, decide at the end of the
+    day · "offer less" = −20 % once, accepted ~55 % (less for better people) · no thanks.
+  - **Day = 120 s** (clock in the HUD, dusk/night tint, lamps glow). Payday at the end of each
+    day, in hiring order; anyone unpaid loses morale, after 2 unpaid days they quit.
+  - Work rate = speed stat × energy × morale (0.7–1.1) × (scolded ×1.25) × (night owl at
+    night). Morale moves with events: paid +0.05, unpaid −0.35, bonus +0.3, scold −0.15, raise
+    yes/no ±0.2, a gossip on the team −0.04 per payday; below 0.12 at payday people quit.
+    Energy drains while busy (less with stamina) and refills while idle.
+  - XP from every job; levels add a stat point and +25 % wage; ranks (silver star at Lv 3,
+    gold at Lv 6) show on the uniform. Lv 2+ ask for raises (at least +20 %, up to the market wage,
+    never more than +50 % at once); refusing costs morale.
+  - Manager actions on the worker card: bonus (morale), train (pay for a level), scold (fast
+    for 25 s, morale down), change job (switches after the current task), fire (two taps).
+  - Traits (`src/data/traits.ts`): perfectionist, clumsy (drops a dish now and then — the
+    plate goes dirty and the order is cooked again), charmer (tips), night owl, gossip
+    (spreads bad morale on payday), workaholic, cheerful (cheap but weaker).
+  - Applicants get better (higher level) as the restaurant hires more.
+- **Taps (M4):** an action wins over a person, a person over a station; tapping a worker or an
+  applicant opens their card and rings them on the map.
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -132,8 +172,16 @@
   level. The first tuning had them at ×1.5 per milestone and income exploded to billions by
   minute 17 — the balance bot caught it.
 - Kitchen (M2): 5 plates, washing 3 s per plate (a tap on the sink = +34 %), plating 0.45 s,
-  bussing 0.7 s. Starting roster: cook + waiter + dishwasher; in M4 the game starts with the
-  cook only and you hire the rest (then the "no plates" bottleneck shows up early on purpose).
+  bussing 0.7 s. Since M4 the game starts with the cook only and you hire the rest, so the
+  "no plates" bottleneck shows up early on purpose.
+- M4 pacing (bot hires by need, seed 1, 60 min): first upgrade 0:00, first hire 0:42
+  (washer), waiter 1:29, first milestone 4:04, host 17:11, 2nd waiter 21:21, cleaner 21:35,
+  2nd cook 26:28 → team of 7, **0 quits**. Coins/min: 528 at 6 → 4.3K at 18 → 369K at 30 →
+  2.3M at 42 → 5M at 60. No dead zones; one flood at minutes 22–26 (32–35 buys/min) right
+  after the second cook — the same kind of power spike as M3, kept.
+- Wages are priced in portions of fries (Lv 1: 2–3 portions per day), so they grow with the
+  menu prices; levels, stats and raises push them further. The burger price went
+  8 → 14 so unlocking it never lowers income.
 
 ## Performance
 
@@ -148,6 +196,8 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M2 game, zoomed in ×1.6 (vector background) | ~28 | 0.6–1.3 ms | 5–10 |
 | M2 game, production build | ~28 | — | 14–15 |
 | M3 game, production build | ~25 | 0.6–1.4 ms | 17.8 (14.5 with the upgrade panel open) |
+| M4 game, production build, vector HUD | ~27 | 0.9 ms | 10 (M3 build on the same machine: 16) |
+| M4 game, production build, sharp-atlas HUD | ~27 | 0.7–0.9 ms | 14.7 (16.9 with the staff panel open) |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -155,19 +205,24 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 127 unit tests.
+- `npm run check` — typecheck + 152 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
 
 ## Known issues / not verified
 
-- Not run on a physical Android/iOS device yet (sandbox has no device).
+- Not run on a physical Android/iOS device by me (sandbox has no device). The owner's first
+  phone run crashed after the first touch; the hotfix (web-only picture disposal, stable
+  memoized canvas) is pushed but **not confirmed yet** — if it still crashes, the red-screen
+  text or the terminal output is needed.
 - Customers enter/leave through the front door of the building, but there is no visible door
   frame yet (front walls are cut away by design).
 - Expo DevTools fails to launch in the sandbox (runs as root) — harmless.
 - Sound & music: the settings row is a placeholder until audio lands (M7).
-- Seating is still manual (auto-seat "Host" comes in M6); while the app is closed the offline
-  estimate assumes slow seating by the staff.
+- Seating is manual until you hire a host (M4); while the app is closed the offline estimate
+  assumes slow seating by the staff. Deeper automation comes in M6.
+- Staff jobs are still simple loops; workers never take breaks (energy only lowers speed).
+- Applicants only come one or two at a time at the door; there is no job board / ads yet.
 - Very large numbers in floating "+N" texts use JS numbers (fine up to ~1e308); the HUD and
   menus use `Big`.

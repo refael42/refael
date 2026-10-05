@@ -45,6 +45,8 @@ export const LOOKS = {
   cook: { outfit: Outfit.Chef, hair: Hair.Short, hairColor: 1, skin: 2, shirt: SHIRT.white, pants: PANTS.black, hat: Hat.Toque, accessory: Accessory.None },
   waiter: { outfit: Outfit.Waiter, hair: Hair.Ponytail, hairColor: 4, skin: 1, shirt: SHIRT.white, pants: PANTS.black, hat: Hat.None, accessory: Accessory.None },
   washer: { outfit: Outfit.Washer, hair: Hair.Spiky, hairColor: 0, skin: 5, shirt: SHIRT.mint, pants: PANTS.olive, hat: Hat.Bandana, accessory: Accessory.None },
+  host: { outfit: Outfit.Suit, hair: Hair.Bun, hairColor: 0, skin: 2, shirt: SHIRT.charcoal, pants: PANTS.black, hat: Hat.None, accessory: Accessory.None },
+  cleaner: { outfit: Outfit.Tee, hair: Hair.Short, hairColor: 2, skin: 3, shirt: SHIRT.teal, pants: PANTS.denim, hat: Hat.Cap, accessory: Accessory.None },
 } satisfies Record<string, Look>;
 
 const idle = (seconds: number, extra: Partial<Extract<RoutineStep, { do: 'act' }>> = {}): RoutineStep => ({

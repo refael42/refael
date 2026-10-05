@@ -5,7 +5,7 @@ import { SAVE } from '../data/economy';
 import type { MapDef } from '../data/maps';
 import type { SceneDef } from '../data/scenes';
 import { SIM, STEP_MS, STEP_SEC } from '../data/sim';
-import { queueCommand, stationTargets, tapTargets } from '../sim/game/commands';
+import { peopleTargets, queueCommand, stationTargets, tapTargets } from '../sim/game/commands';
 import { createGame } from '../sim/game/create';
 import { gameSnapshot, stepGame } from '../sim/game/step';
 import type { Command, GameState } from '../sim/game/types';
@@ -95,8 +95,8 @@ export interface GameBoot {
   offline: OfflineEarnings | null;
 }
 
-/** What a tap hit: an action (already queued), a station with upgrades, or nothing. */
-export type TapHit = 'action' | { station: PropKind } | null;
+/** What a tap hit: an action (already queued), a person, a station with upgrades, or nothing. */
+export type TapHit = 'action' | { station: PropKind } | { person: number } | null;
 
 /** Nearest projected target to a screen point. */
 function nearest<T extends { x: number; y: number; height: number }>(targets: T[], x: number, y: number, cam: Camera) {
@@ -161,11 +161,14 @@ export function useGame(map: MapDef, seed: number, stress: number, boot: GameBoo
     if (!game) return null;
     const scale = Math.max(1, cam.zoom * 0.8);
     const action = nearest(tapTargets(game), x, y, cam);
+    const person = nearest(peopleTargets(game), x, y, cam);
     const station = nearest(stationTargets(game), x, y, cam);
     if (action && action.dist <= TAP_RADIUS * scale && (!station || action.dist <= station.dist + ACTION_BIAS)) {
       queueCommand(game, action.target.command);
       return 'action';
     }
+    // People are small: they win over the station they stand at when the tap is on them.
+    if (person && person.dist <= TAP_RADIUS * scale && (!station || person.dist <= station.dist + ACTION_BIAS)) return { person: person.target.id };
     return station && station.dist <= STATION_RADIUS * scale ? { station: station.target.kind } : null;
   }, []);
 
