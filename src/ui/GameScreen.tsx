@@ -37,6 +37,7 @@ import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewToast } from './ReviewToast';
+import { RushButton } from './RushButton';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
 import { UpgradePanel } from './UpgradePanel';
@@ -255,6 +256,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <CornerButton ref={staffButton} label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
           <CornerButton ref={upgradesButton} label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
+      )}
+      {!panel && !staff && !build && !onboarding && tutorial >= TUTORIAL_STEPS.length && building < 0 && (
+        <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 68 }} />
       )}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (

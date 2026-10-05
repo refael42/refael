@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { TIERS } from '../data/buildings';
 import { mapForTier, type MapDef } from '../data/maps';
@@ -10,6 +10,7 @@ import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
 import type { Big } from '../sim/big';
 import { canBuy, costOf, isMaxed, isUnlocked, itemValue, levelOf, nextMilestone, prevMilestone, tierOf, type Levels } from '../sim/economy/upgrades';
+import { bestValue } from '../sim/economy/value';
 import { formatBig, formatNumber } from '../sim/format';
 import type { PropKind } from '../sim/types';
 import { useSettings } from '../store/settings';
@@ -100,7 +101,7 @@ function NextBuilding({ level }: { level: number }) {
   );
 }
 
-function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (id: string) => void }) {
+function Row({ def, wallet, onBuy, best }: { def: UpgradeDef; wallet: Wallet; onBuy: (id: string) => void; best: boolean }) {
   const t = useT();
   const rtl = isRTL(useSettings((s) => s.lang));
   const level = levelOf(wallet.levels, def.id);
@@ -119,6 +120,11 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
           </Text>
           <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
           <Text style={styles.lv}>{level}</Text>
+          {best && (
+            <View style={styles.bestTag}>
+              <Text style={styles.bestText}>{`★ ${t('ui.bestValue')}`}</Text>
+            </View>
+          )}
         </View>
         {def.effect.stat === 'building' ? (
           <NextBuilding level={level} />
@@ -163,16 +169,33 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
 
 /** Side sheet with upgrade rows: a station's own upgrades, or the whole catalog by category. */
 /** Always on the right, next to the Upgrades button (left would cover the settings gear). */
+/** The catalog's tabs: "best value" across everything, then the categories. */
+type Tab = Category | 'best';
+
 export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Props) {
   const t = useT();
-  const [category, setCategory] = useState<Category>('menu');
+  const rtl = isRTL(useSettings((s) => s.lang));
+  const [category, setCategory] = useState<Tab>('best');
+  const [query, setQuery] = useState('');
+  const [buyableOnly, setBuyableOnly] = useState(false);
+  const ranked = useMemo(() => bestValue(wallet.levels, wallet.map), [wallet.levels, wallet.map]);
+  const affordable = (u: UpgradeDef) => canBuy(u, wallet.levels, wallet.coins, wallet.map);
+  // The one to buy next: the best value you can pay for now.
+  const bestId = ranked.find(affordable)?.id;
   const slide = useSharedValue(1);
   useEffect(() => {
     slide.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [slide]);
   const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value * 420 }] }));
   // Decor is placed in build mode, not bought from a list: those rows live in the build panel.
-  const items = (station === null ? UPGRADES.filter((u) => u.category === category) : UPGRADES.filter((u) => u.anchor === station)).filter((u) => !u.build);
+  const listed = UPGRADES.filter((u) => !u.build);
+  const q = query.trim().toLowerCase();
+  let items: readonly UpgradeDef[];
+  if (station !== null) items = listed.filter((u) => u.anchor === station);
+  else if (q) items = listed.filter((u) => t(`up.${u.id}`).toLowerCase().includes(q));
+  else if (category === 'best') items = ranked;
+  else items = listed.filter((u) => u.category === category);
+  if (station === null && buyableOnly) items = items.filter(affordable);
   // One upgrade: its name. Several on one station (the pass holds the menu): their category.
   const title = station === null ? t('ui.upgrades') : items.length === 1 ? t(`up.${items[0]!.id}`) : t(`cat.${items[0]?.category ?? 'menu'}`);
   return (
@@ -186,12 +209,34 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
         </Pressable>
       </View>
       {station === null && (
+        <View style={styles.tools}>
+          <View style={styles.searchBox}>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('ui.search')}
+              placeholderTextColor="#8A6A9A"
+              style={[styles.search, { textAlign: rtl ? 'right' : 'left' }]}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <Pressable accessibilityRole="button" accessibilityLabel="clear" onPress={() => setQuery('')} hitSlop={8} style={styles.clear}>
+                <Text style={styles.clearText}>{'✕'}</Text>
+              </Pressable>
+            )}
+          </View>
+          <Pressable accessibilityRole="switch" accessibilityState={{ checked: buyableOnly }} onPress={() => setBuyableOnly(!buyableOnly)} style={[styles.chip, buyableOnly && styles.chipOn]}>
+            <Text style={[styles.chipText, buyableOnly && styles.chipTextOn]}>{t('ui.canBuy')}</Text>
+          </Pressable>
+        </View>
+      )}
+      {station === null && !q && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsInner}>
-          {CATEGORIES.map((c) => {
-            const count = UPGRADES.filter((u) => u.category === c && !u.build && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length;
+          {(['best', ...CATEGORIES] as const).map((c) => {
+            const count = c === 'best' ? (bestId ? 1 : 0) : listed.filter((u) => u.category === c && affordable(u)).length;
             return (
               <Pressable key={c} onPress={() => setCategory(c)} style={[styles.tab, c === category && styles.tabOn]}>
-                <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{t(`cat.${c}`)}</Text>
+                <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{c === 'best' ? `★ ${t('ui.bestValue')}` : t(`cat.${c}`)}</Text>
                 {count > 0 && <View style={styles.dot} />}
               </Pressable>
             );
@@ -200,8 +245,9 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
       )}
       <ScrollView style={styles.list} contentContainerStyle={styles.listInner}>
         {items.map((def) => (
-          <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} />
+          <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} best={def.id === bestId} />
         ))}
+        {items.length === 0 && <Text style={styles.empty}>{t('ui.noResults')}</Text>}
         {station !== null && (
           <Pressable onPress={onShowAll} style={styles.allButton}>
             <Text style={styles.allText}>{t('ui.all')}</Text>
@@ -231,6 +277,29 @@ const styles = StyleSheet.create({
   title: { flex: 1, color: '#FFE9A8', fontSize: 19, fontWeight: '900' },
   close: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#4A2550', alignItems: 'center', justifyContent: 'center' },
   closeText: { color: '#FFE9A8', fontSize: 16, fontWeight: '900' },
+  tools: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingBottom: 6 },
+  searchBox: { flex: 1, justifyContent: 'center' },
+  search: {
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: '#5A3A64',
+    backgroundColor: '#1E0E24',
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    // Room for the clear button on either side (it sits at the end, which flips in Hebrew).
+    paddingHorizontal: 32,
+  },
+  clear: { position: 'absolute', end: 6, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: '#4A2550' },
+  clearText: { color: '#E8D7F0', fontSize: 11, fontWeight: '900' },
+  chip: { height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1.5, borderColor: '#5A3A64', backgroundColor: '#24122A', justifyContent: 'center' },
+  chipOn: { backgroundColor: '#35B957', borderColor: '#B9F5A8' },
+  chipText: { color: '#E8D7F0', fontWeight: '800', fontSize: 12 },
+  chipTextOn: { color: '#FFFFFF' },
+  bestTag: { marginStart: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: gold },
+  bestText: { color: '#2A1530', fontSize: 10, fontWeight: '900' },
+  empty: { color: '#C9B3D6', fontSize: 14, fontWeight: '700', textAlign: 'center', paddingVertical: 20 },
   tabs: { flexGrow: 0 },
   tabsInner: { paddingHorizontal: 10, gap: 6, paddingBottom: 6 },
   tab: { paddingHorizontal: 12, height: 32, borderRadius: 16, backgroundColor: '#3A1D40', justifyContent: 'center', flexDirection: 'row', alignItems: 'center' },

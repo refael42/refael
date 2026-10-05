@@ -8,7 +8,7 @@ import { anchorPoints, buyUpgrade } from './purchase';
 import { handWash, serveOrder } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
-import { answer, fire, giveBonus, reassign, scold, train } from './workers';
+import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
 export function queueCommand(s: GameState, command: Command): void {
@@ -100,6 +100,8 @@ function apply(s: GameState, cmd: Command): void {
       return reassign(s, cmd.staff, cmd.role);
     case 'answer':
       return answer(s, cmd.notice, cmd.yes);
+    case 'rush':
+      return setRush(s, cmd.on);
     default:
       break;
   }

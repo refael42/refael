@@ -1,5 +1,5 @@
 import { TIERS } from '../../data/buildings';
-import { DAY, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
+import { DAY, ROLES, RUSH, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { followPath } from '../movement';
 import { chance, pick } from '../rng';
@@ -142,8 +142,33 @@ function maybeAskRaise(s: GameState, st: Staff): void {
   emote(st, Emote.Coin);
 }
 
+/** Rush hour: start or stop it (from the button). Starting needs some charge. */
+export function setRush(s: GameState, on: boolean): void {
+  if (on === s.rush.on || (on && s.rush.charge < RUSH.minCharge)) return;
+  s.rush.on = on;
+  if (!on) return;
+  for (const st of s.staff) {
+    if (st.leaving) continue;
+    emote(st, Emote.Exclaim);
+    emit(s, Ev.Rush, st.x, st.y);
+  }
+}
+
+/** The meter drains while it runs (and the team's morale with it), and refills when it stops. */
+function updateRush(s: GameState, dt: number): void {
+  const r = s.rush;
+  if (!r.on) {
+    r.charge = Math.min(1, r.charge + dt / RUSH.rechargeSeconds);
+    return;
+  }
+  r.charge = Math.max(0, r.charge - dt / RUSH.seconds);
+  for (const st of s.staff) if (!st.leaving) st.morale = Math.max(0, st.morale - dt * RUSH.moralePerSecond);
+  if (r.charge <= 0) r.on = false;
+}
+
 /** The day clock: energy every step, payday when a day ends. */
 export function updateWorkers(s: GameState, dt: number): void {
+  updateRush(s, dt);
   const managed = managerOnShift(s) !== undefined;
   for (const st of s.staff) if (!st.leaving) updateEnergy(s, st, dt, managed);
   s.dayTime += dt;

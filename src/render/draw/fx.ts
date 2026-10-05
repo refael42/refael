@@ -130,6 +130,10 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
     } else if (type === Ev.Review) {
       spawnFx(s, FxKind.LevelUp, t + 0.3, 0.9, wx, wy - 94, 0, 0, 0, a === 5 ? 1 : 0);
       spawnFx(s, FxKind.Burst, t + 0.3, 0.7, wx, wy - 94);
+    } else if (type === Ev.Rush) {
+      // Everyone gets going: a burst and a ring on each worker.
+      spawnFx(s, FxKind.Burst, t, 0.6, wx, wy - 36);
+      spawnFx(s, FxKind.Ding, t, 0.6, wx, wy - 36);
     } else if (type === Ev.Combo) {
       spawnFx(s, FxKind.Text, t + 0.4, 1.3, wx - 14, wy - 76, 0, 0, a, TextStyle.Combo);
     } else if (type === Ev.DishFly) {

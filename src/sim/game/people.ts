@@ -1,7 +1,7 @@
 import { Dish } from '../../data/dishes';
 import type { Look } from '../../data/looks';
 import { NAMES } from '../../data/names';
-import { APPLICANTS, DAY, ROLES, SHIFT, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
+import { APPLICANTS, DAY, ROLES, RUSH, SHIFT, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
 import { TRAIT_FX, TRAIT_LIST, TRAITS, type TraitId } from '../../data/traits';
 import type { Big } from '../big';
 import { randomLook } from '../looks';
@@ -53,10 +53,15 @@ export function generatePerson(s: GameState, role: Role, average = false): Perso
   }
   const stats = {} as Record<StatId, number>;
   for (const k of STAT_IDS) {
-    const base = average ? STAFF.stat.average : 3 + level * 0.6 + int(rng, -2, 3);
+    const base = average ? STAFF.stat.average : typicalStat(level) + int(rng, -2, 3);
     stats[k] = clampStat(base + traits.reduce((sum, t) => sum + (TRAITS[t].stats?.[k] ?? 0), 0));
   }
   return { name: int(rng, 0, NAMES.length), stats, traits, level, wage: wageFor(s, role, level, stats, traits) };
+}
+
+/** An applicant's stats are spread around this for their level. */
+export function typicalStat(level: number): number {
+  return 3 + level * 0.6;
 }
 
 /** Casual clothes for an applicant; the uniform comes with the job. */
@@ -95,7 +100,8 @@ export function workRate(s: GameState, st: Staff): number {
   const scold = s.time < st.scoldUntil ? 1 + STAFF.scold.speedBonus : 1;
   const night = has(st, 'nightOwl') && s.dayTime / DAY.seconds >= TRAIT_FX.nightFrom ? 1 + TRAIT_FX.nightOwlBonus : 1;
   const lead = st.role === 'waiter' ? waiterLead(s) : 1;
-  return statFactor(st.stats.speed) * tired * mood * scold * night * lead;
+  const rush = s.rush.on ? 1 + RUSH.speed : 1;
+  return statFactor(st.stats.speed) * tired * mood * scold * night * lead * rush;
 }
 
 /** Picks the stat a level-up improves: mostly the job's main stats. */

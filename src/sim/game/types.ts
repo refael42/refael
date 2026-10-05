@@ -92,6 +92,8 @@ export interface Order {
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
 export type Command =
   | { type: 'seat'; customer: number }
+  /** Rush hour: on while the button is held down. */
+  | { type: 'rush'; on: boolean }
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
@@ -245,6 +247,8 @@ export interface GameState {
   lastReviewTime: number;
   /** A five-star review has people talking until then: more arrivals. */
   buzzUntil: number;
+  /** Rush hour: running now, and the meter (0..1). */
+  rush: { on: boolean; charge: number };
   nextArrival: number;
   customers: Customer[];
   tables: Table[];

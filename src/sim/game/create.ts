@@ -210,6 +210,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     reviews: [],
     lastReviewTime: -Infinity,
     buzzUntil: -Infinity,
+    rush: { on: false, charge: 1 },
     nextArrival: FIRST_ARRIVAL_SECONDS,
     customers: [],
     tables: [],

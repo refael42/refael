@@ -1,10 +1,11 @@
 import { APPLICANTS, ROLE_LIST, ROLES, STAFF, type Role } from '../../data/staff';
+import { TRAITS } from '../../data/traits';
 import { followPath, setPose } from '../movement';
 import { chance, next, pick, range } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emote, route } from './customers';
 import { emit, Ev } from './events';
-import { applicantLook, generatePerson, uniformLook } from './people';
+import { applicantLook, generatePerson, statFactor, typicalStat, uniformLook } from './people';
 import { createStaff } from './staff';
 import type { Applicant, GameState } from './types';
 import { hasRoom } from './workers';
@@ -107,6 +108,31 @@ export function updateApplicants(s: GameState, dt: number): void {
 const waiting = (s: GameState, id: number) => s.applicants.find((a) => a.id === id && a.state !== 'leaving');
 
 export const signingFee = (a: Applicant) => a.wage.mul(STAFF.signingDays).ceil();
+
+/** How good a hire someone is for their wage: the job's main skills, level, traits. */
+export function applicantScore(a: Applicant): number {
+  const main = ROLES[a.role].primary;
+  const skill = main.reduce((sum, k) => sum + statFactor(a.stats[k]), 0) / main.length;
+  const traits = a.traits.reduce((m, t) => m * (TRAITS[t].good ? 1.1 : 0.7), 1);
+  return (skill * traits * (1 + 0.15 * (a.level - 1))) / Math.sqrt(Math.max(1, a.wage.toNumber()));
+}
+
+/**
+ * Worth a look (the "auto-hire shortlist"): waiting for a job with room, no bad habits, and at
+ * least as skilled in the job's main stats as a typical applicant of their level.
+ */
+export function shortlisted(s: GameState, a: Applicant): boolean {
+  if (a.state !== 'waiting' || !hasRoom(s, a.role) || a.traits.some((t) => !TRAITS[t].good)) return false;
+  const main = ROLES[a.role].primary;
+  return main.reduce((sum, k) => sum + a.stats[k], 0) / main.length >= typicalStat(a.level);
+}
+
+/** The shortlisted applicant who is the best hire for the money, if any. */
+export function recommended(s: GameState): number | null {
+  const fine = s.applicants.filter((a) => shortlisted(s, a));
+  fine.sort((x, y) => applicantScore(y) - applicantScore(x));
+  return fine[0]?.id ?? null;
+}
 
 /** Hire (pay the signing fee) or start a trial shift (no fee until the end of the day). */
 export function hire(s: GameState, id: number, trial: boolean): void {

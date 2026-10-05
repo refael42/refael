@@ -10,7 +10,7 @@ import type { SpriteName } from '../render/sprites';
 import { usePoll } from '../render/useSimulation';
 import type { Big } from '../sim/big';
 import { formatBig } from '../sim/format';
-import { signingFee } from '../sim/game/applicants';
+import { recommended, signingFee } from '../sim/game/applicants';
 import { xpToNext } from '../sim/game/people';
 import type { Command, GameState, Person } from '../sim/game/types';
 import { capacity, headcount, trainingCost } from '../sim/game/workers';
@@ -47,6 +47,8 @@ interface PersonRow extends Person {
   patience: number;
   negotiated: 'no' | 'accepted' | 'refused';
   room: boolean;
+  /** The applicant the shortlist suggests. */
+  pick: boolean;
 }
 
 /** A plain copy of what the menu shows, read a few times per second. */
@@ -59,8 +61,10 @@ function read(s: GameState) {
     patience: 1,
     negotiated: 'no',
     room: true,
+    pick: false,
     trainCost: trainingCost(st),
   }));
+  const pick = recommended(s);
   const applicants: PersonRow[] = s.applicants
     .filter((a) => a.state === 'waiting')
     .map((a) => ({
@@ -76,6 +80,7 @@ function read(s: GameState) {
       fee: signingFee(a),
       patience: a.patience,
       room: headcount(s, a.role) < capacity(s, a.role),
+      pick: a.id === pick,
     }));
   const room = Object.fromEntries(ROLE_LIST.map((r) => [r, headcount(s, r) < capacity(s, r)])) as Record<Role, boolean>;
   return { coins: s.coins, team, applicants, room };
@@ -154,6 +159,7 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
         )}
         {p.trial && <Text style={styles.tag}>{t('ui.onTrial')}</Text>}
         {p.leaving && <Text style={styles.tagBad}>{t('ui.leaving')}</Text>}
+        {p.pick && <Text style={styles.tagPick}>{`👍 ${t('ui.recommended')}`}</Text>}
       </View>
       <Money value={p.wage} suffix={t('ui.perDay')} />
     </Pressable>
@@ -339,6 +345,7 @@ const styles = StyleSheet.create({
   barFill: { height: 7 },
   tag: { alignSelf: 'flex-start', color: '#7EE08F', fontSize: 11, fontWeight: '800' },
   tagBad: { alignSelf: 'flex-start', color: '#FF8A7A', fontSize: 11, fontWeight: '800' },
+  tagPick: { alignSelf: 'flex-start', color: '#2A1530', backgroundColor: '#7EE08F', fontSize: 11, fontWeight: '900', paddingHorizontal: 6, borderRadius: 8, overflow: 'hidden', marginTop: 2 },
   money: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   coin: { width: 13, height: 13, borderRadius: 7, backgroundColor: '#FFC21A', borderWidth: 1.5, borderColor: '#9A6A00' },
   moneyText: { color: '#FFF4E3', fontWeight: '900', fontSize: 13 },

@@ -12,8 +12,9 @@
 | M5 | Building tiers, construction sequence, build mode, decor (+ chairs, couples, patience types, Lv 100 expansions) | ✅ Done |
 | M5b | New HUD, opening animation, first run: welcome, names, how to play, pointing-hand tutorial (owner requests) | ✅ Done |
 | M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ✅ Done |
-| M6 | Automation (+ shift manager for the waiters), Rush hour, Upgrades screen (search/filter/ROI) | — |
-| M7 | Full polish: audio, haptics, weather, quests, settings | — |
+| M6 | Shift manager for the waiters (owner request), Rush hour, Upgrades screen (search / can buy / best value), applicant shortlist | ✅ Done |
+| M7 | Quests and restaurant levels (owner request), then a balance pass and the pay-to-win item shop with gems (owner request) | ⏳ Next |
+| M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -46,7 +47,11 @@
 - Done in M5c: **customer reviews** (a good one is a bonus) and **more reward the better the
   service**. Also a "test money" button in the settings (testing section) so the owner can try
   everything.
-- Owner ideas still to do: a **shift manager** (אחמ"ש) who runs the waiters (M6).
+- Done in M6: the **shift manager** (אחמ"ש) who runs the waiters.
+- Owner requests for the next stages: a **list of tasks to level up** (quests, M7); then
+  **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
+  buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
+  stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
 
 ## Locked decisions
 
@@ -238,6 +243,19 @@
   a line, a name and the bonus — 4★ = one more bill, 5★ = two more bills and "Trending" (+20 %
   arrivals for 15 s). The balance bot (near-perfect service) builds the bistro at 31:00
   (was 33:56); a slow player (4 s reactions) gets 3–5★ and earns less, as intended.
+- **Shift manager (M6, `SHIFT` in `src/data/staff.ts`):** a job hired from applicants once the
+  team has two waiters and five people (one at a time). Red suit, clipboard, posted at the end
+  of the pass: calls out ready dishes (the guest closest to losing patience first), waiters work
+  +20 % faster (at charm 5) and tire 40 % less, the floor team gains morale, and every ~9 s the
+  manager walks to the most impatient seated guest and calms them (+35 % patience, a heart).
+- **Rush hour (M6, `RUSH`):** hold the 🔥 button (next to the gear): everyone works +60 % faster
+  while the meter lasts (8 s), each second costs every worker 1 % morale; the meter refills in
+  40 s. The screen edges glow orange while it runs.
+- **Upgrades screen (M6):** opens on "★ Best value" (the 12 best gains per coin, from a pure
+  estimate in `src/sim/economy/value.ts`, weights `VALUE` in `src/data/balance.ts`); a search
+  box across everything, a "Can buy" filter, and a "★ Best value" tag on the best affordable row.
+- **Applicant shortlist (M6):** "👍 Recommended" on the waiting applicant with room, no bad
+  habits, at least typical skill for their level, who is the best hire for the money.
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -305,7 +323,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 206 unit tests.
+- `npm run check` — typecheck + 218 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.

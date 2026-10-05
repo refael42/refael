@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { APPLICANTS, DAY, ROLES, STAFF } from '../src/data/staff';
+import { TRAITS } from '../src/data/traits';
 import { big } from '../src/sim/big';
 import { queueCommand } from '../src/sim/game/commands';
+import { applicantScore, recommended, shortlisted } from '../src/sim/game/applicants';
 import { createGame } from '../src/sim/game/create';
 import { generatePerson, workRate } from '../src/sim/game/people';
 import { buyUpgrade } from '../src/sim/game/purchase';
@@ -236,5 +238,28 @@ describe('growth and management', () => {
     s.stats.hires = 15;
     const levels = Array.from({ length: 40 }, () => generatePerson(s, 'waiter').level);
     expect(Math.max(...levels)).toBeGreaterThan(1);
+  });
+});
+
+describe('applicant shortlist', () => {
+  it('recommends the best hire for the money: typical or better for their level, no bad habits', () => {
+    const s = createGame(STAND_MAP, 61, { roster: ['cook'] });
+    const fine = (a: (typeof s.applicants)[number]) => shortlisted(s, a);
+    let checked = 0;
+    for (let i = 0; i < Math.round(1500 / STEP_SEC) && checked < 40; i++) {
+      stepGame(s, STEP_SEC);
+      const id = recommended(s);
+      const candidates = s.applicants.filter(fine);
+      if (id === null) {
+        expect(candidates).toHaveLength(0);
+        continue;
+      }
+      const pick = s.applicants.find((a) => a.id === id)!;
+      expect(fine(pick)).toBe(true);
+      expect(pick.traits.every((t) => TRAITS[t].good)).toBe(true);
+      for (const other of candidates) expect(applicantScore(pick)).toBeGreaterThanOrEqual(applicantScore(other));
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 });

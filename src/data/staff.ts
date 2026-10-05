@@ -105,6 +105,23 @@ export const STAFF = {
  */
 export const APPLICANTS = { firstSeconds: 20, gap: { min: 35, max: 70 }, patienceSeconds: 70, maxWaiting: 2, levelUpChance: 0.35, noCookSeconds: 8 } as const;
 
+/**
+ * Rush hour (hands-on): hold the button and the whole team works faster while the charge
+ * lasts; every second of it costs everyone a little morale. The charge refills when released.
+ */
+export const RUSH = {
+  /** Extra work speed for everyone. */
+  speed: 0.6,
+  /** A full charge lasts this long held down... */
+  seconds: 8,
+  /** ...and takes this long to refill from empty. */
+  rechargeSeconds: 40,
+  /** Too little charge to start (a tap on an empty meter does nothing). */
+  minCharge: 0.15,
+  /** Morale every worker loses per second of rush. */
+  moralePerSecond: 0.01,
+} as const;
+
 /** One in-game day; wages are paid when it ends. */
 export const DAY = { seconds: 120 } as const;
 

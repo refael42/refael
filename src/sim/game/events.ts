@@ -43,6 +43,8 @@ export const Ev = {
   Service: 21,
   /** A customer wrote a review. a = stars */
   Review: 22,
+  /** Rush hour started; (x,y) = the worker it lands on. One per worker. */
+  Rush: 23,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

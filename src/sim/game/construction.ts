@@ -74,6 +74,7 @@ function finishConstruction(s: GameState): void {
     reviews: s.reviews,
     lastReviewTime: s.lastReviewTime,
     buzzUntil: s.buzzUntil,
+    rush: s.rush,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.
     nextId: Math.max(s.nextId, fresh.nextId),
   };
