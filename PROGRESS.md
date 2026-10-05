@@ -305,7 +305,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 205 unit tests.
+- `npm run check` — typecheck + 206 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
@@ -315,6 +315,11 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Not run on a physical Android/iOS device by me (sandbox has no device or emulator). The
   first-touch crash on the owner's phone is fixed (touches moved off gesture-handler worklets
   to plain React Native touches) — confirmed by the owner.
+- The M5b build closed on the phone during the opening animation (no error; fine in the
+  browser): a plain helper (`iconCenter`) was called from the HUD anchors, which the canvas
+  runs on the UI thread every frame. Fixed, and `tests/worklets.test.ts` now reads the source
+  and fails on any UI-thread code (worklets and Reanimated callbacks) that calls one of our
+  plain functions — the same kind of bug as the first-touch crash.
 - Not seen on a phone yet: the name fields with the on-screen keyboard in landscape (the card
   sits at the top of the screen so the keyboard has room), and the opening animation's timing
   on a real device.

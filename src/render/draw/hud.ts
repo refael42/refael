@@ -20,8 +20,12 @@ export const HUD = {
   ratingWidth: 112,
 } as const;
 
-/** Center of a pill's icon whose pill starts at x. */
-const iconCenter = (pillLeft: number) => pillLeft - HUD.iconOut + HUD.icon / 2;
+/** Center of a pill's icon whose pill starts at x. A worklet: the canvas calls it every frame
+ * on the UI thread, and a plain function called from there closes the app on phones. */
+function iconCenter(pillLeft: number): number {
+  'worklet';
+  return pillLeft - HUD.iconOut + HUD.icon / 2;
+}
 
 /** Where coins/stars fly to: the coin and the star of the overlay. */
 export function hudAnchors(layout: HudLayout): HudAnchors {
