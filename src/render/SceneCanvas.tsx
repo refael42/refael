@@ -89,6 +89,14 @@ interface Props {
   selectedId?: SharedValue<number>;
   /** Build mode marks (free tiles, the picked one), or null outside build mode. */
   build?: SharedValue<BuildOverlay | null>;
+  /** Filled by the canvas for the HUD overlay: coins in the air, landings so far. */
+  hudFeed?: SharedValue<HudFeed>;
+}
+
+export interface HudFeed {
+  pending: number;
+  coinLands: number;
+  starLands: number;
 }
 
 /**
@@ -99,7 +107,7 @@ interface Props {
  * there too; the UI thread only reads it to draw. (A gesture-handler + worklet setup crashed
  * the app natively on the owner's phone at the first touch, with no error to read.)
  */
-export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId, build }: Props) {
+export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId, build, hudFeed }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -109,7 +117,6 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
   const fx = useSharedValue<FxState | null>(null);
   const arrival = useSharedValue(0);
   const lastSeq = useSharedValue(-1);
-  const lastNow = useSharedValue(0);
   const fpsFrames = useSharedValue(0);
   const fpsStart = useSharedValue(0);
   const camera = useSharedValue<Cam>({ x: 0, y: 0, zoom: 1 });
@@ -295,14 +302,17 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       // Render one tick behind the newest state, sliding from the previous to the current one.
       const alpha = Math.min(1, (now - arrival.value) / STEP_MS);
       const t = snap.time - STEP_SEC * (1 - alpha);
-      const dt = lastNow.value > 0 ? Math.min(0.1, (now - lastNow.value) / 1000) : 0;
-      lastNow.value = now;
       s.lastFrame = t;
       const started = performance.now();
       if (!recorder.value) recorder.value = Skia.PictureRecorder();
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
-      drawScene(c, assets, snap, alpha, t, dt, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1, build ? build.value : null);
+      drawScene(c, assets, snap, alpha, t, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1, build ? build.value : null);
       const next = recorder.value.finishRecordingAsPicture();
+      // Tell the HUD overlay about coins still flying and coins/stars that just landed.
+      if (hudFeed) {
+        const f = hudFeed.value;
+        if (f.pending !== s.pending || f.coinLands !== s.coinLands || f.starLands !== s.starLands) hudFeed.value = { pending: s.pending, coinLands: s.coinLands, starLands: s.starLands };
+      }
       // Web (CanvasKit/WASM) never garbage-collects Skia objects: free pictures a few frames old.
       // Native frees them by itself, and freeing by hand there can pull a picture out from under
       // a redraw that runs late (a crash), so we never do.
@@ -319,7 +329,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       picture.value = next;
       buildMs.value = buildMs.value * 0.9 + (performance.now() - started) * 0.1;
     },
-    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, ripple, lastRipple, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camera, hud, vignette, W, H, selected, selectedId, build],
+    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, ripple, lastRipple, arrival, lastSeq, fpsFrames, fpsStart, camera, hud, vignette, W, H, selected, selectedId, build, hudFeed],
   );
   useFrameCallback(onFrame);
 

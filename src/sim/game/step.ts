@@ -2,7 +2,6 @@ import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { UPGRADES } from '../../data/upgrades';
 import { canBuy, levelOf, tierOf } from '../economy/upgrades';
-import { formatBig } from '../format';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
 import { Bubble, PropKind } from '../types';
@@ -155,15 +154,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
   const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
   return packSnapshot([...s.staff, ...s.customers, ...s.walkers, ...s.applicants], [...props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
-    hud: {
-      coins: s.coins.toNumber(),
-      coinsText: formatBig(s.coins),
-      rating: s.rating,
-      combo: s.combo,
-      comboAt: s.lastPayTime,
-      day: s.day,
-      dayPhase: s.dayTime / DAY.seconds,
-    },
+    dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.
     bumps: [...s.bumpAt],
     ...upgradeViews(s),

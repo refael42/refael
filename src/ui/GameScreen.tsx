@@ -12,7 +12,7 @@ import { mapBackground, type BackgroundDef } from '../render/art/background';
 import type { Camera } from '../render/draw/fx';
 import { floorAt, isoX, isoY } from '../render/iso';
 import type { BuildOverlay } from '../render/draw/drawScene';
-import { SceneCanvas } from '../render/SceneCanvas';
+import { SceneCanvas, type HudFeed } from '../render/SceneCanvas';
 import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulation';
 import { toSave } from '../sim/big';
 import { canBuy, levelOf, upgradeDef } from '../sim/economy/upgrades';
@@ -28,6 +28,7 @@ import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
 import { GearButton, SettingsPanel } from './SettingsPanel';
+import { Hud } from './Hud';
 import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
@@ -92,6 +93,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const buildMs = useSharedValue(0);
   const selected = useSharedValue(-1);
   const selectedId = useSharedValue(-1);
+  const hudFeed = useSharedValue<HudFeed>({ pending: 0, coinLands: 0, starLands: 0 });
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const [staff, setStaff] = useState<StaffView | null>(null);
   const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
@@ -214,7 +216,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} />
+      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} />
+      <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && !build && (

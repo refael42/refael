@@ -1,7 +1,7 @@
 import { TIERS } from '../../data/buildings';
 import { DAY, ROLES, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
-import { followPath, setPose } from '../movement';
+import { followPath } from '../movement';
 import { chance, pick } from '../rng';
 import { Emote, Expression } from '../types';
 import { emote, route } from './customers';

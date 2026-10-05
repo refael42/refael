@@ -68,9 +68,9 @@ export interface FxState {
   lastEvent: number;
   /** Coins still in the air: the HUD only counts them when they land. */
   pending: number;
-  coinBounce: number;
-  ratingBounce: number;
-  rolling: number;
+  /** How many coin flights and star flights have landed (the HUD bounces on each new one). */
+  coinLands: number;
+  starLands: number;
   lastFrame: number;
   /** Sim time of the last big moment: the camera shakes briefly. */
   shakeAt: number;
@@ -78,7 +78,7 @@ export interface FxState {
 
 export function createFx(): FxState {
   'worklet';
-  return { data: new Array<number>(CAP * STRIDE).fill(0), next: 0, lastEvent: 0, pending: 0, coinBounce: -10, ratingBounce: -10, rolling: 0, lastFrame: 0, shakeAt: -10 };
+  return { data: new Array<number>(CAP * STRIDE).fill(0), next: 0, lastEvent: 0, pending: 0, coinLands: 0, starLands: 0, lastFrame: 0, shakeAt: -10 };
 }
 
 export function spawnFx(
@@ -173,9 +173,9 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 30);
       for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.015, 1.2, wx, wy - 30, (k / 12) * Math.PI * 2, 0, k);
     } else if (type === Ev.Payday) {
-      // Wages leave the till: a red "-N" under the coin counter.
-      if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX + 44, hud.coinY + 34, 0, 0, a, TextStyle.Wages);
-      if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX + 44, hud.coinY + 58, 0, 0, ev[o + E.b]!, TextStyle.Combo);
+      // Wages leave the till: a red "-N" under the coin counter, below where the combo badge sits.
+      if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX - 14, hud.coinY + 72, 0, 0, a, TextStyle.Wages);
+      if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX - 14, hud.coinY + 96, 0, 0, ev[o + E.b]!, TextStyle.Combo);
     } else if (type === Ev.Build) {
       // Work starts: the ground shakes and the lot disappears in a dust cloud.
       s.shakeAt = t;
@@ -308,9 +308,9 @@ export function drawScreenFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number
     if (age > dur) {
       if (kind === FxKind.Coin || kind === FxKind.Bill) {
         s.pending = Math.max(0, s.pending - d[o + VALUE]!);
-        s.coinBounce = t;
+        s.coinLands += 1;
       } else if (kind === FxKind.StarFly) {
-        s.ratingBounce = t;
+        s.starLands += 1;
       }
       d[o + K] = 0;
       continue;

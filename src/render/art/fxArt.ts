@@ -1,4 +1,4 @@
-import { PathOp, Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
+import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite } from '../sprite';
 import { darken, lighten } from './color';
 import { fill, glowStroke, path, stroke, type Pt } from './kit';
@@ -190,21 +190,6 @@ const rankStar = sprite([-5, -5, 5, 5], (c) => {
   c.drawPath(path.poly(pts), stroke('#3A2A20', 1.2));
   c.drawPath(path.poly(pts), fill('#FFFFFF'));
 });
-/** Day clock: sun by day, moon by night. */
-const sun = sprite(ICON, (c) => {
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    c.drawPath(path.polyline([[Math.cos(a) * 5.6, Math.sin(a) * 5.6], [Math.cos(a) * 7.6, Math.sin(a) * 7.6]]), stroke('#FFB020', 1.6));
-  }
-  glossy(c, path.circle(0, 0, 4.4), '#FFD23F', '#C88A00');
-});
-const moon = sprite(ICON, (c) => {
-  const disc = Skia.Path.Circle(0, 0, 5.6);
-  const bite = Skia.Path.Circle(2.8, -2, 4.6);
-  const crescent = Skia.Path.MakeFromOp(disc, bite, PathOp.Difference) ?? disc;
-  glossy(c, crescent, '#E8E4FF', '#6A64A8');
-});
-
 /** Confetti piece for milestone celebrations (tinted per piece). */
 const confetti = sprite([-4, -3, 4, 3], (c) => c.drawRect(Skia.XYWHRect(-3, -1.8, 6, 3.6), fill('#FFFFFF')));
 
@@ -245,6 +230,6 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
 
 export const fxSprites = {
   bubble, heart, anger, clock, bolt, snail, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
-  arrowUp, plusBadge, confetti, gear, cv, raise, rankStar, sun, moon,
+  arrowUp, plusBadge, confetti, gear, cv, raise, rankStar,
   steam, sparkle, soap, puff, ring,
 };

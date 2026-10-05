@@ -106,6 +106,8 @@ export const en = {
   'ui.team': 'Team',
   'ui.applicants': 'Applicants',
   'ui.noApplicants': 'Nobody is waiting. Applicants come to the door by themselves.',
+  'ui.day': 'Day',
+  'ui.combo': 'combo',
   'ui.perDay': '/ day',
   'ui.fee': 'Signing fee',
   'ui.hire': 'Hire',

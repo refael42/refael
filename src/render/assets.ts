@@ -1,10 +1,9 @@
-import { BlendMode, Skia, TileMode, vec, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
+import { BlendMode, Skia, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 import { HAIR_COLORS, PANTS_COLORS, SHIRT_COLORS, SKIN_TONES } from '../data/looks';
 import { bakeAtlas, type Atlas, type Rect } from './atlas';
 import { recordBackground, type BackgroundDef } from './art/background';
 import { isoBounds } from './iso';
-import { GLYPH_CHARS } from './art/glyphArt';
-import { LAYERS, S, SPRITE_DEFS, type Layers, type SpriteName } from './sprites';
+import { LAYERS, S, SPRITE_DEFS, type Layers } from './sprites';
 
 /** Everything the UI-thread renderer needs, as plain data + Skia host objects (worklet friendly). */
 export interface RenderAssets {
@@ -13,13 +12,6 @@ export interface RenderAssets {
   dst: Rect[];
   S: typeof S;
   L: Layers;
-  /**
-   * The few sprites drawn big on screen (HUD icons and digits) baked again at screen
-   * resolution: sharp on any phone and as cheap as any sprite. Indexed like the atlas;
-   * null = not in it. (They used to be vector pictures: sharp too, but replaying their paths
-   * every frame cost about a third of the frame rate on a software GPU.)
-   */
-  sharp: { image: SkImage; src: (Rect | null)[]; dst: (Rect | null)[] };
   paints: {
     plain: SkPaint;
     /** Reused for anything that fades; its alpha is set right before each draw. */
@@ -43,10 +35,6 @@ export interface RenderAssets {
     /** Sprite silhouettes: the selection outline (white) and the top-tier aura (gold). */
     outline: SkPaint;
     aura: SkPaint;
-    /** HUD pills: a vertical gradient (drawn in local coords, centered on y = 0) and rims. */
-    hudFill: SkPaint;
-    hudRim: SkPaint;
-    hudShine: SkPaint;
     /** Full-screen evening and night light (alpha set per frame). */
     evening: SkPaint;
     night: SkPaint;
@@ -129,38 +117,6 @@ function bakeBackground(picture: SkPicture, world: RenderAssets['world']): Rende
   };
 }
 
-/** Height of the HUD pills (px); the gradient is built for it. */
-export const HUD_PILL_H = 40;
-
-function gradientPaint(colors: [string, string], height: number): SkPaint {
-  const p = plainPaint();
-  p.setShader(Skia.Shader.MakeLinearGradient(vec(0, -height / 2), vec(0, height / 2), colors.map((c) => Skia.Color(c)), null, TileMode.Clamp));
-  return p;
-}
-
-const SHARP_SPRITES: readonly string[] = ['coin', 'star', 'starGray', 'sun', 'moon', ...GLYPH_CHARS.map((ch) => `glyph_${ch}`)];
-
-/** The biggest scale the HUD draws a sharp sprite at (the coin); smaller ones mipmap down. */
-const SHARP_MAX_SCALE = 2.7;
-
-let sharedSharp: (RenderAssets['sharp'] & { scale: number }) | null = null;
-
-/** Bakes the HUD sprites at device resolution once, shared by every scene. */
-function getSharp(pixelRatio: number): RenderAssets['sharp'] {
-  const scale = Math.min(pixelRatio, 3) * SHARP_MAX_SCALE;
-  if (sharedSharp && sharedSharp.scale >= scale) return sharedSharp;
-  const ids = SHARP_SPRITES.map((name) => S[name as SpriteName]);
-  const atlas = bakeAtlas(ids.map((i) => SPRITE_DEFS[i]!), scale);
-  const src: (Rect | null)[] = SPRITE_DEFS.map(() => null);
-  const dst: (Rect | null)[] = SPRITE_DEFS.map(() => null);
-  ids.forEach((id, k) => {
-    src[id] = atlas.src[k]!;
-    dst[id] = atlas.dst[k]!;
-  });
-  sharedSharp = { image: atlas.image, src, dst, scale };
-  return sharedSharp;
-}
-
 export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelRatio: number): RenderAssets {
   const atlas = getAtlas(atlasScale);
   const background = recordBackground(def);
@@ -171,7 +127,6 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
     dst: atlas.dst,
     S,
     L: LAYERS,
-    sharp: getSharp(pixelRatio),
     paints: {
       plain: plainPaint(),
       fade: plainPaint(),
@@ -193,9 +148,6 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       ring: strokePaint('#FFFFFF', 3),
       outline: silhouette('#FFFFFF'),
       aura: silhouette('#FFD23F'),
-      hudFill: gradientPaint(['#5A2A66', '#2E1238'], HUD_PILL_H),
-      hudRim: strokePaint('#F2C14E', 2.4),
-      hudShine: strokePaint('#FFFFFF', 1.2, 0.22),
       evening: solid('#FF7A2A', 0),
       night: solid('#12123F', 0),
       redText: tint('#FF6A5E'),

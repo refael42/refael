@@ -41,24 +41,6 @@ export function sprXf(
   c.restore();
 }
 
-/**
- * A HUD sprite from the sharp (screen-resolution) atlas; falls back to the world atlas.
- * Mipmapped because the HUD draws most of them smaller than they were baked.
- */
-export function sharpSpr(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number, paint: SkPaint): void {
-  'worklet';
-  const src = A.sharp.src[i];
-  if (!src) {
-    sprXf(c, A, i, x, y, 0, scale, scale, paint);
-    return;
-  }
-  c.save();
-  c.translate(x, y);
-  c.scale(scale, scale);
-  c.drawImageRectOptions(A.sharp.image, src, A.sharp.dst[i]!, FilterMode.Linear, MipmapMode.Linear, paint);
-  c.restore();
-}
-
 /** Sprite with an alpha fade, using the shared fade paint. */
 export function sprFade(c: SkCanvas, A: RenderAssets, i: number, x: number, y: number, scale: number, alpha: number): void {
   'worklet';

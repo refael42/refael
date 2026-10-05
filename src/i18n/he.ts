@@ -108,6 +108,8 @@ export const he: Record<TKey, string> = {
   'ui.team': 'הצוות',
   'ui.applicants': 'מועמדים',
   'ui.noApplicants': 'אין מועמדים כרגע. הם מגיעים לבד לדלת.',
+  'ui.day': 'יום',
+  'ui.combo': 'רצף',
   'ui.perDay': 'ליום',
   'ui.fee': 'דמי חתימה',
   'ui.hire': 'לגייס',

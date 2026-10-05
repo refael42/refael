@@ -40,20 +40,6 @@ export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11
 export const EVENT_STRIDE = 8;
 export const E = { id: 0, time: 1, type: 2, x: 3, y: 4, a: 5, b: 6, c: 7 } as const;
 
-export interface Hud {
-  /** Approximate coins for rolling digits; Infinity once past float range. */
-  coins: number;
-  /** Exact formatted coins, used when `coins` is not finite. */
-  coinsText: string;
-  rating: number;
-  combo: number;
-  /** Sim time of the last payment; the combo badge shows while it is recent. */
-  comboAt: number;
-  /** Day number and how far into it we are (0..1): the sun/moon clock and the evening light. */
-  day: number;
-  dayPhase: number;
-}
-
 export interface Snapshot {
   /** Increments on every publish so the renderer can detect a new tick. */
   seq: number;
@@ -63,7 +49,8 @@ export interface Snapshot {
   data: number[];
   /** Recent events (a sliding window, so a skipped UI frame never loses one). */
   events: number[];
-  hud: Hud | null;
+  /** How far into the day we are (0..1): the evening and night light. */
+  dayPhase: number;
   /** Look tier per prop kind and per dish (milestones change how things look). */
   tiers: number[];
   dishTiers: number[];
@@ -75,14 +62,14 @@ export interface Snapshot {
 
 export interface SnapshotExtra {
   events?: number[];
-  hud?: Hud;
+  dayPhase?: number;
   tiers?: number[];
   dishTiers?: number[];
   bumps?: number[];
   badges?: number[];
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], hud: null, tiers: [], dishTiers: [], bumps: [], badges: [] };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [] };
 
 interface SortItem {
   depth: number;
@@ -160,7 +147,7 @@ export function packSnapshot(
     count: items.length,
     data,
     events: extra.events ?? [],
-    hud: extra.hud ?? null,
+    dayPhase: extra.dayPhase ?? 0,
     tiers: extra.tiers ?? [],
     dishTiers: extra.dishTiers ?? [],
     bumps: extra.bumps ?? [],

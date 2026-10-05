@@ -5,7 +5,7 @@ import type { RenderAssets } from '../assets';
 import { drawCharacter, drawCharacterOverlay } from './drawCharacter';
 import { drawBadges, drawProp, type PropLooks } from './drawProp';
 import { drawScreenFx, drawWorldFx, processEvents, type Camera, type FxState } from './fx';
-import { drawHud, hudAnchors, type HudLayout } from './hud';
+import { hudAnchors, type HudLayout } from './hud';
 import { isoX, isoY } from '../iso';
 import { sprFade } from './primitives';
 
@@ -63,7 +63,7 @@ function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number,
  * positions; `t` is the matching interpolated sim time used by every cosmetic animation.
  */
 export function drawScene(
-  c: SkCanvas, A: RenderAssets, snap: Snapshot, alpha: number, t: number, dt: number,
+  c: SkCanvas, A: RenderAssets, snap: Snapshot, alpha: number, t: number,
   cam: Camera, fx: FxState, hud: HudLayout | null, vignette: SkPaint | null, W: number, H: number, selected: number, selectedId: number,
   build: BuildOverlay | null,
 ): void {
@@ -71,7 +71,7 @@ export function drawScene(
   if (hud) processEvents(fx, snap, hudAnchors(hud));
   c.drawColor(A.backdrop);
   const d = snap.data;
-  const phase = snap.hud ? snap.hud.dayPhase : 0;
+  const phase = snap.dayPhase;
   const night = nightOf(phase);
   const looks: PropLooks = { tiers: snap.tiers, dishTiers: snap.dishTiers, bumps: snap.bumps, selected };
   // Big moments (milestones) give the camera a short, decaying shake.
@@ -129,6 +129,5 @@ export function drawScene(
     c.restore();
   }
   if (vignette) c.drawRect({ x: 0, y: 0, width: W, height: H }, vignette);
-  if (hud && snap.hud) drawHud(c, A, snap.hud, fx, t, dt, hud);
   drawScreenFx(c, A, fx, t, cam);
 }
