@@ -58,7 +58,8 @@ describe('milestones', () => {
     expect([0, 9, 10, 99, 100, 149, 150].map(prevMilestone)).toEqual([0, 0, 10, 75, 100, 100, 150]);
     expect(tierOf(9)).toBe(0);
     expect(tierOf(50)).toBe(3);
-    expect(tierOf(5000)).toBe(4);
+    expect(tierOf(75)).toBe(4);
+    expect(tierOf(5000)).toBe(5);
   });
 
   it('multiply the item value', () => {

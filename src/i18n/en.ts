@@ -51,6 +51,7 @@ export const en = {
   'up.place_statue': 'Golden statue',
   'up.statue': 'Statues',
   'ui.build': 'Build',
+  'ui.expands': '+ bigger!',
   'ui.buildPick': 'Pick something to build',
   'ui.buildTap': 'Now tap a green tile',
   'ui.place': 'Place',

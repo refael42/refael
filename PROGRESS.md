@@ -9,9 +9,10 @@
 | M2 | Kitchen tickets, waiter delivery (A* already in), clean-dishes loop with a dishwasher | ✅ Done |
 | M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ✅ Done |
 | M4 | Applicants, hiring, wages, morale, staff cards | ✅ Done |
-| M5 | Building tiers, construction sequence, build mode, decor | ⏳ Next |
-| M6 | Automation, Rush hour, Upgrades screen (search/filter/ROI) | — |
-| M7 | Full polish: audio, haptics, day/night, weather, tutorial, quests, settings | — |
+| M5 | Building tiers, construction sequence, build mode, decor (+ chairs, couples, patience types, Lv 100 expansions) | ✅ Done |
+| M5b | First run: welcome screen, restaurant + manager name, how-to-play tutorial (owner request, moved up from M7) | ⏳ Next |
+| M6 | Automation (+ shift manager for the waiters), Rush hour, Upgrades screen (search/filter/ROI) | — |
+| M7 | Full polish: audio, haptics, weather, quests, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -32,13 +33,12 @@
   phone): chunky gradient pills with a gold rim; icons and digits baked at screen resolution.
 - The phone app closed at the first touch (no error anywhere) → touch handling rebuilt
   (see Camera / Input below and Known issues).
-- Ideas from the owner for later (planned into M5–M6):
-  - the host/hostess as a later-game purchase (today: hired once the team has 3 people);
-  - after many upgrades a station *expands* (bigger, takes more room) with a new design, on
-    top of today's looks at Lv 10/25/50 and the golden aura at Lv 75;
-  - tables with more chairs (buy chairs per table) and groups of customers;
-  - customers who can wait longer and ones who can't, shown clearly (today only the "rushed"
-    type has a short patience).
+- Owner ideas done in M5: tables with more chairs and couples; customers who can wait longer
+  or not, shown clearly; stations that expand with a new design after many upgrades (Lv 100).
+  The host/hostess already exists (hired once the team has 3 people).
+- Owner ideas still to do: a **welcome / first-run screen with a how-to-play tutorial** ("very
+  important" — next, M5b; a local profile only, no real accounts), and a **shift manager**
+  (אחמ"ש) who runs the waiters (M6, automation).
 
 ## Locked decisions
 
@@ -170,6 +170,39 @@
   - Applicants get better (higher level) as the restaurant hires more.
 - **Taps (M4):** an action wins over a person, a person over a station; tapping a worker or an
   applicant opens their card and rings them on the map.
+- **Building tiers (M5, `src/data/buildings.ts`, `src/data/maps.ts`, `src/sim/game/construction.ts`):**
+  - Diner (14 wide) → Bistro (20) → Grand restaurant (26). Maps are generated per tier; tier 0
+    is exactly the old hand-made diner (a test compares them). The room grows sideways into
+    the lot next door, so everything already built keeps its place. Each tier: new carpet and
+    wall colors, more table spots (7 → 15 → 23), more staff places, customers ×1.5 / ×2.2,
+    prices ×1.6 / ×2.5. The kitchen stays the same (cook speed upgrades scale it).
+  - The building is an upgrade row (anchored to the "for sale" sign on the lot). Rows capped
+    by floor space (tables, extra stoves) take their cap from the current building.
+  - Buying it closes the restaurant for 6 s (the line goes home, no rating hit): scaffolding
+    goes up piece by piece, dust, camera shake and a pan to the site. Then the state is
+    rebuilt in place on the new map (same object, so the loop and the UI keep working) with
+    coins, levels, rating, team, day and decor; a flash and "The restaurant grew!" reveal it.
+  - The tier is just the `building` level: saves need no new field for it.
+- **Chairs and couples (M5):** "More chairs" (tap a table) adds a chair opposite the first at
+  the next table (rows are two tiles apart, so chairs only fit on the x sides). That chair's
+  backrest is its own prop, so it draws in front of the person sitting with their back to us.
+  Couples come with 40 % × (share of two-chair tables): side by side in line, seated with one
+  tap, each orders and pays, they leave together; two plates to clear. Staff serve from the
+  table's front edge now (the side went to the chair).
+- **Patience you can read (M5):** every patience bar has an icon: lightning (in a hurry),
+  clock (normal), snail (takes their time). New "relaxed" customers are very patient; they
+  come once 40 have been served, so the opening stays as balanced as before.
+- **Build mode (M5, `src/sim/game/build.ts`):** pick a piece, tap a green tile, place it.
+  A tile is buildable only on dining floor nothing needs now or in any bigger building, and
+  only if every chair, table and work spot stays reachable with every table and second chair
+  in place (a flood fill from the door). Decor: flower bed, floor lamp (glows at night),
+  aquarium (fish swim; from the Bistro), golden statue (from the Grand restaurant); each has
+  a "place one more" row and an endless track with four looks. Save v3 keeps positions;
+  a piece whose spot is gone moves to the nearest free tile.
+- **Expansions (M5):** milestone tier 5 = level 100. The stove, sink, fridge and street sign
+  get a bigger model (chef's range with a copper hood, industrial dishwasher with a steam
+  tower, walk-in fridge, lit billboard) in a puff of building dust; the row says "+ bigger!"
+  on the way there. Everything else keeps the gold aura (from Lv 75).
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -203,6 +236,13 @@
 - Wages are priced in portions of fries (Lv 1: 2–3 portions per day), so they grow with the
   menu prices; levels, stats and raises push them further. The burger price went
   8 → 14 so unlocking it never lowers income.
+- M5 pacing (seed 1, 90 min): bigger building at 33:56 (target 30–45 min; the bot saves up
+  for it once it costs ≤ 3 minutes of income), the Grand restaurant at about 1 h. Coins/min:
+  528 at 6 → 121K at 25 → 2M at 37 → 30M at 60 → ~600M at 85. Late game buys 14–23
+  things a minute (was 4–6 before decor). No dead zones, no income explosions. Floods of
+  ~50 buys/min at minutes 24–26 (second cook + couples) and 31–42/min around the building.
+- Couples are the reason two-chair tables pay: a single guest at one still leaves the second
+  chair empty. Chairs cost 200 × 2.3^n, so they ramp up slowly.
 
 ## Performance
 
@@ -220,6 +260,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M4 game, production build, vector HUD | ~27 | 0.9 ms | 10 (M3 build on the same machine: 16) |
 | M4 game, production build, sharp-atlas HUD | ~27 | 0.7–0.9 ms | 14.7 (16.9 with the staff panel open) |
 | Same, JS-thread touches (another sandbox session) | ~27 | — | 12.9–13.5 |
+| M5 diner / bistro / grand, production build | 40 / 69 / 111 | 1.2 / 2.1 / 1.7 ms | 10–12 / 12 / 13–14 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -227,7 +268,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 165 unit tests.
+- `npm run check` — typecheck + 191 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
@@ -247,6 +288,10 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Seating is manual until you hire a host (M4); while the app is closed the offline estimate
   assumes slow seating by the staff. Deeper automation comes in M6.
 - Staff jobs are still simple loops; workers never take breaks (energy only lowers speed).
+- Bigger buildings do not add stoves (the kitchen strip is the same): cook speed upgrades and
+  the expanded range carry the load. A bigger kitchen is a candidate for the prestige cities.
+- The bot puts decor on the free tile nearest the back corner, so its rooms look clustered;
+  players choose.
 - Applicants only come one or two at a time at the door; there is no job board / ads yet.
 - Very large numbers in floating "+N" texts use JS numbers (fine up to ~1e308); the HUD and
   menus use `Big`.

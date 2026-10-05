@@ -53,6 +53,7 @@ export const he: Record<TKey, string> = {
   'up.place_statue': 'פסל זהב',
   'up.statue': 'פסלים',
   'ui.build': 'בנייה',
+  'ui.expands': '+ גדל!',
   'ui.buildPick': 'בחרו מה לבנות',
   'ui.buildTap': 'עכשיו לחצו על משבצת ירוקה',
   'ui.place': 'להציב',

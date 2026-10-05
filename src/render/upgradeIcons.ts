@@ -1,3 +1,4 @@
+import { EXPAND, UPGRADE_BY_ID } from '../data/upgrades';
 import { LOOKS } from './art/stationArt';
 import type { SpriteName } from './sprites';
 
@@ -30,5 +31,6 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
 
 export function upgradeIcon(id: string, tier: number): SpriteName {
   const icon = ICON[id] ?? { base: 'table0', looks: false };
-  return (icon.looks ? `${icon.base}${Math.min(LOOKS - 1, tier)}` : icon.base) as SpriteName;
+  const big = tier >= EXPAND.tier && UPGRADE_BY_ID[id]?.expands;
+  return (icon.looks ? `${icon.base}${big ? LOOKS : Math.min(LOOKS - 1, tier)}` : icon.base) as SpriteName;
 }

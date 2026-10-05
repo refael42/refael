@@ -22,6 +22,13 @@ export function looks(name: string, bounds: SpriteDef['bounds'], draw: (c: SkCan
   return Object.fromEntries(Array.from({ length: LOOKS }, (_, t) => [`${name}${t}`, sprite(bounds, (c) => draw(c, t))]));
 }
 
+/** The expanded model (`name4`, from level 100): the top look rebuilt bigger. */
+function expanded(name: string, bounds: SpriteDef['bounds'], draw: (c: SkCanvas) => void): Record<string, SpriteDef> {
+  return { [`${name}${LOOKS}`]: sprite(bounds, draw) };
+}
+
+const COPPER = '#C47A3A';
+
 /** Pixel art on a wall plane facing +y (skewed along x): the neon board hangs here. */
 function onWallY(c: SkCanvas, draw: () => void) {
   c.save();
@@ -39,7 +46,7 @@ const STOVE = [
   { body: '#26232E', back: '#3A3646', knob: GOLD, trim: GOLD },
 ] as const;
 
-const stoves = looks('stove', [-44, -76, 44, 14], (c, t) => {
+function stove(c: SkCanvas, t: number) {
   const s = STOVE[t]!;
   floorShadow(c, 0.1, 0, 0.9, 0.3);
   box(c, { x: 0, y: 0, w: 0.86, d: 1.86, h: 20, color: s.body, rim: true });
@@ -58,13 +65,29 @@ const stoves = looks('stove', [-44, -76, 44, 14], (c, t) => {
     const knobs = t >= 2 ? [0.2, 0.42, 0.93, 1.44, 1.66] : [0.2, 0.42, 1.44, 1.66];
     for (const a of knobs) rectIn(c, a - 0.045, 17.6, 0.09, 2.6, s.knob);
   });
+}
+
+const stoves = looks('stove', [-44, -76, 44, 14], stove);
+// The chef's range: the black & gold range under a copper extraction hood with warm lights.
+const stoveBig = expanded('stove', [-48, -132, 48, 14], (c) => {
+  stove(c, 3);
+  box(c, { x: -0.3, y: 0, z: 46, w: 0.22, d: 1.86, h: 2.4, color: GOLD, rim: true });
+  box(c, { x: -0.2, y: 0, z: 64, w: 0.62, d: 1.96, h: 12, color: COPPER, rim: true });
+  box(c, { x: -0.22, y: 0, z: 76, w: 0.5, d: 1.7, h: 6, color: darken(COPPER, 0.12), rim: true });
+  box(c, { x: -0.3, y: 0, z: 82, w: 0.26, d: 0.44, h: 30, color: COPPER, rim: true });
+  box(c, { x: -0.3, y: 0, z: 108, w: 0.32, d: 0.5, h: 3, color: GOLD, rim: true });
+  for (const y of [-0.6, 0, 0.6]) {
+    const [lx, ly] = P(0.1, y, 63);
+    c.drawCircle(lx, ly, 2.4, fill('#FFE9A8'));
+    c.drawCircle(lx, ly, 2.4, stroke('#B8892A', 0.6));
+  }
 });
 
 // ---------- sink: teal basin -> gold fittings -> two basins -> dishwasher machine ----------
 
 const SINK = ['#2C8F87', '#2C8F87', '#2D4E8F', '#9AA6B4'] as const;
 
-const sinks = looks('sink', [-44, -64, 44, 14], (c, t) => {
+function sink(c: SkCanvas, t: number) {
   const body = SINK[t]!;
   floorShadow(c, 0.1, 0, 0.9, 0.3);
   box(c, { x: 0, y: 0, w: 0.86, d: 1.86, h: 21, color: body });
@@ -109,9 +132,45 @@ const sinks = looks('sink', [-44, -64, 44, 14], (c, t) => {
   box(c, { x: -0.36, y: 0, z: 22.6, w: 0.06, d: 0.06, h: t >= 1 ? 12 : 9, color: tap });
   box(c, { x: -0.25, y: 0, z: t >= 1 ? 32.6 : 29.6, w: 0.22, d: 0.05, h: 2, color: tap });
   if (t >= 1) box(c, { x: -0.32, y: -0.8, z: 22.6, w: 0.08, d: 0.08, h: 7, color: '#3FA65A', rim: true });
+}
+
+const sinks = looks('sink', [-44, -64, 44, 14], sink);
+// The industrial dishwasher: a steam tower at the back, a conveyor rail and status lights.
+const sinkBig = expanded('sink', [-48, -118, 48, 14], (c) => {
+  sink(c, 3);
+  box(c, { x: -0.28, y: -0.62, z: 22.6, w: 0.3, d: 0.56, h: 46, color: STEEL, rim: true });
+  box(c, { x: -0.28, y: -0.62, z: 68.6, w: 0.34, d: 0.6, h: 3, color: GOLD, rim: true });
+  onFaceX(c, -0.13, -0.34, () => {
+    for (let b = 30; b < 64; b += 6) rectIn(c, 0.06, b, 0.44, 1.2, STEEL_DARK);
+    for (const [a, col] of [[0.12, '#3DDC6A'], [0.24, '#F2C14E'], [0.36, '#3DDC6A']] as const) c.drawCircle(a, 26, 0.05 * 32, fill(col));
+  });
+  box(c, { x: 0.36, y: 0, z: 26, w: 0.1, d: 1.86, h: 2, color: STEEL_DARK, rim: true });
+  for (let i = 0; i < 6; i++) cylinder(c, 0.36, -0.8 + i * 0.32, 0.05, 28, 1.2, '#5E6878', '#8F9AA8');
 });
 
 // ---------- fridge: single door -> double door -> retro mint -> black glass display ----------
+
+// The walk-in fridge: twice as tall, two glass doors full of produce and a frost display on top.
+const fridgeBig = expanded('fridge', [-32, -116, 32, 12], (c) => {
+  floorShadow(c, 0.08, 0, 0.58, 0.3);
+  box(c, { x: 0, y: 0, w: 0.84, d: 0.84, h: 80, color: '#24222C', rim: true });
+  box(c, { x: 0, y: 0, z: 80, w: 0.88, d: 0.88, h: 3, color: GOLD, rim: true });
+  onFaceX(c, 0.42, 0.42, () => {
+    for (const a0 of [0.05, 0.43]) {
+      rectIn(c, a0, 6, 0.36, 62, '#2E4A66');
+      for (let b = 12; b < 66; b += 9) {
+        rectIn(c, a0, b, 0.36, 0.8, '#8FD3FF');
+        for (const [a, col] of [[0.04, '#E5483B'], [0.14, '#7BC67E'], [0.24, '#F2C14E']] as const) rectIn(c, a0 + a, b + 0.8, 0.08, 4, col);
+      }
+      rectIn(c, a0 + (a0 < 0.3 ? 0.3 : 0.02), 30, 0.04, 14, GOLD);
+    }
+    rectIn(c, 0.12, 71, 0.6, 6, '#0E2A3A');
+    for (let i = 0; i < 4; i++) rectIn(c, 0.18 + i * 0.13, 73, 0.08, 2, '#9FE6FF');
+  });
+  // Frost puffing from the top.
+  const [fx, fy] = P(0, 0, 86);
+  for (const [dx, dy, r] of [[-6, 0, 3], [0, -3, 3.6], [6, 0, 3]] as const) c.drawCircle(fx + dx, fy + dy, r, fill('#E8F8FF', 0.7));
+});
 
 const fridges = looks('fridge', [-30, -86, 30, 12], (c, t) => {
   floorShadow(c, 0.08, 0, 0.55, 0.3);
@@ -362,7 +421,7 @@ function chalkBurger(c: SkCanvas, a: number, b: number, k: number, color: string
   c.restore();
 }
 
-const streetSigns = looks('streetSign', [-30, -104, 30, 10], (c, t) => {
+function streetSign(c: SkCanvas, t: number) {
   floorShadow(c, 0, 0, 0.25, 0.25);
   if (t <= 1) {
     const frame = t === 1 ? GOLD : '#8E5A3C';
@@ -406,6 +465,34 @@ const streetSigns = looks('streetSign', [-30, -104, 30, 10], (c, t) => {
     c.drawPath(path.poly(star), fill('#FFD54A'));
     c.drawPath(path.poly(star), stroke('#B8892A', 0.8));
   }
+}
+
+const streetSigns = looks('streetSign', [-30, -104, 30, 10], streetSign);
+// The billboard: a tall lit board on two poles, marquee bulbs all around, the burger in neon.
+const streetSignBig = expanded('streetSign', [-40, -128, 40, 10], (c) => {
+  floorShadow(c, 0, 0, 0.36, 0.25);
+  for (const y of [-0.4, 0.4]) {
+    box(c, { x: 0, y, w: 0.16, d: 0.16, h: 3, color: '#2E2B38' });
+    box(c, { x: 0, y, z: 3, w: 0.06, d: 0.06, h: 54, color: '#3A3646' });
+  }
+  const z0 = 54;
+  const h = 40;
+  box(c, { x: 0, y: 0, z: z0, w: 0.14, d: 1.3, h, color: '#B3202E', rim: true });
+  onFaceX(c, 0.071, 0.65, () => {
+    rectIn(c, 0.06, z0 + 3, 1.18, h - 6, '#1C1424');
+    for (let i = 0; i <= 14; i++) {
+      for (const b of [z0 + 1.6, z0 + h - 1.6]) c.drawRect(Skia.XYWHRect(0.03 + i * 0.087, b - 0.8, 0.03, 1.6), fill('#FFE58A'));
+    }
+  });
+  onFaceX(c, 0.071, 0.65, () => chalkBurger(c, 0.65, z0 + h / 2, 1.5, '#FFD54A'));
+  const [sx, sy] = P(0, 0, z0 + h + 9);
+  const star = Array.from({ length: 10 }, (_, i) => {
+    const r = i % 2 === 0 ? 8 : 3.4;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    return [sx + Math.cos(a) * r, sy + Math.sin(a) * r] as Pt;
+  });
+  c.drawPath(path.poly(star), fill('#FFD54A'));
+  c.drawPath(path.poly(star), stroke('#B8892A', 1));
 });
 
 // ---------- plates and dishes ----------
@@ -496,8 +583,12 @@ const stoveSlot = sprite([-44, -30, 44, 30], (c) =>
 
 export const stationSprites = {
   ...stoves,
+  ...stoveBig,
   ...sinks,
+  ...sinkBig,
   ...fridges,
+  ...fridgeBig,
+  ...streetSignBig,
   ...tables,
   ...chairs,
   ...chairSeats,

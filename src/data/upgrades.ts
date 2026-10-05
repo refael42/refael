@@ -50,6 +50,8 @@ export interface UpgradeDef {
   unlocksDish?: Dish;
   /** Bought by placing it on a free tile in build mode (one level = one more on the floor). */
   build?: boolean;
+  /** Gets a bigger model at level 100 (EXPAND). */
+  expands?: boolean;
   requires?: { item: string; level: number };
 }
 
@@ -57,7 +59,13 @@ export interface UpgradeDef {
  * Milestone levels: the listed ones, then one every `every` levels forever. Each gives a big
  * multiplier and (up to `visualTiers`) a new look for the item.
  */
-export const MILESTONES = { levels: [10, 25, 50, 75, 100], every: 50, visualTiers: 4 } as const;
+export const MILESTONES = { levels: [10, 25, 50, 75, 100], every: 50, visualTiers: 5 } as const;
+
+/**
+ * Looks by milestone tier: 1-3 new looks, 4 a golden aura, and at 5 (level 100) the stations
+ * that `expand` are rebuilt bigger: a chef's range, an industrial dishwasher, a walk-in fridge...
+ */
+export const EXPAND = { tier: 5, level: MILESTONES.levels[4] } as const;
 
 export const UPGRADES: readonly UpgradeDef[] = [
   // Menu: the money makers. Linear price per level, doubled at every milestone.
@@ -69,16 +77,16 @@ export const UPGRADES: readonly UpgradeDef[] = [
 
   // Kitchen: speed, and quality (= every dish sells for more).
   // Global multipliers grow slowly on purpose: they stack with every recipe level.
-  { id: 'stove', category: 'kitchen', anchor: K.Stove, restyle: 'anchor', baseCost: 12, growth: 1.15,
+  { id: 'stove', category: 'kitchen', anchor: K.Stove, restyle: 'anchor', baseCost: 12, growth: 1.15, expands: true,
     effect: { stat: 'cookSpeed', per: 0.08 }, milestone: { stat: 'cookSpeed', factor: 1.5 } },
   // Another stove makes room for another cook.
   { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 3, spots: 'stoves',
     effect: { stat: 'stoves', per: 1 }, milestone: null },
-  { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17,
+  { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17, expands: true,
     effect: { stat: 'quality', per: 0.04 }, milestone: { stat: 'quality', factor: 1.25 } },
 
   // Cleaning: the plate loop. More plates also get a better polish (tips) at milestones.
-  { id: 'sink', category: 'cleaning', anchor: K.Sink, restyle: 'anchor', baseCost: 15, growth: 1.15,
+  { id: 'sink', category: 'cleaning', anchor: K.Sink, restyle: 'anchor', baseCost: 15, growth: 1.15, expands: true,
     effect: { stat: 'washSpeed', per: 0.1 }, milestone: { stat: 'washSpeed', factor: 1.5 } },
   { id: 'plates', category: 'cleaning', anchor: K.PlatesClean, restyle: 'anchor', baseCost: 10, growth: 1.2,
     effect: { stat: 'plates', per: 1 }, milestone: { stat: 'tips', factor: 1.1 } },
@@ -99,7 +107,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'arrivals', per: 0.03 }, milestone: { stat: 'arrivals', factor: 1.1 } },
   { id: 'neon', category: 'decor', anchor: K.Neon, restyle: 'anchor', baseCost: 60, growth: 1.17,
     effect: { stat: 'arrivals', per: 0.05 }, milestone: { stat: 'tips', factor: 1.1 } },
-  { id: 'sign', category: 'marketing', anchor: K.StreetSign, restyle: 'anchor', baseCost: 8, growth: 1.15,
+  { id: 'sign', category: 'marketing', anchor: K.StreetSign, restyle: 'anchor', baseCost: 8, growth: 1.15, expands: true,
     effect: { stat: 'arrivals', per: 0.06 }, milestone: { stat: 'arrivals', factor: 1.1 } },
 
   // Decor placed in build mode: each one placed adds a little, the track lifts them all.

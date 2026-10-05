@@ -8,6 +8,10 @@ import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, sprFade, sprXf } from './primitives';
 import { drawText } from './text';
+import { EXPAND, UPGRADES } from '../../data/upgrades';
+
+/** Stations that get a bigger model at level 100. */
+const EXPANDS: readonly number[] = UPGRADES.filter((u) => u.expands).map((u) => u.anchor);
 
 // Juice effects live only on the UI thread: a fixed ring buffer of records, spawned from sim
 // events (or taps) and drawn as pure functions of their age. Nothing is allocated per frame.
@@ -149,6 +153,10 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       spawnFx(s, FxKind.LevelUp, t, milestone ? 1.1 : 0.7, wx, y, 0, 0, 0, milestone ? 1 : 0);
       spawnFx(s, FxKind.Burst, t, 0.6, wx, y);
       spawnFx(s, FxKind.Text, t, milestone ? 1.8 : 1.1, wx, y - 14, 0, 0, a, milestone ? TextStyle.Milestone : TextStyle.Level);
+      // Level 100: the station is rebuilt bigger, in a puff of building dust.
+      if (a === EXPAND.level && EXPANDS.includes(ev[o + E.c]!)) {
+        for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Dust, t + k * 0.05, 1.4, wx + Math.sin(k * 2.1) * 30, wy - 10 - (k % 3) * 16, 0, 0, 1.1);
+      }
       if (milestone) {
         s.shakeAt = t;
         for (let k = 0; k < 18; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.4, wx, y, (k / 18) * Math.PI * 2, 0, k);

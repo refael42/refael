@@ -4,7 +4,7 @@ import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, wi
 import { TIERS } from '../data/buildings';
 import { mapForTier, type MapDef } from '../data/maps';
 import { ROLES } from '../data/staff';
-import { CATEGORIES, COUNT_STATS, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
+import { CATEGORIES, COUNT_STATS, EXPAND, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
@@ -140,6 +140,7 @@ function Row({ def, wallet, onBuy }: { def: UpgradeDef; wallet: Wallet; onBuy: (
             <Text style={styles.milestone}>{next}</Text>
             <Text style={styles.milestone}>{`x${def.milestone.factor}`}</Text>
             <Text style={styles.milestone}>{t(`stat.${def.milestone.stat}`)}</Text>
+            {def.expands && next === EXPAND.level && <Text style={styles.expands}>{t('ui.expands')}</Text>}
           </View>
         )}
       </View>
@@ -257,6 +258,7 @@ const styles = StyleSheet.create({
   bar: { width: 54, height: 7, borderRadius: 4, backgroundColor: '#1C0E22', overflow: 'hidden' },
   barFill: { height: 7, backgroundColor: gold },
   milestone: { color: '#E8C76A', fontSize: 11, fontWeight: '800' },
+  expands: { color: '#FFB347', fontSize: 11, fontWeight: '900' },
   buy: {
     minWidth: 84,
     height: 44,

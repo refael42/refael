@@ -4,6 +4,10 @@ import { PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
+import { EXPAND } from '../../data/upgrades';
+import { LOOKS } from '../art/stationArt';
+
+const EXPAND_TIER = EXPAND.tier;
 
 // Props are static sprites plus "stateless" effects: every particle position is a pure function
 // of time, so steam/bubbles/sparkles cost no memory and never need pooling or cleanup.
@@ -20,9 +24,11 @@ export interface PropLooks {
 /** Past the last baked look, stations keep a golden aura that grows with every milestone. */
 const AURA_TIER = 4;
 
+/** The sprite for a milestone tier: the last of the four looks, or the expanded model from level 100. */
 function look(L: number[], tier: number): number {
   'worklet';
-  return L[Math.min(L.length - 1, tier)]!;
+  if (tier >= EXPAND_TIER && L.length > LOOKS) return L[LOOKS]!;
+  return L[Math.min(LOOKS - 1, L.length - 1, tier)]!;
 }
 
 /** A sprite drawn 8 times around itself as a flat silhouette: an outline or a glow. */

@@ -43,13 +43,17 @@ function views(n: number, entries: [number, string][]): { F: number[]; B: number
   };
 }
 
-/** The milestone looks of a station: `base0`..`base3`. */
-const looks = (base: string): number[] =>
-  Array.from({ length: LOOKS }, (_, t) => {
+/** The milestone looks of a station: `base0`..`base3`, plus `base4` for the ones that expand. */
+const looks = (base: string): number[] => {
+  const out = Array.from({ length: LOOKS }, (_, t) => {
     const idx = INDEX[`${base}${t}`];
     if (idx === undefined) throw new Error(`Unknown sprite ${base}${t}`);
     return idx;
   });
+  const big = INDEX[`${base}${LOOKS}`];
+  if (big !== undefined) out.push(big);
+  return out;
+};
 
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
 export const LAYERS = {
