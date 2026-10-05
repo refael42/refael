@@ -9,6 +9,7 @@ import { handWash, serveOrder } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
 import { claimQuest } from '../quests';
+import { addGems, buyShopItem } from '../shop';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
@@ -105,6 +106,11 @@ function apply(s: GameState, cmd: Command): void {
       return setRush(s, cmd.on);
     case 'claim':
       return claimQuest(s, cmd.quest);
+    case 'shop':
+      buyShopItem(s, cmd.item);
+      return;
+    case 'gems':
+      return addGems(s, cmd.amount);
     default:
       break;
   }

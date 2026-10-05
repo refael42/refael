@@ -3,7 +3,7 @@ import type { Role, StatId } from '../../data/staff';
 import type { TraitId } from '../../data/traits';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
-import type { Levels, Mods } from '../economy/upgrades';
+import type { Levels, Mods, Perks } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
 import type { CharacterView, PropKind, PropView } from '../types';
@@ -96,6 +96,10 @@ export type Command =
   | { type: 'rush'; on: boolean }
   /** Take a finished quest's reward (index in the current level). */
   | { type: 'claim'; quest: number }
+  /** Spend gems in the item shop. */
+  | { type: 'shop'; item: string }
+  /** Gems from a (demo) gem pack purchase. */
+  | { type: 'gems'; amount: number }
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
@@ -262,6 +266,12 @@ export interface GameState {
   /** Rush hour: running now, and the meter (0..1). */
   rush: { on: boolean; charge: number };
   quests: QuestState;
+  /** Item shop: premium gems, perks owned, an income boost running until `until` (sim time). */
+  gems: number;
+  perks: Perks;
+  boost: { mult: number; until: number };
+  /** Coins earned, sampled every few seconds: the recent income rate (time warps pay by it). */
+  earnLog: { time: number; earned: Big }[];
   nextArrival: number;
   customers: Customer[];
   tables: Table[];

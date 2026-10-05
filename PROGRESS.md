@@ -14,7 +14,7 @@
 | M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ✅ Done |
 | M6 | Shift manager for the waiters (owner request), Rush hour, Upgrades screen (search / can buy / best value), applicant shortlist | ✅ Done |
 | M7 | Quests and restaurant levels (owner request) | ✅ Done |
-| M7a | Balance pass, then the pay-to-win item shop with gems and star workers (owner request) | ⏳ Next |
+| M7a | Balance pass, then the pay-to-win item shop with gems and star workers (owner request) | ✅ Done |
 | M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
@@ -244,6 +244,17 @@
   a line, a name and the bonus — 4★ = one more bill, 5★ = two more bills and "Trending" (+20 %
   arrivals for 15 s). The balance bot (near-perfect service) builds the bistro at 31:00
   (was 33:56); a slow player (4 s reactions) gets 3–5★ and earns less, as intended.
+- **Balance pass (M7a):** 2-hour bot run: no dead zones or income jumps; bistro ~31 min, grand
+  restaurant ~1 h; a slower player (3 s reactions) opens the bistro at ~40 min. Endless quest
+  levels were ~27 min apart late (the "serve" goal grew too fast) → now ~12 min.
+- **Item shop / pay-to-win (M7a, `src/data/shop.ts`, rules in `src/sim/shop.ts`):** 💎 gems
+  under the coins (tap = shop). 20 to start, +10 per restaurant level-up; gem packs are a
+  **demo** (a confirm dialog says no money is charged; ₪ prices are only shown). Spend gems on:
+  income boosts (x2 for 30 min, x5 for 10 min; the time left shows next to the gems), time
+  warps (1 h / 4 h of the recent income rate, at once), **star workers** for every job (level 6,
+  top skills in the job's stats, charmer + workaholic, gold badge; only if there is room), and
+  permanent perks (all prices x1.5, customers x1.25, cooking x1.5, tips x2; one each, they also
+  count for offline earnings). Save v5 (gems, perks, a running boost); older saves get 20 gems.
 - **Quests and restaurant levels (M7, `src/data/quests.ts`, rules in `src/sim/quests.ts`):** the
   restaurant has a level; each level is three goals (upgrade X to Lv N, serve N, earn N, hire a
   job, team of N, rating, tables, five-star reviews, decor, turbo, combo, open the bistro...).
@@ -336,7 +347,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 225 unit tests.
+- `npm run check` — typecheck + 234 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.

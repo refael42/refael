@@ -39,6 +39,8 @@ import { HowToPlay } from './HowToPlay';
 import { ReviewToast } from './ReviewToast';
 import { RushButton } from './RushButton';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
+import { GemPill, Shop } from './Shop';
+import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
 import { UpgradePanel } from './UpgradePanel';
@@ -184,6 +186,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     return { x: (from + mapForTier(building).building.x1) / 2, y: 7, zoom: 0.9 };
   }, [tier, building]);
   const [quests, setQuests] = useState(false);
+  const [shop, setShop] = useState(false);
   const questLevel = usePoll(gameRef, readQuestLevel, 2);
   const [levelBanner, setLevelBanner] = useState<number | null>(null);
   const shownLevel = useRef<number | null>(null);
@@ -261,6 +264,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     <>
       <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} onCamera={onCamera} />
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
+      {!onboarding && <GemPill gameRef={gameRef} onPress={() => setShop(true)} style={{ left: hud.left + 6, top: hud.top + HUD.height + 8 }} />}
       <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
@@ -278,6 +282,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
+      {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel

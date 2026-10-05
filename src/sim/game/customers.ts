@@ -11,6 +11,7 @@ import { next, pick, range } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
 import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
+import { boostNow } from '../shop';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
@@ -277,7 +278,8 @@ function pay(s: GameState, c: Customer): void {
   const mood = c.moodCount > 0 ? c.moodSum / c.moodCount : 1;
   // Good service is worth more than the tip: the whole bill follows the grade.
   const stars = serviceStars(mood);
-  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars)).floor();
+  // A shop boost multiplies the whole bill (and so the tip).
+  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s)).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.stats.bestCombo = Math.max(s.stats.bestCombo, s.combo);
   s.lastPayTime = s.time;

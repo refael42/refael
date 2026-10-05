@@ -4,7 +4,8 @@ import { DECOR, DECOR_BY_ID, placeRow, type DecorId } from '../../data/decor';
 import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef, type Point } from '../../data/maps';
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
-import { computeMods, levelOf, type Levels } from '../economy/upgrades';
+import { GEMS } from '../../data/shop';
+import { computeMods, levelOf, type Levels, type Perks } from '../economy/upgrades';
 import { buildGrid } from '../grid';
 import { createRng } from '../rng';
 import type { PropView } from '../types';
@@ -75,7 +76,7 @@ function restoreDecor(s: GameState, placed: readonly PlacedDecor[]): void {
       changed = true;
     }
   }
-  if (changed) s.mods = computeMods(s.levels);
+  if (changed) s.mods = computeMods(s.levels, s.perks);
 }
 
 /**
@@ -191,6 +192,10 @@ export interface GameSetup {
   placed?: readonly PlacedDecor[];
   /** Quest progress and the all-time counters quests ask for. */
   quests?: QuestState;
+  /** The item shop: gems, perks owned, a running income boost (seconds left). */
+  gems?: number;
+  perks?: Perks;
+  boost?: { mult: number; seconds: number };
   fiveStars?: number;
   rushes?: number;
   bestCombo?: number;
@@ -198,7 +203,8 @@ export interface GameSetup {
 
 export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
   const levels = { ...(setup.levels ?? {}) };
-  const mods = computeMods(levels);
+  const perks = { ...(setup.perks ?? {}) };
+  const mods = computeMods(levels, perks);
   let nextId = 1;
   const props: PropView[] = [map.pass, map.sink, ...map.decor].map((f) => propFrom(nextId++, f));
   const s: GameState = {
@@ -239,6 +245,10 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
       bestCombo: setup.bestCombo ?? 0,
     },
     quests: setup.quests ? { level: setup.quests.level, claimed: [...setup.quests.claimed] } : { level: 1, claimed: [] },
+    gems: setup.gems ?? GEMS.start,
+    perks,
+    boost: setup.boost && setup.boost.seconds > 0 ? { mult: setup.boost.mult, until: setup.boost.seconds } : { mult: 1, until: -Infinity },
+    earnLog: [],
     levels,
     mods,
     bumpAt: Object.values(PropKind).map(() => -Infinity),

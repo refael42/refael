@@ -46,7 +46,7 @@ export function buyUpgrade(s: GameState, id: string, at?: Point): boolean {
   s.coins = s.coins.sub(costOf(def, level));
   const before = s.mods;
   s.levels = { ...s.levels, [id]: level + 1 };
-  s.mods = computeMods(s.levels);
+  s.mods = computeMods(s.levels, s.perks);
   // Bought plates go straight onto the clean stack.
   s.cleanPlates += s.mods.plates - before.plates;
   // A new building is a show of its own (and rebuilds the whole place when it is done).

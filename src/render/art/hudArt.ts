@@ -90,5 +90,18 @@ const hudHand = sprite([-22, -32, 22, 32], (c: SkCanvas) => {
   c.drawOval(Skia.XYWHRect(-11, -6, 12, 6), fill('#EDE8F6'));
 });
 
-export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon, hudHand };
+/** The premium gem: a cut diamond, cyan to violet, with bright facets. */
+const hudGem = sprite([-24, -22, 24, 24], (c: SkCanvas) => {
+  const outline: Pt[] = [[-21, -6], [-12, -18], [12, -18], [21, -6], [0, 21]];
+  c.drawPath(path.poly(outline.map(([x, y]) => [x, y + 3] as Pt)), fill('#2A1060'));
+  c.drawPath(path.poly(outline), radial(-6, -10, 34, ['#E6FBFF', '#5FE3FF', '#7A5CFF', '#4A20B0'], [0, 0.3, 0.75, 1]));
+  // Facets: the table on top and the cuts down to the point.
+  c.drawPath(path.poly([[-12, -18], [12, -18], [7, -6], [-7, -6]]), fill('#FFFFFF', 0.45));
+  c.drawPath(path.poly([[-21, -6], [-7, -6], [0, 21]]), fill('#FFFFFF', 0.18));
+  c.drawPath(path.poly([[7, -6], [21, -6], [0, 21]]), fill('#2A1060', 0.25));
+  c.drawPath(path.poly(outline), stroke('#2A1060', 1.6));
+  c.drawCircle(-9, -13, 2, fill('#FFFFFF', 0.95));
+});
+
+export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon, hudHand, hudGem };
 export type HudIcon = keyof typeof hudIcons;

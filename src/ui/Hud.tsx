@@ -167,7 +167,7 @@ function ComboBadge({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   if (!combo || combo.combo < 2 || combo.left <= 0) return null;
   return (
-    <Animated.View style={[styles.slot, styles.combo, pulseStyle, { left: layout.left + 6, top: layout.top + HUD.height + 8, opacity: Math.min(1, combo.left / 1.5) }]}>
+    <Animated.View style={[styles.slot, styles.combo, pulseStyle, { left: layout.left + 6, top: layout.top + HUD.height + 44, opacity: Math.min(1, combo.left / 1.5) }]}>
       <Text style={styles.comboX}>{`x${combo.combo}`}</Text>
       <Text style={styles.comboWord}>{t('ui.combo')}</Text>
     </Animated.View>

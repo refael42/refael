@@ -16,6 +16,7 @@ import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
+import { logEarnings } from '../shop';
 
 function tickTimers(c: CharacterView, dt: number): void {
   c.poseTime += dt;
@@ -43,6 +44,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateApplicants(s, dt);
   landFlyingDishes(s);
   updateTables(s, dt);
+  logEarnings(s);
   updateWalkers(s, dt);
   for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants]) tickTimers(c, dt);
   pruneEvents(s);

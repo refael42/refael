@@ -1,4 +1,5 @@
 import { QUEST_LEVELS, QUESTS, type QuestGoal, type QuestLevel } from '../data/quests';
+import { GEMS } from '../data/shop';
 import { big } from './big';
 import { levelOf } from './economy/upgrades';
 import { emit, Ev } from './game/events';
@@ -78,6 +79,7 @@ export function claimQuest(s: GameState, index: number): void {
   if (levelUp) {
     reward = reward.mul(1 + QUESTS.levelBonus);
     s.quests = { level: s.quests.level + 1, claimed: [] };
+    s.gems += GEMS.perLevelUp;
   }
   s.coins = s.coins.add(reward);
   emit(s, Ev.Bonus, 0, 0, reward.toNumber());

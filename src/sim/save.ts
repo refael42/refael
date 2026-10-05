@@ -10,12 +10,13 @@ import { capOf, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWorker } from './game/create';
 import type { GameState, PlacedDecor, QuestState } from './game/types';
 import { questLevel } from './quests';
+import { GEMS, SHOP_BY_ID } from '../data/shop';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -41,6 +42,10 @@ export interface SaveData {
   fiveStars: number;
   rushes: number;
   bestCombo: number;
+  /** Item shop: gems, perks owned, an income boost still running (seconds left). */
+  gems: number;
+  perks: Record<string, number>;
+  boost: { mult: number; seconds: number };
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -72,6 +77,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   2: (old) => ({ ...old, placed: [] }),
   // v3 (M5) had no quests: start at restaurant level 1 (goals already met are just done).
   3: (old) => ({ ...old, quests: { level: 1, claimed: [] }, fiveStars: 0, rushes: 0, bestCombo: 0 }),
+  // v4 (M7) had no item shop: everyone gets the starting gems.
+  4: (old) => ({ ...old, gems: GEMS.start, perks: {}, boost: { mult: 1, seconds: 0 } }),
 };
 
 export type LoadResult =
@@ -96,6 +103,9 @@ export function makeSave(s: GameState, now: number): SaveData {
     fiveStars: s.stats.fiveStars,
     rushes: s.stats.rushes,
     bestCombo: s.stats.bestCombo,
+    gems: s.gems,
+    perks: { ...s.perks },
+    boost: { mult: s.boost.mult, seconds: Math.max(0, s.boost.until - s.time) },
   };
 }
 
@@ -189,6 +199,10 @@ function validate(o: Record<string, unknown>): SaveData | null {
     fiveStars: count(o.fiveStars),
     rushes: count(o.rushes),
     bestCombo: count(o.bestCombo),
+    gems: count(o.gems),
+    // Only perks the shop still sells.
+    perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk').map((id) => [id, 1])),
+    boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
 
@@ -242,5 +256,8 @@ export function restoreGame(save: SaveData, seed: number): GameState {
     fiveStars: save.fiveStars,
     rushes: save.rushes,
     bestCombo: save.bestCombo,
+    gems: save.gems,
+    perks: save.perks,
+    boost: save.boost,
   });
 }

@@ -57,10 +57,10 @@ export const QUESTS = {
   endless: {
     /** Upgrades taken in turn, each to a higher level every time it comes round. */
     items: ['stove', 'sink', 'fridge', 'sign', 'cloth', 'chairs', 'plants', 'neon', 'burger', 'fries'],
-    upgradeLevel: { base: 50, perLevel: 10 },
-    serve: { base: 1000, perLevel: 600 },
+    upgradeLevel: { base: 50, perLevel: 8 },
+    serve: { base: 800, perLevel: 250 },
     earn: { base: 2e6, growth: 6 },
-    reviews: { base: 10, perLevel: 4 },
+    reviews: { base: 10, perLevel: 3 },
     reward: { base: 150000, growth: 3 },
     /** The grand restaurant shows up as a goal at this many levels past the list. */
     grandAt: 5,

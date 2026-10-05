@@ -1,6 +1,7 @@
 import { TIERS } from '../../data/buildings';
 import { DISHES } from '../../data/dishes';
 import type { MapDef } from '../../data/maps';
+import { SHOP } from '../../data/shop';
 import { COUNT_STATS, MILESTONES, UPGRADE_BY_ID, UPGRADES, type Stat, type UpgradeDef } from '../../data/upgrades';
 import { big, type Big } from '../big';
 
@@ -120,8 +121,11 @@ function emptyMods(): Mods {
 
 type ScalarStat = Exclude<Stat, 'price'>;
 
-/** Levels add up within a stat; milestones multiply on top. */
-export function computeMods(levels: Levels): Mods {
+/** Shop perks owned: id -> 1 (permanent multipliers bought with gems). */
+export type Perks = Readonly<Record<string, number>>;
+
+/** Levels add up within a stat; milestones multiply on top; shop perks multiply last. */
+export function computeMods(levels: Levels, perks: Perks = {}): Mods {
   const m = emptyMods();
   const add: Partial<Record<ScalarStat, number>> = {};
   const priceAdd = DISHES.map(() => 0);
@@ -148,6 +152,11 @@ export function computeMods(levels: Levels): Mods {
   const tier = TIERS[Math.min(m.building, TIERS.length - 1)]!;
   m.arrivals *= tier.arrivals;
   m.price = m.price.map((p) => p * tier.price);
+  for (const item of SHOP) {
+    if (item.kind !== 'perk' || !perks[item.id]) continue;
+    if (item.stat === 'price') m.price = m.price.map((p) => p * item.mult);
+    else m[item.stat] *= item.mult;
+  }
   return m;
 }
 

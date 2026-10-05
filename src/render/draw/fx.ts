@@ -187,8 +187,8 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.015, 1.2, wx, wy - 30, (k / 12) * Math.PI * 2, 0, k);
     } else if (type === Ev.Payday) {
       // Wages leave the till: a red "-N" under the coin counter, below where the combo badge sits.
-      if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX - 14, hud.coinY + 72, 0, 0, a, TextStyle.Wages);
-      if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX - 14, hud.coinY + 96, 0, 0, ev[o + E.b]!, TextStyle.Combo);
+      if (a > 0) spawnFx(s, FxKind.ScreenText, t, 2, hud.coinX - 14, hud.coinY + 104, 0, 0, a, TextStyle.Wages);
+      if (ev[o + E.b]! > 0) spawnFx(s, FxKind.ScreenText, t + 0.3, 2, hud.coinX - 14, hud.coinY + 128, 0, 0, ev[o + E.b]!, TextStyle.Combo);
     } else if (type === Ev.Build) {
       // Work starts: the ground shakes and the lot disappears in a dust cloud.
       s.shakeAt = t;
