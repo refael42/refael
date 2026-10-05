@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { big, fromSave, toSave } from '../src/sim/big';
-import { formatBig, tierSuffix } from '../src/sim/format';
+import { formatBig, formatNumber, tierSuffix } from '../src/sim/format';
 
 describe('formatBig', () => {
   it.each([
@@ -61,5 +61,11 @@ describe('Big save round-trip', () => {
     expect(Number.isFinite(1e300 * 1e300)).toBe(false);
     expect(v.exponent).toBe(600);
     expect(v.div(1e300).eq(1e300)).toBe(true);
+  });
+});
+
+describe('formatNumber (UI-thread twin of formatBig)', () => {
+  it.each([0, 7, 999, 1000, 1234, 230000, 1.5e9, 1e15, 4.56e40, 999_999.99])('%s matches formatBig', (n) => {
+    expect(formatNumber(n)).toBe(formatBig(n));
   });
 });

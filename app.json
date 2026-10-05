@@ -3,7 +3,7 @@
     "name": "Restaurant Tycoon",
     "slug": "restaurant-tycoon",
     "version": "0.1.0",
-    "orientation": "portrait",
+    "orientation": "landscape",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {

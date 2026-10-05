@@ -11,7 +11,7 @@ function toHex([r, g, b]: [number, number, number]): string {
   return `#${c(r)}${c(g)}${c(b)}`;
 }
 
-export function mix(a: string, b: string, t: number): string {
+function mix(a: string, b: string, t: number): string {
   const x = toRgb(a);
   const y = toRgb(b);
   return toHex([x[0] + (y[0] - x[0]) * t, x[1] + (y[1] - x[1]) * t, x[2] + (y[2] - x[2]) * t]);

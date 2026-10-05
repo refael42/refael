@@ -1,8 +1,8 @@
-import { BlendMode, Skia, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
+import { BlendMode, Skia, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 import { HAIR_COLORS, PANTS_COLORS, SHIRT_COLORS, SKIN_TONES } from '../data/looks';
-import type { SceneDef } from '../data/scenes';
 import { bakeAtlas, type Atlas, type Rect } from './atlas';
-import { recordBackground, recordVignette } from './art/background';
+import { recordBackground, type BackgroundDef } from './art/background';
+import { isoBounds } from './iso';
 import { LAYERS, S, SPRITE_DEFS, type Layers } from './sprites';
 
 /** Everything the UI-thread renderer needs, as plain data + Skia host objects (worklet friendly). */
@@ -22,37 +22,27 @@ export interface RenderAssets {
     pants: SkPaint[];
     white: SkPaint;
     glove: SkPaint;
+    gold: SkPaint;
+    green: SkPaint;
+    red: SkPaint;
+    orange: SkPaint;
     barBack: SkPaint;
     barGood: SkPaint;
     barMid: SkPaint;
     barLow: SkPaint;
+    panel: SkPaint;
+    panelEdge: SkPaint;
+    ripple: SkPaint;
+    ring: SkPaint;
   };
-  background: BakedLayer;
-  vignette: BakedLayer;
-  scene: { width: number; height: number };
-}
-
-/** A static layer pre-rendered to an image: one textured quad per frame instead of vector replay. */
-export interface BakedLayer {
-  image: SkImage;
-  src: Rect;
-  dst: Rect;
-}
-
-function bake(picture: SkPicture, width: number, height: number, scale: number): BakedLayer {
-  const w = Math.ceil(width * scale);
-  const h = Math.ceil(height * scale);
-  const surface = Skia.Surface.Make(w, h);
-  if (!surface) throw new Error(`Could not create ${w}x${h} layer surface`);
-  const c = surface.getCanvas();
-  c.scale(scale, scale);
-  c.drawPicture(picture);
-  surface.flush();
-  return {
-    image: surface.makeImageSnapshot(),
-    src: { x: 0, y: 0, width: w, height: h },
-    dst: { x: 0, y: 0, width, height },
-  };
+  background: SkPicture;
+  /** The same background pre-rendered once; drawn instead of the vectors when zoomed out. */
+  backgroundImage: { image: SkImage; src: Rect; dst: Rect; scale: number };
+  pixelRatio: number;
+  /** Color around the map, past its edges. */
+  backdrop: SkColor;
+  /** World bounds in iso pixels (camera limits). */
+  world: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 function plainPaint(): SkPaint {
@@ -61,7 +51,7 @@ function plainPaint(): SkPaint {
   return p;
 }
 
-/** White sprite x tint = tinted sprite; the dark outline stays dark. One atlas, endless outfits. */
+/** White sprite x tint = tinted sprite; the dark parts stay dark. One atlas, endless outfits. */
 function tint(hex: string): SkPaint {
   const p = plainPaint();
   p.setColorFilter(Skia.ColorFilter.MakeBlend(Skia.Color(hex), BlendMode.Modulate));
@@ -75,16 +65,47 @@ function solid(hex: string, alpha = 1): SkPaint {
   return p;
 }
 
+function strokePaint(hex: string, width: number, alpha = 1): SkPaint {
+  const p = solid(hex, alpha);
+  p.setStyle(1);
+  p.setStrokeWidth(width);
+  return p;
+}
+
 let sharedAtlas: Atlas | null = null;
 
-/** The atlas is shared by every scene; it is baked once per app run. */
+/** The atlas is shared by every scene; it is baked once per app run (re-baked only if too soft). */
 function getAtlas(scale: number): Atlas {
   if (!sharedAtlas || sharedAtlas.scale < scale * 0.85) sharedAtlas = bakeAtlas(SPRITE_DEFS, scale);
   return sharedAtlas;
 }
 
-export function buildRenderAssets(scene: SceneDef, atlasScale: number): RenderAssets {
+/** Texture pixels per world pixel for the baked background (memory vs sharpness). */
+const BG_BAKE_SCALE = 2;
+
+function bakeBackground(picture: SkPicture, world: RenderAssets['world']): RenderAssets['backgroundImage'] {
+  const w = world.maxX - world.minX;
+  const h = world.maxY - world.minY;
+  const scale = Math.min(BG_BAKE_SCALE, 4096 / Math.max(w, h));
+  const surface = Skia.Surface.Make(Math.ceil(w * scale), Math.ceil(h * scale));
+  if (!surface) throw new Error('Could not create background surface');
+  const c = surface.getCanvas();
+  c.scale(scale, scale);
+  c.translate(-world.minX, -world.minY);
+  c.drawPicture(picture);
+  surface.flush();
+  return {
+    image: surface.makeImageSnapshot(),
+    src: { x: 0, y: 0, width: Math.ceil(w * scale), height: Math.ceil(h * scale) },
+    dst: { x: world.minX, y: world.minY, width: Math.ceil(w * scale) / scale, height: Math.ceil(h * scale) / scale },
+    scale,
+  };
+}
+
+export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelRatio: number): RenderAssets {
   const atlas = getAtlas(atlasScale);
+  const background = recordBackground(def);
+  const world = isoBounds(def.width, def.height, def.building ? 90 : 20);
   return {
     image: atlas.image,
     src: atlas.src,
@@ -100,14 +121,23 @@ export function buildRenderAssets(scene: SceneDef, atlasScale: number): RenderAs
       pants: PANTS_COLORS.map(tint),
       white: tint('#FFFFFF'),
       glove: tint('#F7D046'),
-      barBack: solid('#3A1F18', 0.55),
-      barGood: solid('#5CC86E'),
+      gold: tint('#FFD23F'),
+      green: tint('#7CF07A'),
+      red: tint('#FF5A4E'),
+      orange: tint('#FF9A2E'),
+      barBack: solid('#1A0E22', 0.7),
+      barGood: solid('#5CD66E'),
       barMid: solid('#F4C542'),
       barLow: solid('#F0443A'),
+      panel: solid('#2A1530', 0.86),
+      panelEdge: strokePaint('#E2B13C', 2),
+      ripple: strokePaint('#FFFFFF', 2.5),
+      ring: strokePaint('#FFFFFF', 3),
     },
-    background: bake(recordBackground(scene), scene.width, scene.height, Math.min(atlasScale, 4096 / scene.height)),
-    // A smooth gradient survives heavy downscaling, so a quarter-resolution bake is plenty.
-    vignette: bake(recordVignette(scene.width, scene.height), scene.width, scene.height, 0.25),
-    scene: { width: scene.width, height: scene.height },
+    background,
+    backgroundImage: bakeBackground(background, world),
+    pixelRatio,
+    backdrop: Skia.Color('#1A1022'),
+    world,
   };
 }

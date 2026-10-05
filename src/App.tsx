@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { deviceLang } from './i18n';
 import { useSettings } from './store/settings';
-import { StyleTestScreen } from './ui/StyleTestScreen';
+import { GameScreen } from './ui/GameScreen';
 
 export default function App() {
   useEffect(() => {
@@ -13,8 +13,8 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <StyleTestScreen />
+        <StatusBar hidden />
+        <GameScreen />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

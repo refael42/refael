@@ -1,11 +1,12 @@
 export const en = {
-  'app.title': 'Style test',
-  'app.loading': 'Drawing the restaurant…',
-  'tab.scene': 'Scene',
-  'tab.lineup': 'Cast',
+  'app.title': 'Restaurant Tycoon',
+  'tab.game': 'Play',
+  'tab.cast': 'Cast',
   'btn.lang': 'עב',
   'btn.perf': 'FPS',
   'btn.stress': '+60',
+  'btn.zoomIn': '+',
+  'btn.zoomOut': '−',
   'perf.ui': 'UI',
   'perf.js': 'JS',
   'perf.draw': 'draw',
@@ -17,9 +18,11 @@ export const en = {
   'art.waiter': 'Waiter',
   'art.washer': 'Dishwasher',
   'art.stove': 'Stove',
+  'art.pass': 'Pass',
   'art.table': 'Table',
   'art.sink': 'Sink',
-  'art.plates': 'Plates',
+  'art.fridge': 'Fridge',
+  'art.plant': 'Palm',
 } as const;
 
 export type TKey = keyof typeof en;

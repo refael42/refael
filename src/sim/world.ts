@@ -1,8 +1,13 @@
 import { DEMO_PATIENCE_SECONDS, EMOTE_SECONDS } from '../data/sim';
 import type { CastMember, SceneDef } from '../data/scenes';
+import { moveToward, setPose } from './movement';
 import { createRng } from './rng';
-import type { Character, Facing, RoutineStep, World } from './types';
-import { Expression, Facing as F, Held, Pose } from './types';
+import { packSnapshot, type Snapshot } from './snapshot';
+import type { Character, RoutineStep, World } from './types';
+import { Expression, Held, Pose } from './types';
+
+/** Tiles per second for scripted walks. */
+const WALK_SPEED = 1.3;
 
 export function createWorld(scene: SceneDef): World {
   const world: World = { tick: 0, time: 0, rng: createRng(scene.seed), nextId: 1, characters: [], props: [] };
@@ -13,19 +18,22 @@ export function createWorld(scene: SceneDef): World {
       x: p.x,
       y: p.y,
       variant: p.variant ?? 0,
-      level: p.level ?? 1,
+      level: 1,
       active: p.active ?? false,
       lift: p.lift ?? 0,
+      since: 0,
+      progress: 0,
+      bubble: 0,
+      depthBias: (p.lift ?? 0) > 0 ? 1 : 0,
     });
   }
-  for (const member of scene.cast) addCharacter(world, member, 'cast');
+  for (const member of scene.cast) addCharacter(world, member);
   return world;
 }
 
-export function addCharacter(world: World, m: CastMember, tag: Character['tag']): Character {
+function addCharacter(world: World, m: CastMember): Character {
   const c: Character = {
     id: world.nextId++,
-    tag,
     look: { ...m.look },
     x: m.x,
     y: m.y,
@@ -39,7 +47,7 @@ export function addCharacter(world: World, m: CastMember, tag: Character['tag'])
     emote: 0,
     emoteTime: 0,
     patience: -1,
-    speed: m.speed,
+    bubble: 0,
     routine: m.routine,
     step: 0,
     stepTime: 0,
@@ -62,13 +70,6 @@ export function stepWorld(world: World, dt: number): void {
       c.emoteTime += dt;
       if (c.emoteTime >= EMOTE_SECONDS) c.emote = 0;
     }
-  }
-}
-
-function setPose(c: Character, pose: Character['pose']): void {
-  if (c.pose !== pose) {
-    c.pose = pose;
-    c.poseTime = 0;
   }
 }
 
@@ -103,19 +104,7 @@ function updateRoutine(c: Character, dt: number): void {
   if (!step) return;
   c.stepTime += dt;
   if (step.do === 'walk') {
-    const dx = step.x - c.x;
-    const dy = step.y - c.y;
-    const dist = Math.hypot(dx, dy);
-    const move = c.speed * dt;
-    c.facing = facingFor(dx, dy, c.facing);
-    if (move >= dist || c.speed <= 0) {
-      c.x = step.x;
-      c.y = step.y;
-      nextStep(c);
-    } else {
-      c.x += (dx / dist) * move;
-      c.y += (dy / dist) * move;
-    }
+    if (moveToward(c, step, WALK_SPEED, dt)) nextStep(c);
     return;
   }
   if (step.patience && c.patience >= 0) {
@@ -124,11 +113,6 @@ function updateRoutine(c: Character, dt: number): void {
   if (c.stepTime >= step.seconds) nextStep(c);
 }
 
-/** Picks the 3/4 sprite facing for a movement direction, keeping the old side when moving straight. */
-export function facingFor(dx: number, dy: number, previous: Facing): Facing {
-  const back = dy < 0 && Math.abs(dy) >= Math.abs(dx) * 0.35;
-  const wasRight = previous === F.FrontRight || previous === F.BackRight;
-  const right = Math.abs(dx) < 0.01 ? wasRight : dx > 0;
-  if (back) return right ? F.BackRight : F.BackLeft;
-  return right ? F.FrontRight : F.FrontLeft;
+export function worldSnapshot(world: World, seq: number): Snapshot {
+  return packSnapshot(world.characters, world.props, seq, world.time);
 }

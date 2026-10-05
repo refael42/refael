@@ -1,7 +1,7 @@
 # Restaurant Tycoon
 
-A cozy mobile restaurant tycoon: you are the manager of a tiny Tel Aviv street-food stand that
-grows into a restaurant empire. Expo (React Native) + Skia, runs on Android, iOS and the web.
+An isometric idle restaurant tycoon (landscape): you are the manager of a small Tel Aviv
+restaurant that grows into an empire. Expo (React Native) + Skia; runs on Android, iOS and web.
 
 ## איך מריצים (Windows)
 
@@ -13,14 +13,21 @@ grows into a restaurant empire. Expo (React Native) + Skia, runs on Android, iOS
 
 אחרי התקנת חבילות חדשות — לעצור את השרת (Ctrl+C) ולהפעיל מחדש, אחרת Metro "שוכח" קבצים.
 
+## איך משחקים
+
+- **גוררים** עם האצבע כדי לזוז במפה, **צובטים** (או כפתורי + / −) כדי לעשות זום.
+- לקוח בתור עם בועת כיסא → **לוחצים עליו** כדי להושיב.
+- מנה מוכנה על הדלפק (קופצת ומנצנצת) → **לוחצים עליה** כדי להגיש.
+- שולחן מלוכלך עם ספוג → **לוחצים** כדי לנקות (לחיצות נוספות = מהר יותר).
+
 ## Project layout
 
 | Folder | What lives there |
 |--------|------------------|
-| `src/sim` | Pure, deterministic game simulation (no UI imports; runs headless in tests) |
-| `src/data` | Data tables: looks, scenes, timing and (later) balance/upgrade tables |
-| `src/render` | Skia renderer: procedural art → atlas, UI-thread frame drawing |
-| `src/ui` | React Native screens, buttons, overlays |
+| `src/sim` | Pure, deterministic simulation: customers, kitchen, A*, commands (no UI imports) |
+| `src/data` | Data tables: map, dishes, customer types, economy, looks |
+| `src/render` | Skia renderer: procedural low-poly art → atlas, isometric drawing, FX, HUD, camera |
+| `src/ui` | React Native screen, buttons, overlays |
 | `src/store` | Zustand stores |
 | `src/i18n` | Hebrew + English strings |
 | `tests` | Vitest unit tests |

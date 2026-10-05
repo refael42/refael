@@ -1,116 +1,34 @@
-import type { SkCanvas } from '@shopify/react-native-skia';
+import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import { Accessory, Outfit } from '../../data/looks';
 import { EMOTE_SECONDS, STEP_SEC } from '../../data/sim';
 import { C, F } from '../../sim/snapshot';
 import { Expression, Held, Pose } from '../../sim/types';
 import type { RenderAssets } from '../assets';
+import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, spr, sprFade, sprXf } from './primitives';
 
-const SHOULDER_X = 8.6;
-const SHOULDER_Y = -20;
-const ARM_LEN = 8.6;
-const HIP_X = 3.6;
-const HIP_Y = -9;
-const LEG_LEN = 9;
-const SIT_LIFT = -16;
-const DEG = Math.PI / 180;
+const ARM_R = 0.165;
 
-/** Per-frame pose, derived purely from sim state + time: no animation state is stored. */
-interface PoseFrame {
-  bob: number;
-  lift: number;
-  legL: number;
-  legR: number;
-  footLiftR: number;
-  armL: number;
-  armR: number;
-  sx: number;
-  sy: number;
-  shake: number;
-  showLegs: boolean;
-  eatingBite: boolean;
-}
-
-function poseFrame(pose: number, held: number, angry: boolean, t: number, phase: number): PoseFrame {
+/** Screen offset (px) of a point in the character's own frame (f fwd, r right, z up). */
+function lx(viewB: boolean, f: number, r: number): number {
   'worklet';
-  const breathe = Math.sin(t * 2.2 + phase);
-  const f: PoseFrame = {
-    bob: breathe * 0.45,
-    lift: 0,
-    legL: 0,
-    legR: 0,
-    footLiftR: 0,
-    armL: 8 + breathe * 2,
-    armR: -8 - breathe * 2,
-    sx: 1 - breathe * 0.008,
-    sy: 1 + breathe * 0.014,
-    shake: 0,
-    showLegs: true,
-    eatingBite: false,
-  };
-  if (pose === Pose.Walk) {
-    const s = Math.sin(t * 8.5 + phase);
-    f.legL = s * 26;
-    f.legR = -s * 26;
-    f.armL = 8 - s * 22;
-    f.armR = -8 - s * 22;
-    f.bob = -Math.abs(Math.cos(t * 8.5 + phase)) * 1.6;
-    f.sy = 1 - Math.abs(Math.sin(t * 8.5 + phase)) * 0.025;
-    f.sx = 1;
-  } else if (pose === Pose.Sit || pose === Pose.SitEat) {
-    f.lift = SIT_LIFT;
-    f.showLegs = false;
-    f.armL = 28;
-    f.armR = -28;
-    if (pose === Pose.SitEat) {
-      const p = (t * 0.9 + phase) % 1;
-      const raise = 0.5 - 0.5 * Math.cos(p * Math.PI * 2);
-      f.armR = -28 - raise * 140;
-      f.eatingBite = raise > 0.7;
-    }
-  } else if (pose === Pose.Cook) {
-    const s = Math.sin(t * 7 + phase);
-    f.armR = -62 + s * 26;
-    f.armL = 34 + Math.sin(t * 7 + phase + 1) * 10;
-    f.bob = Math.abs(s) * -0.8;
-  } else if (pose === Pose.Wash) {
-    f.armR = 32 + Math.sin(t * 9 + phase) * 20;
-    f.armL = -32 + Math.sin(t * 9 + phase + 1.5) * 20;
-    f.bob = Math.sin(t * 9 + phase) * 0.5;
-  } else if (pose === Pose.Impatient) {
-    f.footLiftR = Math.max(0, Math.sin(t * 13 + phase)) * 2.2;
-    f.armL = 18;
-    if (angry) f.shake = Math.sin(t * 50) * 0.7 * (Math.sin(t * 2 + phase) > 0.2 ? 1 : 0);
-  } else if (pose === Pose.Cheer) {
-    const s = Math.abs(Math.sin(t * 8 + phase));
-    f.armL = 150 + s * 15;
-    f.armR = -150 - s * 15;
-    f.bob = -s * 3;
-  }
-  if (held === Held.TrayFull || held === Held.TrayEmpty) f.armR = -112 + f.bob * 2;
-  else if (held === Held.Phone && pose !== Pose.Cook) f.armR = 30 + Math.sin(t * 1.3 + phase) * 3;
-  return f;
+  return viewB ? (f - r) * 32 : (f + r) * 32;
 }
-
-function drawLimb(
-  c: SkCanvas, A: RenderAssets, sx: number, sy: number, angle: number, len: number,
-  limb: number, end: number, limbPaint: Parameters<typeof spr>[5], endPaint: Parameters<typeof spr>[5],
-): void {
+function ly(viewB: boolean, f: number, r: number, z: number): number {
   'worklet';
-  sprXf(c, A, limb, sx, sy, angle, 1, 1, limbPaint);
-  spr(c, A, end, sx - Math.sin(angle * DEG) * len, sy + Math.cos(angle * DEG) * len, endPaint);
+  return viewB ? (-r - f) * 16 - z : (f - r) * 16 - z;
 }
 
-/** One layered character: shadow, legs, arms, body, outfit, head, face, hair, hat, held item. */
+/** One blocky character. All animation is a pure function of sim state + time. */
 export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number): void {
   'worklet';
   const S = A.S;
   const L = A.L;
   const P = A.paints;
-  const x = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
-  const y = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
+  const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
+  const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
   const facing = d[o + C.facing]!;
-  const back = facing >= 2;
+  const viewB = facing >= 2;
   const flip = facing === 1 || facing === 3;
   const pose = d[o + C.pose]!;
   const held = d[o + C.held]!;
@@ -122,108 +40,169 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
   const phase = d[o + F.id]! * 1.618;
 
   const uniform = outfit === Outfit.Chef || outfit === Outfit.Waiter;
-  const shirt = uniform ? P.white : P.shirt[d[o + C.shirt]!]!;
+  const shirt: SkPaint = uniform ? P.white : P.shirt[d[o + C.shirt]!]!;
   const skin = P.skin[d[o + C.skin]!]!;
   const handPaint = outfit === Outfit.Washer ? P.glove : skin;
   const pants = P.pants[d[o + C.pants]!]!;
   const hairPaint = P.hair[d[o + C.hairColor]!]!;
 
-  const f = poseFrame(pose, held, expression === Expression.Angry, t, phase);
-  const up = f.bob + f.lift;
-  const headUp = up + Math.sin(t * 2.2 + phase - 0.7) * 0.25;
+  // ----- pose -----
+  const breathe = Math.sin(t * 2.4 + phase);
+  let bob = breathe * 0.35;
+  let nearLeg = 0;
+  let farLeg = 0;
+  let nearLift = 0;
+  let farLift = 0;
+  let nearArm = 0;
+  let farArm = 0;
+  let armUpLift = 0;
+  let showLegs = true;
+  let armUp = held !== Held.None && held !== Held.Spatula;
+  let biting = false;
+  if (pose === Pose.Walk) {
+    const s = Math.sin(t * 9 + phase);
+    nearLeg = s * 0.055;
+    farLeg = -s * 0.055;
+    nearLift = Math.max(0, s) * 1.8;
+    farLift = Math.max(0, -s) * 1.8;
+    nearArm = -s * 0.045;
+    farArm = s * 0.045;
+    bob = Math.abs(Math.cos(t * 9 + phase)) * 1.3;
+  } else if (pose === Pose.Sit || pose === Pose.SitEat) {
+    showLegs = false;
+    bob = -1.5 + breathe * 0.3;
+    if (pose === Pose.SitEat) {
+      const p = (t * 0.9 + phase) % 1;
+      const raise = 0.5 - 0.5 * Math.cos(p * Math.PI * 2);
+      armUp = true;
+      armUpLift = raise * 7;
+      biting = raise > 0.7;
+    }
+  } else if (pose === Pose.Cook || pose === Pose.Wash) {
+    armUp = true;
+    const rate = pose === Pose.Cook ? 7 : 10;
+    armUpLift = Math.max(0, Math.sin(t * rate + phase)) * (pose === Pose.Cook ? 5 : 2.5);
+    farArm = Math.sin(t * rate + phase + 1.5) * 0.03;
+    bob = Math.abs(Math.sin(t * rate + phase)) * 0.6;
+  } else if (pose === Pose.Impatient) {
+    nearLift = Math.max(0, Math.sin(t * 13 + phase)) * 2;
+  } else if (pose === Pose.Phone) {
+    armUp = true;
+  } else if (pose === Pose.Cheer) {
+    bob = Math.abs(Math.sin(t * 8 + phase)) * 4;
+  }
+  const shake = expression === Expression.Angry && pose === Pose.Impatient ? Math.sin(t * 50) * 0.6 : 0;
+  const up = -bob;
+
+  // ----- sprite set for this view -----
+  const v = viewB ? 1 : 0;
+  const pick = (front: number, back: number) => (v === 1 ? back : front);
 
   c.save();
-  c.translate(x + f.shake, y);
-  if (f.showLegs) spr(c, A, S.shadow, 0, 0, P.plain);
+  c.translate(isoX(wx, wy) + shake, isoY(wx, wy));
+  if (showLegs) spr(c, A, S.charShadow, 0, 0, P.plain);
   if (flip) c.scale(-1, 1);
-  c.scale(f.sx, f.sy);
+  c.scale(1 - breathe * 0.008, 1 + breathe * 0.012);
 
-  const legs = () => {
-    if (!f.showLegs) return;
-    for (let side = -1; side <= 1; side += 2) {
-      const angle = side < 0 ? f.legL : f.legR;
-      const hx = side * HIP_X;
-      const lift = side > 0 ? f.footLiftR : 0;
-      sprXf(c, A, S.leg, hx, HIP_Y - lift, angle, 1, 1, pants);
-      const fy = HIP_Y + Math.cos(angle * DEG) * LEG_LEN - lift - (angle * side > 0 ? Math.abs(angle) * 0.04 : 0);
-      spr(c, A, S.shoe, hx - Math.sin(angle * DEG) * LEG_LEN, fy, P.plain);
-    }
-  };
-  const arm = (side: number) => {
-    const angle = side < 0 ? f.armL : f.armR;
-    drawLimb(c, A, side * SHOULDER_X, SHOULDER_Y + up, angle, ARM_LEN, S.arm, S.hand, shirt, handPaint);
-  };
-  const heldItem = () => {
-    if (held === 0) return;
-    const hx = SHOULDER_X - Math.sin(f.armR * DEG) * ARM_LEN;
-    const hy = SHOULDER_Y + up + Math.cos(f.armR * DEG) * ARM_LEN;
-    if (held === Held.Spatula) sprXf(c, A, L.held[held]!, hx, hy, f.armR + 62, 1, 1, P.plain);
-    else if (held === Held.Phone) spr(c, A, L.held[held]!, hx, hy - 1, P.plain);
-    else spr(c, A, L.held[held]!, hx + 3, hy + 1, P.plain);
+  const leg = (near: boolean, shift: number, lift: number) => {
+    const dx = lx(viewB, shift, 0);
+    const dy = ly(viewB, shift, 0, lift);
+    spr(c, A, near ? pick(S.legNearF, S.legNearB) : pick(S.legFarF, S.legFarB), dx, dy, pants);
+    spr(c, A, near ? pick(S.shoeNearF, S.shoeNearB) : pick(S.shoeFarF, S.shoeFarB), dx, dy, P.plain);
   };
 
-  if (!back) {
-    spr(c, A, L.hairBehind[hair]!, 0, headUp, hairPaint);
-    if (accessory === Accessory.Backpack) spr(c, A, S.backpackBehind, 0, up, P.plain);
-    legs();
-    arm(-1);
-    spr(c, A, L.bodyFront[outfit]!, 0, up, shirt);
-    spr(c, A, L.overFront[outfit]!, 0, up, P.plain);
-    if (accessory === Accessory.Camera) spr(c, A, S.camera, 0, up, P.plain);
-    if (accessory === Accessory.Backpack) spr(c, A, S.backpackStraps, 0, up, P.plain);
-    arm(1);
-    spr(c, A, S.head, 0, headUp, skin);
-    let face = L.face[expression]!;
-    if (expression === Expression.Eating) face = f.eatingBite ? S.faceEating : S.faceChew;
-    else if ((expression === Expression.Happy || expression === Expression.Neutral) && (t + phase) % 3.7 < 0.13) face = S.faceBlink;
-    spr(c, A, face, 0, headUp, P.plain);
-    spr(c, A, L.faceAccessory[accessory]!, 0, headUp, P.plain);
-    spr(c, A, L.hairFront[hair]!, 0, headUp, hairPaint);
-    spr(c, A, L.hatFront[hat]!, 0, headUp, P.plain);
-    heldItem();
+  if (showLegs) leg(false, farLeg, farLift);
+  const fax = lx(viewB, farArm, 0);
+  const fay = ly(viewB, farArm, 0, 0) + up;
+  spr(c, A, pick(S.armFarF, S.armFarB), fax, fay, shirt);
+  spr(c, A, pick(S.handFarF, S.handFarB), fax, fay, handPaint);
+  if (!viewB && accessory === Accessory.Backpack) spr(c, A, S.backpackF, 0, up, P.plain);
+  if (showLegs) leg(true, nearLeg, nearLift);
+
+  spr(c, A, pick(S.torsoF, S.torsoB), 0, up, shirt);
+  if (outfit === Outfit.Hoodie) spr(c, A, pick(S.hoodF, S.hoodB), 0, up, shirt);
+  spr(c, A, viewB ? L.outfit.B[outfit]! : L.outfit.F[outfit]!, 0, up, P.plain);
+  if (accessory === Accessory.Camera) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
+  if (accessory === Accessory.Backpack) spr(c, A, pick(S.backpackStrapsF, S.backpackB), 0, up, P.plain);
+
+  let hx: number;
+  let hy: number;
+  if (armUp) {
+    spr(c, A, pick(S.armUpF, S.armUpB), 0, up - armUpLift, shirt);
+    spr(c, A, pick(S.handUpF, S.handUpB), 0, up - armUpLift, handPaint);
+    hx = lx(viewB, 0.15, -ARM_R);
+    hy = ly(viewB, 0.15, -ARM_R, 24) + up - armUpLift;
   } else {
-    legs();
-    arm(-1);
-    arm(1);
-    spr(c, A, L.bodyBack[outfit]!, 0, up, shirt);
-    spr(c, A, L.overBack[outfit]!, 0, up, P.plain);
-    if (accessory === Accessory.Backpack) spr(c, A, S.backpackBack, 0, up, P.plain);
-    spr(c, A, S.headBack, 0, headUp, skin);
-    spr(c, A, L.hairBack[hair]!, 0, headUp, hairPaint);
-    spr(c, A, L.hatBack[hat]!, 0, headUp, P.plain);
-    heldItem();
+    const nax = lx(viewB, nearArm, 0);
+    const nay = ly(viewB, nearArm, 0, 0) + up;
+    spr(c, A, pick(S.armNearF, S.armNearB), nax, nay, shirt);
+    spr(c, A, pick(S.handNearF, S.handNearB), nax, nay, handPaint);
+    hx = lx(viewB, nearArm, -ARM_R);
+    hy = ly(viewB, nearArm, -ARM_R, 10) + up;
+  }
+
+  spr(c, A, pick(S.headF, S.headB), 0, up, skin);
+  if (!viewB) {
+    let face = L.face[expression]!;
+    if (expression === Expression.Eating) face = biting ? S.faceEating : S.faceChew;
+    else if ((expression === Expression.Happy || expression === Expression.Neutral) && (t + phase) % 3.7 < 0.13) face = S.faceBlink;
+    spr(c, A, face, 0, up, P.plain);
+    spr(c, A, L.faceAccessory[accessory]!, 0, up, P.plain);
+  }
+  spr(c, A, viewB ? L.hair.B[hair]! : L.hair.F[hair]!, 0, up, hairPaint);
+  spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, 0, up, P.plain);
+
+  if (held !== Held.None) {
+    if (held === Held.TrayFull || held === Held.TrayEmpty) {
+      spr(c, A, L.held[held]!, lx(viewB, 0.1, -0.3), ly(viewB, 0.1, -0.3, 23) + up, P.plain);
+    } else if (held === Held.Spatula) {
+      const sx = lx(viewB, 0.04, -ARM_R);
+      const sy = ly(viewB, 0.04, -ARM_R, 10) + up - Math.max(0, Math.sin(t * 7 + phase)) * 4;
+      spr(c, A, L.held[held]!, sx, sy, P.plain);
+    } else {
+      spr(c, A, L.held[held]!, hx, hy, P.plain);
+    }
   }
   c.restore();
 }
 
-/** Bubbles and bars go in a second pass so a prop in front never hides them. */
+/** Bubbles and bars go in a second pass so nothing in front ever hides them. */
 export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number): void {
   'worklet';
   const emote = d[o + C.emote]!;
   const patience = d[o + C.patience]!;
-  if (emote === 0 && patience < 0) return;
-  const x = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
-  const pose = d[o + C.pose]!;
-  const lift = pose === Pose.Sit || pose === Pose.SitEat ? SIT_LIFT : 0;
-  const top = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha + lift - 48;
-  let barY = top;
+  const bubble = d[o + C.bubble]!;
+  if (emote === 0 && patience < 0 && bubble === 0) return;
+  const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
+  const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
+  const x = isoX(wx, wy);
+  let top = isoY(wx, wy) - 54;
+  const P = A.paints;
   if (patience >= 0) {
-    const P = A.paints;
-    const w = 20;
-    c.drawRRect({ rect: { x: x - w / 2 - 1, y: barY - 1, width: w + 2, height: 5 }, rx: 2.5, ry: 2.5 }, P.barBack);
+    const w = 22;
+    c.drawRRect({ rect: { x: x - w / 2 - 1.5, y: top - 1.5, width: w + 3, height: 6 }, rx: 3, ry: 3 }, P.barBack);
     const fillPaint = patience > 0.5 ? P.barGood : patience > 0.25 ? P.barMid : P.barLow;
-    c.drawRRect({ rect: { x: x - w / 2, y: barY, width: Math.max(1.5, w * patience), height: 3 }, rx: 1.5, ry: 1.5 }, fillPaint);
+    c.drawRRect({ rect: { x: x - w / 2, y: top, width: Math.max(2, w * patience), height: 3 }, rx: 1.5, ry: 1.5 }, fillPaint);
     // The clock icon means the bar never relies on color alone.
-    sprXf(c, A, A.S.clock, x - w / 2 - 3.5, barY + 1.5, 0, 0.5, 0.5, P.plain);
-    barY -= 4;
+    sprXf(c, A, A.S.clock, x - w / 2 - 5, top + 1.5, 0, 0.55, 0.55, P.plain);
+    top -= 4;
   }
   if (emote !== 0) {
     const age = d[o + C.emoteTime]! - (1 - alpha) * STEP_SEC;
-    if (age < 0) return;
-    const pop = age < 0.3 ? easeOutBack(clamp01(age / 0.3)) : 1;
-    const fade = clamp01((EMOTE_SECONDS - age) / 0.3);
-    const by = barY - 1 - Math.sin(age * 3.5) * 0.8;
-    sprFade(c, A, A.S.bubble, x, by, pop, fade);
-    sprFade(c, A, A.L.emote[emote]!, x, by - 11.8 * pop, pop * 0.95, fade);
+    if (age >= 0) {
+      const pop = age < 0.3 ? easeOutBack(clamp01(age / 0.3)) : 1;
+      const fade = clamp01((EMOTE_SECONDS - age) / 0.3);
+      const by = top - Math.sin(age * 3.5) * 0.8;
+      sprFade(c, A, A.S.bubble, x, by, pop, fade);
+      sprFade(c, A, A.L.emote[emote]!, x, by - 12.6 * pop, pop, fade);
+      return;
+    }
+  }
+  if (bubble !== 0) {
+    // Persistent wants pulse gently: "tap me".
+    const pulse = 1 + Math.sin(t * 5 + o) * 0.06;
+    const by = top - Math.abs(Math.sin(t * 2.5 + o)) * 1.5;
+    sprXf(c, A, A.S.bubble, x, by, 0, pulse, pulse, P.plain);
+    sprXf(c, A, A.L.bubble[bubble]!, x, by - 12.6 * pulse, 0, pulse, pulse, P.plain);
   }
 }

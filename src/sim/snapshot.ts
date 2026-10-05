@@ -1,11 +1,11 @@
-import type { World } from './types';
+import type { CharacterView, PropView } from './types';
 import { EntityType } from './types';
 
 /**
  * The render snapshot: a flat number array the UI thread can read cheaply. One fixed-size record
- * per entity, already sorted back-to-front (by y), so the renderer just walks it in order.
+ * per entity, already sorted back-to-front, so the renderer just walks it in order.
  */
-export const STRIDE = 22;
+export const STRIDE = 24;
 
 /** Fields shared by every record. */
 export const F = { type: 0, x: 1, y: 2, px: 3, py: 4, id: 5 } as const;
@@ -28,10 +28,26 @@ export const C = {
   emote: 19,
   emoteTime: 20,
   patience: 21,
+  bubble: 22,
 } as const;
 
 /** Prop record fields. */
-export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10 } as const;
+export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11, progress: 12, bubble: 13 } as const;
+
+/** Sim events (coins earned, dish ready...) ride along so the UI thread can spawn effects. */
+export const EVENT_STRIDE = 8;
+export const E = { id: 0, time: 1, type: 2, x: 3, y: 4, a: 5, b: 6, c: 7 } as const;
+
+export interface Hud {
+  /** Approximate coins for rolling digits; Infinity once past float range. */
+  coins: number;
+  /** Exact formatted coins, used when `coins` is not finite. */
+  coinsText: string;
+  rating: number;
+  combo: number;
+  /** Sim time of the last payment; the combo badge shows while it is recent. */
+  comboAt: number;
+}
 
 export interface Snapshot {
   /** Increments on every publish so the renderer can detect a new tick. */
@@ -40,69 +56,80 @@ export interface Snapshot {
   time: number;
   count: number;
   data: number[];
+  /** Recent events (a sliding window, so a skipped UI frame never loses one). */
+  events: number[];
+  hud: Hud | null;
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [] };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], hud: null };
 
 interface SortItem {
-  y: number;
+  depth: number;
   id: number;
-  write: (out: number[], o: number) => void;
+  character?: CharacterView;
+  prop?: PropView;
 }
 
-export function packSnapshot(world: World, seq: number): Snapshot {
+function writeCharacter(d: number[], o: number, c: CharacterView): void {
+  d[o + F.type] = EntityType.Character;
+  d[o + F.x] = c.x;
+  d[o + F.y] = c.y;
+  d[o + F.px] = c.prevX;
+  d[o + F.py] = c.prevY;
+  d[o + F.id] = c.id;
+  d[o + C.facing] = c.facing;
+  d[o + C.pose] = c.pose;
+  d[o + C.poseTime] = c.poseTime;
+  d[o + C.outfit] = c.look.outfit;
+  d[o + C.hair] = c.look.hair;
+  d[o + C.hairColor] = c.look.hairColor;
+  d[o + C.skin] = c.look.skin;
+  d[o + C.shirt] = c.look.shirt;
+  d[o + C.pants] = c.look.pants;
+  d[o + C.hat] = c.look.hat;
+  d[o + C.accessory] = c.look.accessory;
+  d[o + C.held] = c.held;
+  d[o + C.expression] = c.expression;
+  d[o + C.emote] = c.emote;
+  d[o + C.emoteTime] = c.emoteTime;
+  d[o + C.patience] = c.patience;
+  d[o + C.bubble] = c.bubble;
+}
+
+function writeProp(d: number[], o: number, p: PropView): void {
+  d[o + F.type] = EntityType.Prop;
+  d[o + F.x] = p.x;
+  d[o + F.y] = p.y;
+  d[o + F.px] = p.x;
+  d[o + F.py] = p.y;
+  d[o + F.id] = p.id;
+  d[o + P.kind] = p.kind;
+  d[o + P.variant] = p.variant;
+  d[o + P.level] = p.level;
+  d[o + P.active] = p.active ? 1 : 0;
+  d[o + P.lift] = p.lift;
+  d[o + P.since] = p.since;
+  d[o + P.progress] = p.progress;
+  d[o + P.bubble] = p.bubble;
+}
+
+export function packSnapshot(
+  characters: readonly CharacterView[],
+  props: readonly PropView[],
+  seq: number,
+  time: number,
+  extra: { events?: number[]; hud?: Hud } = {},
+): Snapshot {
   const items: SortItem[] = [];
-  for (const c of world.characters) {
-    items.push({
-      y: c.y,
-      id: c.id,
-      write: (d, o) => {
-        d[o + F.type] = EntityType.Character;
-        d[o + F.x] = c.x;
-        d[o + F.y] = c.y;
-        d[o + F.px] = c.prevX;
-        d[o + F.py] = c.prevY;
-        d[o + F.id] = c.id;
-        d[o + C.facing] = c.facing;
-        d[o + C.pose] = c.pose;
-        d[o + C.poseTime] = c.poseTime;
-        d[o + C.outfit] = c.look.outfit;
-        d[o + C.hair] = c.look.hair;
-        d[o + C.hairColor] = c.look.hairColor;
-        d[o + C.skin] = c.look.skin;
-        d[o + C.shirt] = c.look.shirt;
-        d[o + C.pants] = c.look.pants;
-        d[o + C.hat] = c.look.hat;
-        d[o + C.accessory] = c.look.accessory;
-        d[o + C.held] = c.held;
-        d[o + C.expression] = c.expression;
-        d[o + C.emote] = c.emote;
-        d[o + C.emoteTime] = c.emoteTime;
-        d[o + C.patience] = c.patience;
-      },
-    });
-  }
-  for (const p of world.props) {
-    items.push({
-      y: p.y,
-      id: p.id,
-      write: (d, o) => {
-        d[o + F.type] = EntityType.Prop;
-        d[o + F.x] = p.x;
-        d[o + F.y] = p.y;
-        d[o + F.px] = p.x;
-        d[o + F.py] = p.y;
-        d[o + F.id] = p.id;
-        d[o + P.kind] = p.kind;
-        d[o + P.variant] = p.variant;
-        d[o + P.level] = p.level;
-        d[o + P.active] = p.active ? 1 : 0;
-        d[o + P.lift] = p.lift;
-      },
-    });
-  }
-  items.sort((a, b) => a.y - b.y || a.id - b.id);
+  // Isometric painter's order: farther from the camera = smaller x + y. Characters win ties so a
+  // seated customer draws over the chair on the same tile.
+  for (const c of characters) items.push({ depth: c.x + c.y + 0.05, id: c.id, character: c });
+  for (const p of props) items.push({ depth: p.x + p.y + p.depthBias, id: p.id, prop: p });
+  items.sort((a, b) => a.depth - b.depth || a.id - b.id);
   const data = new Array<number>(items.length * STRIDE).fill(0);
-  items.forEach((item, i) => item.write(data, i * STRIDE));
-  return { seq, time: world.time, count: items.length, data };
+  items.forEach((item, i) => {
+    if (item.character) writeCharacter(data, i * STRIDE, item.character);
+    else writeProp(data, i * STRIDE, item.prop!);
+  });
+  return { seq, time, count: items.length, data, events: extra.events ?? [], hud: extra.hud ?? null };
 }

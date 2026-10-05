@@ -20,7 +20,7 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4 } as const;
+export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5 } as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -48,10 +48,62 @@ export const PropKind = {
   PlatesDirty: 5,
   Plant: 6,
   Neon: 7,
+  Pass: 8,
+  PassDish: 9,
+  Fridge: 10,
+  Tree: 11,
+  Lamp: 12,
+  SaleSign: 13,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
 export const EntityType = { Character: 1, Prop: 2 } as const;
+
+/**
+ * Persistent icon bubbles (not timed like emotes): what a customer wants, or what a prop needs.
+ * Dish bubbles are `DishBase + dish id`.
+ */
+export const Bubble = { None: 0, Seat: 1, Clean: 2, DishBase: 10 } as const;
+
+/** What the renderer needs to draw a character, whatever system drives it. */
+export interface CharacterView {
+  id: number;
+  look: Look;
+  x: number;
+  y: number;
+  prevX: number;
+  prevY: number;
+  facing: Facing;
+  pose: Pose;
+  poseTime: number;
+  held: Held;
+  expression: Expression;
+  emote: Emote;
+  emoteTime: number;
+  /** 0..1 shown as a bar over the head; -1 hides it. */
+  patience: number;
+  bubble: number;
+}
+
+/** What the renderer needs to draw a prop. */
+export interface PropView {
+  id: number;
+  kind: PropKind;
+  x: number;
+  y: number;
+  variant: number;
+  level: number;
+  active: boolean;
+  /** Height above the floor (e.g. plates on a counter); drawing offset only, sorting uses y. */
+  lift: number;
+  /** Sim time of the last state change, for pop-in animations. */
+  since: number;
+  /** 0..1 progress ring (e.g. cleaning); 0 hides it. */
+  progress: number;
+  bubble: number;
+  /** Added to the depth-sort key: things on counters draw after them, wall decor before all. */
+  depthBias: number;
+}
 
 /** A scripted step; ambient characters loop through a list of these. */
 export type RoutineStep =
@@ -68,40 +120,10 @@ export type RoutineStep =
       patience?: boolean;
     };
 
-export interface Character {
-  id: number;
-  /** Stress-test walkers are tagged so they can be removed again. */
-  tag: 'cast' | 'stress';
-  look: Look;
-  x: number;
-  y: number;
-  prevX: number;
-  prevY: number;
-  facing: Facing;
-  pose: Pose;
-  poseTime: number;
-  held: Held;
-  expression: Expression;
-  emote: Emote;
-  emoteTime: number;
-  /** -1 hides the bar. */
-  patience: number;
-  speed: number;
+export interface Character extends CharacterView {
   routine: RoutineStep[];
   step: number;
   stepTime: number;
-}
-
-export interface Prop {
-  id: number;
-  kind: PropKind;
-  x: number;
-  y: number;
-  variant: number;
-  level: number;
-  active: boolean;
-  /** Height above the floor (e.g. plates on a counter); drawing offset only, sorting uses y. */
-  lift: number;
 }
 
 export interface World {
@@ -110,5 +132,5 @@ export interface World {
   rng: Rng;
   nextId: number;
   characters: Character[];
-  props: Prop[];
+  props: PropView[];
 }

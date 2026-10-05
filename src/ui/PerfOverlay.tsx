@@ -47,8 +47,8 @@ const styles = StyleSheet.create({
   box: {
     pointerEvents: 'none',
     position: 'absolute',
-    bottom: 8,
-    start: 8,
+    bottom: 70,
+    start: 12,
     backgroundColor: 'rgba(42,26,20,0.78)',
     borderRadius: 10,
     paddingHorizontal: 10,

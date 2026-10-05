@@ -1,38 +1,51 @@
-import type { SkCanvas } from '@shopify/react-native-skia';
+import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite } from '../sprite';
-import { blurred, dot, fill, glowStroke, INK, ink, line, path, stroke, type Pt } from './kit';
+import { darken, lighten } from './color';
+import { fill, glowStroke, path, stroke, type Pt } from './kit';
 
-// Emote bubbles and small effects. Icons are drawn centered at (0,0) and placed inside the bubble.
+// Emote bubbles, order icons and small effects: glossy, flat-shaded, no heavy outlines.
 
-const bubble = sprite([-12, -24, 12, 2], (c) => {
-  const shape = path.smooth([[-9.4, -19.4], [9.4, -19.4], [10.6, -9], [5.4, -4.6], [1.6, -4.4], [0, -0.6], [-1.6, -4.4], [-5.4, -4.6], [-10.6, -9]], true, 0.7);
-  ink(c, shape, '#FFFFFF', { shade: '#E9E1DA', depth: 1.2, line: 1.4 });
+const EDGE = '#2A1530';
+
+function glossy(c: SkCanvas, p: ReturnType<typeof path.smooth>, base: string, edge = darken(base, 0.45)) {
+  const b = p.getBounds();
+  const paint = Skia.Paint();
+  paint.setAntiAlias(true);
+  paint.setShader(
+    Skia.Shader.MakeLinearGradient(vec(0, b.y), vec(0, b.y + b.height), [Skia.Color(lighten(base, 0.35)), Skia.Color(base), Skia.Color(darken(base, 0.18))], [0, 0.45, 1], TileMode.Clamp),
+  );
+  c.drawPath(p, stroke(edge, 1.6));
+  c.drawPath(p, paint);
+}
+
+const bubble = sprite([-13, -26, 13, 2], (c) => {
+  const shape = path.smooth([[-10, -20.6], [10, -20.6], [11.4, -9.6], [5.6, -4.8], [1.6, -4.6], [0, -0.6], [-1.6, -4.6], [-5.6, -4.8], [-11.4, -9.6]], true, 0.7);
+  glossy(c, shape, '#FFFFFF', '#3C2A48');
 });
 
-const ICON_BOUNDS = [-8, -8, 8, 8] as const;
-
-const heart = sprite(ICON_BOUNDS, (c) =>
-  ink(c, path.smooth([[0, 5.4], [-5.4, 0.4], [-5, -3.6], [-2.4, -5], [0, -2.8], [2.4, -5], [5, -3.6], [5.4, 0.4]], true, 0.8), '#FF4F6D', { line: 1.1, depth: 1 }),
+const ICON = [-9, -9, 9, 9] as const;
+const heart = sprite(ICON, (c) =>
+  glossy(c, path.smooth([[0, 5.6], [-5.6, 0.4], [-5.2, -3.8], [-2.5, -5.2], [0, -2.9], [2.5, -5.2], [5.2, -3.8], [5.6, 0.4]], true, 0.8), '#FF3D6E'),
 );
-const anger = sprite(ICON_BOUNDS, (c) => {
+const anger = sprite(ICON, (c) => {
   for (const r of [0, 90, 180, 270]) {
     c.save();
     c.rotate(r + 45, 0, 0);
-    c.drawPath(path.smooth([[1.4, -5], [1.4, -1.4], [5, -1.4]], false), stroke(INK, 3.4));
-    c.drawPath(path.smooth([[1.4, -5], [1.4, -1.4], [5, -1.4]], false), stroke('#F0443A', 1.8));
+    const p = path.smooth([[1.4, -5.4], [1.4, -1.4], [5.4, -1.4]], false);
+    c.drawPath(p, stroke(EDGE, 3.6));
+    c.drawPath(p, stroke('#FF3B30', 2));
     c.restore();
   }
 });
-const clock = sprite(ICON_BOUNDS, (c) => {
-  ink(c, path.circle(0, 0, 5.4), '#FFFFFF', { line: 1.2, shade: '#DDE6F2' });
-  c.drawCircle(0, 0, 4.2, stroke('#5B8EDB', 1.2));
-  line(c, [[0, 0], [0, -3]], INK, 1.1);
-  line(c, [[0, 0], [2.2, 0.8]], INK, 1.1);
+const clock = sprite(ICON, (c) => {
+  glossy(c, path.circle(0, 0, 5.6), '#5B8EDB');
+  c.drawCircle(0, 0, 4, fill('#FFFFFF'));
+  c.drawPath(path.polyline([[0, -3], [0, 0], [2.2, 0.8]]), stroke(EDGE, 1.1));
 });
-const coin = sprite(ICON_BOUNDS, (c) => {
-  ink(c, path.circle(0, 0, 5.4), '#FFC93C', { line: 1.2, shade: '#E89B1E', light: '#FFF2B0' });
-  c.drawCircle(0, 0, 3.6, stroke('#E89B1E', 0.9));
-  ink(c, path.rrect(-0.8, -2.4, 1.6, 4.8, 0.8), '#E89B1E', { ink: false, light: false, shade: false });
+const coin = sprite(ICON, (c) => {
+  glossy(c, path.circle(0, 0, 5.8), '#FFC21A', '#9A6A00');
+  c.drawCircle(0, 0, 3.9, stroke('#E09A00', 1));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-0.9, -2.6, 1.8, 5.2), 0.9, 0.9), fill('#E09A00'));
 });
 const starPts = (r1: number, r2: number): Pt[] =>
   Array.from({ length: 10 }, (_, i) => {
@@ -40,37 +53,100 @@ const starPts = (r1: number, r2: number): Pt[] =>
     const a = -Math.PI / 2 + (i * Math.PI) / 5;
     return [Math.cos(a) * r, Math.sin(a) * r] as Pt;
   });
-const star = sprite(ICON_BOUNDS, (c) =>
-  ink(c, path.smooth(starPts(6, 2.8), true, 0.25), '#FFD54A', { line: 1.1, shade: '#F2B02E', light: '#FFF6C4', depth: 1 }),
-);
-const exclaim = sprite(ICON_BOUNDS, (c) => {
-  ink(c, path.smooth([[-1.8, -5.6], [1.8, -5.6], [1, 1.6], [-1, 1.6]], true, 0.4), '#FF9F1C', { line: 1.1 });
-  ink(c, path.circle(0, 4.2, 1.5), '#FF9F1C', { line: 1.1 });
+const star = sprite(ICON, (c) => glossy(c, path.smooth(starPts(6.4, 3), true, 0.25), '#FFCC22', '#9A6A00'));
+const starGray = sprite(ICON, (c) => glossy(c, path.smooth(starPts(6.4, 3), true, 0.25), '#5A4E66', '#2A2232'));
+const exclaim = sprite(ICON, (c) => {
+  glossy(c, path.smooth([[-1.9, -5.8], [1.9, -5.8], [1.1, 1.6], [-1.1, 1.6]], true, 0.4), '#FF8A1C');
+  glossy(c, path.circle(0, 4.3, 1.6), '#FF8A1C');
 });
-const zzz = sprite(ICON_BOUNDS, (c) => {
-  const z = (x: number, y: number, s: number) =>
-    line(c, [[x - s, y - s], [x + s, y - s], [x - s, y + s], [x + s, y + s]], '#7A86C8', 1.4);
+const zzz = sprite(ICON, (c) => {
+  const z = (x: number, y: number, s: number) => {
+    const p = path.polyline([[x - s, y - s], [x + s, y - s], [x - s, y + s], [x + s, y + s]]);
+    c.drawPath(p, stroke(EDGE, 2.8));
+    c.drawPath(p, stroke('#8C9CFF', 1.4));
+  };
   z(-2.6, 2, 2.4);
   z(2.6, -2.8, 1.8);
 });
-const music = sprite(ICON_BOUNDS, (c) => {
-  ink(c, path.oval(-3, 3.2, 2.2, 1.7), '#9B7BD8', { line: 1 });
-  ink(c, path.oval(3, 2.2, 2.2, 1.7), '#9B7BD8', { line: 1 });
-  line(c, [[-1, 3], [-1, -4.4], [5, -5.4], [5, 2]], INK, 1.3);
+const music = sprite(ICON, (c) => {
+  c.drawPath(path.polyline([[-1, 3], [-1, -4.4], [5, -5.4], [5, 2]]), stroke(EDGE, 1.6));
+  glossy(c, path.oval(-3, 3.2, 2.3, 1.8), '#B07CFF');
+  glossy(c, path.oval(3, 2.2, 2.3, 1.8), '#B07CFF');
+});
+/** "Seat me": a little red chair. */
+const seat = sprite(ICON, (c) => {
+  glossy(c, path.rrect(-4.6, -6, 2.4, 9, 1), '#E2B13C');
+  glossy(c, path.rrect(-4.6, 0.6, 9.2, 2.6, 1.2), '#C8202E');
+  glossy(c, path.rrect(-4.6, 3, 1.8, 3.4, 0.6), '#9C7A2A');
+  glossy(c, path.rrect(2.8, 3, 1.8, 3.4, 0.6), '#9C7A2A');
+});
+/** "Clean me": a yellow sponge with bubbles. */
+const clean = sprite(ICON, (c) => {
+  glossy(c, path.rrect(-5, -2, 10, 6, 1.8), '#FFD43B', '#8A6A00');
+  c.drawRect(Skia.XYWHRect(-5, 1.4, 10, 2.6), fill('#2FA36B'));
+  for (const [x, y, r] of [[-3, -4.5, 1.6], [1.4, -5.6, 2], [4.4, -3.6, 1.2]] as const) {
+    c.drawCircle(x, y, r, fill('#E8F7FF', 0.85));
+    c.drawCircle(x, y, r, stroke('#7FBCE0', 0.6));
+  }
+});
+const fries = sprite(ICON, (c) => {
+  for (const [x, h] of [[-2.6, 7], [-0.8, 8.2], [1, 7.4], [2.6, 6.6]] as const) {
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(x - 0.8, -6 + (8.2 - h), 1.6, h), 0.6, 0.6), fill('#F6C945'));
+  }
+  glossy(c, path.poly([[-4.6, -1], [4.6, -1], [3.4, 6], [-3.4, 6]]), '#E5302A');
+  c.drawRect(Skia.XYWHRect(-1.6, 1.4, 3.2, 2.2), fill('#FFD54A'));
+});
+const burger = sprite(ICON, (c) => {
+  glossy(c, path.smooth([[-5.6, -0.6], [-4.6, -4.8], [0, -6], [4.6, -4.8], [5.6, -0.6]]), '#F0A84E');
+  c.drawRect(Skia.XYWHRect(-5.8, -0.8, 11.6, 1.6), fill('#5FC35A'));
+  glossy(c, path.rrect(-5.6, 0.6, 11.2, 2.2, 1), '#6B3A22');
+  glossy(c, path.rrect(-5.2, 2.6, 10.4, 2.6, 1.2), '#F0A84E');
+  for (const [x, y] of [[-2, -3.6], [1, -4.4], [2.8, -2.8]] as const) c.drawCircle(x, y, 0.45, fill('#FFF6DE'));
+});
+const cross = sprite(ICON, (c) => {
+  for (const r of [45, -45]) {
+    c.save();
+    c.rotate(r, 0, 0);
+    glossy(c, path.rrect(-1.6, -6, 3.2, 12, 1.4), '#FF3B30');
+    c.restore();
+  }
+});
+/** Flying banknote: the "money everywhere" feel. */
+const bill = sprite([-11, -7, 11, 7], (c) => {
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-9, -5, 18, 10), 1.4, 1.4), glowStroke('#7DFF7A', 2.4, 0.5, 2));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-9, -5, 18, 10), 1.4, 1.4), fill('#6FD36A'));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-7.6, -3.6, 15.2, 7.2), 1, 1), stroke('#2E8B47', 0.9));
+  c.drawCircle(0, 0, 2.6, fill('#B8F5A8'));
+  c.drawCircle(0, 0, 2.6, stroke('#2E8B47', 0.8));
 });
 
 // Effects.
-const steam = sprite([-6, -6, 6, 6], (c) => c.drawCircle(0, 0, 3.6, blurred('#FFFFFF', 0.85, 1.6)));
-const sparkle = sprite([-6, -6, 6, 6], (c) => {
-  const p = path.smooth([[0, -5], [1, -1], [5, 0], [1, 1], [0, 5], [-1, 1], [-5, 0], [-1, -1]], true, 0.2);
-  c.drawPath(p, glowStroke('#FFF3B0', 2, 0.7, 1.2));
+const steam = sprite([-7, -7, 7, 7], (c) => {
+  const p = Skia.Paint();
+  p.setShader(Skia.Shader.MakeRadialGradient(vec(0, 0), 5, [Skia.Color('rgba(255,255,255,0.9)'), Skia.Color('rgba(255,255,255,0)')], null, TileMode.Clamp));
+  c.drawCircle(0, 0, 5, p);
+});
+const sparkle = sprite([-7, -7, 7, 7], (c) => {
+  const p = path.smooth([[0, -5.4], [1, -1], [5.4, 0], [1, 1], [0, 5.4], [-1, 1], [-5.4, 0], [-1, -1]], true, 0.2);
+  c.drawPath(p, glowStroke('#FFF3B0', 2, 0.75, 1.2));
   c.drawPath(p, fill('#FFFFFF'));
 });
 const soap = sprite([-4, -4, 4, 4], (c) => {
   c.drawCircle(0, 0, 2.4, fill('#E8F7FF', 0.5));
   c.drawCircle(0, 0, 2.4, stroke('#8FC9E8', 0.7));
-  dot(c, -0.8, -0.9, 0.6, '#FFFFFF');
+  c.drawCircle(-0.8, -0.9, 0.6, fill('#FFFFFF'));
 });
-const glow = sprite([-14, -14, 14, 14], (c: SkCanvas) => c.drawCircle(0, 0, 8, blurred('#FFD27A', 0.6, 4)));
+const puff = sprite([-8, -8, 8, 8], (c) => {
+  const p = Skia.Paint();
+  p.setShader(Skia.Shader.MakeRadialGradient(vec(0, 0), 6, [Skia.Color('rgba(170,160,180,0.9)'), Skia.Color('rgba(170,160,180,0)')], null, TileMode.Clamp));
+  c.drawCircle(0, 0, 6, p);
+});
+const ring = sprite([-14, -14, 14, 14], (c) => {
+  c.drawCircle(0, 0, 11, glowStroke('#FFE58A', 3, 0.7, 2));
+  c.drawCircle(0, 0, 11, stroke('#FFF8D6', 1.4));
+});
 
-export const fxSprites = { bubble, heart, anger, clock, coin, star, exclaim, zzz, music, steam, sparkle, soap, glow };
+export const fxSprites = {
+  bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, fries, burger, cross, bill,
+  steam, sparkle, soap, puff, ring,
+};

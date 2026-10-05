@@ -1,66 +1,48 @@
 import { describe, expect, it } from 'vitest';
-import { SCENES } from '../src/data/scenes';
+import { LINEUP } from '../src/data/scenes';
 import { STEP_SEC } from '../src/data/sim';
-import { C, F, packSnapshot, STRIDE } from '../src/sim/snapshot';
-import { addWanderers, removeWanderers } from '../src/sim/stress';
-import { Facing, Pose } from '../src/sim/types';
-import { createWorld, facingFor, stepWorld } from '../src/sim/world';
+import { facingFor } from '../src/sim/movement';
+import { C, F, STRIDE } from '../src/sim/snapshot';
+import { Facing } from '../src/sim/types';
+import { createWorld, stepWorld, worldSnapshot } from '../src/sim/world';
 
-function run(seconds: number, wanderers = 0) {
-  const world = createWorld(SCENES.styleTest);
-  if (wanderers) addWanderers(world, SCENES.styleTest, wanderers);
+function run(seconds: number) {
+  const world = createWorld(LINEUP);
   const steps = Math.round(seconds / STEP_SEC);
   for (let i = 0; i < steps; i++) stepWorld(world, STEP_SEC);
   return world;
 }
 
-describe('world simulation', () => {
-  it('is deterministic: two runs give identical snapshots', () => {
-    const a = packSnapshot(run(30, 20), 1);
-    const b = packSnapshot(run(30, 20), 1);
-    expect(a.data).toEqual(b.data);
+describe('scripted world (cast lineup)', () => {
+  it('is deterministic', () => {
+    expect(worldSnapshot(run(30), 1).data).toEqual(worldSnapshot(run(30), 1).data);
   });
 
-  it('moves walkers along their routine and records previous positions for interpolation', () => {
-    const world = createWorld(SCENES.styleTest);
-    const student = world.characters.find((c) => c.look.outfit === 3)!;
-    const startY = student.y;
-    stepWorld(world, STEP_SEC);
-    expect(student.pose).toBe(Pose.Walk);
-    expect(student.y).toBeLessThan(startY);
-    expect(student.prevY).toBe(startY);
-  });
-
-  it('loops routines forever without getting stuck', () => {
+  it('loops routines forever and triggers emotes', () => {
     const world = run(600);
-    for (const c of world.characters) expect(Number.isFinite(c.x) && Number.isFinite(c.y)).toBe(true);
-    const waiter = world.characters.find((c) => c.look.outfit === 5)!;
-    expect(waiter.step).toBeGreaterThanOrEqual(0);
-  });
-
-  it('stress walkers can be added and removed', () => {
-    const world = run(1, 60);
-    expect(world.characters.length).toBe(SCENES.styleTest.cast.length + 60);
-    removeWanderers(world);
-    expect(world.characters.length).toBe(SCENES.styleTest.cast.length);
+    expect(world.characters.every((c) => Number.isFinite(c.x) && Number.isFinite(c.y))).toBe(true);
+    const sawEmote = [0, 1, 2, 3, 4, 5].some((s) => run(s + 0.5).characters.some((c) => c.emote !== 0));
+    expect(sawEmote).toBe(true);
   });
 });
 
 describe('render snapshot', () => {
-  it('packs every entity sorted back-to-front', () => {
+  it('packs every entity in isometric back-to-front order', () => {
     const world = run(5);
-    const snap = packSnapshot(world, 7);
+    const snap = worldSnapshot(world, 7);
     expect(snap.seq).toBe(7);
     expect(snap.count).toBe(world.characters.length + world.props.length);
     expect(snap.data.length).toBe(snap.count * STRIDE);
+    const depth = (i: number) => snap.data[i * STRIDE + F.x]! + snap.data[i * STRIDE + F.y]!;
     for (let i = 1; i < snap.count; i++) {
-      expect(snap.data[i * STRIDE + F.y]!).toBeGreaterThanOrEqual(snap.data[(i - 1) * STRIDE + F.y]!);
+      // Lifted items get +1 (they sit on counters), so compare with that slack.
+      expect(depth(i) + 1.05).toBeGreaterThanOrEqual(depth(i - 1));
     }
   });
 
   it('carries character look and state', () => {
-    const world = createWorld(SCENES.lineup);
-    const snap = packSnapshot(world, 1);
+    const world = createWorld(LINEUP);
+    const snap = worldSnapshot(world, 1);
     const cook = world.characters.find((c) => c.look.outfit === 4)!;
     let found = false;
     for (let i = 0; i < snap.count; i++) {
@@ -75,10 +57,11 @@ describe('render snapshot', () => {
   });
 });
 
-describe('facingFor', () => {
-  it('faces away when walking up, toward camera when walking down', () => {
-    expect(facingFor(0, -10, Facing.FrontRight)).toBe(Facing.BackRight);
-    expect(facingFor(-5, 10, Facing.FrontRight)).toBe(Facing.FrontLeft);
-    expect(facingFor(10, -1, Facing.BackLeft)).toBe(Facing.FrontRight);
+describe('isometric facing', () => {
+  it('maps floor directions to the four diagonal facings', () => {
+    expect(facingFor(1, 0, Facing.FrontLeft)).toBe(Facing.FrontRight); // +x: down-right
+    expect(facingFor(0, 1, Facing.FrontRight)).toBe(Facing.FrontLeft); // +y: down-left
+    expect(facingFor(-1, 0, Facing.FrontRight)).toBe(Facing.BackLeft); // -x: up-left
+    expect(facingFor(0, -1, Facing.FrontRight)).toBe(Facing.BackRight); // -y: up-right
   });
 });

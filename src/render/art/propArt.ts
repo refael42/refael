@@ -1,255 +1,273 @@
-import { ClipOp, type SkCanvas, type SkPath } from '@shopify/react-native-skia';
+import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
+import { HALF_H, HALF_W } from '../iso';
 import { sprite } from '../sprite';
-import { drawBurger } from './characterArt';
+import { miniBurger } from './charArt';
 import { darken, lighten } from './color';
-import { blurred, contactShadow, dot, fill, glowStroke, INK, ink, line, path, stroke, type Pt } from './kit';
+import { box, cylinder, floorShadow, onFaceX, onFaceY, onTop, P, rectIn } from './iso3d';
+import { fill, glowStroke, path, stroke, type Pt } from './kit';
 
-// Props use the 3/4 "stacked faces" look: a top face above a front face, anchored at the
-// front-bottom center of the footprint (that y is what depth-sorting uses).
+// Isometric low-poly props. Anchor = center of the footprint on the floor (tiles x/y, z in px).
 
-const STEEL = '#BCC6D0';
-const STEEL_TOP = '#DCE2E8';
-const DARK = '#3B4450';
-const WOOD = '#C98B55';
-const RED = '#E25545';
+const STEEL = '#AEB8C4';
+const STEEL_DARK = '#7E8A98';
+const GOLD = '#E2B13C';
+const WOOD_DARK = '#5A2E1E';
+const VELVET = '#C8202E';
 
-function box(c: SkCanvas, x: number, w: number, frontH: number, depth: number, front: string, top: string) {
-  contactShadow(c, x + w / 2, -0.5, w * 0.56, 4.6, 0.26);
-  ink(c, path.rrect(x, -frontH - depth, w, depth + 3, 3), top, { depth: 1.4 });
-  ink(c, path.rrect(x, -frontH, w, frontH, 3), front, { depth: 2.4 });
-}
-
-function clipTo(c: SkCanvas, p: SkPath, draw: () => void) {
+/** Pixel art on a wall plane facing +y (skewed along x). u = px along the wall, v = px down. */
+function onWallY(c: SkCanvas, draw: () => void) {
   c.save();
-  c.clipPath(p, ClipOp.Intersect, true);
+  c.concat(Skia.Matrix([1, 0, 0, HALF_H / HALF_W, 1, 0, 0, 0, 1]));
   draw();
   c.restore();
 }
 
-// ---------- stove ----------
+// ---------- kitchen ----------
 
-const stove = sprite([-36, -42, 36, 6], (c) => {
-  ink(c, path.rrect(-31, -40, 62, 9, 2.5), '#A3AEBA', { depth: 1 });
-  box(c, -33, 66, 20, 14, STEEL, STEEL_TOP);
-  // Burner grates.
-  for (const bx of [-14, 14]) {
-    ink(c, path.oval(bx, -27.4, 9.6, 4.6), DARK, { line: 1, light: '#5C6675' });
-    c.drawOval({ x: bx - 6, y: -30.2, width: 12, height: 5.6 }, stroke('#56606D', 1));
-  }
-  ink(c, path.rrect(-31, -19.6, 62, 4.4, 1.6), '#A3AEBA', { line: 1, light: false });
-  for (const kx of [-24, -17, 17, 24]) ink(c, path.circle(kx, -17.4, 1.5), RED, { line: 0.8, light: '#FF9A8A' });
-  ink(c, path.rrect(-21, -14.2, 42, 11.4, 2.2), '#AEB8C3', { line: 1.1 });
-  ink(c, path.rrect(-17, -11.2, 34, 6.6, 1.6), '#3A3F4B', { line: 1, light: false, shade: false });
-  line(c, [[-12, -12.8], [12, -12.8]], '#E9EEF3', 1.6);
-});
-/** Warm light behind the oven glass; drawn with a flickering alpha while cooking. */
-const ovenGlow = sprite([-18, -12, 18, -4], (c) => {
-  c.drawRect({ x: -16.4, y: -10.6, width: 32.8, height: 5.4 }, blurred('#FF9A3A', 0.9, 1.2));
-  c.drawRect({ x: -12, y: -9.4, width: 24, height: 3 }, fill('#FFD27A', 0.8));
-});
-const pan = sprite([-27, -6, 11, 5], (c) => {
-  line(c, [[-8, -0.4], [-24, -1.6]], INK, 4.2);
-  line(c, [[-8, -0.4], [-24, -1.6]], '#5A4A44', 2.2);
-  ink(c, path.oval(0, 0, 9.2, 4.2), '#2E2A30', { depth: 1, light: '#6A6470' });
-  c.drawOval({ x: -6.6, y: -2.6, width: 13.2, height: 5.2 }, fill('#45404A'));
-});
-const patty = sprite([-6, -4, 6, 3], (c) => {
-  ink(c, path.oval(0, 0, 4.6, 2.2), '#7A4128', { line: 1, light: '#A8673F' });
-  line(c, [[-2.4, -0.4], [2, -0.6]], '#5A2E1C', 0.7);
-});
-const pot = sprite([-10, -16, 10, 4], (c) => {
-  ink(c, path.rrect(-7.6, -10.6, 15.2, 11.6, 3), RED, { depth: 1.8 });
-  ink(c, path.oval(0, -10.6, 7.8, 2.8), '#D04536', { line: 1, light: false });
-  ink(c, path.oval(0, -11.6, 6.6, 2.4), '#C9D1D9', { line: 1 });
-  ink(c, path.circle(0, -13.4, 1.4), DARK, { line: 0.8, light: false });
-  for (const sx of [-9.2, 9.2]) ink(c, path.rrect(sx - 1.4, -9, 2.8, 2.2, 1), DARK, { line: 0.8, light: false });
-});
-const flame = sprite([-3, -8, 3, 1], (c) => {
-  const outer = path.smooth([[0, -7.2], [2.2, -3], [1.8, 0], [-1.8, 0], [-2.2, -3]]);
-  c.drawPath(outer, blurred('#FF7A2A', 0.9, 0.5));
-  c.drawPath(path.smooth([[0, -4.6], [1.2, -1.8], [0.8, 0], [-0.8, 0], [-1.2, -1.8]]), fill('#FFE07A'));
-  c.drawOval({ x: -1.6, y: -0.9, width: 3.2, height: 1.4 }, fill('#5BB8FF', 0.9));
-});
-
-// ---------- sink counter ----------
-
-const sink = sprite([-58, -42, 58, 6], (c) => {
-  // White tiled backsplash.
-  ink(c, path.rrect(-54, -38.5, 108, 6.5, 2), '#F7F4EE', { depth: 1, shade: '#E2DDD4' });
-  for (let x = -46; x < 54; x += 8) line(c, [[x, -37.8], [x, -33]], '#BFD8E6', 0.7);
-  box(c, -55, 110, 20, 14, '#5DB8A8', '#ECE7E0');
-  for (const [dx, dw] of [[-52, 32], [-18, 36], [20, 32]] as const) {
-    ink(c, path.rrect(dx, -17.4, dw, 14.4, 2), '#55AC9C', { line: 1, light: false });
-    ink(c, path.circle(dx + dw / 2, -10.2, 1.2), '#F2C14E', { line: 0.7, light: false });
-  }
-  // Basin with water.
-  ink(c, path.rrect(-20, -32.6, 38, 11.2, 4), '#8A96A3', { line: 1.2, light: false });
-  ink(c, path.rrect(-17.6, -30.4, 33.2, 7.6, 3), '#9FD3EE', { line: 0.8, shade: '#7FBCE0' });
-  // Faucet.
-  const faucet = path.smooth([[-1, -32], [-1, -37.6], [3.4, -38.6], [6.4, -35.4]], false);
-  c.drawPath(faucet, stroke(INK, 3.4));
-  c.drawPath(faucet, stroke('#D7DEE6', 1.8));
-  // Drying rack slats under the clean plates.
-  for (let x = 28; x < 52; x += 4) line(c, [[x, -32], [x, -22.6]], '#CFC7BC', 0.9);
-});
-const washPlate = sprite([-8, -4, 8, 4], (c) => {
-  ink(c, path.oval(0, 0, 6.4, 2.6), '#FFFFFF', { line: 1, shade: '#E2E6EC' });
-  c.drawOval({ x: -4.6, y: -1.8, width: 9.2, height: 3.6 }, stroke('#5B8EDB', 0.6));
-});
-
-// ---------- table, chairs, tableware ----------
-
-const CLOTH_TOP = (): SkPath => path.oval(0, -21, 31, 13.6);
-const CLOTH_SKIRT = (): SkPath => {
-  const hem: Pt[] = [];
-  for (let i = 0; i <= 12; i++) hem.push([30 - i * 5, -9 + (i % 2 === 0 ? 0.9 : -0.6)]);
-  return path.smooth([[-31, -21], [31, -21], ...hem], true, 0.7);
-};
-const table = sprite([-34, -38, 34, 5], (c) => {
-  contactShadow(c, 0, -0.6, 24, 4.6, 0.25);
-  ink(c, path.rrect(-2.6, -10, 5.2, 9.6, 1.6), '#7A4F33', { line: 1.1, light: false });
-  ink(c, path.oval(0, -0.8, 8.4, 2.4), '#7A4F33', { line: 1.1, light: false });
-  const cloth = path.union(CLOTH_SKIRT(), CLOTH_TOP());
-  c.drawPath(cloth, stroke(INK, 3));
-  c.drawPath(cloth, fill('#FFF8EE'));
-  clipTo(c, CLOTH_SKIRT(), () => {
-    for (let x = -30; x < 31; x += 10) c.drawRect({ x, y: -22, width: 5, height: 15 }, fill(RED, 0.88));
-    c.drawRect({ x: -32, y: -21, width: 64, height: 13 }, fill('#3A1F18', 0.12));
+const stove = sprite([-44, -70, 44, 14], (c) => {
+  floorShadow(c, 0.1, 0, 0.9, 0.3);
+  box(c, { x: 0, y: 0, w: 0.86, d: 1.86, h: 22, color: STEEL, rim: true });
+  box(c, { x: -0.39, y: 0, z: 22, w: 0.08, d: 1.86, h: 15, color: STEEL_DARK, rim: true });
+  for (const y of [-0.45, 0.45]) cylinder(c, 0.05, y, 0.27, 22, 0.8, '#2B2F38', '#3A404C');
+  onFaceX(c, 0.43, 0.93, () => {
+    rectIn(c, 0.12, 3.5, 1.62, 11, '#2B2F38');
+    rectIn(c, 0.2, 5, 1.46, 8, '#3D4452');
+    rectIn(c, 0.12, 15.6, 1.62, 1.4, '#E9EEF3');
+    for (const a of [0.2, 0.42, 1.44, 1.66]) rectIn(c, a - 0.04, 18, 0.08, 2.4, '#E5483B');
   });
-  clipTo(c, CLOTH_TOP(), () => {
-    for (let row = 0; row < 10; row++) {
-      for (let col = 0; col < 11; col++) {
-        if ((row + col) % 2 === 0) c.drawRect({ x: -33 + col * 6, y: -35 + row * 3, width: 6, height: 3 }, fill(RED, 0.82));
-      }
-    }
-    c.drawOval({ x: -22, y: -33, width: 26, height: 8 }, blurred('#FFFFFF', 0.35, 2));
+});
+const ovenGlow = sprite([-44, -40, 44, 14], (c) =>
+  onFaceX(c, 0.43, 0.93, () => {
+    rectIn(c, 0.2, 5, 1.46, 8, '#FF9A3A', 0.75);
+    rectIn(c, 0.35, 6.5, 1.16, 5, '#FFD27A', 0.7);
+  }),
+);
+const pan = sprite([-20, -16, 14, 8], (c) => {
+  box(c, { x: -0.2, y: 0, z: 2, w: 0.3, d: 0.05, h: 1.5, color: '#3B2B26' });
+  cylinder(c, 0, 0, 0.2, 0, 3, '#2A2730', '#3E3946');
+});
+const patty = sprite([-10, -10, 10, 6], (c) => cylinder(c, 0, 0, 0.11, 0, 2.2, '#7A4128', '#94552F'));
+const pot = sprite([-14, -24, 14, 8], (c) => {
+  cylinder(c, 0, 0, 0.2, 0, 11, '#D8342C', '#B8291F');
+  cylinder(c, 0, 0, 0.18, 11, 1.4, '#C9D1D9', '#E4E9EE');
+  box(c, { x: 0, y: 0, z: 12.4, w: 0.05, d: 0.05, h: 2, color: '#2B2F38' });
+});
+const flame = sprite([-4, -10, 4, 2], (c) => {
+  c.drawPath(path.smooth([[0, -8], [2.4, -3], [1.8, 0], [-1.8, 0], [-2.4, -3]]), fill('#FF7A2A', 0.95));
+  c.drawPath(path.smooth([[0, -5], [1.3, -1.8], [0.8, 0], [-0.8, 0], [-1.3, -1.8]]), fill('#FFE07A'));
+});
+
+const pass = sprite([-62, -50, 62, 24], (c) => {
+  floorShadow(c, 0.1, 0, 1.2, 0.3);
+  box(c, { x: 0, y: 0, w: 0.8, d: 2.8, h: 21, color: WOOD_DARK });
+  onFaceX(c, 0.4, 1.4, () => {
+    for (let a = 0.12; a < 2.7; a += 0.46) rectIn(c, a, 3, 0.36, 14, lighten(WOOD_DARK, 0.08));
   });
-  c.drawPath(CLOTH_TOP(), stroke(INK, 1.1));
+  onFaceY(c, 1.4, -0.4, () => rectIn(c, 0.08, 3, 0.64, 14, lighten(WOOD_DARK, 0.06)));
+  box(c, { x: 0, y: 0, z: 21, w: 0.84, d: 2.84, h: 2, color: GOLD, rim: true });
+  box(c, { x: 0, y: 0, z: 23, w: 0.8, d: 2.8, h: 1, color: '#D8DEE5' });
+  // Service bell: rung when a dish is ready.
+  cylinder(c, 0.15, 1.2, 0.07, 24, 1, '#B8892A', GOLD);
+  cylinder(c, 0.15, 1.2, 0.05, 25, 3, GOLD, '#FFE08A');
 });
-const plateFood = sprite([-10, -10, 10, 4], (c) => {
-  ink(c, path.oval(0, 0, 8.4, 3.2), '#FFFFFF', { line: 1.1, shade: '#E2E6EC' });
-  c.drawOval({ x: -6.4, y: -2.4, width: 12.8, height: 4.8 }, stroke('#5B8EDB', 0.7));
-  for (let i = 0; i < 5; i++) {
-    ink(c, path.rrect(3 + i * 0.9, -4.6 - (i % 2) * 0.8, 1.1, 4, 0.5), '#F4C542', { line: 0.5, light: false, shade: false });
+
+const sink = sprite([-44, -60, 44, 14], (c) => {
+  floorShadow(c, 0.1, 0, 0.9, 0.3);
+  box(c, { x: 0, y: 0, w: 0.86, d: 1.86, h: 21, color: '#2C8F87' });
+  onFaceX(c, 0.43, 0.93, () => {
+    rectIn(c, 0.1, 2.5, 0.78, 15, '#33A399');
+    rectIn(c, 0.98, 2.5, 0.78, 15, '#33A399');
+    rectIn(c, 0.8, 9, 0.06, 2, GOLD);
+    rectIn(c, 1.0, 9, 0.06, 2, GOLD);
+  });
+  box(c, { x: 0, y: 0, z: 21, w: 0.88, d: 1.88, h: 1.6, color: '#D8DEE5', rim: true });
+  onTop(c, 22.6, () => {
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-0.28, -0.42, 0.58, 0.84), 0.08, 0.08), fill('#6C7886'));
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-0.24, -0.38, 0.5, 0.76), 0.06, 0.06), fill('#8FD0F0'));
+  });
+  box(c, { x: -0.36, y: 0, z: 22.6, w: 0.06, d: 0.06, h: 9, color: '#C9D1D9' });
+  box(c, { x: -0.25, y: 0, z: 29.6, w: 0.22, d: 0.05, h: 2, color: '#C9D1D9' });
+});
+const washPlate = sprite([-10, -6, 10, 6], (c) => cylinder(c, 0, 0, 0.13, 0, 1, '#E2E6EC', '#FFFFFF'));
+
+const fridge = sprite([-30, -80, 30, 12], (c) => {
+  floorShadow(c, 0.08, 0, 0.55, 0.3);
+  box(c, { x: 0, y: 0, w: 0.8, d: 0.8, h: 54, color: '#C7D0DA', rim: true });
+  onFaceX(c, 0.4, 0.4, () => {
+    rectIn(c, 0.02, 33, 0.76, 0.8, STEEL_DARK);
+    rectIn(c, 0.62, 18, 0.05, 12, '#5E6878');
+    rectIn(c, 0.62, 37, 0.05, 10, '#5E6878');
+    rectIn(c, 0.18, 22, 0.08, 3, '#E5483B');
+    rectIn(c, 0.32, 40, 0.08, 3, '#F2C14E');
+    rectIn(c, 0.12, 44, 0.08, 3, '#47B2BE');
+  });
+});
+
+// ---------- dining ----------
+
+const table = sprite([-32, -36, 32, 14], (c) => {
+  floorShadow(c, 0, 0, 0.42, 0.32);
+  cylinder(c, 0, 0, 0.17, 0, 2, '#B8892A', GOLD);
+  cylinder(c, 0, 0, 0.045, 2, 11, '#3A2430', '#4A3040');
+  // White cloth with a short drape and a gold-rimmed red runner: the resort table look.
+  cylinder(c, 0, 0, 0.39, 11, 6, '#F1EBE1', '#FFFFFF');
+  onTop(c, 17, () => {
+    c.drawCircle(0, 0, 0.36, stroke(GOLD, 0.02));
+    c.drawRect(Skia.XYWHRect(-0.28, -0.08, 0.56, 0.16), fill(VELVET));
+    c.drawRect(Skia.XYWHRect(-0.28, -0.08, 0.56, 0.16), stroke(GOLD, 0.02));
+  });
+});
+const plateBurger = sprite([-14, -16, 14, 6], (c) => {
+  cylinder(c, 0, 0, 0.13, 0, 1.2, '#DDE2E8', '#FFFFFF');
+  miniBurger(c, 0, 0, 1.2);
+});
+const plateFries = sprite([-14, -18, 14, 6], (c) => {
+  cylinder(c, 0, 0, 0.13, 0, 1.2, '#DDE2E8', '#FFFFFF');
+  box(c, { x: 0, y: 0, z: 1.2, w: 0.09, d: 0.09, h: 6, color: '#D8342C' });
+  for (const [x, y, h] of [[-0.02, -0.02, 4], [0.02, 0.01, 5], [0, 0.03, 3.5], [0.03, -0.03, 4.5]] as const) {
+    box(c, { x, y, z: 7, w: 0.022, d: 0.022, h, color: '#F6C945' });
   }
-  drawBurger(c, -1.6, 0.6, 0.85);
 });
-const plateDirty = sprite([-10, -6, 10, 4], (c) => {
-  ink(c, path.oval(0, 0, 8.4, 3.2), '#F3EFE6', { line: 1.1, shade: '#DDD6C9' });
-  c.drawPath(path.smooth([[-4, -0.6], [-1, -1.6], [3, -0.4], [1, 1], [-3, 0.8]]), fill('#B5683A', 0.75));
-  for (const [x, y] of [[-5, -1], [4.6, 0.6], [2, -1.6], [-2.4, 1.4]] as const) dot(c, x, y, 0.55, '#C98F4E');
-  ink(c, path.smooth([[3.4, -2.2], [6.8, -3], [8, -1], [5, -0.2]]), '#FFFFFF', { line: 0.8, shade: '#E7E1D6' });
+const plateDirty = sprite([-14, -10, 14, 6], (c) => {
+  cylinder(c, 0, 0, 0.13, 0, 1.2, '#D5D0C6', '#F0EBE2');
+  onTop(c, 1.2, () => {
+    c.drawCircle(0.02, -0.01, 0.06, fill('#A35A2E', 0.75));
+    c.drawCircle(-0.06, 0.04, 0.015, fill('#A35A2E', 0.8));
+    c.drawCircle(0.07, 0.05, 0.012, fill('#A35A2E', 0.8));
+  });
 });
-const glass = sprite([-4, -11, 4, 2], (c) => {
-  ink(c, path.rrect(-2.6, -8, 5.2, 8, 1.4), '#DDF1FF', { line: 1, light: false, alpha: 0.95 });
-  c.drawRect({ x: -2, y: -5.6, width: 4, height: 5 }, fill('#E58A3A', 0.9));
-  line(c, [[1, -7.6], [2.6, -10.6]], RED, 0.9);
-});
-const glassEmpty = sprite([-4, -11, 4, 2], (c) => {
-  ink(c, path.rrect(-2.6, -8, 5.2, 8, 1.4), '#DDF1FF', { line: 1, light: false, alpha: 0.9 });
-  c.drawRect({ x: -2, y: -1.6, width: 4, height: 1.2 }, fill('#E58A3A', 0.6));
-});
-const stain = sprite([-6, -3, 6, 3], (c) =>
-  c.drawPath(path.smooth([[-4.6, 0], [-2, -1.8], [2.6, -1.4], [4.4, 0.6], [0.6, 1.8], [-3, 1.4]]), fill('#9C5A30', 0.35)),
+const glass = sprite([-6, -16, 6, 4], (c) => cylinder(c, 0, 0, 0.035, 0, 8, '#BFE3FF', '#E58A3A'));
+const glassEmpty = sprite([-6, -16, 6, 4], (c) => cylinder(c, 0, 0, 0.035, 0, 8, '#D6EEFF', '#EAF6FF'));
+const stain = sprite([-12, -26, 12, 6], (c) =>
+  onTop(c, 17.2, () => c.drawOval(Skia.XYWHRect(-0.12, -0.07, 0.22, 0.14), fill('#9C5A30', 0.3))),
 );
 
-const chairBehind = sprite([-12, -44, 12, 4], (c) => {
-  contactShadow(c, 0, -1, 11, 3.2, 0.22);
-  for (const x of [-8.4, 7]) ink(c, path.rrect(x, -38, 2.6, 26, 1.2), darken(WOOD, 0.1), { line: 1.1, light: false });
-  ink(c, path.rrect(-10, -42, 20, 6.4, 3), WOOD, { depth: 1.2 });
-  ink(c, path.rrect(-9, -31, 18, 3, 1.4), WOOD, { line: 1, light: false });
-  ink(c, path.rrect(-10.4, -17.4, 20.8, 8.6, 2.6), lighten(WOOD, 0.08), { depth: 1.2 });
-  for (const x of [-9.4, 7]) ink(c, path.rrect(x, -10, 2.4, 10, 1.1), darken(WOOD, 0.12), { line: 1, light: false });
-});
-const chairFront = sprite([-12, -32, 12, 4], (c) => {
-  contactShadow(c, 0, -1, 11, 3.2, 0.22);
-  ink(c, path.rrect(-10.4, -17.4, 20.8, 8.6, 2.6), lighten(WOOD, 0.08), { depth: 1.2 });
-  for (const x of [-9.4, 7]) ink(c, path.rrect(x, -10, 2.4, 10, 1.1), darken(WOOD, 0.12), { line: 1, light: false });
-  // Seen from behind: a low backrest so it does not hide the table.
-  for (const x of [-8.4, 7]) ink(c, path.rrect(x, -26, 2.6, 16, 1.2), darken(WOOD, 0.1), { line: 1.1, light: false });
-  ink(c, path.rrect(-10, -28.5, 20, 5.6, 2.6), WOOD, { depth: 1.2 });
+const chair = sprite([-20, -44, 20, 10], (c) => {
+  floorShadow(c, 0, 0, 0.26, 0.25);
+  for (const [x, y] of [[-0.14, -0.14], [0.14, -0.14], [-0.14, 0.14], [0.14, 0.14]] as const) {
+    box(c, { x, y, w: 0.04, d: 0.04, h: 9, color: '#9C7A2A' });
+  }
+  box(c, { x: -0.16, y: 0, z: 9, w: 0.06, d: 0.36, h: 20, color: GOLD });
+  box(c, { x: -0.15, y: 0, z: 12, w: 0.06, d: 0.3, h: 15, color: VELVET });
+  box(c, { x: 0, y: 0, z: 9, w: 0.36, d: 0.36, h: 2, color: GOLD });
+  box(c, { x: 0.01, y: 0, z: 11, w: 0.32, d: 0.32, h: 2.5, color: VELVET, rim: true });
 });
 
 // ---------- plate stacks (the clean-dishes loop made visible) ----------
 
-function plateDisc(c: SkCanvas, x: number, y: number, top: boolean, tint = '#FFFFFF') {
-  ink(c, path.rrect(x - 9.4, y - 3.4, 18.8, 5, 2.6), darken(tint, 0.08), { line: 1, light: false });
-  ink(c, path.oval(x, y - 3.4, 9.4, 3.2), tint, { line: 1, shade: false, light: false });
-  if (top) c.drawOval({ x: x - 5.6, y: y - 5.2, width: 11.2, height: 3.6 }, stroke('#D6DCE4', 0.8));
-  c.drawOval({ x: x - 8.2, y: y - 6, width: 16.4, height: 5.2 }, stroke('#5B8EDB', 0.6));
-}
-const platesClean = sprite([-12, -20, 12, 4], (c) => {
-  contactShadow(c, 0, -0.6, 10, 2.6, 0.2);
-  for (let i = 0; i < 6; i++) plateDisc(c, 0, -i * 2.2, i === 5);
-  c.drawOval({ x: -6, y: -18, width: 6, height: 2 }, fill('#FFFFFF', 0.9));
+const platesClean = sprite([-12, -24, 12, 6], (c) => {
+  for (let i = 0; i < 6; i++) cylinder(c, 0, 0, 0.14, i * 2.2, 1.6, '#DDE2E8', i === 5 ? '#FFFFFF' : '#F4F6F9');
+  onTop(c, 13.2, () => c.drawCircle(0, 0, 0.1, stroke('#5B8EDB', 0.012)));
 });
-const platesDirty = sprite([-14, -16, 14, 4], (c) => {
-  contactShadow(c, 0, -0.6, 11, 2.6, 0.2);
-  const offsets = [0, 1.4, -1.2, 1.8];
-  offsets.forEach((dx, i) => plateDisc(c, dx, -i * 2.4, i === offsets.length - 1, '#F2EDE2'));
-  c.drawPath(path.smooth([[-3, -10.6], [0.6, -11.6], [4.6, -10.4], [2, -9.4]]), fill('#B5683A', 0.75));
-  for (const [x, y] of [[-4, -9.8], [5, -11], [7.4, -6], [-8, -4]] as const) dot(c, x, y, 0.6, '#B5683A');
-  line(c, [[4, -11], [10.4, -15]], INK, 2.4);
-  line(c, [[4, -11], [10.4, -15]], '#C9D1D9', 1.1);
+const platesDirty = sprite([-14, -20, 14, 6], (c) => {
+  const offsets = [[0, 0], [0.02, -0.01], [-0.015, 0.015], [0.025, 0.01]] as const;
+  offsets.forEach(([x, y], i) => cylinder(c, x, y, 0.14, i * 2.4, 1.6, '#CFC9BE', '#EDE7DC'));
+  onTop(c, 9.2, () => {
+    c.drawCircle(0.03, 0, 0.07, fill('#A35A2E', 0.7));
+    c.drawCircle(-0.06, 0.05, 0.015, fill('#A35A2E', 0.8));
+  });
 });
 
 // ---------- decor ----------
 
-const leaf = (c: SkCanvas, x: number, y: number, angle: number, len: number, color: string) => {
-  c.save();
-  c.translate(x, y);
-  c.rotate(angle, 0, 0);
-  ink(c, path.smooth([[0, 0], [len * 0.42, -len * 0.18], [len, 0], [len * 0.42, len * 0.2]], true, 0.9), color, { line: 1.1, depth: 1.2 });
-  line(c, [[1, 0], [len * 0.85, 0]], darken(color, 0.25), 0.7);
-  c.restore();
-};
-function plantPot(c: SkCanvas) {
-  contactShadow(c, 0, -0.6, 11, 3, 0.25);
-  ink(c, path.poly([[-8.6, -15], [8.6, -15], [6.6, 0], [-6.6, 0]]), '#D9744F', { depth: 2 });
-  ink(c, path.rrect(-10, -18.6, 20, 5, 2), '#C8664B', { line: 1.1, light: '#F09A7A' });
+function palmFronds(c: SkCanvas, top: Pt, size: number) {
+  const [tx, ty] = top;
+  const leaves = [
+    [-150, '#2E8B47'], [-30, '#2E8B47'], [-110, '#3FA65A'], [-70, '#3FA65A'], [170, '#36994F'], [10, '#36994F'], [-90, '#4CBB66'],
+  ] as const;
+  for (const [deg, col] of leaves) {
+    const a = (deg * Math.PI) / 180;
+    const len = size * (deg === -90 ? 0.7 : 1);
+    const ex = tx + Math.cos(a) * len;
+    const ey = ty + Math.sin(a) * len * 0.55 + len * 0.28;
+    const nx = -Math.sin(a) * size * 0.16;
+    const ny = Math.cos(a) * size * 0.08;
+    const mx = (tx + ex) / 2;
+    const my = (ty + ey) / 2 - size * 0.18;
+    c.drawPath(path.smooth([[tx, ty], [mx + nx, my + ny], [ex, ey], [mx - nx, my - ny]], true, 0.8), fill(col));
+    c.drawPath(path.smooth([[tx, ty], [mx, my], [ex, ey]], false), stroke(darken(col, 0.25), 0.7));
+  }
 }
-const plantLeafy = sprite([-26, -58, 26, 5], (c) => {
-  for (const [a, l, col] of [[-150, 22, '#3F8F55'], [-30, 22, '#3F8F55'], [-120, 26, '#5BAF6A'], [-60, 26, '#5BAF6A'], [-95, 28, '#6CC27A'], [-170, 18, '#5BAF6A'], [-10, 18, '#5BAF6A']] as const) {
-    leaf(c, 0, -18, a, l, col);
-  }
-  plantPot(c);
+const plantPalm = sprite([-30, -78, 30, 12], (c) => {
+  floorShadow(c, 0, 0, 0.3, 0.28);
+  cylinder(c, 0, 0, 0.17, 0, 13, GOLD, '#4A3A2A');
+  cylinder(c, 0, 0, 0.18, 10, 2.4, '#B8892A', '#C99A32');
+  for (let i = 0; i < 6; i++) box(c, { x: 0.004 * i, y: 0, z: 13 + i * 6, w: 0.07, d: 0.07, h: 6, color: i % 2 ? '#8A6239' : '#7A5430' });
+  palmFronds(c, P(0.024, 0, 50), 24);
 });
-const plantSnake = sprite([-16, -62, 16, 5], (c) => {
-  for (const [x, h, tilt, col] of [[-6, 34, -10, '#3F8F55'], [5, 30, 12, '#3F8F55'], [-1, 42, -2, '#5BAF6A'], [2.4, 38, 6, '#6CC27A']] as const) {
-    c.save();
-    c.translate(x, -17);
-    c.rotate(tilt, 0, 0);
-    ink(c, path.smooth([[-2.6, 0], [-3, -h * 0.6], [0, -h], [3, -h * 0.6], [2.6, 0]], true, 0.8), col, { line: 1.1, depth: 1.2 });
-    line(c, [[0, -2], [0, -h * 0.85]], '#D9E8A8', 0.7);
-    c.restore();
+const plantBush = sprite([-26, -56, 26, 12], (c) => {
+  floorShadow(c, 0, 0, 0.3, 0.28);
+  box(c, { x: 0, y: 0, w: 0.34, d: 0.34, h: 14, color: '#22202A', rim: true });
+  box(c, { x: 0, y: 0, z: 11, w: 0.36, d: 0.36, h: 2, color: GOLD });
+  for (const [x, y, z, s, col] of [[0, 0, 14, 0.3, '#2E8B47'], [0.06, -0.05, 24, 0.22, '#3FA65A'], [-0.05, 0.06, 22, 0.2, '#36994F'], [0, 0, 31, 0.14, '#4CBB66']] as const) {
+    box(c, { x, y, z, w: s, d: s, h: s * 50, color: col });
   }
-  plantPot(c);
+});
+const treePalm = sprite([-50, -150, 50, 14], (c) => {
+  floorShadow(c, 0, 0, 0.5, 0.25);
+  for (let i = 0; i < 10; i++) box(c, { x: 0.012 * i, y: -0.006 * i, z: i * 10, w: 0.12, d: 0.12, h: 10, color: i % 2 ? '#8A6239' : '#7A5430' });
+  palmFronds(c, P(0.12, -0.06, 100), 46);
+});
+const treeRound = sprite([-46, -120, 46, 14], (c) => {
+  floorShadow(c, 0, 0, 0.5, 0.25);
+  box(c, { x: 0, y: 0, w: 0.14, d: 0.14, h: 40, color: '#7A5430' });
+  box(c, { x: 0, y: 0, z: 34, w: 0.8, d: 0.8, h: 34, color: '#2E8B47' });
+  box(c, { x: 0, y: 0, z: 68, w: 0.55, d: 0.55, h: 18, color: '#3FA65A' });
+});
+const lamp = sprite([-20, -110, 20, 8], (c) => {
+  floorShadow(c, 0, 0, 0.2, 0.25);
+  box(c, { x: 0, y: 0, w: 0.1, d: 0.1, h: 4, color: '#22202A' });
+  box(c, { x: 0, y: 0, z: 4, w: 0.05, d: 0.05, h: 74, color: '#2E2B38' });
+  box(c, { x: 0, y: 0, z: 78, w: 0.18, d: 0.18, h: 4, color: '#2E2B38' });
+  box(c, { x: 0, y: 0, z: 74, w: 0.14, d: 0.14, h: 4, color: '#FFE9A8', shade: { left: '#FFE9A8', right: '#F2C14E' } });
+});
+/** Soft halo, drawn with a pulsing alpha by the renderer. */
+const glowHalo = sprite([-34, -34, 34, 34], (c) => {
+  const p = Skia.Paint();
+  p.setShader(Skia.Shader.MakeRadialGradient(vec(0, 0), 30, [Skia.Color('rgba(255,226,140,0.6)'), Skia.Color('rgba(255,226,140,0)')], null, TileMode.Clamp));
+  c.drawCircle(0, 0, 30, p);
+});
+const saleSign = sprite([-34, -70, 34, 10], (c) => {
+  floorShadow(c, 0, 0, 0.25, 0.25);
+  box(c, { x: 0, y: 0, w: 0.06, d: 0.06, h: 30, color: '#7A5430' });
+  box(c, { x: 0, y: 0, z: 26, w: 0.05, d: 1.1, h: 28, color: GOLD, rim: true });
+  onFaceX(c, 0.025, 0.55, () => rectIn(c, 0.06, 29, 0.98, 22, '#B8202E'));
+  // A coin with a padlock: "buy this lot", readable without words.
+  const [cx, cy] = P(0.03, 0, 40);
+  c.drawOval(Skia.XYWHRect(cx - 7, cy - 7, 14, 14), fill('#FFD54A'));
+  c.drawOval(Skia.XYWHRect(cx - 7, cy - 7, 14, 14), stroke('#B8892A', 1.4));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(cx - 3.2, cy - 1.5, 6.4, 5), 1, 1), fill('#5A3A1A'));
+  c.drawPath(path.smooth([[cx - 2, cy - 1.4], [cx - 2, cy - 4], [cx, cy - 5.4], [cx + 2, cy - 4], [cx + 2, cy - 1.4]], false), stroke('#5A3A1A', 1.2));
 });
 
-// ---------- neon sign (wall) ----------
+// ---------- neon sign on the back wall ----------
 
-const NEON = '#FF6FA8';
-function neonBurger(c: SkCanvas, bright: boolean) {
-  const tube = (p: SkPath, color: string) => {
-    if (bright) c.drawPath(p, glowStroke(color, 5, 0.5, 3));
-    c.drawPath(p, stroke(bright ? lighten(color, 0.55) : darken(color, 0.45), 1.6));
+const NEON = '#FF4FA0';
+function neonArt(c: SkCanvas, lit: boolean) {
+  const tube = (p: ReturnType<typeof path.smooth>, color: string) => {
+    if (lit) c.drawPath(p, glowStroke(color, 5, 0.55, 3));
+    c.drawPath(p, stroke(lit ? lighten(color, 0.6) : darken(color, 0.45), 1.6));
   };
   tube(path.smooth([[-14, -18], [-11, -27], [0, -30.4], [11, -27], [14, -18]], false), NEON);
-  tube(path.smooth([[-15, -14.6], [-5, -12.6], [5, -15.6], [15, -13.6]], false), '#7DFFB0');
+  tube(path.smooth([[-15, -14.6], [-5, -12.6], [5, -15.6], [15, -13.6]], false), '#59FF9E');
   tube(path.smooth([[-14, -10], [0, -9.4], [14, -10], [12, -6], [-12, -6], [-14, -10]], false), NEON);
-  for (const [x, y] of [[-26, -26], [26, -28], [24, -9]] as const) {
+  for (const [x, y] of [[-26, -26], [26, -28], [24, -9], [-25, -8]] as const) {
     tube(path.poly([[x, y - 3], [x + 0.9, y - 0.9], [x + 3, y], [x + 0.9, y + 0.9], [x, y + 3], [x - 0.9, y + 0.9], [x - 3, y], [x - 0.9, y - 0.9]]), '#FFD86B');
   }
 }
-const neonBoard = sprite([-44, -42, 44, 2], (c) => {
-  ink(c, path.rrect(-40, -38, 80, 36, 7), '#3B2E3F', { depth: 1.6, light: '#5C4C62' });
-  neonBurger(c, false);
-});
-const neonLit = sprite([-44, -42, 44, 2], (c) => neonBurger(c, true));
+const neonBoard = sprite([-50, -70, 50, 30], (c) =>
+  onWallY(c, () => {
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-40, -38, 80, 36), 6, 6), fill('#1C1424'));
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-40, -38, 80, 36), 6, 6), stroke(GOLD, 1.6));
+    neonArt(c, false);
+  }),
+);
+const neonLit = sprite([-50, -70, 50, 30], (c) => onWallY(c, () => neonArt(c, true)));
 
 export const propSprites = {
-  stove, ovenGlow, pan, patty, pot, flame, sink, washPlate,
-  table, plateFood, plateDirty, glass, glassEmpty, stain, chairBehind, chairFront,
-  platesClean, platesDirty, plantLeafy, plantSnake, neonBoard, neonLit,
+  stove, ovenGlow, pan, patty, pot, flame, pass, sink, washPlate, fridge,
+  table, plateBurger, plateFries, plateDirty, glass, glassEmpty, stain, chair,
+  platesClean, platesDirty, plantPalm, plantBush, treePalm, treeRound, lamp, glowHalo, saleSign,
+  neonBoard, neonLit,
 };
 

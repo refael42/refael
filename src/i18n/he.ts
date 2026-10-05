@@ -1,13 +1,14 @@
 import type { TKey } from './en';
 
 export const he: Record<TKey, string> = {
-  'app.title': 'מבחן סגנון',
-  'app.loading': 'מצייר את המסעדה…',
-  'tab.scene': 'סצנה',
-  'tab.lineup': 'דמויות',
+  'app.title': 'טייקון המסעדה',
+  'tab.game': 'משחק',
+  'tab.cast': 'דמויות',
   'btn.lang': 'EN',
   'btn.perf': 'FPS',
   'btn.stress': '‎+60',
+  'btn.zoomIn': '+',
+  'btn.zoomOut': '−',
   'perf.ui': 'UI',
   'perf.js': 'JS',
   'perf.draw': 'ציור',
@@ -19,7 +20,9 @@ export const he: Record<TKey, string> = {
   'art.waiter': 'מלצר',
   'art.washer': 'שוטף כלים',
   'art.stove': 'כיריים',
+  'art.pass': 'דלפק הגשה',
   'art.table': 'שולחן',
   'art.sink': 'כיור',
-  'art.plates': 'צלחות',
+  'art.fridge': 'מקרר',
+  'art.plant': 'דקל',
 };
