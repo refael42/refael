@@ -5,12 +5,22 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 
 ## איך מריצים (Windows)
 
-1. התקנה (פעם אחת): `npm install`
-2. בטלפון: מתקינים את האפליקציה **Expo Go** מהחנות.
-3. מריצים: `npm start` — יופיע ברקוד (QR). סורקים אותו עם Expo Go (באנדרואיד: מתוך האפליקציה; באייפון: עם המצלמה).
-4. בדפדפן: `npm run web` ונפתח `http://localhost:8081`.
-5. בדיקות: `npm run check` (בדיקת טיפוסים + בדיקות יחידה).
-6. דוח קצב התקדמות: `npm run balance` (בוט שמשחק שעה ומדווח אם יש "אזורים מתים").
+**פעם אחת בלבד:**
+1. מתקינים **Node.js** מ-https://nodejs.org (הכפתור הירוק **LTS**, ואז Next עד הסוף).
+2. בטלפון: מתקינים **Expo Go** מחנות האפליקציות.
+3. מורידים את המשחק: בעמוד https://github.com/refael42/refael/tree/claude/restaurant-tycoon-game-aye10l
+   לוחצים על הכפתור הירוק **Code** ← **Download ZIP**, ואז קליק ימני על הקובץ ← **Extract All** (חילוץ).
+
+**בכל פעם שרוצים לשחק:**
+1. נכנסים לתיקייה שחולצה ולוחצים פעמיים על **start-windows.bat**.
+   (אם Windows מזהיר — "More info" ← "Run anyway".)
+2. נפתח חלון שחור, ואחרי כמה דקות (בפעם הראשונה) מופיע ברקוד (QR).
+3. בטלפון: Expo Go ← **Scan QR code** ← סורקים. הטלפון והמחשב צריכים להיות על **אותה רשת Wi-Fi**.
+4. או בדפדפן במחשב: לוחצים על המקש **w** בחלון השחור.
+
+לגרסה חדשה: מורידים שוב את ה-ZIP (או `git pull`) ומריצים שוב את start-windows.bat.
+
+**למפתחים:** `npm run check` (בדיקות), `npm run balance` (דוח קצב התקדמות), `npm run web` (דפדפן).
 
 אחרי התקנת חבילות חדשות — לעצור את השרת (Ctrl+C) ולהפעיל מחדש, אחרת Metro "שוכח" קבצים.
 
