@@ -30,7 +30,15 @@
   hiring (M4) and bigger buildings (M5).
 - The coin counter and the stars must look crisp (the first HUD looked low quality on the
   phone): chunky gradient pills with a gold rim; icons and digits baked at screen resolution.
-- First phone run crashed after the first touch → fixed in the M3 hotfix (see Known issues).
+- The phone app closed at the first touch (no error anywhere) → touch handling rebuilt
+  (see Camera / Input below and Known issues).
+- Ideas from the owner for later (planned into M5–M6):
+  - the host/hostess as a later-game purchase (today: hired once the team has 3 people);
+  - after many upgrades a station *expands* (bigger, takes more room) with a new design, on
+    top of today's looks at Lv 10/25/50 and the golden aura at Lv 75;
+  - tables with more chairs (buy chairs per table) and groups of customers;
+  - customers who can wait longer and ones who can't, shown clearly (today only the "rushed"
+    type has a short patience).
 
 ## Locked decisions
 
@@ -63,11 +71,24 @@
     screen resolution (`pixelRatio × 2.7`, mipmapped) and drawn like any sprite. They were
     vector pictures first: as sharp, but replaying their paths every frame cost ~35 % of the
     frame rate on a software GPU (10 → 14.7 fps after the switch).
-- **Camera:** pan (with inertia via `withDecay`) + pinch around the focal point (mouse wheel
-  on web), all on the UI thread, clamped to the map.
-- **Input:** a tap draws a ripple instantly on the UI thread, then the JS thread hit-tests in
-  screen space against `tapTargets()` and queues an explicit command (`seat`/`serve`/`clean`)
+- **Camera + input (`src/render/camera.ts`, `src/render/touches.ts`, unit tested):** React
+  Native's own responder touches on the **JS thread** — one finger drags, two pinch around
+  their middle, a short still touch taps, a quick release glides (JS `requestAnimationFrame`).
+  The camera lives in JS and is handed to the UI thread as one shared value per change; the
+  UI thread only draws. No react-native-gesture-handler and no gesture worklets: that setup
+  (gesture callbacks as UI-thread worklets) closed the app natively on the owner's Android
+  phone at the first touch, with nothing in the terminal; it was removed rather than guessed
+  at. On web, `touch-action: none` keeps the browser from zooming the page; the mouse wheel
+  zooms the map.
+- **Input → sim:** a tap draws a ripple (via a shared value), the JS thread hit-tests in screen
+  space against `tapTargets()` and queues an explicit command (`seat`/`serve`/`clean`)
   applied at the next fixed step → deterministic, replayable, testable.
+- **Dev builds freeze what goes to the UI thread:** Reanimated/worklets (dev only, native only)
+  lock every array/object sent to the UI thread, and later writes are silently ignored. So the
+  snapshot sends copies (e.g. `bumps: [...s.bumpAt]`), never live game arrays.
+- **`[trace]` lines** (`src/trace.ts`, dev only) mark app start, boot, canvas size, asset bake,
+  the first touches and every tap hit in the Metro terminal: after a native crash the last
+  line shows how far the app got.
 - **Juice (UI thread only):** fixed ring-buffer FX pool spawned from sim events: rising "+N"
   texts (procedural stroke font, gold for tips), coins and banknotes flying into the HUD (the
   counter only counts them when they land), stars flying to the rating, sparkle bursts, poofs,
@@ -198,6 +219,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M3 game, production build | ~25 | 0.6–1.4 ms | 17.8 (14.5 with the upgrade panel open) |
 | M4 game, production build, vector HUD | ~27 | 0.9 ms | 10 (M3 build on the same machine: 16) |
 | M4 game, production build, sharp-atlas HUD | ~27 | 0.7–0.9 ms | 14.7 (16.9 with the staff panel open) |
+| Same, JS-thread touches (another sandbox session) | ~27 | — | 12.9–13.5 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -205,17 +227,19 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 152 unit tests.
+- `npm run check` — typecheck + 165 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
 
 ## Known issues / not verified
 
-- Not run on a physical Android/iOS device by me (sandbox has no device). The owner's first
-  phone run crashed after the first touch; the hotfix (web-only picture disposal, stable
-  memoized canvas) is pushed but **not confirmed yet** — if it still crashes, the red-screen
-  text or the terminal output is needed.
+- Not run on a physical Android/iOS device by me (sandbox has no device or emulator). The
+  owner's phone closed the app at the first touch, also after the first hotfix (web-only
+  picture disposal, stable memoized canvas). Second fix: touches moved off gesture-handler
+  worklets to plain React Native touches (above) — **not confirmed yet**. If it still closes:
+  the last `[trace]` lines in the terminal, and whether touching the ⚙ button first also
+  closes it.
 - Customers enter/leave through the front door of the building, but there is no visible door
   frame yet (front walls are cut away by design).
 - Expo DevTools fails to launch in the sandbox (runs as root) — harmless.

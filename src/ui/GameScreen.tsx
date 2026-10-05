@@ -18,6 +18,7 @@ import type { GameState } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
 import { useSettings } from '../store/settings';
+import { trace } from '../trace';
 import { JuicyButton } from './JuicyButton';
 import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
@@ -121,6 +122,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const onTap = useCallback(
     (x: number, y: number, cam: Camera) => {
       const hit = tap(x, y, cam);
+      trace(`hit ${hit === null ? 'nothing' : typeof hit === 'string' ? hit : JSON.stringify(hit)}`);
       if (hit && hit !== 'action') {
         if ('station' in hit) open(hit.station);
         else showStaff({ person: hit.person });
@@ -166,6 +168,7 @@ function GameView() {
   useEffect(() => {
     let alive = true;
     void bootGame(STAND_MAP).then((b) => {
+      trace(`boot: ${b.save ? 'save loaded' : 'new game'}${b.offline ? ', welcome back' : ''}`);
       if (alive) setBoot(b);
     });
     return () => {

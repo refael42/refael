@@ -145,7 +145,8 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
       day: s.day,
       dayPhase: s.dayTime / DAY.seconds,
     },
-    bumps: s.bumpAt,
+    // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.
+    bumps: [...s.bumpAt],
     ...upgradeViews(s),
   });
 }
