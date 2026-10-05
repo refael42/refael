@@ -18,6 +18,7 @@ import type { HudFeed } from '../render/SceneCanvas';
 import { hudIcon } from '../render/icons';
 import type { HudIcon } from '../render/art/hudArt';
 import { usePoll } from '../render/useSimulation';
+import { big } from '../sim/big';
 import { formatBig, formatNumber } from '../sim/format';
 import type { GameState } from '../sim/game/types';
 import { useSettings } from '../store/settings';
@@ -154,6 +155,27 @@ function RatingPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedV
   );
 }
 
+/** Wages owed at the end of the day, and whether the till can pay them right now. */
+const readWages = (s: GameState) => {
+  const due = s.staff.filter((st) => !st.leaving).reduce((sum, st) => sum.add(st.wage), big(0));
+  return { due, short: s.coins.lt(due), text: formatBig(due), count: s.staff.length };
+};
+
+/** Under the coins: the day's wage bill (owner request), red when the till could not pay it. */
+function WagesChip({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
+  const t = useT();
+  const rtl = isRTL(useSettings((s) => s.lang));
+  const w = usePoll(gameRef, readWages, 2);
+  if (!w || w.count === 0) return null;
+  return (
+    <View style={[styles.slot, styles.wages, w.short && styles.wagesShort, { left: layout.left + 6, top: layout.top + HUD.height + 44, direction: rtl ? 'rtl' : 'ltr' }]}>
+      <Text style={styles.wagesIcon}>💸</Text>
+      <Text style={styles.wagesLabel}>{t('ui.wagesDue')}</Text>
+      <Text style={styles.wagesValue}>{`-${w.text}`}</Text>
+    </View>
+  );
+}
+
 const readCombo = (s: GameState) => ({ combo: s.combo, left: ECONOMY.comboWindowSeconds - (s.time - s.lastPayTime) });
 
 /** "x3 combo" under the coins while payments keep chaining; it pulses, then fades out. */
@@ -167,7 +189,7 @@ function ComboBadge({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }
   const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   if (!combo || combo.combo < 2 || combo.left <= 0) return null;
   return (
-    <Animated.View style={[styles.slot, styles.combo, pulseStyle, { left: layout.left + 6, top: layout.top + HUD.height + 44, opacity: Math.min(1, combo.left / 1.5) }]}>
+    <Animated.View style={[styles.slot, styles.combo, pulseStyle, { left: layout.left + 6, top: layout.top + HUD.height + 74, opacity: Math.min(1, combo.left / 1.5) }]}>
       <Text style={styles.comboX}>{`x${combo.combo}`}</Text>
       <Text style={styles.comboWord}>{t('ui.combo')}</Text>
     </Animated.View>
@@ -187,6 +209,7 @@ export function Hud({ gameRef, feed, layout }: Props) {
       <CoinPill gameRef={gameRef} feed={feed} layout={layout} />
       <DayPill gameRef={gameRef} layout={layout} />
       <RatingPill gameRef={gameRef} feed={feed} layout={layout} />
+      <WagesChip gameRef={gameRef} layout={layout} />
       <ComboBadge gameRef={gameRef} layout={layout} />
     </View>
   );
@@ -231,6 +254,21 @@ const styles = StyleSheet.create({
   outOf: { color: '#C9B3D6', fontSize: 12, fontWeight: '800' },
   buzz: { position: 'absolute', top: HUD.height + 4, right: 0, paddingHorizontal: 9, paddingVertical: 2, borderRadius: 11, backgroundColor: '#E5483B', borderWidth: 2, borderColor: '#FFE08A' },
   buzzText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  wages: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 24,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: 'rgba(40,16,50,0.9)',
+    borderWidth: 1.5,
+    borderColor: '#8A6A9A',
+  },
+  wagesShort: { borderColor: '#FF6A5E', backgroundColor: 'rgba(110,20,30,0.92)' },
+  wagesIcon: { fontSize: 12 },
+  wagesLabel: { color: '#E8D7F0', fontSize: 11, fontWeight: '800' },
+  wagesValue: { color: '#FF9A8E', fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
   combo: {
     flexDirection: 'row',
     alignItems: 'baseline',

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { UPGRADES } from '../src/data/upgrades';
-import { upgradeDef } from '../src/sim/economy/upgrades';
-import { bestValue, gainOf, valuePerCoin } from '../src/sim/economy/value';
+import { big } from '../src/sim/big';
+import { canBuy, upgradeDef } from '../src/sim/economy/upgrades';
+import { bestBuy, bestValue, gainOf, valuePerCoin } from '../src/sim/economy/value';
 
 describe('best value', () => {
   it('every upgrade you can buy is worth something', () => {
@@ -26,5 +27,22 @@ describe('best value', () => {
     const values = list.map((d) => valuePerCoin(d, {}, STAND_MAP));
     for (let i = 1; i < values.length; i++) expect(values[i]!).toBeLessThanOrEqual(values[i - 1]!);
     expect(list.slice(0, 3).map((d) => d.id)).toContain('fries');
+  });
+});
+
+describe('best buy', () => {
+  it('is the best value you can pay for right now', () => {
+    const levels = { fries: 12, sign: 8, stove: 6 };
+    for (const coins of [10, 200, 5000, 1e7]) {
+      const pay = (d: (typeof UPGRADES)[number]) => canBuy(d, levels, big(coins), STAND_MAP);
+      const best = bestBuy(levels, STAND_MAP, pay);
+      const affordable = UPGRADES.filter((d) => !d.build && pay(d));
+      if (affordable.length === 0) {
+        expect(best).toBeNull();
+        continue;
+      }
+      expect(best && pay(best)).toBe(true);
+      for (const d of affordable) expect(valuePerCoin(best!, levels, STAND_MAP)).toBeGreaterThanOrEqual(valuePerCoin(d, levels, STAND_MAP));
+    }
   });
 });

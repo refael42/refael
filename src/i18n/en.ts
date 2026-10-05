@@ -235,6 +235,8 @@ export const en = {
   'shop.turboKitchenDesc': 'Cooking x1.5 faster, forever',
   'shop.charmSchool': 'Charm school',
   'shop.charmSchoolDesc': 'Tips x2, forever',
+  'ui.wagesDue': 'Wages today',
+  'ui.bestNow': 'Best value now',
   'ui.day': 'Day',
   'ui.combo': 'combo',
   'ui.perDay': '/ day',

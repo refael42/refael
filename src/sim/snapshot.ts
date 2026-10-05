@@ -58,6 +58,8 @@ export interface Snapshot {
   bumps: number[];
   /** "Upgrade available" arrows: packed (x, y, prop kind) triples. */
   badges: number[];
+  /** The best buy right now: (x, y, prop kind), or empty. A gold star instead of the arrow. */
+  bestBadge: number[];
 }
 
 export interface SnapshotExtra {
@@ -67,9 +69,10 @@ export interface SnapshotExtra {
   dishTiers?: number[];
   bumps?: number[];
   badges?: number[];
+  bestBadge?: number[];
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [] };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [] };
 
 interface SortItem {
   depth: number;
@@ -152,5 +155,6 @@ export function packSnapshot(
     dishTiers: extra.dishTiers ?? [],
     bumps: extra.bumps ?? [],
     badges: extra.badges ?? [],
+    bestBadge: extra.bestBadge ?? [],
   };
 }

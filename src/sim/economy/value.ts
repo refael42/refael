@@ -48,6 +48,17 @@ export function valuePerCoin(def: UpgradeDef, levels: Levels, map: MapDef): numb
   return Number.isFinite(cost) && cost > 0 ? gainOf(def, levels, map) / cost : 0;
 }
 
+let cache: { levels: Levels; map: MapDef; list: UpgradeDef[] } | null = null;
+
+/**
+ * The best upgrade to buy right now (worth the most per coin among those you can pay for), or
+ * null. The ranking only changes with levels and the building: it is kept between calls.
+ */
+export function bestBuy(levels: Levels, map: MapDef, canPay: (def: UpgradeDef) => boolean): UpgradeDef | null {
+  if (!cache || cache.levels !== levels || cache.map !== map) cache = { levels, map, list: bestValue(levels, map, UPGRADES.length) };
+  return cache.list.find(canPay) ?? null;
+}
+
 /** The upgrades worth the most per coin right now, best first. */
 export function bestValue(levels: Levels, map: MapDef, size: number = VALUE.listSize): UpgradeDef[] {
   return UPGRADES.map((def) => ({ def, v: valuePerCoin(def, levels, map) }))

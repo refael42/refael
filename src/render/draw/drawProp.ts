@@ -319,8 +319,18 @@ const BADGE_HEIGHT: Record<number, number> = {
 };
 
 /** Green arrows over stations with an affordable upgrade (drawn above everything in the world). */
-export function drawBadges(c: SkCanvas, A: RenderAssets, badges: number[], t: number): void {
+export function drawBadges(c: SkCanvas, A: RenderAssets, badges: number[], best: number[], t: number): void {
   'worklet';
+  if (best.length === 3) {
+    // The best buy right now: a big spinning gold star with a glow, bouncing higher.
+    const kind = best[2]!;
+    const lift = kind === PropKind.PlatesClean ? 22 : 0;
+    const x = isoX(best[0]!, best[1]!);
+    const y = isoY(best[0]!, best[1]!, lift + (BADGE_HEIGHT[kind] ?? 50)) - Math.abs(Math.sin(t * 3.2)) * 7 - 6;
+    sprFade(c, A, A.S.glowHalo, x, y + 30, 0.8, 0.6 + Math.sin(t * 4) * 0.2);
+    const k = 2.8 + Math.sin(t * 5) * 0.18;
+    sprXf(c, A, A.S.star, x, y - 6, Math.sin(t * 2) * 12, k, k, A.paints.plain);
+  }
   for (let i = 0; i < badges.length; i += 3) {
     const x = badges[i]!;
     const y = badges[i + 1]!;

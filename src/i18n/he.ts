@@ -237,6 +237,8 @@ export const he: Record<TKey, string> = {
   'shop.turboKitchenDesc': 'בישול מהיר פי 1.5, לתמיד',
   'shop.charmSchool': 'בית ספר לקסם',
   'shop.charmSchoolDesc': 'טיפים פי 2, לתמיד',
+  'ui.wagesDue': 'משכורות היום',
+  'ui.bestNow': 'הכי משתלם עכשיו',
   'ui.day': 'יום',
   'ui.combo': 'רצף',
   'ui.perDay': 'ליום',

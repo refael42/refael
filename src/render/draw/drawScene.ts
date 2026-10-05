@@ -112,7 +112,7 @@ export function drawScene(
     const o = i * STRIDE;
     if (d[o + F.type] === EntityType.Character) drawCharacterOverlay(c, A, d, o, alpha, t);
   }
-  drawBadges(c, A, snap.badges, t);
+  drawBadges(c, A, snap.badges, snap.bestBadge, t);
   drawWorldFx(c, A, fx, t);
   c.restore();
   // Evening and night: tint the world, then let the lights glow through it.

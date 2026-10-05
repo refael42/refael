@@ -9,7 +9,7 @@ import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
 import type { Big } from '../sim/big';
-import { canBuy, costOf, isMaxed, isUnlocked, itemValue, levelOf, nextMilestone, prevMilestone, tierOf, type Levels } from '../sim/economy/upgrades';
+import { canBuy, costOf, isMaxed, isUnlocked, itemValue, levelOf, nextMilestone, prevMilestone, tierOf, upgradeDef, type Levels } from '../sim/economy/upgrades';
 import { bestValue } from '../sim/economy/value';
 import { formatBig, formatNumber } from '../sim/format';
 import type { PropKind } from '../sim/types';
@@ -248,6 +248,13 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
           <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} best={def.id === bestId} />
         ))}
         {items.length === 0 && <Text style={styles.empty}>{t('ui.noResults')}</Text>}
+        {/* A station's own list: the best buy anywhere right now, if it is something else. */}
+        {station !== null && bestId && !items.some((d) => d.id === bestId) && (
+          <>
+            <Text style={styles.bestHeader}>{`★ ${t('ui.bestNow')}`}</Text>
+            <Row def={upgradeDef(bestId)} wallet={wallet} onBuy={onBuy} best />
+          </>
+        )}
         {station !== null && (
           <Pressable onPress={onShowAll} style={styles.allButton}>
             <Text style={styles.allText}>{t('ui.all')}</Text>
@@ -299,6 +306,7 @@ const styles = StyleSheet.create({
   chipTextOn: { color: '#FFFFFF' },
   bestTag: { marginStart: 6, paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8, backgroundColor: gold },
   bestText: { color: '#2A1530', fontSize: 10, fontWeight: '900' },
+  bestHeader: { color: gold, fontSize: 13, fontWeight: '900', marginTop: 4 },
   empty: { color: '#C9B3D6', fontSize: 14, fontWeight: '700', textAlign: 'center', paddingVertical: 20 },
   tabs: { flexGrow: 0 },
   tabsInner: { paddingHorizontal: 10, gap: 6, paddingBottom: 6 },

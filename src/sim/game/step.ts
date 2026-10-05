@@ -2,6 +2,7 @@ import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { UPGRADES } from '../../data/upgrades';
 import { canBuy, levelOf, tierOf } from '../economy/upgrades';
+import { bestBuy } from '../economy/value';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
 import { Bubble, PropKind } from '../types';
@@ -148,7 +149,11 @@ function upgradeViews(s: GameState) {
     badged.add(def.anchor);
     badges.push(at.x, at.y, def.anchor);
   }
-  return { tiers, dishTiers, badges };
+  // The best buy right now gets a gold star instead of the arrow.
+  const best = bestBuy(s.levels, s.map, (def) => canBuy(def, s.levels, s.coins, s.map));
+  const bestAt = best ? badges.findIndex((v, i) => i % 3 === 2 && v === best.anchor) : -1;
+  const bestBadge = bestAt >= 0 ? badges.splice(bestAt - 2, 3) : [];
+  return { tiers, dishTiers, badges, bestBadge };
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
