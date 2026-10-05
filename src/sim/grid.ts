@@ -49,7 +49,7 @@ export function buildGrid(map: MapDef): Grid {
   for (let ty = b.y0; ty < b.y1; ty++) {
     for (let tx = b.x0; tx < b.x1; tx++) g.inside[tileIndex(g, tx, ty)] = 1;
   }
-  for (const f of [map.stove, map.pass, ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
+  for (const f of [map.stove, map.pass, map.sink, ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
   for (const t of map.tables) {
     markFootprint(g, t.x, t.y, 1, 1);
     markFootprint(g, t.x + CHAIR_OFFSET.x, t.y + CHAIR_OFFSET.y, 1, 1);

@@ -6,8 +6,8 @@
 |---|-----------|--------|
 | M0 | Project setup, Skia scene (native + web), fixed-timestep loop, big numbers, perf overlay, style test | ✅ Done |
 | M1 | Customer lifecycle end to end + juice; **pivot to isometric, landscape, big pannable/zoomable map** | ✅ Done |
-| M2 | Kitchen tickets, waiter delivery (A* already in), clean-dishes loop with a dishwasher | ⏳ Next |
-| M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | — |
+| M2 | Kitchen tickets, waiter delivery (A* already in), clean-dishes loop with a dishwasher | ✅ Done |
+| M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ⏳ Next |
 | M4 | Applicants, hiring, wages, morale, staff cards | — |
 | M5 | Building tiers, construction sequence, build mode, decor | — |
 | M6 | Automation, Rush hour, Upgrades screen (search/filter/ROI) | — |
@@ -64,8 +64,20 @@
 - **Big numbers:** `break_infinity.js` behind `src/sim/big.ts`; `formatBig` (Big) and
   `formatNumber` (plain number, worklet) produce identical K/M/B/T/aa… strings.
 - **i18n/RTL:** root `direction` style (no app reload), never mix Hebrew + numbers in one Text.
+- **Staff (M2, `src/sim/game/staff.ts`):** cook, waiter and dishwasher are sim entities with
+  simple job loops (no behavior trees yet). The waiter prefers delivering ready dishes over
+  bussing tables. The manager can always step in: tap a ready dish to toss it, a dirty table
+  to wipe it, the sink to hand-wash.
+- **Plates are a conserved resource:** clean stack → plated dish → table → dirty → washed →
+  clean stack. A test checks that the total never changes. Out of clean plates = the cook
+  stalls and the clean-plate stack shows a "no plates" bubble: the first real bottleneck.
+- **Ticket rail:** queued and cooking orders hang as paper tickets above the pass (oldest
+  first), with a cooking progress bar.
+- **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
+  before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
+  background, so a tree placed behind a wall used to draw over it.)
 
-## Economy & pacing (M1, `src/data/economy.ts`)
+## Economy & pacing (M1–M2, `src/data/economy.ts`, `src/data/staff.ts`)
 
 - Dishes: fries 4 coins (cook 3.5 s), burger 8 coins (cook 6 s).
 - Customer types: regular, rushed (low patience, fast-service bonus), tourist (priciest dish,
@@ -74,6 +86,9 @@
 - Headless pacing check (attentive player, 5 min): ~6 customers/min, ~50 coins/min, rating
   climbs 3.0 → 4.9; slower players still progress (25 served in 5 min with 5 s reactions).
   Proper balance bot + dead-zone detection comes with the upgrade economy in M3.
+- Kitchen (M2): 5 plates, washing 3 s per plate (a tap on the sink = +34 %), plating 0.45 s,
+  bussing 0.7 s. Starting roster: cook + waiter + dishwasher; in M4 the game starts with the
+  cook only and you hire the rest (then the "no plates" bottleneck shows up early on purpose).
 
 ## Performance
 
@@ -84,6 +99,9 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | Game, dev build | ~30 | 0.6–0.9 ms | 14.6 |
 | Game, production build | ~30 | 0.6 ms | 17 |
 | Game + stress (+60 walkers) | 89 | 2.4–2.6 ms | 5.5 |
+| M2 game, zoom 1, dev build | ~28 | 0.7–1.2 ms | 12–17 |
+| M2 game, zoomed in ×1.6 (vector background) | ~28 | 0.6–1.3 ms | 5–10 |
+| M2 game, production build | ~28 | — | 14–15 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -91,7 +109,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 87 unit tests.
+- `npm run check` — typecheck + 94 unit tests.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
 

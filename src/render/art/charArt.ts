@@ -370,6 +370,11 @@ const trayFull = sprite([-14, -24, 14, 6], (c) => {
   cylinder(c, 0.07, -0.07, 0.03, 1.5, 7, '#C7E8FF', '#8A3F2B');
 });
 const trayEmpty = sprite([-14, -8, 14, 6], trayBase);
+const trayDirty = sprite([-14, -16, 14, 6], (c) => {
+  trayBase(c);
+  for (let i = 0; i < 3; i++) cylinder(c, 0.01 * i, -0.01 * i, 0.08, 1.5 + i * 1.6, 1.1, '#CFC9BE', '#EDE7DC');
+  box(c, { x: 0.04, y: 0.05, z: 6.4, w: 0.02, d: 0.06, h: 0.8, color: '#A35A2E' });
+});
 const phone = sprite([-6, -12, 6, 4], (c) => {
   box(c, { x: 0, y: 0, w: 0.03, d: 0.07, h: 9, color: '#2E2A36' });
   onFaceX(c, 0.015, 0.035, () => rectIn(c, 0.008, 1.2, 0.054, 6.6, '#8FD3FF'));
@@ -406,7 +411,7 @@ export const characterSprites = {
   washerF: washer.F, washerB: washer.B,
   sunglasses, glasses, cameraF: camera.F, cameraB: camera.B,
   backpackF: backpack.F, backpackB: backpack.B, backpackStrapsF: backpackStraps.F, backpackStrapsB: backpackStraps.B,
-  trayFull, trayEmpty, phone, spatula, menu,
+  trayFull, trayEmpty, trayDirty, phone, spatula, menu,
 };
 
 export { miniBurger };

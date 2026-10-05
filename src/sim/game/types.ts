@@ -1,4 +1,5 @@
 import type { CustomerTypeId } from '../../data/customers';
+import type { Role } from '../../data/staff';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
 import type { Grid } from '../grid';
@@ -20,7 +21,7 @@ export type CustomerState = (typeof CustomerState)[keyof typeof CustomerState];
 export const TableState = { Free: 0, Reserved: 1, Occupied: 2, Dirty: 3, Cleaning: 4 } as const;
 export type TableState = (typeof TableState)[keyof typeof TableState];
 
-export const OrderState = { Queued: 0, Cooking: 1, Ready: 2, Flying: 3 } as const;
+export const OrderState = { Queued: 0, Cooking: 1, Plating: 2, Ready: 3, Flying: 4, Carried: 5 } as const;
 export type OrderState = (typeof OrderState)[keyof typeof OrderState];
 
 export interface Customer extends CharacterView {
@@ -45,6 +46,8 @@ export interface Customer extends CharacterView {
 
 export interface Table {
   index: number;
+  /** Waiter on the way to clear it (-1 none). */
+  waiter: number;
   propId: number;
   x: number;
   y: number;
@@ -62,17 +65,20 @@ export interface Order {
   dish: number;
   state: OrderState;
   progress: number;
-  /** Pass slot while Ready/Flying (-1 none). */
+  /** Pass slot while Ready (-1 none). */
   slot: number;
   since: number;
   landsAt: number;
+  /** Waiter assigned to carry it (-1 none). */
+  waiter: number;
 }
 
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
 export type Command =
   | { type: 'seat'; customer: number }
   | { type: 'serve'; order: number }
-  | { type: 'clean'; table: number };
+  | { type: 'clean'; table: number }
+  | { type: 'wash' };
 
 /** Something tappable: its floor position, how high its visual center sits, and what tapping does. */
 export interface TapTarget {
@@ -80,6 +86,23 @@ export interface TapTarget {
   y: number;
   height: number;
   command: Command;
+}
+
+/** What a staff member is doing; `phase` advances as they walk and work. */
+export type Job =
+  | { kind: 'cook'; order: number; phase: 'cooking' | 'plating' }
+  | { kind: 'pickup'; order: number; phase: 'toPass' | 'handoff' | 'toTable' | 'serve' }
+  | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop' }
+  | { kind: 'home' };
+
+export interface Staff extends CharacterView {
+  role: Role;
+  speed: number;
+  path: Point[];
+  job: Job | null;
+  jobTime: number;
+  /** Set while the cook cannot finish a dish (no clean plate or a full pass). */
+  stalled: 'plates' | 'pass' | null;
 }
 
 /** Ambient people: sidewalk strollers (always) and stress-test roamers (perf testing). */
@@ -111,9 +134,13 @@ export interface GameState {
   customers: Customer[];
   tables: Table[];
   orders: Order[];
-  cook: CharacterView;
+  staff: Staff[];
   walkers: Walker[];
-  /** Decor plus the stove (whose `active` follows the cook). */
+  cleanPlates: number;
+  dirtyPlates: number;
+  /** 0..1 progress on the plate currently being washed. */
+  washProgress: number;
+  /** Decor plus the stove and sink (whose `active` follows the staff). */
   props: PropView[];
   events: SimEventRecord[];
   nextEventId: number;

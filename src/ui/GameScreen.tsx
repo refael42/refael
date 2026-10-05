@@ -15,7 +15,7 @@ import { JuicyButton } from './JuicyButton';
 import { PerfOverlay } from './PerfOverlay';
 import { theme } from './theme';
 
-const GAME_BG: BackgroundDef = { width: STAND_MAP.width, height: STAND_MAP.height, areas: STAND_MAP.areas, building: STAND_MAP.building, wallHeight: STAND_MAP.wallHeight };
+const GAME_BG: BackgroundDef = { width: STAND_MAP.width, height: STAND_MAP.height, areas: STAND_MAP.areas, building: STAND_MAP.building, wallHeight: STAND_MAP.wallHeight, backdrop: STAND_MAP.backdrop };
 const CAST_BG: BackgroundDef = { width: LINEUP.width, height: LINEUP.height, areas: LINEUP.areas };
 const GAME_FOCUS = { x: 8.6, y: 6.4, zoom: 1 };
 const CAST_FOCUS = { x: 7.6, y: 4.9, zoom: 1.7 };

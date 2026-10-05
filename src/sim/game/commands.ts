@@ -1,6 +1,6 @@
 import { ECONOMY } from '../../data/economy';
 import { seatCustomer } from './customers';
-import { serveOrder } from './kitchen';
+import { handWash, serveOrder } from './staff';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type TapTarget } from './types';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
@@ -9,7 +9,7 @@ export function queueCommand(s: GameState, command: Command): void {
 }
 
 /** Pixel heights of each target's visual center above the floor (for screen-space hit tests). */
-const HEIGHT = { dish: 30, table: 22, customer: 22 } as const;
+const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26 } as const;
 
 /** Everything the player can tap right now. The UI projects these and picks the nearest. */
 export function tapTargets(s: GameState): TapTarget[] {
@@ -29,6 +29,7 @@ export function tapTargets(s: GameState): TapTarget[] {
       out.push({ x: c.x, y: c.y, height: HEIGHT.customer, command: { type: 'seat', customer: c.id } });
     }
   }
+  if (s.dirtyPlates > 0) out.push({ x: s.map.sink.x, y: s.map.sink.y, height: HEIGHT.sink, command: { type: 'wash' } });
   return out;
 }
 
@@ -39,10 +40,14 @@ function apply(s: GameState, cmd: Command): void {
   } else if (cmd.type === 'serve') {
     const o = s.orders.find((x) => x.id === cmd.order);
     if (o && o.state === OrderState.Ready) serveOrder(s, o);
+  } else if (cmd.type === 'wash') {
+    handWash(s);
   } else {
     const t = s.tables[cmd.table];
     if (!t) return;
     if (t.state === TableState.Dirty) {
+      // The manager does it now; a waiter who was on the way goes back to other work.
+      t.waiter = -1;
       t.state = TableState.Cleaning;
       t.progress = 0;
       t.since = s.time;

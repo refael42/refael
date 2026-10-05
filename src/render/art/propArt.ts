@@ -57,7 +57,7 @@ const flame = sprite([-4, -10, 4, 2], (c) => {
   c.drawPath(path.smooth([[0, -5], [1.3, -1.8], [0.8, 0], [-0.8, 0], [-1.3, -1.8]]), fill('#FFE07A'));
 });
 
-const pass = sprite([-62, -50, 62, 24], (c) => {
+const pass = sprite([-62, -92, 62, 24], (c) => {
   floorShadow(c, 0.1, 0, 1.2, 0.3);
   box(c, { x: 0, y: 0, w: 0.8, d: 2.8, h: 21, color: WOOD_DARK });
   onFaceX(c, 0.4, 1.4, () => {
@@ -69,6 +69,25 @@ const pass = sprite([-62, -50, 62, 24], (c) => {
   // Service bell: rung when a dish is ready.
   cylinder(c, 0.15, 1.2, 0.07, 24, 1, '#B8892A', GOLD);
   cylinder(c, 0.15, 1.2, 0.05, 25, 3, GOLD, '#FFE08A');
+  // Ticket rail on the kitchen side: orders hang here until cooked.
+  for (const y of [-1.35, 1.35]) box(c, { x: -0.4, y, z: 24, w: 0.05, d: 0.05, h: 30, color: '#C9D1D9' });
+  box(c, { x: -0.4, y: 0, z: 50, w: 0.06, d: 2.76, h: 3, color: '#D8DEE5', rim: true });
+});
+/** A paper order ticket (billboard), hanging from its clip. */
+const ticket = sprite([-8, -2, 8, 20], (c) => {
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-1.6, -1, 3.2, 3), 0.6, 0.6), fill('#7E8A98'));
+  c.drawRect(Skia.XYWHRect(-5.6, 1.6, 11.2, 15), fill('#3A2A30', 0.25));
+  c.drawRect(Skia.XYWHRect(-6, 1, 11.2, 15), fill('#FFFDF4'));
+  c.drawRect(Skia.XYWHRect(-6, 1, 11.2, 2.4), fill('#E5483B'));
+  for (const y of [12.4, 14.2]) c.drawRect(Skia.XYWHRect(-4.4, y, 8, 0.7), fill('#C9C2B4'));
+});
+const plateSingle = sprite([-12, -6, 12, 6], (c) => cylinder(c, 0, 0, 0.14, 0, 1.6, '#DDE2E8', '#F7F9FB'));
+const plateSingleDirty = sprite([-12, -8, 12, 6], (c) => {
+  cylinder(c, 0, 0, 0.14, 0, 1.6, '#CFC9BE', '#EDE7DC');
+  onTop(c, 1.6, () => {
+    c.drawCircle(0.03, 0, 0.065, fill('#A35A2E', 0.7));
+    c.drawCircle(-0.06, 0.05, 0.016, fill('#A35A2E', 0.8));
+  });
 });
 
 const sink = sprite([-44, -60, 44, 14], (c) => {
@@ -155,18 +174,7 @@ const chair = sprite([-20, -44, 20, 10], (c) => {
 
 // ---------- plate stacks (the clean-dishes loop made visible) ----------
 
-const platesClean = sprite([-12, -24, 12, 6], (c) => {
-  for (let i = 0; i < 6; i++) cylinder(c, 0, 0, 0.14, i * 2.2, 1.6, '#DDE2E8', i === 5 ? '#FFFFFF' : '#F4F6F9');
-  onTop(c, 13.2, () => c.drawCircle(0, 0, 0.1, stroke('#5B8EDB', 0.012)));
-});
-const platesDirty = sprite([-14, -20, 14, 6], (c) => {
-  const offsets = [[0, 0], [0.02, -0.01], [-0.015, 0.015], [0.025, 0.01]] as const;
-  offsets.forEach(([x, y], i) => cylinder(c, x, y, 0.14, i * 2.4, 1.6, '#CFC9BE', '#EDE7DC'));
-  onTop(c, 9.2, () => {
-    c.drawCircle(0.03, 0, 0.07, fill('#A35A2E', 0.7));
-    c.drawCircle(-0.06, 0.05, 0.015, fill('#A35A2E', 0.8));
-  });
-});
+
 
 // ---------- decor ----------
 
@@ -267,7 +275,7 @@ const neonLit = sprite([-50, -70, 50, 30], (c) => onWallY(c, () => neonArt(c, tr
 export const propSprites = {
   stove, ovenGlow, pan, patty, pot, flame, pass, sink, washPlate, fridge,
   table, plateBurger, plateFries, plateDirty, glass, glassEmpty, stain, chair,
-  platesClean, platesDirty, plantPalm, plantBush, treePalm, treeRound, lamp, glowHalo, saleSign,
+  ticket, plateSingle, plateSingleDirty, plantPalm, plantBush, treePalm, treeRound, lamp, glowHalo, saleSign,
   neonBoard, neonLit,
 };
 

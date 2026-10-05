@@ -142,6 +142,8 @@ function walkout(s: GameState, c: Customer): void {
       const slot = s.map.passSlots[order.slot]!;
       emit(s, Ev.Poof, slot.x, slot.y);
     }
+    // A plated dish nobody will eat still dirtied a plate.
+    if (order.state === OrderState.Plating || order.state === OrderState.Ready || order.state === OrderState.Carried) s.dirtyPlates += 1;
     s.orders.splice(orderIndex, 1);
   }
   if (c.table >= 0) {
@@ -269,7 +271,7 @@ export function updateCustomers(s: GameState, dt: number): void {
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
           c.dish = chooseDish(s.rng, CUSTOMER_TYPES[c.type]);
           const id = s.nextId++;
-          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0 });
+          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1 });
           c.order = id;
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;
@@ -278,8 +280,8 @@ export function updateCustomers(s: GameState, dt: number): void {
         }
         break;
       case CustomerState.Waiting: {
-        // Patience pauses while the dish is already flying toward them.
-        const flying = s.orders.some((o) => o.id === c.order && o.state === OrderState.Flying);
+        // Patience pauses while the dish is already on its way to them.
+        const flying = s.orders.some((o) => o.id === c.order && (o.state === OrderState.Flying || o.state === OrderState.Carried));
         if (!flying) {
           drainPatience(c, dt);
           if (c.patienceLeft <= 0) walkout(s, c);

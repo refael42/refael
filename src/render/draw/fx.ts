@@ -11,7 +11,7 @@ import { drawText } from './text';
 // Juice effects live only on the UI thread: a fixed ring buffer of records, spawned from sim
 // events (or taps) and drawn as pure functions of their age. Nothing is allocated per frame.
 
-export const FxKind = { Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11 } as const;
+export const FxKind = { Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12 } as const;
 const STRIDE = 10;
 const CAP = 160;
 const K = 0;
@@ -119,6 +119,10 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       else if (a < -0.0001) spawnFx(s, FxKind.StarDrop, t, 1.0, wx, wy - 56);
     } else if (type === Ev.NoTable) {
       spawnFx(s, FxKind.Cross, t, 0.9, wx, wy - 70);
+    } else if (type === Ev.PlateFly) {
+      spawnFx(s, FxKind.PlateFly, t, 0.7, wx, wy - 20, isoX(a, ev[o + E.b]!), isoY(a, ev[o + E.b]!) - 26);
+    } else if (type === Ev.Washed) {
+      spawnFx(s, FxKind.Burst, t, 0.5, wx, wy - 30);
     }
   }
 }
@@ -166,6 +170,11 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
         const ang = (k / 5) * Math.PI * 2 + 0.4;
         sprFade(c, A, A.S.puff, x + Math.cos(ang) * p * 14, y + Math.sin(ang) * p * 7 - p * 8, 0.8 + p * 1.4, 1 - p);
       }
+    } else if (kind === FxKind.PlateFly) {
+      const e = p * p * (3 - 2 * p);
+      const dx = x + (d[o + X1]! - x) * e;
+      const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 50;
+      sprXf(c, A, A.S.plateSingleDirty, dx, dy, p * 360, 1.2, 1.2, P.plain);
     } else if (kind === FxKind.Dish) {
       // A served dish arcs from the pass to the table.
       const e = p * p * (3 - 2 * p);

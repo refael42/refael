@@ -20,7 +20,7 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5 } as const;
+export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6 } as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -54,6 +54,7 @@ export const PropKind = {
   Tree: 11,
   Lamp: 12,
   SaleSign: 13,
+  Ticket: 14,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -63,7 +64,7 @@ export const EntityType = { Character: 1, Prop: 2 } as const;
  * Persistent icon bubbles (not timed like emotes): what a customer wants, or what a prop needs.
  * Dish bubbles are `DishBase + dish id`.
  */
-export const Bubble = { None: 0, Seat: 1, Clean: 2, DishBase: 10 } as const;
+export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, DishBase: 10 } as const;
 
 /** What the renderer needs to draw a character, whatever system drives it. */
 export interface CharacterView {

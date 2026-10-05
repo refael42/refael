@@ -153,7 +153,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
   spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, 0, up, P.plain);
 
   if (held !== Held.None) {
-    if (held === Held.TrayFull || held === Held.TrayEmpty) {
+    if (held === Held.TrayFull || held === Held.TrayEmpty || held === Held.DirtyPlates) {
       spr(c, A, L.held[held]!, lx(viewB, 0.1, -0.3), ly(viewB, 0.1, -0.3, 23) + up, P.plain);
     } else if (held === Held.Spatula) {
       const sx = lx(viewB, 0.04, -ARM_R);

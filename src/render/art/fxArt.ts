@@ -111,6 +111,21 @@ const cross = sprite(ICON, (c) => {
     c.restore();
   }
 });
+/** "Out of clean plates!": a plate with a red cross. */
+const noPlates = sprite(ICON, (c) => {
+  glossy(c, path.oval(0, 1, 6, 3.4), '#FFFFFF', '#5A6070');
+  c.drawOval(Skia.XYWHRect(-3.6, -1, 7.2, 4), stroke('#C9D1D9', 0.8));
+  c.save();
+  c.translate(3.4, -3.4);
+  for (const r of [45, -45]) {
+    c.save();
+    c.rotate(r, 0, 0);
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-0.9, -3.4, 1.8, 6.8), 0.8, 0.8), fill('#FF3B30'));
+    c.restore();
+  }
+  c.restore();
+});
+
 /** Flying banknote: the "money everywhere" feel. */
 const bill = sprite([-11, -7, 11, 7], (c) => {
   c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-9, -5, 18, 10), 1.4, 1.4), glowStroke('#7DFF7A', 2.4, 0.5, 2));
@@ -147,6 +162,6 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
 });
 
 export const fxSprites = {
-  bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, fries, burger, cross, bill,
+  bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
   steam, sparkle, soap, puff, ring,
 };

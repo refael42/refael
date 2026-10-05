@@ -45,8 +45,10 @@ export const LAYERS = {
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
-  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu']]),
-  bubble: byEnum(Bubble.DishBase + 2, [[Bubble.Seat, 'seat'], [Bubble.Clean, 'clean'], [Bubble.DishBase, 'fries'], [Bubble.DishBase + 1, 'burger']]),
+  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty']]),
+  bubble: byEnum(Bubble.DishBase + 2, [[Bubble.Seat, 'seat'], [Bubble.Clean, 'clean'], [Bubble.NoPlates, 'noPlates'], [Bubble.DishBase, 'fries'], [Bubble.DishBase + 1, 'burger']]),
+  /** Dish icon per dish id (tickets, bubbles). */
+  dishIcon: byEnum(2, [[0, 'fries'], [1, 'burger']]),
   plate: byEnum(2, [[0, 'plateFries'], [1, 'plateBurger']]),
   /** Char code -> glyph sprite, and its advance width. */
   glyph: (() => {

@@ -35,9 +35,12 @@ function tapTable(s: GameState, index: number) {
   queueCommand(s, { type: 'clean', table: index });
 }
 
+/** The manager alone with a cook: every step is the player's tap. */
+const SOLO = ['cook'] as const;
+
 describe('customer lifecycle (manager taps)', () => {
   it('arrive -> seat -> order -> cook -> serve -> eat -> pay -> leave -> clean', () => {
-    const s = createGame(STAND_MAP, 7);
+    const s = createGame(STAND_MAP, 7, SOLO);
     runUntil(s, () => s.customers.some((c) => c.state === CustomerState.Queued), 20);
     const customer = s.customers.find((c) => c.state === CustomerState.Queued)!;
     const id = customer.id;
@@ -79,8 +82,8 @@ describe('customer lifecycle (manager taps)', () => {
   });
 
   it('extra taps speed up cleaning', () => {
-    const slow = createGame(STAND_MAP, 1);
-    const fast = createGame(STAND_MAP, 1);
+    const slow = createGame(STAND_MAP, 1, SOLO);
+    const fast = createGame(STAND_MAP, 1, SOLO);
     for (const s of [slow, fast]) {
       s.tables[0]!.state = TableState.Dirty;
       tapTable(s, 0);
@@ -96,7 +99,7 @@ describe('customer lifecycle (manager taps)', () => {
 
 describe('impatience', () => {
   it('ignored customers walk out, costing rating and no money', () => {
-    const s = createGame(STAND_MAP, 3);
+    const s = createGame(STAND_MAP, 3, SOLO);
     const startRating = s.rating;
     runFor(s, 90);
     expect(s.stats.walkouts).toBeGreaterThan(0);
@@ -116,7 +119,7 @@ describe('impatience', () => {
 
 describe('kitchen', () => {
   it('a full pass stalls the cook until a dish is served', () => {
-    const s = createGame(STAND_MAP, 5);
+    const s = createGame(STAND_MAP, 5, SOLO);
     // Seat everyone who shows up, never serve.
     for (let i = 0; i < 6000; i++) {
       for (const c of s.customers) if (c.state === CustomerState.Queued) tapCustomer(s, c.id);
@@ -127,10 +130,19 @@ describe('kitchen', () => {
   });
 });
 
+describe('map', () => {
+  it('backdrop scenery is render-only: never a sim prop', () => {
+    const s = createGame(STAND_MAP, 1);
+    for (const f of STAND_MAP.backdrop) {
+      expect(s.props.some((p) => p.kind === f.kind && p.x === f.x && p.y === f.y)).toBe(false);
+    }
+  });
+});
+
 describe('determinism', () => {
   it('same seed and same taps give the same restaurant', () => {
     const play = () => {
-      const s = createGame(STAND_MAP, 42);
+      const s = createGame(STAND_MAP, 42, SOLO);
       for (let i = 0; i < 3000; i++) {
         if (i % 40 === 0) {
           for (const c of s.customers) if (c.state === CustomerState.Queued) tapCustomer(s, c.id);
@@ -151,7 +163,7 @@ describe('determinism', () => {
 
 describe('combo', () => {
   it('quick consecutive payments build a combo', () => {
-    const s = createGame(STAND_MAP, 42);
+    const s = createGame(STAND_MAP, 42, SOLO);
     let best = 0;
     for (let i = 0; i < 8000; i++) {
       if (i % 10 === 0) {

@@ -140,10 +140,31 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     }
     sparkles(c, A, 0, -12, t, 8, seed);
   } else if (kind === PropKind.PlatesClean) {
-    spr(c, A, S.platesClean, 0, 0, plain);
-    sparkles(c, A, 0, -14, t, 8, seed);
-  } else if (kind === PropKind.PlatesDirty) spr(c, A, S.platesDirty, 0, 0, plain);
-  else if (kind === PropKind.Fridge) spr(c, A, S.fridge, 0, 0, plain);
+    // Live count: the stack visibly shrinks as dishes go out and grows as they are washed.
+    const n = Math.min(10, variant);
+    for (let i = 0; i < n; i++) spr(c, A, S.plateSingle, 0, -i * 2.2, plain);
+    if (n > 0) sparkles(c, A, 0, -n * 2.2 - 4, t, 8, seed);
+    if (d[o + PF.bubble]! !== 0) hint(c, A, 0, -16, A.L.bubble[d[o + PF.bubble]!]!, 0, t);
+  } else if (kind === PropKind.PlatesDirty) {
+    const n = Math.min(10, variant);
+    for (let i = 0; i < n; i++) spr(c, A, S.plateSingleDirty, Math.sin(i * 2.3) * 1.6, -i * 2.4, plain);
+    const progress = d[o + PF.progress]!;
+    if (progress > 0.01 && n > 0) hint(c, A, 0, -n * 2.4 - 14, S.clean, progress, t);
+  } else if (kind === PropKind.Ticket) {
+    // New tickets swing on their clip, then settle with a gentle sway.
+    const age = t - d[o + PF.since]!;
+    const swing = Math.sin(age * 11) * Math.exp(-age * 2.5) * 22 + Math.sin(t * 1.7 + seed) * 2;
+    c.save();
+    c.rotate(swing, 0, 0);
+    spr(c, A, S.ticket, 0, 0, plain);
+    sprXf(c, A, A.L.dishIcon[variant]!, -0.4, 8, 0, 0.55, 0.55, plain);
+    if (active) {
+      const progress = d[o + PF.progress]!;
+      c.drawRect({ x: -4.4, y: 14.8, width: 8, height: 1.6 }, A.paints.barBack);
+      c.drawRect({ x: -4.4, y: 14.8, width: 8 * progress, height: 1.6 }, A.paints.barGood);
+    }
+    c.restore();
+  } else if (kind === PropKind.Fridge) spr(c, A, S.fridge, 0, 0, plain);
   else if (kind === PropKind.Plant) sprXf(c, A, variant === 1 ? S.plantBush : S.plantPalm, 0, 0, Math.sin(t * 1.1 + seed) * 1.4, 1, 1, plain);
   else if (kind === PropKind.Tree) sprXf(c, A, variant === 1 ? S.treeRound : S.treePalm, 0, 0, Math.sin(t * 0.8 + seed) * 1.2, 1, 1, plain);
   else if (kind === PropKind.Lamp) {

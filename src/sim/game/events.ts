@@ -17,6 +17,10 @@ export const Ev = {
   /** a = rating delta */
   Rating: 8,
   NoTable: 9,
+  /** A dirty plate flies from a table (x,y) to the dish pile (a,b). */
+  PlateFly: 10,
+  /** A plate came out of the sink sparkling clean. */
+  Washed: 11,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

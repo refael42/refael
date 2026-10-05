@@ -1,9 +1,11 @@
 import { Skia, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
-import type { Area, FloorStyle } from '../../data/maps';
-import { isoBounds } from '../iso';
+import type { Area, FloorStyle, Furniture } from '../../data/maps';
+import { PropKind } from '../../sim/types';
+import { isoBounds, isoX, isoY } from '../iso';
 import { darken, lighten } from './color';
 import { box, onFaceX, onFaceY, onTop, rectIn } from './iso3d';
 import { fill, stroke } from './kit';
+import { propSprites } from './propArt';
 
 // The static world: floors, back walls and outdoor ground, recorded once as a vector picture
 // (crisp at every zoom). Everything standing on the floor is a sorted prop instead.
@@ -14,6 +16,8 @@ export interface BackgroundDef {
   areas: readonly Area[];
   building?: { x0: number; y0: number; x1: number; y1: number };
   wallHeight?: number;
+  /** Scenery behind the walls, painted before them (trees only for now). */
+  backdrop?: readonly Furniture[];
 }
 
 const GOLD = '#E2B13C';
@@ -158,6 +162,14 @@ export function recordBackground(def: BackgroundDef): SkPicture {
     for (const a of def.areas) floor(c, a);
   });
   for (const a of def.areas) if (a.floor === 'lot') lotFence(c, a);
+  // Back to front, so nearer trees overlap farther ones.
+  for (const f of [...(def.backdrop ?? [])].sort((p, q) => p.x + p.y - (q.x + q.y))) {
+    if (f.kind !== PropKind.Tree) continue;
+    c.save();
+    c.translate(isoX(f.x, f.y), isoY(f.x, f.y, 0));
+    (f.variant === 1 ? propSprites.treeRound : propSprites.treePalm).draw(c);
+    c.restore();
+  }
   if (def.building) walls(c, def.building, def.wallHeight ?? 64);
   return rec.finishRecordingAsPicture();
 }

@@ -1,13 +1,14 @@
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
 import { CHAIR_OFFSET, type Furniture, type MapDef } from '../../data/maps';
-import { LOOKS } from '../../data/scenes';
+import { KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO } from '../big';
 import { buildGrid } from '../grid';
 import { createRng } from '../rng';
-import type { CharacterView, PropView } from '../types';
-import { Expression, Facing, Held, Pose, PropKind } from '../types';
+import type { PropView } from '../types';
+import { PropKind } from '../types';
 import { TableState, type GameState, type Table } from './types';
+import { createStaff } from './staff';
 import { spawnPedestrian } from './walkers';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
@@ -34,9 +35,9 @@ export function propFrom(id: number, f: Furniture): PropView {
   };
 }
 
-export function createGame(map: MapDef, seed: number): GameState {
+export function createGame(map: MapDef, seed: number, roster: readonly Role[] = STARTING_STAFF): GameState {
   let nextId = 1;
-  const props: PropView[] = [map.stove, map.pass, ...map.decor].map((f) => propFrom(nextId++, f));
+  const props: PropView[] = [map.stove, map.pass, map.sink, ...map.decor].map((f) => propFrom(nextId++, f));
   for (const t of map.tables) {
     props.push(propFrom(nextId++, { kind: PropKind.Chair, x: t.x + CHAIR_OFFSET.x, y: t.y + CHAIR_OFFSET.y, w: 1, d: 1, blocks: true }));
   }
@@ -46,29 +47,12 @@ export function createGame(map: MapDef, seed: number): GameState {
     x: t.x,
     y: t.y,
     state: TableState.Free,
+    waiter: -1,
     customer: -1,
     dish: -1,
     progress: 0,
     since: 0,
   }));
-  const cook: CharacterView = {
-    id: nextId++,
-    look: { ...LOOKS.cook },
-    x: map.cookSpot.x,
-    y: map.cookSpot.y,
-    prevX: map.cookSpot.x,
-    prevY: map.cookSpot.y,
-    // Faces the stove against the back wall, like every cook in a busy kitchen.
-    facing: Facing.BackLeft,
-    pose: Pose.Idle,
-    poseTime: 0,
-    held: Held.Spatula,
-    expression: Expression.Happy,
-    emote: 0,
-    emoteTime: 0,
-    patience: -1,
-    bubble: 0,
-  };
   const s: GameState = {
     map,
     grid: buildGrid(map),
@@ -84,14 +68,18 @@ export function createGame(map: MapDef, seed: number): GameState {
     customers: [],
     tables,
     orders: [],
-    cook,
+    staff: [],
     walkers: [],
+    cleanPlates: KITCHEN.plates,
+    dirtyPlates: 0,
+    washProgress: 0,
     props,
     events: [],
     nextEventId: 1,
     commands: [],
     stats: { served: 0, walkouts: 0, earned: ZERO },
   };
+  for (const role of roster) s.staff.push(createStaff(s, role));
   for (let i = 0; i < AMBIENT.pedestrians; i++) spawnPedestrian(s, true);
   return s;
 }

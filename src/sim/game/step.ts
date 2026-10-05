@@ -6,9 +6,9 @@ import { Bubble, PropKind } from '../types';
 import { applyCommands } from './commands';
 import { updateArrivals, updateCustomers } from './customers';
 import { packEvents, pruneEvents } from './events';
-import { updateKitchen, updateTables } from './kitchen';
-import { updateWalkers } from './walkers';
+import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
+import { updateWalkers } from './walkers';
 
 function tickTimers(c: CharacterView, dt: number): void {
   c.poseTime += dt;
@@ -22,66 +22,83 @@ function tickTimers(c: CharacterView, dt: number): void {
 export function stepGame(s: GameState, dt: number): void {
   s.tick += 1;
   s.time += dt;
-  s.cook.prevX = s.cook.x;
-  s.cook.prevY = s.cook.y;
-  for (const c of [...s.customers, ...s.walkers]) {
+  for (const c of [...s.staff, ...s.customers, ...s.walkers]) {
     c.prevX = c.x;
     c.prevY = c.y;
   }
   applyCommands(s);
   updateArrivals(s);
   updateCustomers(s, dt);
-  updateKitchen(s, dt);
+  updateStaff(s, dt);
+  landFlyingDishes(s);
   updateTables(s, dt);
   updateWalkers(s, dt);
-  tickTimers(s.cook, dt);
-  for (const c of s.customers) tickTimers(c, dt);
-  for (const w of s.walkers) tickTimers(w, dt);
+  for (const c of [...s.staff, ...s.customers, ...s.walkers]) tickTimers(c, dt);
   pruneEvents(s);
 }
+
+function prop(id: number, kind: PropView['kind'], x: number, y: number, extra: Partial<PropView> = {}): PropView {
+  return { id, kind, x, y, variant: 0, level: 0, active: false, lift: 0, since: 0, progress: 0, bubble: 0, depthBias: 0, ...extra };
+}
+
+/** Ids for synthetic props (tickets, plate stacks) that must not collide with entity ids. */
+const SYNTH = 1_000_000;
 
 function dynamicProps(s: GameState): PropView[] {
   const out: PropView[] = [];
   for (const t of s.tables) {
     const dirty = t.state === TableState.Dirty || t.state === TableState.Cleaning;
-    out.push({
-      id: t.propId,
-      kind: PropKind.Table,
-      x: t.x,
-      y: t.y,
-      variant: dirty ? 2 : t.state === TableState.Occupied && t.dish >= 0 ? 1 : 0,
-      level: Math.max(0, t.dish),
-      active: false,
-      lift: 0,
-      since: t.since,
-      progress: t.state === TableState.Cleaning ? t.progress : 0,
-      bubble: t.state === TableState.Dirty ? Bubble.Clean : 0,
-      depthBias: 0,
-    });
+    out.push(
+      prop(t.propId, PropKind.Table, t.x, t.y, {
+        variant: dirty ? 2 : t.state === TableState.Occupied && t.dish >= 0 ? 1 : 0,
+        level: Math.max(0, t.dish),
+        since: t.since,
+        progress: t.state === TableState.Cleaning ? t.progress : 0,
+        bubble: t.state === TableState.Dirty && t.waiter < 0 ? Bubble.Clean : 0,
+      }),
+    );
   }
+  const rail = s.map.ticketRail;
+  let ticket = 0;
   for (const o of s.orders) {
-    if (o.state !== OrderState.Ready) continue;
-    const p = s.map.passSlots[o.slot]!;
-    out.push({
-      id: o.id,
-      kind: PropKind.PassDish,
-      x: p.x,
-      y: p.y,
-      variant: o.dish,
-      level: 0,
-      active: true,
-      lift: s.map.passTop,
-      since: o.since,
-      progress: 0,
-      bubble: 0,
-      depthBias: 1,
-    });
+    if (o.state === OrderState.Ready) {
+      const p = s.map.passSlots[o.slot]!;
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
+    } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
+      // Order tickets hang on the rail above the pass, oldest first.
+      out.push(
+        prop(SYNTH + o.id, PropKind.Ticket, rail.x, rail.y0 + ticket * rail.step, {
+          variant: o.dish,
+          active: o.state === OrderState.Cooking,
+          lift: rail.lift,
+          since: o.since,
+          progress: o.progress,
+          depthBias: 2,
+        }),
+      );
+      ticket += 1;
+    }
   }
+  const noPlates = s.staff.some((st) => st.stalled === 'plates');
+  out.push(
+    prop(SYNTH - 1, PropKind.PlatesClean, s.map.cleanStack.x, s.map.cleanStack.y, {
+      variant: s.cleanPlates,
+      lift: s.map.sinkTop,
+      depthBias: 1,
+      bubble: noPlates ? Bubble.NoPlates : 0,
+    }),
+    prop(SYNTH - 2, PropKind.PlatesDirty, s.map.dirtyStack.x, s.map.dirtyStack.y, {
+      variant: s.dirtyPlates,
+      lift: s.map.sinkTop,
+      depthBias: 1,
+      progress: s.washProgress,
+    }),
+  );
   return out;
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
-  return packSnapshot([s.cook, ...s.customers, ...s.walkers], [...s.props, ...dynamicProps(s)], seq, s.time, {
+  return packSnapshot([...s.staff, ...s.customers, ...s.walkers], [...s.props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
     hud: { coins: s.coins.toNumber(), coinsText: formatBig(s.coins), rating: s.rating, combo: s.combo, comboAt: s.lastPayTime },
   });
