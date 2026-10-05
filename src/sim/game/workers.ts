@@ -147,6 +147,7 @@ export function setRush(s: GameState, on: boolean): void {
   if (on === s.rush.on || (on && s.rush.charge < RUSH.minCharge)) return;
   s.rush.on = on;
   if (!on) return;
+  s.stats.rushes += 1;
   for (const st of s.staff) {
     if (st.leaving) continue;
     emote(st, Emote.Exclaim);

@@ -45,6 +45,8 @@ export const Ev = {
   Review: 22,
   /** Rush hour started; (x,y) = the worker it lands on. One per worker. */
   Rush: 23,
+  /** The restaurant reached a new level (all its quests claimed). a = the new level */
+  LevelUpRestaurant: 24,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

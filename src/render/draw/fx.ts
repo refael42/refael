@@ -130,6 +130,9 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
     } else if (type === Ev.Review) {
       spawnFx(s, FxKind.LevelUp, t + 0.3, 0.9, wx, wy - 94, 0, 0, 0, a === 5 ? 1 : 0);
       spawnFx(s, FxKind.Burst, t + 0.3, 0.7, wx, wy - 94);
+    } else if (type === Ev.LevelUpRestaurant) {
+      // The restaurant levels up: confetti over the dining room.
+      for (let k = 0; k < 30; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.6, wx + Math.sin(k * 1.7) * 90, wy - 70, (k / 30) * Math.PI * 2, 0, k);
     } else if (type === Ev.Rush) {
       // Everyone gets going: a burst and a ring on each worker.
       spawnFx(s, FxKind.Burst, t, 0.6, wx, wy - 36);

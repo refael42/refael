@@ -40,6 +40,8 @@ export interface BalanceReport {
   /** Sample windows where income jumped by more than `BALANCE.incomeJump` at once. */
   incomeJumps: { time: number; factor: number }[];
   firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null; hire: number | null; building: number | null };
+  /** When the restaurant reached each quest level (index 0 = level 2). */
+  levelUps: number[];
 }
 
 export interface BalanceOptions {
@@ -59,10 +61,12 @@ export function runBalance(o: BalanceOptions): BalanceReport {
   const sampleEvery = Math.round(BALANCE.sampleSeconds / STEP_SEC);
   let lastEarned = 0;
   let quits = 0;
+  const levelUps: number[] = [];
   for (let i = 1; i <= steps; i++) {
     bot.act(s);
     stepGame(s, STEP_SEC);
     quits += s.notices.filter((n) => n.kind === 'quit' && n.time === s.time).length;
+    while (levelUps.length < s.quests.level - 1) levelUps.push(s.time);
     if (i % sampleEvery === 0) {
       const earned = s.stats.earned.toNumber();
       samples.push({
@@ -121,5 +125,6 @@ export function runBalance(o: BalanceOptions): BalanceReport {
       hire: bot.hires[0]?.time ?? null,
       building: firstTime(p, (x) => x.item === 'building'),
     },
+    levelUps,
   };
 }

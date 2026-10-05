@@ -94,6 +94,8 @@ export type Command =
   | { type: 'seat'; customer: number }
   /** Rush hour: on while the button is held down. */
   | { type: 'rush'; on: boolean }
+  /** Take a finished quest's reward (index in the current level). */
+  | { type: 'claim'; quest: number }
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
@@ -230,6 +232,16 @@ export interface GameStats {
   walkouts: number;
   earned: Big;
   hires: number;
+  /** All-time counters the quests ask for. */
+  fiveStars: number;
+  rushes: number;
+  bestCombo: number;
+}
+
+/** Restaurant level (1-based) and which of its goals were claimed. */
+export interface QuestState {
+  level: number;
+  claimed: number[];
 }
 
 export interface GameState {
@@ -249,6 +261,7 @@ export interface GameState {
   buzzUntil: number;
   /** Rush hour: running now, and the meter (0..1). */
   rush: { on: boolean; charge: number };
+  quests: QuestState;
   nextArrival: number;
   customers: Customer[];
   tables: Table[];

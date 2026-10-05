@@ -39,6 +39,7 @@ function print(r: BalanceReport): void {
   out.push(`Burger unlocked: ${f.burger === null ? 'never' : clock(f.burger)}`);
   out.push(`First hire:      ${verdict(f.hire, BALANCE.targets.firstHire)} (target < ${BALANCE.targets.firstHire / 60} min)`);
   out.push(`Bigger building: ${f.building === null ? 'never' : clock(f.building)} (target ${BALANCE.targets.firstBuilding.map((m) => m / 60).join('-')} min)`);
+  out.push(`Restaurant levels: ${r.levelUps.map((t, i) => `L${i + 2} ${clock(t)}`).join(', ') || 'none'}`);
   out.push(`Hires: ${r.hires.map((h) => `${clock(h.time)} ${h.role}`).join(', ') || 'none'}  (team at the end: ${r.team}, quit: ${r.quits})`);
   out.push('');
   if (r.deadZones.length === 0) out.push(`Dead zones (> ${BALANCE.deadZoneSeconds}s with nothing to buy): none`);

@@ -7,6 +7,7 @@ import { autoTile } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
 import { hasRoom, headcount } from './game/workers';
+import { claimable, goalDone, questLevel } from './quests';
 
 // A stand-in manager for headless runs (balance script, offline progress): it taps what a
 // player would tap, after a human-ish reaction delay, and can buy upgrades greedily.
@@ -43,6 +44,8 @@ export interface Bot {
 const WASH_TAP_SECONDS = 0.35;
 /** Past this share of the day, the bot keeps the wages aside. */
 const PAYDAY_SAVING = 0.75;
+/** Below this morale someone is close to quitting: the bot pays them a bonus (as a player would). */
+const BOT_BONUS_MORALE = 0.3;
 /**
  * A player saves up for the next building once it is within reach: when it costs no more than
  * this many minutes of income, the bot stops buying small things until it can pay for it.
@@ -144,6 +147,14 @@ export function createBot(options: BotOptions): Bot {
     }
     for (const key of seen.keys()) if (!live.has(key)) seen.delete(key);
     if (!options.buy) return;
+    // Take quest rewards as soon as they are done; use rush hour when a quest asks for it.
+    for (const i of claimable(s)) queueCommand(s, { type: 'claim', quest: i });
+    const rushGoal = questLevel(s.quests.level).goals.some((g, i) => g.kind === 'rush' && !s.quests.claimed.includes(i) && !goalDone(g, s));
+    if (rushGoal && !s.rush.on && s.rush.charge >= 1) queueCommand(s, { type: 'rush', on: true });
+    else if (s.rush.on && s.rush.charge < 0.7) queueCommand(s, { type: 'rush', on: false });
+    // A bonus for anyone close to quitting (gossips wear the others down).
+    const low = s.staff.find((st) => !st.leaving && st.morale < BOT_BONUS_MORALE && s.coins.gte(st.wage.mul(2)));
+    if (low) queueCommand(s, { type: 'bonus', staff: low.id });
     // Say yes to raises; near payday, keep the day's wages in the till so it never bounces.
     for (const n of s.notices) if (n.kind === 'raise' || n.kind === 'trial') queueCommand(s, { type: 'answer', notice: n.id, yes: true });
     const wages = s.staff.reduce((sum, st) => sum.add(st.wage), ZERO);

@@ -38,6 +38,7 @@ import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewToast } from './ReviewToast';
 import { RushButton } from './RushButton';
+import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
 import { UpgradePanel } from './UpgradePanel';
@@ -80,6 +81,9 @@ function CornerButton({ label, count, onPress, color, ref }: { label: string; co
     </View>
   );
 }
+
+/** The restaurant's quest level (a banner celebrates each new one). */
+const readQuestLevel = (s: GameState) => s.quests.level;
 
 /** The building on screen, and the tier going up on the lot next door (-1 = none). */
 const readTier = (s: GameState) => s.map.tier;
@@ -179,6 +183,16 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     const from = mapForTier(tier).building.x1;
     return { x: (from + mapForTier(building).building.x1) / 2, y: 7, zoom: 0.9 };
   }, [tier, building]);
+  const [quests, setQuests] = useState(false);
+  const questLevel = usePoll(gameRef, readQuestLevel, 2);
+  const [levelBanner, setLevelBanner] = useState<number | null>(null);
+  const shownLevel = useRef<number | null>(null);
+  useEffect(() => {
+    if (questLevel === null) return;
+    if (shownLevel.current !== null && questLevel > shownLevel.current) setLevelBanner(questLevel);
+    shownLevel.current = questLevel;
+  }, [questLevel]);
+  const endLevelBanner = useCallback(() => setLevelBanner(null), []);
   const [banner, setBanner] = useState<number | null>(null);
   const shownTier = useRef(tier);
   useEffect(() => {
@@ -257,9 +271,13 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <CornerButton ref={upgradesButton} label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
       )}
-      {!panel && !staff && !build && !onboarding && tutorial >= TUTORIAL_STEPS.length && building < 0 && (
-        <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 68 }} />
+      {!panel && !staff && !build && !quests && !onboarding && tutorial >= TUTORIAL_STEPS.length && building < 0 && (
+        <>
+          <QuestButton gameRef={gameRef} onPress={() => setQuests(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 68 }} />
+          <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
+        </>
       )}
+      {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -285,6 +303,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         <Tutorial gameRef={gameRef} camera={camera} buttons={tutorialButtons} layout={hud} menuOpen={panel !== null || staff !== null || build !== null} />
       )}
       {building >= 0 && <ConstructionNote />}
+      {levelBanner !== null && <LevelBanner level={levelBanner} onDone={endLevelBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
       {loaded && !profile && (

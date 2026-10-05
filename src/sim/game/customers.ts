@@ -279,6 +279,7 @@ function pay(s: GameState, c: Customer): void {
   const stars = serviceStars(mood);
   const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars)).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
+  s.stats.bestCombo = Math.max(s.stats.bestCombo, s.combo);
   s.lastPayTime = s.time;
   const comboMult = 1 + ECONOMY.comboTipBonusPerStep * (s.combo - 1);
   let tipShare = type.tipRate * (ECONOMY.tipMoodBase + mood) * comboMult;

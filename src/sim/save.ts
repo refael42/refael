@@ -8,13 +8,14 @@ import { UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave } from './big';
 import { capOf, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWorker } from './game/create';
-import type { GameState, PlacedDecor } from './game/types';
+import type { GameState, PlacedDecor, QuestState } from './game/types';
+import { questLevel } from './quests';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -35,6 +36,11 @@ export interface SaveData {
   team: WorkerData[];
   /** Decor placed in build mode (tile centers). */
   placed: PlacedDecor[];
+  /** Restaurant level and its claimed quests; the all-time counters quests use. */
+  quests: QuestState;
+  fiveStars: number;
+  rushes: number;
+  bestCombo: number;
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -64,6 +70,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   1: (old) => ({ ...old, day: 1, hires: 0, team: (['cook', 'waiter', 'washer'] as const).map((r, i) => plainWorker(r, i)) }),
   // v2 (M4) had no build mode.
   2: (old) => ({ ...old, placed: [] }),
+  // v3 (M5) had no quests: start at restaurant level 1 (goals already met are just done).
+  3: (old) => ({ ...old, quests: { level: 1, claimed: [] }, fiveStars: 0, rushes: 0, bestCombo: 0 }),
 };
 
 export type LoadResult =
@@ -84,6 +92,10 @@ export function makeSave(s: GameState, now: number): SaveData {
     levels: { ...s.levels },
     team: s.staff.filter((st) => !st.leaving).map((st) => ({ ...workerOf(st), wage: toSave(st.wage) })),
     placed: s.placed.map((p) => ({ ...p })),
+    quests: { level: s.quests.level, claimed: [...s.quests.claimed] },
+    fiveStars: s.stats.fiveStars,
+    rushes: s.stats.rushes,
+    bestCombo: s.stats.bestCombo,
   };
 }
 
@@ -156,6 +168,9 @@ function validate(o: Record<string, unknown>): SaveData | null {
   if (!bigText(o.coins) || !bigText(o.earned) || !Array.isArray(o.team) || !Array.isArray(o.placed)) return null;
   const levels = cleanLevels(o.levels);
   if (!levels) return null;
+  const quests = cleanQuests(o.quests);
+  if (!quests) return null;
+  const count = (v: unknown) => (finite(v) && v >= 0 ? Math.floor(v) : 0);
   const team = o.team.map(cleanWorker).filter((w): w is WorkerData => w !== null);
   return {
     version: SAVE_VERSION,
@@ -170,7 +185,20 @@ function validate(o: Record<string, unknown>): SaveData | null {
     team,
     // Only known decor on real coordinates; whether a spot is still free is checked when the game is built.
     placed: o.placed.filter((p): p is PlacedDecor => isRecord(p) && typeof p.item === 'string' && p.item in DECOR_BY_ID && finite(p.x) && finite(p.y)).map((p) => ({ item: p.item, x: p.x, y: p.y })),
+    quests,
+    fiveStars: count(o.fiveStars),
+    rushes: count(o.rushes),
+    bestCombo: count(o.bestCombo),
   };
+}
+
+/** A level of 1 or more and the claimed goals of it (valid indices, no repeats). */
+function cleanQuests(raw: unknown): QuestState | null {
+  if (!isRecord(raw) || !finite(raw.level) || raw.level < 1 || !Array.isArray(raw.claimed)) return null;
+  const level = Math.floor(raw.level);
+  const goals = questLevel(level).goals.length;
+  const claimed = [...new Set(raw.claimed.filter((i): i is number => finite(i) && i >= 0 && i < goals).map(Math.floor))];
+  return { level, claimed };
 }
 
 export function parseSave(text: string | null, migrations: Readonly<Record<number, Migration>> = MIGRATIONS): LoadResult {
@@ -210,5 +238,9 @@ export function restoreGame(save: SaveData, seed: number): GameState {
     day: save.day,
     team: savedTeam(save),
     placed: save.placed,
+    quests: save.quests,
+    fiveStars: save.fiveStars,
+    rushes: save.rushes,
+    bestCombo: save.bestCombo,
   });
 }

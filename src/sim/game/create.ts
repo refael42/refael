@@ -12,7 +12,7 @@ import { PropKind } from '../types';
 import { applicantLook, generatePerson, rankOf, uniformLook } from './people';
 import { createStaff } from './staff';
 import { autoTile, canPlaceAt } from './build';
-import { TableState, type GameState, type Person, type PlacedDecor, type Staff, type Table } from './types';
+import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
 import { spawnPedestrian } from './walkers';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
@@ -189,6 +189,11 @@ export interface GameSetup {
   day?: number;
   /** Where the decor bought in build mode stands. */
   placed?: readonly PlacedDecor[];
+  /** Quest progress and the all-time counters quests ask for. */
+  quests?: QuestState;
+  fiveStars?: number;
+  rushes?: number;
+  bestCombo?: number;
 }
 
 export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
@@ -224,7 +229,16 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     events: [],
     nextEventId: 1,
     commands: [],
-    stats: { served: setup.served ?? 0, walkouts: 0, earned: setup.earned ?? ZERO, hires: setup.hires ?? 0 },
+    stats: {
+      served: setup.served ?? 0,
+      walkouts: 0,
+      earned: setup.earned ?? ZERO,
+      hires: setup.hires ?? 0,
+      fiveStars: setup.fiveStars ?? 0,
+      rushes: setup.rushes ?? 0,
+      bestCombo: setup.bestCombo ?? 0,
+    },
+    quests: setup.quests ? { level: setup.quests.level, claimed: [...setup.quests.claimed] } : { level: 1, claimed: [] },
     levels,
     mods,
     bumpAt: Object.values(PropKind).map(() => -Infinity),

@@ -35,7 +35,10 @@ export function maybeReview(s: GameState, c: Customer, stars: number, paid: Big)
     s.stats.earned = s.stats.earned.add(bonus);
     emit(s, Ev.Bonus, c.x, c.y, bonus.toNumber());
   }
-  if (stars === 5) s.buzzUntil = s.time + REVIEW.buzzSeconds;
+  if (stars === 5) {
+    s.buzzUntil = s.time + REVIEW.buzzSeconds;
+    s.stats.fiveStars += 1;
+  }
   const line = Math.floor(next(s.rng) * REVIEW.lines);
   const name = Math.floor(next(s.rng) * NAMES.length);
   s.reviews.push({ id: s.nextId++, time: s.time, stars, line, name, dish: c.dish, bonus });

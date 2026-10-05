@@ -129,7 +129,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'quality', per: 0.02 }, milestone: { stat: 'quality', factor: 1.15 } },
 
   // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
-  { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 2e6, growth: 30, max: TIERS.length - 1,
+  { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 3.6e6, growth: 30, max: TIERS.length - 1,
     effect: { stat: 'building', per: 1 }, milestone: null },
 ];
 

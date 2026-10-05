@@ -13,7 +13,8 @@
 | M5b | New HUD, opening animation, first run: welcome, names, how to play, pointing-hand tutorial (owner requests) | ✅ Done |
 | M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ✅ Done |
 | M6 | Shift manager for the waiters (owner request), Rush hour, Upgrades screen (search / can buy / best value), applicant shortlist | ✅ Done |
-| M7 | Quests and restaurant levels (owner request), then a balance pass and the pay-to-win item shop with gems (owner request) | ⏳ Next |
+| M7 | Quests and restaurant levels (owner request) | ✅ Done |
+| M7a | Balance pass, then the pay-to-win item shop with gems and star workers (owner request) | ⏳ Next |
 | M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
@@ -243,6 +244,18 @@
   a line, a name and the bonus — 4★ = one more bill, 5★ = two more bills and "Trending" (+20 %
   arrivals for 15 s). The balance bot (near-perfect service) builds the bistro at 31:00
   (was 33:56); a slow player (4 s reactions) gets 3–5★ and earns less, as intended.
+- **Quests and restaurant levels (M7, `src/data/quests.ts`, rules in `src/sim/quests.ts`):** the
+  restaurant has a level; each level is three goals (upgrade X to Lv N, serve N, earn N, hire a
+  job, team of N, rating, tables, five-star reviews, decor, turbo, combo, open the bistro...).
+  A done goal is claimed for coins; claiming the last one levels the restaurant up with a bonus
+  (x3 that goal's reward), a banner and confetti. Levels 1–10 are hand-made to teach the game in
+  order; after them levels are generated forever. Progress is read from the state (all-time
+  counters), so goals already met when a level opens are just done. Save v4 (+ quests and the
+  counters for five-star reviews, turbo uses and the best combo); v3 saves start at level 1.
+  Rewards are small on purpose (the bot reaches level 10 around 36 min); with them the bistro
+  came ~20 % sooner, so it now costs 3.6M (was 2M): the bot builds it at 29–32 min over three
+  seeds. The bot now also claims quests, uses turbo for a turbo goal, and gives a bonus to anyone
+  close to quitting (gossips wear the rest down; without it 15 people quit in 90 minutes).
 - **Shift manager (M6, `SHIFT` in `src/data/staff.ts`):** a job hired from applicants once the
   team has two waiters and five people (one at a time). Red suit, clipboard, posted at the end
   of the pass: calls out ready dishes (the guest closest to losing patience first), waiters work
@@ -323,7 +336,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 218 unit tests.
+- `npm run check` — typecheck + 225 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
