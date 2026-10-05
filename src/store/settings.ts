@@ -23,6 +23,8 @@ interface SettingsState {
   profile: Profile | null;
   /** Index into TUTORIAL_STEPS; the length of it = finished (or skipped). */
   tutorial: number;
+  /** Taps on the "test money" button (testing only); the game grants coins on each new one. */
+  moneyTaps: number;
   setLang: (lang: Lang) => void;
   togglePerf: () => void;
   toggleStress: () => void;
@@ -30,6 +32,7 @@ interface SettingsState {
   restartGame: () => void;
   setProfile: (profile: Profile) => void;
   setTutorial: (step: number) => void;
+  addTestMoney: () => void;
 }
 
 /** Number of extra walkers the stress toggle adds (target: 60 fps with ~60 animated entities). */
@@ -46,6 +49,7 @@ export const useSettings = create<SettingsState>((set) => ({
   loaded: false,
   profile: null,
   tutorial: 0,
+  moneyTaps: 0,
   setLang: (lang) => set({ lang }),
   togglePerf: () => set((s) => ({ showPerf: !s.showPerf })),
   toggleStress: () => set((s) => ({ stress: s.stress > 0 ? 0 : STRESS_WALKERS })),
@@ -54,6 +58,7 @@ export const useSettings = create<SettingsState>((set) => ({
   restartGame: () => set((s) => ({ gameEpoch: s.gameEpoch + 1, stress: 0, view: 'game', profile: null, tutorial: 0 })),
   setProfile: (profile) => set({ profile }),
   setTutorial: (tutorial) => set({ tutorial }),
+  addTestMoney: () => set((s) => ({ moneyTaps: s.moneyTaps + 1 })),
 }));
 
 /** What is kept between launches. */

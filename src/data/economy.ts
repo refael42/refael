@@ -51,5 +51,8 @@ export const OFFLINE = {
   adMultiplier: 2,
 } as const;
 
+/** The settings' test-money button (for trying things out): at least this, else x1000 the coins. */
+export const TEST_MONEY = { min: 1e6, times: 1000 } as const;
+
 /** Autosave cadence; the game also saves whenever it goes to the background. */
 export const SAVE = { intervalSeconds: 5 } as const;

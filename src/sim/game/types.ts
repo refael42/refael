@@ -206,6 +206,21 @@ export interface Walker extends CharacterView {
   pause: number;
 }
 
+/** A review a customer wrote about the restaurant (newest last). */
+export interface Review {
+  id: number;
+  time: number;
+  /** 1..5: the service they got. */
+  stars: number;
+  /** Which written line of that grade (strings review.<stars>.<line>). */
+  line: number;
+  /** The reviewer's first name: an index into NAMES. */
+  name: number;
+  dish: number;
+  /** Bonus coins it brought in (zero below four stars). */
+  bonus: Big;
+}
+
 export interface GameStats {
   served: number;
   walkouts: number;
@@ -224,6 +239,10 @@ export interface GameState {
   rating: number;
   combo: number;
   lastPayTime: number;
+  reviews: Review[];
+  lastReviewTime: number;
+  /** A five-star review has people talking until then: more arrivals. */
+  buzzUntil: number;
   nextArrival: number;
   customers: Customer[];
   tables: Table[];

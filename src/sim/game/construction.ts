@@ -71,6 +71,9 @@ function finishConstruction(s: GameState): void {
     nextEventId: s.nextEventId,
     nextApplicant: s.nextApplicant,
     bumpAt: s.bumpAt,
+    reviews: s.reviews,
+    lastReviewTime: s.lastReviewTime,
+    buzzUntil: s.buzzUntil,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.
     nextId: Math.max(s.nextId, fresh.nextId),
   };

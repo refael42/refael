@@ -18,7 +18,7 @@ const EXPANDS: readonly number[] = UPGRADES.filter((u) => u.expands).map((u) => 
 
 export const FxKind = {
   Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
-  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16,
+  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16, Grade: 17,
 } as const;
 const STRIDE = 10;
 const CAP = 160;
@@ -124,6 +124,12 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       const n = Math.min(4, 1 + Math.floor(Math.log2(a + 1)));
       for (let i = 0; i < n; i++) spawnFx(s, FxKind.Bill, t + 0.25 + i * 0.08, 0.95, wx, wy - 34, hud.coinX, hud.coinY, a / n);
       s.pending += a;
+    } else if (type === Ev.Service) {
+      // The grade of the service, as a row of stars over the customer's head.
+      spawnFx(s, FxKind.Grade, t + 0.1, 1.5, wx, wy - 94, 0, 0, a);
+    } else if (type === Ev.Review) {
+      spawnFx(s, FxKind.LevelUp, t + 0.3, 0.9, wx, wy - 94, 0, 0, 0, a === 5 ? 1 : 0);
+      spawnFx(s, FxKind.Burst, t + 0.3, 0.7, wx, wy - 94);
     } else if (type === Ev.Combo) {
       spawnFx(s, FxKind.Text, t + 0.4, 1.3, wx - 14, wy - 76, 0, 0, a, TextStyle.Combo);
     } else if (type === Ev.DishFly) {
@@ -271,6 +277,19 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
     } else if (kind === FxKind.Cross) {
       const pop = age < 0.25 ? easeOutBack(clamp01(age / 0.25)) : 1;
       sprFade(c, A, A.S.cross, x + Math.sin(age * 40) * (1 - p) * 2, y, pop * 1.3, clamp01((1 - p) / 0.3));
+    } else if (kind === FxKind.Grade) {
+      // Five stars pop in one by one: gold up to the grade, grey after it.
+      const grade = d[o + VALUE]!;
+      const fade = clamp01((1 - p) / 0.25);
+      for (let k = 0; k < 5; k++) {
+        const local = age - k * 0.06;
+        if (local <= 0) continue;
+        const pop = local < 0.25 ? easeOutBack(clamp01(local / 0.25)) : 1;
+        const sx = x + (k - 2) * 11;
+        const sy = y - p * 10 - Math.sin(((k + 0.5) / 5) * Math.PI) * 4;
+        P.fade.setAlphaf(fade);
+        sprXf(c, A, k < grade ? A.S.star : A.S.starGray, sx, sy, 0, 0.62 * pop, 0.62 * pop, P.fade);
+      }
     } else if (kind === FxKind.StarDrop) {
       sprFade(c, A, A.S.starGray, x, y + p * 20, 1.2 - p * 0.4, 1 - p);
     } else if (kind === FxKind.LevelUp) {

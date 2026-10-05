@@ -39,6 +39,10 @@ export const Ev = {
   Dust: 19,
   /** The bigger restaurant opened; (x,y) = its middle. a = tier */
   Built: 20,
+  /** A customer graded the service as they paid. a = stars (1..5) */
+  Service: 21,
+  /** A customer wrote a review. a = stars */
+  Review: 22,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

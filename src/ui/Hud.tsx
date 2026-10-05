@@ -124,10 +124,14 @@ function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
 }
 
 const readRating = (s: GameState) => s.rating;
+const readBuzz = (s: GameState) => s.time < s.buzzUntil;
 
 /** Top right: a big star, the rating, and how close it is to five stars. */
 function RatingPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedValue<HudFeed>; layout: HudLayout }) {
+  const t = useT();
   const rating = usePoll(gameRef, readRating, 2) ?? 0;
+  // A five-star review has people talking: more customers for a while.
+  const buzz = usePoll(gameRef, readBuzz, 2) ?? false;
   const bounce = useBounce(feed, 'starLands');
   return (
     <View style={[styles.slot, { left: layout.right - HUD.ratingWidth, top: layout.top }]}>
@@ -141,6 +145,11 @@ function RatingPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedV
         </View>
       </Pill>
       <Animated.Image source={{ uri: iconUri('hudStar', HUD.icon) }} style={[styles.icon, bounce]} />
+      {buzz && (
+        <View style={styles.buzz}>
+          <Text style={styles.buzzText}>{`🔥 ${t('review.trending')}`}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -220,6 +229,8 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'baseline', gap: 2 },
   rating: { color: '#FFE27A', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'], ...textShadow('rgba(10,4,14,0.9)', 2, 0) },
   outOf: { color: '#C9B3D6', fontSize: 12, fontWeight: '800' },
+  buzz: { position: 'absolute', top: HUD.height + 4, right: 0, paddingHorizontal: 9, paddingVertical: 2, borderRadius: 11, backgroundColor: '#E5483B', borderWidth: 2, borderColor: '#FFE08A' },
+  buzzText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   combo: {
     flexDirection: 'row',
     alignItems: 'baseline',

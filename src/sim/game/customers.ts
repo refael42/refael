@@ -1,6 +1,7 @@
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
+import { REVIEW } from '../../data/reviews';
 import { SEAT_OFFSETS, type Point } from '../../data/maps';
 import { big, type Big } from '../big';
 import { findPath } from '../grid';
@@ -9,6 +10,7 @@ import { followPath, setPose } from '../movement';
 import { next, pick, range } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
+import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
@@ -52,7 +54,8 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 /** Poisson arrivals: exponential gaps whose rate grows with the rating. */
 export function updateArrivals(s: GameState): void {
   if (s.construction || s.time < s.nextArrival) return;
-  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals) / 60;
+  const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
+  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
@@ -271,8 +274,10 @@ export function startEating(s: GameState, c: Customer, dish: number, quality: nu
 
 function pay(s: GameState, c: Customer): void {
   const type = CUSTOMER_TYPES[c.type];
-  const price = dishPrice(s, c.dish).mul(c.dishQuality).floor();
   const mood = c.moodCount > 0 ? c.moodSum / c.moodCount : 1;
+  // Good service is worth more than the tip: the whole bill follows the grade.
+  const stars = serviceStars(mood);
+  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars)).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.lastPayTime = s.time;
   const comboMult = 1 + ECONOMY.comboTipBonusPerStep * (s.combo - 1);
@@ -285,6 +290,8 @@ function pay(s: GameState, c: Customer): void {
   emit(s, Ev.Coins, c.x, c.y, price.toNumber());
   if (tip.gt(0)) emit(s, Ev.Tip, c.x, c.y, tip.toNumber());
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);
+  emit(s, Ev.Service, c.x, c.y, stars);
+  maybeReview(s, c, stars, price.add(tip));
 
   const r = ECONOMY.rating;
   if (mood >= ECONOMY.happyMood) {

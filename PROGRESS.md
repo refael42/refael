@@ -11,7 +11,7 @@
 | M4 | Applicants, hiring, wages, morale, staff cards | ✅ Done |
 | M5 | Building tiers, construction sequence, build mode, decor (+ chairs, couples, patience types, Lv 100 expansions) | ✅ Done |
 | M5b | New HUD, opening animation, first run: welcome, names, how to play, pointing-hand tutorial (owner requests) | ✅ Done |
-| M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ⏳ Next |
+| M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ✅ Done |
 | M6 | Automation (+ shift manager for the waiters), Rush hour, Upgrades screen (search/filter/ROI) | — |
 | M7 | Full polish: audio, haptics, weather, quests, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
@@ -43,8 +43,10 @@
   The host/hostess already exists (hired once the team has 3 people).
 - Done in M5b: the **welcome / first-run screens and how-to-play tutorial** ("very important";
   a local profile only, no real accounts).
-- Owner ideas still to do: **customer reviews** that give a bonus when good, and **more reward
-  the better the service** (M5c, next); a **shift manager** (אחמ"ש) who runs the waiters (M6).
+- Done in M5c: **customer reviews** (a good one is a bonus) and **more reward the better the
+  service**. Also a "test money" button in the settings (testing section) so the owner can try
+  everything.
+- Owner ideas still to do: a **shift manager** (אחמ"ש) who runs the waiters (M6).
 
 ## Locked decisions
 
@@ -228,6 +230,14 @@
   names (no lessons). Reset progress starts the whole first run again. The names show on the
   welcome-back screen, the "restaurant grew" banner and in the settings (editable), where
   "How to play" also lives.
+- **Service grade and reviews (M5c, `src/sim/game/reviews.ts`, numbers in `src/data/reviews.ts`):**
+  every paying customer grades the visit 1–5 stars by the patience they had left (stars pop
+  over their head). The grade scales the whole bill (×0.55 … ×1; good play earns five stars,
+  so the old pace is kept there) on top of the mood tip. One in four groups writes a review
+  (at most one per 45 s, not before the 8th guest): a card under the rating with the stars,
+  a line, a name and the bonus — 4★ = one more bill, 5★ = two more bills and "Trending" (+20 %
+  arrivals for 15 s). The balance bot (near-perfect service) builds the bistro at 31:00
+  (was 33:56); a slow player (4 s reactions) gets 3–5★ and earns less, as intended.
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -295,7 +305,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 198 unit tests.
+- `npm run check` — typecheck + 205 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.

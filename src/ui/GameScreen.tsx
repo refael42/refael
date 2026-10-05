@@ -15,7 +15,8 @@ import { floorAt, isoX, isoY } from '../render/iso';
 import type { BuildOverlay } from '../render/draw/drawScene';
 import { SceneCanvas, type HudFeed } from '../render/SceneCanvas';
 import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulation';
-import { toSave } from '../sim/big';
+import { TEST_MONEY } from '../data/economy';
+import { big, toSave } from '../sim/big';
 import { canBuy, levelOf, upgradeDef } from '../sim/economy/upgrades';
 import { buildableTiles } from '../sim/game/build';
 import type { OfflineEarnings } from '../sim/offline';
@@ -35,6 +36,7 @@ import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
+import { ReviewToast } from './ReviewToast';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
 import { UpgradePanel } from './UpgradePanel';
@@ -89,7 +91,7 @@ const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, map: s
 function GameRunner({ boot }: { boot: GameBoot }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial } = useSettings();
+  const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial, moneyTaps } = useSettings();
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
   // First run: welcome, names and how to play come before anything happens.
   const onboarding = !loaded || profile === null;
@@ -112,6 +114,15 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
   const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
+  // Testing: each tap on "test money" in the settings rains coins (x1000, at least a million).
+  const moneySeen = useRef(moneyTaps);
+  useEffect(() => {
+    const game = gameRef.current;
+    if (moneyTaps === moneySeen.current || !game) return;
+    moneySeen.current = moneyTaps;
+    const gift = big(TEST_MONEY.min).max(game.coins.mul(TEST_MONEY.times));
+    command({ type: 'grant', coins: toSave(gift) });
+  }, [moneyTaps, gameRef, command]);
   // The tutorial's glove needs the camera and where the corner buttons are.
   const camera = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
   const onCamera = useCallback((cam: Camera) => {
@@ -235,6 +246,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     <>
       <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} onCamera={onCamera} />
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
+      <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && !build && (
