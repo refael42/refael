@@ -1,0 +1,25 @@
+export const en = {
+  'app.title': 'Style test',
+  'app.loading': 'Drawing the restaurant…',
+  'tab.scene': 'Scene',
+  'tab.lineup': 'Cast',
+  'btn.lang': 'עב',
+  'btn.perf': 'FPS',
+  'btn.stress': '+60',
+  'perf.ui': 'UI',
+  'perf.js': 'JS',
+  'perf.draw': 'draw',
+  'perf.entities': 'entities',
+  'art.tourist': 'Tourist',
+  'art.rushed': 'In a hurry',
+  'art.student': 'Student',
+  'art.cook': 'Cook',
+  'art.waiter': 'Waiter',
+  'art.washer': 'Dishwasher',
+  'art.stove': 'Stove',
+  'art.table': 'Table',
+  'art.sink': 'Sink',
+  'art.plates': 'Plates',
+} as const;
+
+export type TKey = keyof typeof en;
