@@ -3,6 +3,7 @@ import { ECONOMY } from '../../data/economy';
 import { Ev } from '../../sim/game/events';
 import { formatNumber } from '../../sim/format';
 import { E, EVENT_STRIDE, type Snapshot } from '../../sim/snapshot';
+import { PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, sprFade, sprXf } from './primitives';
@@ -11,7 +12,10 @@ import { drawText } from './text';
 // Juice effects live only on the UI thread: a fixed ring buffer of records, spawned from sim
 // events (or taps) and drawn as pure functions of their age. Nothing is allocated per frame.
 
-export const FxKind = { Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12 } as const;
+export const FxKind = {
+  Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
+  LevelUp: 13, Confetti: 14,
+} as const;
 const STRIDE = 10;
 const CAP = 160;
 const K = 0;
@@ -25,7 +29,16 @@ const VALUE = 7;
 const STYLE = 8;
 
 /** Text styles: color + size. */
-export const TextStyle = { Coins: 0, Tip: 1, Combo: 2 } as const;
+export const TextStyle = { Coins: 0, Tip: 1, Combo: 2, Level: 3, Milestone: 4 } as const;
+
+/** Coin style: flies from a world point (default) or from a fixed screen point (bonuses). */
+const FROM_SCREEN = 1;
+
+/** Height (px) above the floor where level-up effects pop, per station kind. */
+const FX_HEIGHT: Record<number, number> = {
+  [PropKind.Stove]: 60, [PropKind.Sink]: 44, [PropKind.Fridge]: 80, [PropKind.Pass]: 40, [PropKind.PlatesClean]: 44,
+  [PropKind.Table]: 34, [PropKind.Chair]: 34, [PropKind.TableSlot]: 30, [PropKind.Plant]: 60, [PropKind.Neon]: 100, [PropKind.StreetSign]: 70,
+};
 
 export interface Camera {
   x: number;
@@ -39,6 +52,9 @@ export interface HudAnchors {
   coinY: number;
   ratingX: number;
   ratingY: number;
+  /** Where bonus coin showers start (screen middle). */
+  centerX: number;
+  centerY: number;
 }
 
 export interface FxState {
@@ -51,11 +67,13 @@ export interface FxState {
   ratingBounce: number;
   rolling: number;
   lastFrame: number;
+  /** Sim time of the last big moment: the camera shakes briefly. */
+  shakeAt: number;
 }
 
 export function createFx(): FxState {
   'worklet';
-  return { data: new Array<number>(CAP * STRIDE).fill(0), next: 0, lastEvent: 0, pending: 0, coinBounce: -10, ratingBounce: -10, rolling: 0, lastFrame: 0 };
+  return { data: new Array<number>(CAP * STRIDE).fill(0), next: 0, lastEvent: 0, pending: 0, coinBounce: -10, ratingBounce: -10, rolling: 0, lastFrame: 0, shakeAt: -10 };
 }
 
 export function spawnFx(
@@ -106,7 +124,8 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
     } else if (type === Ev.DishFly) {
       const tx = isoX(a, ev[o + E.b]!);
       const ty = isoY(a, ev[o + E.b]!);
-      spawnFx(s, FxKind.Dish, t, ECONOMY.serveFlightSeconds, wx, wy - 30, tx, ty - 18, ev[o + E.c]!);
+      const dish = ev[o + E.c]!;
+      spawnFx(s, FxKind.Dish, t, ECONOMY.serveFlightSeconds, wx, wy - 30, tx, ty - 18, dish, snap.dishTiers[dish] ?? 0);
     } else if (type === Ev.Burst) {
       spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 22);
     } else if (type === Ev.Poof) {
@@ -123,13 +142,34 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       spawnFx(s, FxKind.PlateFly, t, 0.7, wx, wy - 20, isoX(a, ev[o + E.b]!), isoY(a, ev[o + E.b]!) - 26);
     } else if (type === Ev.Washed) {
       spawnFx(s, FxKind.Burst, t, 0.5, wx, wy - 30);
+    } else if (type === Ev.Upgrade) {
+      const milestone = ev[o + E.b]! === 1;
+      const y = wy - (FX_HEIGHT[ev[o + E.c]!] ?? 40);
+      spawnFx(s, FxKind.LevelUp, t, milestone ? 1.1 : 0.7, wx, y, 0, 0, 0, milestone ? 1 : 0);
+      spawnFx(s, FxKind.Burst, t, 0.6, wx, y);
+      spawnFx(s, FxKind.Text, t, milestone ? 1.8 : 1.1, wx, y - 14, 0, 0, a, milestone ? TextStyle.Milestone : TextStyle.Level);
+      if (milestone) {
+        s.shakeAt = t;
+        for (let k = 0; k < 18; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.4, wx, y, (k / 18) * Math.PI * 2, 0, k);
+      }
+    } else if (type === Ev.Bonus) {
+      const n = 24;
+      for (let k = 0; k < n; k++) {
+        const jx = hud.centerX + Math.sin(k * 2.4) * 60;
+        const jy = hud.centerY + Math.cos(k * 1.7) * 30;
+        spawnFx(s, FxKind.Coin, t + k * 0.04, 0.9, jx, jy, hud.coinX, hud.coinY, a / n, FROM_SCREEN);
+      }
+      s.pending += a;
     }
   }
 }
 
 function textFor(value: number, style: number): string {
   'worklet';
-  return style === TextStyle.Combo ? 'x' + Math.round(value) + '!' : '+' + formatNumber(value);
+  if (style === TextStyle.Combo) return 'x' + Math.round(value) + '!';
+  if (style === TextStyle.Level) return 'LV ' + Math.round(value);
+  if (style === TextStyle.Milestone) return 'LV ' + Math.round(value) + '!';
+  return '+' + formatNumber(value);
 }
 
 /** Effects that live in the world (drawn inside the camera transform). */
@@ -154,8 +194,8 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
     if (kind === FxKind.Text) {
       const style = d[o + STYLE]!;
       const pop = age < 0.22 ? easeOutBack(clamp01(age / 0.22)) : 1;
-      const scale = (style === TextStyle.Coins ? 1.05 : 1.35) * pop;
-      const paint = style === TextStyle.Tip ? P.gold : style === TextStyle.Combo ? P.orange : P.plain;
+      const scale = (style === TextStyle.Coins ? 1.05 : style === TextStyle.Milestone ? 1.9 : 1.35) * pop;
+      const paint = style === TextStyle.Tip || style === TextStyle.Level ? P.gold : style === TextStyle.Combo || style === TextStyle.Milestone ? P.orange : P.plain;
       paint.setAlphaf(clamp01((1 - p) / 0.3));
       drawText(c, A, textFor(d[o + VALUE]!, style), x, y - p * 26, scale, paint);
       paint.setAlphaf(1);
@@ -180,7 +220,7 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
       const e = p * p * (3 - 2 * p);
       const dx = x + (d[o + X1]! - x) * e;
       const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 40;
-      sprXf(c, A, A.L.plate[d[o + VALUE]!]!, dx, dy, Math.sin(p * Math.PI) * 18, 1 + Math.sin(p * Math.PI) * 0.35, 1 + Math.sin(p * Math.PI) * 0.35, P.plain);
+      sprXf(c, A, A.L.plate[d[o + VALUE]!]![d[o + STYLE]!]!, dx, dy, Math.sin(p * Math.PI) * 18, 1 + Math.sin(p * Math.PI) * 0.35, 1 + Math.sin(p * Math.PI) * 0.35, P.plain);
     } else if (kind === FxKind.Ding) {
       const r = 0.6 + p * 1.6;
       sprFade(c, A, A.S.ring, x, y, r, 1 - p);
@@ -189,6 +229,23 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
       sprFade(c, A, A.S.cross, x + Math.sin(age * 40) * (1 - p) * 2, y, pop * 1.3, clamp01((1 - p) / 0.3));
     } else if (kind === FxKind.StarDrop) {
       sprFade(c, A, A.S.starGray, x, y + p * 20, 1.2 - p * 0.4, 1 - p);
+    } else if (kind === FxKind.LevelUp) {
+      // An expanding golden ring (two for milestones) around the upgraded station.
+      const big = d[o + STYLE]! === 1;
+      sprFade(c, A, A.S.ring, x, y, 0.8 + easeOutBack(p) * (big ? 2.6 : 1.6), 1 - p);
+      if (big) sprFade(c, A, A.S.ring, x, y, 0.5 + p * 3.6, (1 - p) * 0.7);
+    } else if (kind === FxKind.Confetti) {
+      // Tossed up and out, then flutters down; each piece has its own color and spin.
+      const ang = d[o + X1]!;
+      const k = d[o + VALUE]!;
+      const r = 20 + easeOutBack(clamp01(p * 2)) * 30;
+      const cx = x + Math.cos(ang) * r + Math.sin(age * 6 + k) * 4;
+      const cy = y - 20 + Math.sin(ang) * r * 0.5 - Math.sin(clamp01(p * 2) * Math.PI) * 24 + p * p * 60;
+      const tints = [P.gold, P.red, P.green, P.orange, P.white];
+      const paint = tints[k % tints.length]!;
+      paint.setAlphaf(clamp01((1 - p) / 0.25));
+      sprXf(c, A, A.S.confetti, cx, cy, age * 420 + k * 40, 1, Math.abs(Math.cos(age * 9 + k)), paint);
+      paint.setAlphaf(1);
     }
   }
 }
@@ -220,9 +277,10 @@ export function drawScreenFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number
       c.drawCircle(d[o + X0]!, d[o + Y0]!, 8 + p * 22, A.paints.ripple);
       continue;
     }
-    // Start in the world (follows the camera), end at a fixed HUD point.
-    const sx = cam.x + d[o + X0]! * cam.zoom;
-    const sy = cam.y + d[o + Y0]! * cam.zoom;
+    // Start in the world (follows the camera) or on screen, end at a fixed HUD point.
+    const onScreen = d[o + STYLE]! === FROM_SCREEN;
+    const sx = onScreen ? d[o + X0]! : cam.x + d[o + X0]! * cam.zoom;
+    const sy = onScreen ? d[o + Y0]! : cam.y + d[o + Y0]! * cam.zoom;
     const ex = d[o + X1]!;
     const ey = d[o + Y1]!;
     const e = p * p;

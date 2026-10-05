@@ -45,10 +45,16 @@ export interface MapDef {
   doors: { inside: Point; outside: Point }[];
   /** Pedestrians and customers appear/vanish at these sidewalk ends. */
   spawns: Point[];
+  /** The very first customer is already strolling by the door: no empty first half-minute. */
+  firstSpawn: Point;
   /** Line spots, front first (tile centers). */
   queue: Point[];
-  /** Table tile centers; each has a chair on its -x side where the customer sits. */
+  /**
+   * Every table spot, in the order they open: the first `startTables` exist from the start,
+   * the rest are bought ("New table"). Each has a chair on its -x side where the customer sits.
+   */
   tables: Point[];
+  startTables: number;
   cookSpot: Point;
   stove: Furniture;
   pass: Furniture;
@@ -95,6 +101,7 @@ export const STAND_MAP: MapDef = {
   building: { x0: 2, y0: 2, x1: 14, y1: 12 },
   wallHeight: 64,
   doors: [{ inside: { x: 12.5, y: 11.5 }, outside: { x: 12.5, y: 12.5 } }],
+  firstSpawn: { x: 9.5, y: 12.6 },
   spawns: [
     { x: 0.5, y: 12.5 },
     { x: 21.5, y: 13.5 },
@@ -105,11 +112,17 @@ export const STAND_MAP: MapDef = {
     { x: 13.5, y: 9.5 },
     { x: 13.5, y: 8.5 },
   ],
+  // Two columns of tables with a walking lane between rows; the door corner stays free for the line.
   tables: [
     { x: 8.5, y: 4.5 },
     { x: 11.5, y: 4.5 },
     { x: 8.5, y: 8.5 },
+    { x: 11.5, y: 8.5 },
+    { x: 8.5, y: 6.5 },
+    { x: 11.5, y: 6.5 },
+    { x: 8.5, y: 10.5 },
   ],
+  startTables: 3,
   cookSpot: { x: 3.55, y: 4 },
   stove: { kind: K.Stove, x: 2.5, y: 4, w: 1, d: 2, blocks: true },
   // The pass sits one step from the stove: the cook turns around and sets the plate down.
@@ -143,6 +156,7 @@ export const STAND_MAP: MapDef = {
     { kind: K.Lamp, x: 7, y: 13.8, w: 0, d: 0, blocks: false },
     { kind: K.Lamp, x: 17, y: 13.8, w: 0, d: 0, blocks: false },
     { kind: K.SaleSign, x: 17.5, y: 10.6, w: 0, d: 0, blocks: false },
+    { kind: K.StreetSign, x: 10.9, y: 12.25, w: 0, d: 0, blocks: false },
   ],
   backdrop: [
     { kind: K.Tree, x: 1, y: 1, w: 1, d: 1, blocks: false },

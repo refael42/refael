@@ -13,10 +13,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test",
+    "balance": "node scripts/run-ts.mjs scripts/balance.ts",
     "postinstall": "setup-skia-web"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
+    "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/react-native-skia": "2.6.2",
     "break_infinity.js": "^2.2.0",
     "expo": "~57.0.26",

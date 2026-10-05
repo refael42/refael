@@ -21,6 +21,10 @@ export const Ev = {
   PlateFly: 10,
   /** A plate came out of the sink sparkling clean. */
   Washed: 11,
+  /** An upgrade level was bought here. a = new level, b = 1 if it hit a milestone, c = anchor kind. */
+  Upgrade: 12,
+  /** Coins granted from outside (offline earnings...): a shower of coins into the HUD. a = amount */
+  Bonus: 13,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

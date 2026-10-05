@@ -1,7 +1,12 @@
 import { ECONOMY } from '../../data/economy';
+import { UPGRADES } from '../../data/upgrades';
+import { fromSave } from '../big';
+import { emit, Ev } from './events';
 import { seatCustomer } from './customers';
+import { PropKind } from '../types';
+import { anchorPoints, buyUpgrade } from './purchase';
 import { handWash, serveOrder } from './staff';
-import { CustomerState, OrderState, TableState, type Command, type GameState, type TapTarget } from './types';
+import { CustomerState, OrderState, TableState, type Command, type GameState, type StationTarget, type TapTarget } from './types';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
 export function queueCommand(s: GameState, command: Command): void {
@@ -29,7 +34,33 @@ export function tapTargets(s: GameState): TapTarget[] {
       out.push({ x: c.x, y: c.y, height: HEIGHT.customer, command: { type: 'seat', customer: c.id } });
     }
   }
-  if (s.dirtyPlates > 0) out.push({ x: s.map.sink.x, y: s.map.sink.y, height: HEIGHT.sink, command: { type: 'wash' } });
+  if (s.dirtyPlates > 0) out.push({ x: s.map.dirtyStack.x, y: s.map.dirtyStack.y, height: HEIGHT.sink, command: { type: 'wash' } });
+  return out;
+}
+
+/** Visual center height (px) of each station, for tapping it to open its upgrades. */
+const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
+  [PropKind.Stove]: 30,
+  [PropKind.Sink]: 12,
+  [PropKind.Fridge]: 34,
+  [PropKind.Pass]: 12,
+  [PropKind.PlatesClean]: 26,
+  [PropKind.Table]: 14,
+  [PropKind.Chair]: 14,
+  [PropKind.TableSlot]: 8,
+  [PropKind.Plant]: 30,
+  [PropKind.Neon]: 64,
+  [PropKind.StreetSign]: 34,
+};
+
+const ANCHORS: readonly PropKind[] = [...new Set(UPGRADES.map((u) => u.anchor))];
+
+/** Every station that has upgrades, wherever it stands right now. */
+export function stationTargets(s: GameState): StationTarget[] {
+  const out: StationTarget[] = [];
+  for (const kind of ANCHORS) {
+    for (const p of anchorPoints(s, kind)) out.push({ x: p.x, y: p.y, height: STATION_HEIGHT[kind] ?? 16, kind });
+  }
   return out;
 }
 
@@ -42,6 +73,13 @@ function apply(s: GameState, cmd: Command): void {
     if (o && o.state === OrderState.Ready) serveOrder(s, o);
   } else if (cmd.type === 'wash') {
     handWash(s);
+  } else if (cmd.type === 'buy') {
+    buyUpgrade(s, cmd.item);
+  } else if (cmd.type === 'grant') {
+    const coins = fromSave(cmd.coins);
+    s.coins = s.coins.add(coins);
+    s.stats.earned = s.stats.earned.add(coins);
+    emit(s, Ev.Bonus, 0, 0, coins.toNumber());
   } else {
     const t = s.tables[cmd.table];
     if (!t) return;

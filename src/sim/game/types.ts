@@ -2,9 +2,10 @@ import type { CustomerTypeId } from '../../data/customers';
 import type { Role } from '../../data/staff';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
+import type { Levels, Mods } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
-import type { CharacterView, PropView } from '../types';
+import type { CharacterView, PropKind, PropView } from '../types';
 
 export const CustomerState = {
   Arriving: 0,
@@ -78,7 +79,10 @@ export type Command =
   | { type: 'seat'; customer: number }
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
-  | { type: 'wash' };
+  | { type: 'wash' }
+  | { type: 'buy'; item: string }
+  /** Coins from outside the restaurant (offline earnings, rewards), as a saved Big string. */
+  | { type: 'grant'; coins: string };
 
 /** Something tappable: its floor position, how high its visual center sits, and what tapping does. */
 export interface TapTarget {
@@ -86,6 +90,14 @@ export interface TapTarget {
   y: number;
   height: number;
   command: Command;
+}
+
+/** A station with upgrades (tapping it opens them). */
+export interface StationTarget {
+  x: number;
+  y: number;
+  height: number;
+  kind: PropKind;
 }
 
 /** What a staff member is doing; `phase` advances as they walk and work. */
@@ -146,6 +158,11 @@ export interface GameState {
   nextEventId: number;
   commands: Command[];
   stats: GameStats;
+  /** Upgrade levels by item id, and everything they add up to. */
+  levels: Levels;
+  mods: Mods;
+  /** Sim time of the last upgrade per anchor kind (the renderer bounces that station). */
+  bumpAt: number[];
 }
 
 export interface SimEventRecord {

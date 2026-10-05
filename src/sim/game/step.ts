@@ -1,4 +1,7 @@
+import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
+import { UPGRADES } from '../../data/upgrades';
+import { canBuy, levelOf, tierOf } from '../economy/upgrades';
 import { formatBig } from '../format';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
@@ -6,6 +9,7 @@ import { Bubble, PropKind } from '../types';
 import { applyCommands } from './commands';
 import { updateArrivals, updateCustomers } from './customers';
 import { packEvents, pruneEvents } from './events';
+import { anchorPoints } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
@@ -94,12 +98,40 @@ function dynamicProps(s: GameState): PropView[] {
       progress: s.washProgress,
     }),
   );
+  // The next table spot shows as a ghost you can buy (variant 1 = affordable right now).
+  const spot = s.map.tables[s.tables.length];
+  if (spot) {
+    const affordable = UPGRADES.some((u) => u.anchor === PropKind.TableSlot && canBuy(u, s.levels, s.coins));
+    out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable ? 1 : 0, depthBias: -0.4 }));
+  }
   return out;
+}
+
+/** What upgrades look like right now: tiers per station and dish, and where to point arrows. */
+function upgradeViews(s: GameState) {
+  const kinds = Object.keys(PropKind).length;
+  const tiers = new Array<number>(kinds).fill(0);
+  const dishTiers = DISHES.map(() => 0);
+  const badges: number[] = [];
+  const badged = new Set<number>();
+  for (const def of UPGRADES) {
+    const level = levelOf(s.levels, def.id);
+    if (def.restyle === 'anchor') tiers[def.anchor] = tierOf(level);
+    else if (def.restyle === 'dish' && def.effect.dish !== undefined) dishTiers[def.effect.dish] = tierOf(level);
+    if (badged.has(def.anchor) || def.anchor === PropKind.TableSlot || !canBuy(def, s.levels, s.coins)) continue;
+    const at = anchorPoints(s, def.anchor)[0];
+    if (!at) continue;
+    badged.add(def.anchor);
+    badges.push(at.x, at.y, def.anchor);
+  }
+  return { tiers, dishTiers, badges };
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
   return packSnapshot([...s.staff, ...s.customers, ...s.walkers], [...s.props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
     hud: { coins: s.coins.toNumber(), coinsText: formatBig(s.coins), rating: s.rating, combo: s.combo, comboAt: s.lastPayTime },
+    bumps: s.bumpAt,
+    ...upgradeViews(s),
   });
 }

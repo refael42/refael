@@ -97,7 +97,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
   st.jobTime += dt;
   if (job.phase === 'cooking') {
     if (order.progress < 1) {
-      order.progress = Math.min(1, order.progress + dt / dishDef(order.dish).cookSeconds);
+      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed) / dishDef(order.dish).cookSeconds);
       setPose(st, Pose.Cook);
       st.facing = Facing.BackLeft;
       return true;
@@ -295,7 +295,7 @@ function updateWasher(s: GameState, st: Staff, dt: number): boolean {
   }
   setPose(st, Pose.Wash);
   st.facing = Facing.BackLeft;
-  washProgress(s, dt / KITCHEN.washSeconds);
+  washProgress(s, (dt * s.mods.washSpeed) / KITCHEN.washSeconds);
   return true;
 }
 

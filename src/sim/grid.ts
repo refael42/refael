@@ -32,7 +32,8 @@ function markFootprint(g: Grid, cx: number, cy: number, w: number, d: number): v
   }
 }
 
-export function buildGrid(map: MapDef): Grid {
+/** `tableCount` = how many of the map's table spots are in use (bought tables block tiles too). */
+export function buildGrid(map: MapDef, tableCount: number = map.startTables): Grid {
   const g: Grid = {
     w: map.width,
     h: map.height,
@@ -50,7 +51,7 @@ export function buildGrid(map: MapDef): Grid {
     for (let tx = b.x0; tx < b.x1; tx++) g.inside[tileIndex(g, tx, ty)] = 1;
   }
   for (const f of [map.stove, map.pass, map.sink, ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
-  for (const t of map.tables) {
+  for (const t of map.tables.slice(0, tableCount)) {
     markFootprint(g, t.x, t.y, 1, 1);
     markFootprint(g, t.x + CHAIR_OFFSET.x, t.y + CHAIR_OFFSET.y, 1, 1);
   }

@@ -126,6 +126,35 @@ const noPlates = sprite(ICON, (c) => {
   c.restore();
 });
 
+/** "You can upgrade this": a glossy green arrow badge floating over the station. */
+const arrowUp = sprite([-12, -12, 12, 12], (c) => {
+  glossy(c, path.circle(0, 0, 9.4), '#35B957', '#17602A');
+  c.drawCircle(0, 0, 9.4, stroke('#B9F5A8', 1.2));
+  glossy(c, path.poly([[0, -6.4], [5.6, 0], [2.2, 0], [2.2, 5.4], [-2.2, 5.4], [-2.2, 0], [-5.6, 0]]), '#FFFFFF', '#2E8B47');
+});
+/** "Buy a new table here": a green plus badge. */
+const plusBadge = sprite([-12, -12, 12, 12], (c) => {
+  glossy(c, path.circle(0, 0, 9.4), '#35B957', '#17602A');
+  c.drawCircle(0, 0, 9.4, stroke('#B9F5A8', 1.2));
+  glossy(c, path.rrect(-1.9, -5.6, 3.8, 11.2, 1.4), '#FFFFFF', '#2E8B47');
+  glossy(c, path.rrect(-5.6, -1.9, 11.2, 3.8, 1.4), '#FFFFFF', '#2E8B47');
+});
+/** Settings button icon: a chunky gold gear. */
+const gear = sprite([-12, -12, 12, 12], (c) => {
+  const pts: Pt[] = [];
+  for (let i = 0; i < 32; i++) {
+    const a = (i / 32) * Math.PI * 2;
+    const r = i % 4 < 2 ? 10.4 : 7.8;
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  glossy(c, path.poly(pts), '#F2C14E', '#8A6A00');
+  c.drawCircle(0, 0, 3.6, fill('#2A1530'));
+  c.drawCircle(0, 0, 3.6, stroke('#8A6A00', 1));
+});
+
+/** Confetti piece for milestone celebrations (tinted per piece). */
+const confetti = sprite([-4, -3, 4, 3], (c) => c.drawRect(Skia.XYWHRect(-3, -1.8, 6, 3.6), fill('#FFFFFF')));
+
 /** Flying banknote: the "money everywhere" feel. */
 const bill = sprite([-11, -7, 11, 7], (c) => {
   c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-9, -5, 18, 10), 1.4, 1.4), glowStroke('#7DFF7A', 2.4, 0.5, 2));
@@ -163,5 +192,6 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
 
 export const fxSprites = {
   bubble, heart, anger, clock, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
+  arrowUp, plusBadge, confetti, gear,
   steam, sparkle, soap, puff, ring,
 };

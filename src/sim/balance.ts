@@ -1,0 +1,112 @@
+import { BALANCE } from '../data/balance';
+import type { MapDef } from '../data/maps';
+import { STEP_SEC } from '../data/sim';
+import { createBot, type Purchase } from './bot';
+import { createGame } from './game/create';
+import { stepGame } from './game/step';
+
+// Headless pacing check: a greedy bot plays for a while and we look for boredom (long stretches
+// with nothing to buy) and for runaway inflation (upgrades or income exploding).
+
+export interface Sample {
+  time: number;
+  coins: string;
+  /** Coins earned during the last sample window, per minute. */
+  perMinute: number;
+  served: number;
+  walkouts: number;
+  rating: number;
+  levels: Record<string, number>;
+}
+
+export interface DeadZone {
+  start: number;
+  seconds: number;
+  /** What the bot finally bought when the wait ended (null = still waiting at the end). */
+  then: Purchase | null;
+}
+
+export interface BalanceReport {
+  seconds: number;
+  purchases: Purchase[];
+  samples: Sample[];
+  deadZones: DeadZone[];
+  /** Minutes in which the bot bought suspiciously many upgrades. */
+  bulkMinutes: { minute: number; count: number }[];
+  /** Sample windows where income jumped by more than `BALANCE.incomeJump` at once. */
+  incomeJumps: { time: number; factor: number }[];
+  firsts: { upgrade: number | null; milestone: number | null; table: number | null; burger: number | null };
+}
+
+export interface BalanceOptions {
+  map: MapDef;
+  seconds: number;
+  seed: number;
+  reaction?: number;
+}
+
+const firstTime = (purchases: Purchase[], test: (p: Purchase) => boolean): number | null => purchases.find(test)?.time ?? null;
+
+export function runBalance(o: BalanceOptions): BalanceReport {
+  const s = createGame(o.map, o.seed);
+  const bot = createBot({ reaction: o.reaction ?? BALANCE.reactionSeconds, helpStaff: true, buy: true });
+  const samples: Sample[] = [];
+  const steps = Math.round(o.seconds / STEP_SEC);
+  const sampleEvery = Math.round(BALANCE.sampleSeconds / STEP_SEC);
+  let lastEarned = 0;
+  for (let i = 1; i <= steps; i++) {
+    bot.act(s);
+    stepGame(s, STEP_SEC);
+    if (i % sampleEvery === 0) {
+      const earned = s.stats.earned.toNumber();
+      samples.push({
+        time: s.time,
+        coins: s.coins.toString(),
+        perMinute: ((earned - lastEarned) * 60) / BALANCE.sampleSeconds,
+        served: s.stats.served,
+        walkouts: s.stats.walkouts,
+        rating: s.rating,
+        levels: { ...s.levels },
+      });
+      lastEarned = earned;
+    }
+  }
+  const p = bot.purchases;
+
+  const deadZones: DeadZone[] = [];
+  let prev = 0;
+  for (const purchase of p) {
+    if (purchase.time - prev > BALANCE.deadZoneSeconds) deadZones.push({ start: prev, seconds: purchase.time - prev, then: purchase });
+    prev = purchase.time;
+  }
+  if (s.time - prev > BALANCE.deadZoneSeconds) deadZones.push({ start: prev, seconds: s.time - prev, then: null });
+
+  const perMinute = new Map<number, number>();
+  for (const purchase of p) {
+    const m = Math.floor(purchase.time / 60);
+    perMinute.set(m, (perMinute.get(m) ?? 0) + 1);
+  }
+  const bulkMinutes = [...perMinute].filter(([, n]) => n > BALANCE.bulkPerMinute).map(([minute, count]) => ({ minute, count }));
+
+  const incomeJumps: BalanceReport['incomeJumps'] = [];
+  for (let i = 1; i < samples.length; i++) {
+    const before = samples[i - 1]!.perMinute;
+    const factor = before > 0 ? samples[i]!.perMinute / before : 0;
+    if (factor > BALANCE.incomeJump) incomeJumps.push({ time: samples[i]!.time, factor });
+  }
+
+  return {
+    seconds: s.time,
+    purchases: p,
+    samples,
+    deadZones,
+    bulkMinutes,
+    incomeJumps,
+    firsts: {
+      upgrade: firstTime(p, () => true),
+      milestone: firstTime(p, (x) => x.level === 10),
+      table: firstTime(p, (x) => x.item === 'tables'),
+      burger: firstTime(p, (x) => x.item === 'burger'),
+    },
+  };
+}

@@ -49,7 +49,7 @@ describe('staff automate the restaurant', () => {
 
 describe('the clean-dishes bottleneck', () => {
   it('without a dishwasher the cook runs out of plates and says so', () => {
-    const s = createGame(STAND_MAP, 9, ['cook', 'waiter']);
+    const s = createGame(STAND_MAP, 9, { roster: ['cook', 'waiter'] });
     for (let i = 0; i < Math.round(400 / STEP_SEC) && !s.staff.some((st) => st.stalled === 'plates'); i++) {
       seatAll(s)();
       stepGame(s, STEP_SEC);
@@ -66,7 +66,7 @@ describe('the clean-dishes bottleneck', () => {
   });
 
   it('the manager can wash by hand by tapping the sink', () => {
-    const s = createGame(STAND_MAP, 9, ['cook']);
+    const s = createGame(STAND_MAP, 9, { roster: ['cook'] });
     s.cleanPlates = 0;
     s.dirtyPlates = 2;
     for (let i = 0; i < 3; i++) queueCommand(s, { type: 'wash' });
@@ -78,7 +78,7 @@ describe('the clean-dishes bottleneck', () => {
 
 describe('order tickets', () => {
   it('queued orders hang on the rail', () => {
-    const s = createGame(STAND_MAP, 13, ['waiter']);
+    const s = createGame(STAND_MAP, 13, { roster: ['waiter'] });
     step(s, 60, seatAll(s));
     const snap = gameSnapshot(s, 1);
     let tickets = 0;

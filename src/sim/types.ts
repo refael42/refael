@@ -55,6 +55,10 @@ export const PropKind = {
   Lamp: 12,
   SaleSign: 13,
   Ticket: 14,
+  /** Ghost of the next table you can buy (floor space for expansion). */
+  TableSlot: 15,
+  /** Sign on the sidewalk by the door (marketing). */
+  StreetSign: 16,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

@@ -414,4 +414,3 @@ export const characterSprites = {
   trayFull, trayEmpty, trayDirty, phone, spatula, menu,
 };
 
-export { miniBurger };

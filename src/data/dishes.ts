@@ -11,11 +11,13 @@ export interface DishDef {
   cookSeconds: number;
   /** Seconds a customer spends eating it. */
   eatSeconds: number;
+  /** On the menu from the start; others are unlocked by their recipe upgrade. */
+  startsUnlocked: boolean;
 }
 
 export const DISHES: readonly DishDef[] = [
-  { id: Dish.Fries, nameKey: 'dish.fries', price: 4, cookSeconds: 3.5, eatSeconds: 4.5 },
-  { id: Dish.Burger, nameKey: 'dish.burger', price: 8, cookSeconds: 6, eatSeconds: 6 },
+  { id: Dish.Fries, nameKey: 'dish.fries', price: 4, cookSeconds: 3.5, eatSeconds: 3.5, startsUnlocked: true },
+  { id: Dish.Burger, nameKey: 'dish.burger', price: 8, cookSeconds: 6, eatSeconds: 6, startsUnlocked: false },
 ];
 
 export function dishDef(id: number): DishDef {

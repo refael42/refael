@@ -1,6 +1,6 @@
 import { Canvas, Picture, Skia, TileMode, vec, type SkPaint, type SkPicture, type SkPictureRecorder } from '@shopify/react-native-skia';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
-import { PixelRatio, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { PixelRatio, Platform, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { cancelAnimation, runOnUI, useFrameCallback, useSharedValue, withDecay, type FrameInfo, type SharedValue } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -36,8 +36,17 @@ function vignettePaint(w: number, h: number): SkPaint {
   return p;
 }
 
-export interface SceneCanvasHandle {
-  zoomBy: (factor: number) => void;
+/** The bits of a DOM element the web wheel-zoom needs (no DOM typings in the app). */
+interface WheelHost {
+  addEventListener(type: 'wheel', fn: (e: WheelLike) => void, options: { passive: boolean }): void;
+  removeEventListener(type: 'wheel', fn: (e: WheelLike) => void): void;
+  getBoundingClientRect(): { left: number; top: number };
+}
+interface WheelLike {
+  deltaY: number;
+  clientX: number;
+  clientY: number;
+  preventDefault(): void;
 }
 
 interface Props {
@@ -52,6 +61,8 @@ interface Props {
   onTap?: (x: number, y: number, cam: Camera) => void;
   /** Called when the camera settles (labels overlay). */
   onCamera?: (cam: Camera) => void;
+  /** Prop kind to outline (the station whose upgrades are open), -1 for none. */
+  selected?: SharedValue<number>;
 }
 
 /**
@@ -59,10 +70,7 @@ interface Props {
  * entities, effects, HUD. Camera pan/zoom runs on the UI thread too; React never re-renders
  * per frame.
  */
-export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCanvas(
-  { snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera },
-  ref,
-) {
+export function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -129,12 +137,19 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCa
     [minZoom, zoom, camX, camY, clampCam],
   );
 
-  useImperativeHandle(ref, () => ({
-    zoomBy: (factor: number) => {
-      runOnUI(applyZoom)(factor, W / 2, H / 2);
-      setTimeout(() => notifyCamera(camX.value, camY.value, zoom.value), 30);
-    },
-  }), [applyZoom, W, H, notifyCamera, camX, camY, zoom]);
+  // Zoom is pinch-only on phones; on web (testing in a browser) the mouse wheel zooms too.
+  const host = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !host.current) return;
+    const el = host.current as unknown as WheelHost;
+    const onWheel = (e: WheelLike) => {
+      e.preventDefault();
+      const r = el.getBoundingClientRect();
+      runOnUI(applyZoom)(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [applyZoom]);
 
   const notifyTap = useCallback((x: number, y: number, cx: number, cy: number, z: number) => onTap?.(x, y, { x: cx, y: cy, zoom: z }), [onTap]);
 
@@ -205,7 +220,7 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCa
       const started = performance.now();
       if (!recorder.value) recorder.value = Skia.PictureRecorder();
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
-      drawScene(c, assets, snap, alpha, t, dt, { x: camX.value, y: camY.value, zoom: zoom.value }, s, hud ?? null, vignette, W, H);
+      drawScene(c, assets, snap, alpha, t, dt, { x: camX.value, y: camY.value, zoom: zoom.value }, s, hud ?? null, vignette, W, H, selected ? selected.value : -1);
       const next = recorder.value.finishRecordingAsPicture();
       // Free pictures two frames old: the one on screen is still in use until the next draw.
       const prev = previous.value;
@@ -219,7 +234,7 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCa
       picture.value = next;
       buildMs.value = buildMs.value * 0.9 + (performance.now() - started) * 0.1;
     },
-    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camX, camY, zoom, hud, vignette, W, H],
+    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camX, camY, zoom, hud, vignette, W, H, selected],
   );
   useFrameCallback(onFrame);
 
@@ -229,7 +244,7 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCa
   };
 
   return (
-    <View style={styles.fill} onLayout={onLayout}>
+    <View ref={host} style={styles.fill} onLayout={onLayout}>
       {W > 0 && (
         <GestureDetector gesture={gesture}>
           <Canvas style={styles.fill}>
@@ -239,7 +254,7 @@ export const SceneCanvas = forwardRef<SceneCanvasHandle, Props>(function SceneCa
       )}
     </View>
   );
-});
+}
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },

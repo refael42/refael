@@ -7,8 +7,8 @@
 | M0 | Project setup, Skia scene (native + web), fixed-timestep loop, big numbers, perf overlay, style test | ✅ Done |
 | M1 | Customer lifecycle end to end + juice; **pivot to isometric, landscape, big pannable/zoomable map** | ✅ Done |
 | M2 | Kitchen tickets, waiter delivery (A* already in), clean-dishes loop with a dishwasher | ✅ Done |
-| M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ⏳ Next |
-| M4 | Applicants, hiring, wages, morale, staff cards | — |
+| M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ✅ Done |
+| M4 | Applicants, hiring, wages, morale, staff cards | ⏳ Next |
 | M5 | Building tiers, construction sequence, build mode, decor | — |
 | M6 | Automation, Rush hour, Upgrades screen (search/filter/ROI) | — |
 | M7 | Full polish: audio, haptics, day/night, weather, tutorial, quests, settings | — |
@@ -22,6 +22,12 @@
   *Idle Vegas Resort* (low-poly flat-shaded 3D look, saturated room floors, dark walls with gold
   trim, palms, neon, flying money, blocky characters with square eyes). All art is original —
   the style is matched, no assets/branding are copied.
+- Zoom with two fingers only (no +/− buttons); in the browser the mouse wheel zooms.
+- Tapping something to upgrade outlines it softly on the map.
+- Everything that is not the game lives behind a **settings gear** (language, sound placeholder,
+  FPS counter, character gallery, crowd test, reset progress).
+- The restaurant must be able to **grow**: more tables now (M3), more kitchens/cooks with
+  hiring (M4) and bigger buildings (M5).
 
 ## Locked decisions
 
@@ -73,6 +79,36 @@
   stalls and the clean-plate stack shows a "no plates" bubble: the first real bottleneck.
 - **Ticket rail:** queued and cooking orders hang as paper tickets above the pass (oldest
   first), with a cooking progress bar.
+- **Upgrade engine (M3, `src/data/upgrades.ts` + `src/sim/economy/upgrades.ts`):** every
+  upgrade is a data row (anchor station, base cost, growth, per-level effect, milestone bonus).
+  Levels are endless; milestones at 10, 25, 50, 75, 100, then every 50 forever. Levels add up
+  within a stat, milestones multiply on top. Costs are `Big` (`base × growth^level`), so level
+  20 000 is still a valid number. Capacity rows (new tables) have a `max` set by floor space.
+- **Visible progress:** each station has 4 looks (base, lv 10, 25, 50) baked from one
+  parametric drawing — e.g. sink → gold fittings → two basins → dishwasher; stove → chrome →
+  red 3-burner range → black & gold. From lv 75 a soft golden aura + sparkles. Every purchase
+  bounces the station and pops "LV n"; milestones add confetti and a short camera shake.
+  Dishes (fries/burger) get fancier plates with their recipe level.
+- **Taps:** actions (seat/serve/clean/wash) win when they are about as close as a station;
+  otherwise the tapped station opens its upgrade sheet. Green arrows float over every station
+  with an affordable upgrade; the next table spot shows as a dashed ghost with a "+".
+- **Menus** are React Native panels (not canvas). Icons are the game's own sprites rendered
+  once to PNG data URIs (no extra Skia canvases: web caps WebGL contexts).
+- **Save (M3, `src/sim/save.ts`, `src/store/persistence.ts`):** versioned JSON (v1) with a
+  migration chain and validation (unknown upgrades dropped, caps enforced). Only progress is
+  saved (coins, rating, levels, stats); a load starts a fresh, empty day. Two slots (latest +
+  previous) so an interrupted write never loses everything; an unreadable save is parked, a
+  save from a newer app version is never overwritten. Autosave every 5 s and when the app
+  goes to the background.
+- **Offline progress (`src/sim/offline.ts`):** the real sim runs headless for 3 minutes with
+  the saved upgrades (staff seat people slowly), measures coins/second, and pays 50 % of that
+  for the time away, capped at 2 h (upgrades will raise it in M6). The sim is paused while the
+  "Welcome back" screen is up, so collecting is never lost. The ×2 button is a 3-second fake
+  ad (placeholder, no ad SDK).
+- **Balance bot (`npm run balance`):** a greedy "cheapest affordable" manager with a 1.2 s
+  reaction plays N minutes headless and prints the timeline, dead zones (> 3 min with nothing
+  to buy), upgrade floods (> 30 buys/min) and income explosions (> ×4 per minute). A test
+  guards the first 15 minutes. Runs through Vite's SSR loader (no new dependency).
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -86,6 +122,15 @@
 - Headless pacing check (attentive player, 5 min): ~6 customers/min, ~50 coins/min, rating
   climbs 3.0 → 4.9; slower players still progress (25 served in 5 min with 5 s reactions).
   Proper balance bot + dead-zone detection comes with the upgrade economy in M3.
+- M3 pacing (greedy bot, seed 1): first purchase 0:00 (start with 10 coins), first milestone
+  2:38, burger unlocked 8:12, first new table 12:05. Coins/min: 31 at 1 min → 470 at 5 →
+  1.3K at 13 → 93K at 24 → 1.5M at 40 → 3M at 60. No dead zones in 60 minutes. One "power
+  spike" around minute 23–25 (burger 25, fridge 25 and fries 50 milestones land together:
+  ~40 buys/min) — kept on purpose, it feels great. After ~45 min purchases slow to 5–8/min:
+  that is where the next building tier (M5) must arrive.
+- Global multipliers (quality, tips) grow slowly on purpose: they stack with every recipe
+  level. The first tuning had them at ×1.5 per milestone and income exploded to billions by
+  minute 17 — the balance bot caught it.
 - Kitchen (M2): 5 plates, washing 3 s per plate (a tap on the sink = +34 %), plating 0.45 s,
   bussing 0.7 s. Starting roster: cook + waiter + dishwasher; in M4 the game starts with the
   cook only and you hire the rest (then the "no plates" bottleneck shows up early on purpose).
@@ -102,6 +147,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M2 game, zoom 1, dev build | ~28 | 0.7–1.2 ms | 12–17 |
 | M2 game, zoomed in ×1.6 (vector background) | ~28 | 0.6–1.3 ms | 5–10 |
 | M2 game, production build | ~28 | — | 14–15 |
+| M3 game, production build | ~25 | 0.6–1.4 ms | 17.8 (14.5 with the upgrade panel open) |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -109,7 +155,8 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 94 unit tests.
+- `npm run check` — typecheck + 127 unit tests.
+- `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
 
@@ -119,3 +166,8 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Customers enter/leave through the front door of the building, but there is no visible door
   frame yet (front walls are cut away by design).
 - Expo DevTools fails to launch in the sandbox (runs as root) — harmless.
+- Sound & music: the settings row is a placeholder until audio lands (M7).
+- Seating is still manual (auto-seat "Host" comes in M6); while the app is closed the offline
+  estimate assumes slow seating by the staff.
+- Very large numbers in floating "+N" texts use JS numbers (fine up to ~1e308); the HUD and
+  menus use `Big`.

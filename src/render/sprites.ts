@@ -4,12 +4,17 @@ import { characterSprites } from './art/charArt';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { propSprites } from './art/propArt';
+import { LOOKS, stationSprites } from './art/stationArt';
 import type { SpriteDef } from './sprite';
 
-const ALL = { ...characterSprites, ...propSprites, ...fxSprites, ...glyphSprites };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof fxSprites;
+const ALL = { ...characterSprites, ...propSprites, ...stationSprites, ...fxSprites, ...glyphSprites };
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
+
+export function spriteDef(name: SpriteName): SpriteDef {
+  return (ALL as Record<string, SpriteDef>)[name]!;
+}
 
 const INDEX = Object.fromEntries(Object.keys(ALL).map((name, i) => [name, i])) as Record<string, number>;
 /** Sprite name -> atlas index. Worklets use these plain numbers. */
@@ -37,6 +42,14 @@ function views(n: number, entries: [number, string][]): { F: number[]; B: number
   };
 }
 
+/** The milestone looks of a station: `base0`..`base3`. */
+const looks = (base: string): number[] =>
+  Array.from({ length: LOOKS }, (_, t) => {
+    const idx = INDEX[`${base}${t}`];
+    if (idx === undefined) throw new Error(`Unknown sprite ${base}${t}`);
+    return idx;
+  });
+
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
 export const LAYERS = {
   hair: views(size(Hair), [[Hair.Short, 'hairShort'], [Hair.Bob, 'hairBob'], [Hair.Ponytail, 'hairPonytail'], [Hair.Curly, 'hairCurly'], [Hair.Spiky, 'hairSpiky'], [Hair.Bun, 'hairBun']]),
@@ -49,7 +62,22 @@ export const LAYERS = {
   bubble: byEnum(Bubble.DishBase + 2, [[Bubble.Seat, 'seat'], [Bubble.Clean, 'clean'], [Bubble.NoPlates, 'noPlates'], [Bubble.DishBase, 'fries'], [Bubble.DishBase + 1, 'burger']]),
   /** Dish icon per dish id (tickets, bubbles). */
   dishIcon: byEnum(2, [[0, 'fries'], [1, 'burger']]),
-  plate: byEnum(2, [[0, 'plateFries'], [1, 'plateBurger']]),
+  /** Station looks by milestone tier. */
+  look: {
+    stove: looks('stove'),
+    sink: looks('sink'),
+    fridge: looks('fridge'),
+    table: looks('table'),
+    chair: looks('chair'),
+    plantPalm: looks('plantPalm'),
+    plantBush: looks('plantBush'),
+    neonBoard: looks('neonBoard'),
+    neonLit: looks('neonLit'),
+    streetSign: looks('streetSign'),
+    plateSingle: looks('plateSingle'),
+  },
+  /** Served dish per dish id, then per milestone tier of its recipe. */
+  plate: [looks('plateFries'), looks('plateBurger')],
   /** Char code -> glyph sprite, and its advance width. */
   glyph: (() => {
     const out = new Array<number>(128).fill(NONE);

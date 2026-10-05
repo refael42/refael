@@ -8,3 +8,7 @@ export const theme = {
   teal: '#2FA39A',
   wood: '#8E5A3C',
 } as const;
+
+/** The casino-resort look of the menus: deep plum panels with gold trim, like the walls. */
+export const gold = '#E2B13C';
+export const panel = { bg: 'rgba(42,21,48,0.96)', row: '#3A1D40' } as const;

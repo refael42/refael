@@ -59,9 +59,25 @@ export interface Snapshot {
   /** Recent events (a sliding window, so a skipped UI frame never loses one). */
   events: number[];
   hud: Hud | null;
+  /** Look tier per prop kind and per dish (milestones change how things look). */
+  tiers: number[];
+  dishTiers: number[];
+  /** Sim time of the last upgrade per prop kind (that station bounces). */
+  bumps: number[];
+  /** "Upgrade available" arrows: packed (x, y, prop kind) triples. */
+  badges: number[];
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], hud: null };
+export interface SnapshotExtra {
+  events?: number[];
+  hud?: Hud;
+  tiers?: number[];
+  dishTiers?: number[];
+  bumps?: number[];
+  badges?: number[];
+}
+
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], hud: null, tiers: [], dishTiers: [], bumps: [], badges: [] };
 
 interface SortItem {
   depth: number;
@@ -118,7 +134,7 @@ export function packSnapshot(
   props: readonly PropView[],
   seq: number,
   time: number,
-  extra: { events?: number[]; hud?: Hud } = {},
+  extra: SnapshotExtra = {},
 ): Snapshot {
   const items: SortItem[] = [];
   // Isometric painter's order: farther from the camera = smaller x + y. Characters win ties so a
@@ -131,5 +147,16 @@ export function packSnapshot(
     if (item.character) writeCharacter(data, i * STRIDE, item.character);
     else writeProp(data, i * STRIDE, item.prop!);
   });
-  return { seq, time, count: items.length, data, events: extra.events ?? [], hud: extra.hud ?? null };
+  return {
+    seq,
+    time,
+    count: items.length,
+    data,
+    events: extra.events ?? [],
+    hud: extra.hud ?? null,
+    tiers: extra.tiers ?? [],
+    dishTiers: extra.dishTiers ?? [],
+    bumps: extra.bumps ?? [],
+    badges: extra.badges ?? [],
+  };
 }

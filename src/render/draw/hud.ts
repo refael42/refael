@@ -18,7 +18,14 @@ const PANEL_H = 34;
 /** Where coins/stars fly to; must match drawHud's layout. */
 export function hudAnchors(layout: HudLayout): HudAnchors {
   'worklet';
-  return { coinX: layout.left + 20, coinY: layout.top + PANEL_H / 2, ratingX: layout.right - 70, ratingY: layout.top + PANEL_H / 2 };
+  return {
+    coinX: layout.left + 20,
+    coinY: layout.top + PANEL_H / 2,
+    ratingX: layout.right - 70,
+    ratingY: layout.top + PANEL_H / 2,
+    centerX: (layout.left + layout.right) / 2,
+    centerY: layout.top + 150,
+  };
 }
 
 function bounce(t: number, since: number): number {

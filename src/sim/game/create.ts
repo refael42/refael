@@ -2,7 +2,8 @@ import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
 import { CHAIR_OFFSET, type Furniture, type MapDef } from '../../data/maps';
 import { KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
-import { big, ZERO } from '../big';
+import { big, ZERO, type Big } from '../big';
+import { computeMods, type Levels } from '../economy/upgrades';
 import { buildGrid } from '../grid';
 import { createRng } from '../rng';
 import type { PropView } from '../types';
@@ -35,51 +36,75 @@ export function propFrom(id: number, f: Furniture): PropView {
   };
 }
 
-export function createGame(map: MapDef, seed: number, roster: readonly Role[] = STARTING_STAFF): GameState {
-  let nextId = 1;
-  const props: PropView[] = [map.stove, map.pass, map.sink, ...map.decor].map((f) => propFrom(nextId++, f));
-  for (const t of map.tables) {
-    props.push(propFrom(nextId++, { kind: PropKind.Chair, x: t.x + CHAIR_OFFSET.x, y: t.y + CHAIR_OFFSET.y, w: 1, d: 1, blocks: true }));
-  }
-  const tables: Table[] = map.tables.map((t, index) => ({
-    index,
-    propId: nextId++,
-    x: t.x,
-    y: t.y,
+/** Opens the next table spot: the table, its chair, and the tiles they now block. */
+export function addTable(s: GameState): Table | null {
+  const spot = s.map.tables[s.tables.length];
+  if (!spot) return null;
+  s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, x: spot.x + CHAIR_OFFSET.x, y: spot.y + CHAIR_OFFSET.y, w: 1, d: 1, blocks: true }));
+  const table: Table = {
+    index: s.tables.length,
+    propId: s.nextId++,
+    x: spot.x,
+    y: spot.y,
     state: TableState.Free,
     waiter: -1,
     customer: -1,
     dish: -1,
     progress: 0,
-    since: 0,
-  }));
+    since: s.time,
+  };
+  s.tables.push(table);
+  s.grid = buildGrid(s.map, s.tables.length);
+  return table;
+}
+
+export interface GameSetup {
+  roster?: readonly Role[];
+  /** Persistent progress carried in from a save. */
+  levels?: Levels;
+  coins?: Big;
+  rating?: number;
+  earned?: Big;
+  served?: number;
+}
+
+export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
+  const levels = { ...(setup.levels ?? {}) };
+  const mods = computeMods(levels);
+  let nextId = 1;
+  const props: PropView[] = [map.stove, map.pass, map.sink, ...map.decor].map((f) => propFrom(nextId++, f));
   const s: GameState = {
     map,
-    grid: buildGrid(map),
+    grid: buildGrid(map, 0),
     tick: 0,
     time: 0,
     rng: createRng(seed),
     nextId,
-    coins: big(ECONOMY.startCoins),
-    rating: ECONOMY.rating.start,
+    coins: setup.coins ?? big(ECONOMY.startCoins),
+    rating: setup.rating ?? ECONOMY.rating.start,
     combo: 0,
     lastPayTime: -Infinity,
     nextArrival: FIRST_ARRIVAL_SECONDS,
     customers: [],
-    tables,
+    tables: [],
     orders: [],
     staff: [],
     walkers: [],
-    cleanPlates: KITCHEN.plates,
+    cleanPlates: KITCHEN.plates + mods.plates,
     dirtyPlates: 0,
     washProgress: 0,
     props,
     events: [],
     nextEventId: 1,
     commands: [],
-    stats: { served: 0, walkouts: 0, earned: ZERO },
+    stats: { served: setup.served ?? 0, walkouts: 0, earned: setup.earned ?? ZERO },
+    levels,
+    mods,
+    bumpAt: Object.values(PropKind).map(() => -Infinity),
   };
-  for (const role of roster) s.staff.push(createStaff(s, role));
+  const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
+  while (s.tables.length < tableCount) addTable(s);
+  for (const role of setup.roster ?? STARTING_STAFF) s.staff.push(createStaff(s, role));
   for (let i = 0; i < AMBIENT.pedestrians; i++) spawnPedestrian(s, true);
   return s;
 }

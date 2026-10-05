@@ -34,6 +34,9 @@ export interface RenderAssets {
     panelEdge: SkPaint;
     ripple: SkPaint;
     ring: SkPaint;
+    /** Sprite silhouettes: the selection outline (white) and the top-tier aura (gold). */
+    outline: SkPaint;
+    aura: SkPaint;
   };
   background: SkPicture;
   /** The same background pre-rendered once; drawn instead of the vectors when zoomed out. */
@@ -55,6 +58,13 @@ function plainPaint(): SkPaint {
 function tint(hex: string): SkPaint {
   const p = plainPaint();
   p.setColorFilter(Skia.ColorFilter.MakeBlend(Skia.Color(hex), BlendMode.Modulate));
+  return p;
+}
+
+/** Any sprite drawn with this becomes a flat shape of one color (outlines, glows). */
+function silhouette(hex: string): SkPaint {
+  const p = plainPaint();
+  p.setColorFilter(Skia.ColorFilter.MakeBlend(Skia.Color(hex), BlendMode.SrcIn));
   return p;
 }
 
@@ -133,6 +143,8 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       panelEdge: strokePaint('#E2B13C', 2),
       ripple: strokePaint('#FFFFFF', 2.5),
       ring: strokePaint('#FFFFFF', 3),
+      outline: silhouette('#FFFFFF'),
+      aura: silhouette('#FFD23F'),
     },
     background,
     backgroundImage: bakeBackground(background, world),
