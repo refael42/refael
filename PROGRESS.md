@@ -15,6 +15,7 @@
 | M6 | Shift manager for the waiters (owner request), Rush hour, Upgrades screen (search / can buy / best value), applicant shortlist | ✅ Done |
 | M7 | Quests and restaurant levels (owner request) | ✅ Done |
 | M7a | Balance pass, then the pay-to-win item shop with gems and star workers (owner request) | ✅ Done |
+| M8a | Owner requests from the late game: perf (baked glows, tiled background), wages due under the money, best value everywhere; more food (6 dishes), two more buildings (palace, empire), fountain & piano decor | ✅ Done |
 | M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
@@ -53,6 +54,12 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M8a (from late-game screenshots): less lag when zoomed, "best value now" in every
+  upgrade panel, the day's wages under the money, **more food** (falafel, shawarma, hummus,
+  schnitzel, shakshuka, ice cream), **more map areas** (food palace with a marble floor, food
+  empire with velvet, each a lot further down the street) and **more designs** (fountain, grand
+  piano). Balance bot: bistro ~33 min, grand ~50, palace ~69, empire ~112; dishes open from 6 min
+  (burger) to 70 min (ice cream); no dead zones.
 
 ## Locked decisions
 

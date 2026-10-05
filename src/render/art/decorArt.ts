@@ -157,6 +157,74 @@ const statues = looks('statue', [-26, -100, 26, 12], (c, t) => {
   }
 });
 
+// ---------- fountain: stone basin -> white marble -> gold trim -> gold three-tier fountain ----------
+
+const FOUNTAIN = [
+  { stone: '#B9B4AC', trim: '#9A958C' },
+  { stone: '#F4F1EC', trim: '#C9C2B8' },
+  { stone: '#F4F1EC', trim: GOLD },
+  { stone: GOLD, trim: '#FFF1C2' },
+] as const;
+
+const fountains = looks('fountain', [-40, -92, 40, 16], (c, t) => {
+  const f = FOUNTAIN[t]!;
+  floorShadow(c, 0, 0, 0.5, 0.25);
+  // The basin: a wide low ring with water inside.
+  cylinder(c, 0, 0, 0.46, 0, 10, f.stone, f.trim);
+  cylinder(c, 0, 0, 0.4, 9, 1, '#3E9BD6', '#5BB8EA');
+  // The column and the bowls the water falls from.
+  cylinder(c, 0, 0, 0.08, 10, 22, f.stone);
+  cylinder(c, 0, 0, 0.24, 30, 4, f.trim, '#5BB8EA');
+  if (t >= 2) {
+    cylinder(c, 0, 0, 0.05, 34, 12, f.stone);
+    cylinder(c, 0, 0, 0.14, 44, 3, f.trim, '#5BB8EA');
+  }
+  // Water falling from the top bowl into the basin.
+  const top = t >= 2 ? 47 : 34;
+  const [x, y] = P(0, 0, top);
+  for (const dx of [-1, 1]) {
+    const r = t >= 2 ? 9 : 14;
+    c.drawPath(path.smooth([[x, y - 4], [x + dx * r * 0.6, y - 4], [x + dx * r, y + (top - 10) * 0.5], [x + dx * r * 1.1, y + top - 10]], false), stroke('#BFE6FF', 1.6, 0.85));
+  }
+  c.drawPath(path.smooth([[x, y], [x, y - 8], [x + 0.6, y - 10]], false), stroke('#E8F7FF', 2, 0.9));
+  if (t === 3) c.drawCircle(x, y - 12, 2, fill('#FFF6C8'));
+});
+
+// ---------- piano: upright black -> white grand -> black & gold grand -> gold grand ----------
+
+const PIANO = [
+  { body: '#1E1A24', trim: '#3A3444' },
+  { body: '#F4F1EC', trim: '#C9C2B8' },
+  { body: '#1E1A24', trim: GOLD },
+  { body: GOLD, trim: '#FFF1C2' },
+] as const;
+
+const pianos = looks('piano', [-44, -84, 44, 16], (c, t) => {
+  const p = PIANO[t]!;
+  floorShadow(c, 0, 0, 0.5, 0.25);
+  // Legs, then the body on top of them.
+  for (const [x, y] of [[-0.3, -0.25], [0.3, -0.25], [0, 0.3]] as const) box(c, { x, y, w: 0.08, d: 0.08, h: 14, color: p.trim });
+  box(c, { x: 0, y: 0, z: 14, w: 0.8, d: 0.7, h: 12, color: p.body, rim: true });
+  // Keys along the +y face (toward the camera on the left).
+  box(c, { x: 0, y: 0.42, z: 22, w: 0.72, d: 0.16, h: 3, color: '#FAF7F0' });
+  for (let k = 0; k < 7; k++) box(c, { x: -0.3 + k * 0.1, y: 0.4, z: 25, w: 0.04, d: 0.08, h: 1.2, color: '#1A1620' });
+  // The lid, propped open on the grand pianos.
+  if (t === 0) box(c, { x: 0, y: -0.2, z: 26, w: 0.8, d: 0.3, h: 26, color: p.body, rim: true });
+  else {
+    const hinge = P(-0.4, -0.35, 26);
+    const tip = P(0.2, -0.35, 60);
+    const back = P(0.4, -0.35, 26);
+    c.drawPath(path.poly([hinge, tip, back]), fill(darken(p.body, 0.15)));
+    c.drawPath(path.poly([hinge, tip, back]), stroke(p.trim, 1.2));
+    c.drawLine(...P(0.1, 0, 26), ...P(0.15, -0.3, 46), stroke(p.trim, 1));
+  }
+  if (t >= 2) {
+    const [x, y] = P(0, 0, 70);
+    c.drawCircle(x + 8, y + 10, 1.3, fill('#FFF6C8'));
+    c.drawCircle(x - 10, y + 18, 1, fill('#FFF6C8'));
+  }
+});
+
 // ---------- build mode marks ----------
 
 const diamond = (inset = 0.04) => path.poly([P(-0.5 + inset, -0.5 + inset), P(0.5 - inset, -0.5 + inset), P(0.5 - inset, 0.5 - inset), P(-0.5 + inset, 0.5 - inset)]);
@@ -171,4 +239,4 @@ const tilePicked = sprite([-36, -20, 36, 20], (c) => {
   c.drawPath(diamond(0.02), stroke('#FFE9A8', 2.4));
 });
 
-export const decorSprites = { ...flowers, ...lamps, ...aquariums, ...statues, fishOrange, fishBlue, tileFree, tilePicked };
+export const decorSprites = { ...flowers, ...lamps, ...aquariums, ...statues, ...fountains, ...pianos, fishOrange, fishBlue, tileFree, tilePicked };

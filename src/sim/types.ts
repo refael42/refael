@@ -68,6 +68,8 @@ export const PropKind = {
   FloorLamp: 20,
   Aquarium: 21,
   Statue: 22,
+  Fountain: 23,
+  Piano: 24,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

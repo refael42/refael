@@ -6,6 +6,12 @@ import type { SpriteName } from './sprites';
 const ICON: Record<string, { base: string; looks: boolean }> = {
   fries: { base: 'plateFries', looks: true },
   burger: { base: 'plateBurger', looks: true },
+  falafel: { base: 'plateFalafel', looks: true },
+  shawarma: { base: 'plateShawarma', looks: true },
+  hummus: { base: 'plateHummus', looks: true },
+  schnitzel: { base: 'plateSchnitzel', looks: true },
+  shakshuka: { base: 'plateShakshuka', looks: true },
+  iceCream: { base: 'plateIceCream', looks: true },
   stove: { base: 'stove', looks: true },
   stove2: { base: 'stove0', looks: false },
   fridge: { base: 'fridge', looks: true },
@@ -27,6 +33,10 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   aquarium: { base: 'aquarium', looks: true },
   place_statue: { base: 'statue0', looks: false },
   statue: { base: 'statue', looks: true },
+  place_fountain: { base: 'fountain0', looks: false },
+  fountain: { base: 'fountain', looks: true },
+  place_piano: { base: 'piano0', looks: false },
+  piano: { base: 'piano', looks: true },
 };
 
 export function upgradeIcon(id: string, tier: number): SpriteName {

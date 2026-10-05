@@ -124,7 +124,7 @@ const BLOCK = 6;
 /** Opening order inside a block: spread out first, so a few tables already fill the room. */
 const BLOCK_ORDER: readonly [number, number][] = [[0, 4.5], [1, 4.5], [0, 8.5], [1, 8.5], [0, 6.5], [1, 6.5], [0, 10.5]];
 /** Trees behind the building line, left to right; those behind a wall go into the backdrop. */
-const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1]];
+const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0]];
 
 function tableSpots(width: number): Point[] {
   const spots: Point[] = [];
@@ -200,6 +200,9 @@ function buildMap(tier: number): MapDef {
       { x: 6.7, y: 5.2 },
       ...(tier > 0 ? [{ x: 6.7, y: 8.5 }, { x: 6.7, y: 4.1 }] : []),
       ...(tier > 1 ? [{ x: 6.7, y: 9.6 }, { x: 6.7, y: 3.0 }] : []),
+      // Past the grand tier the pass is crowded: more waiters wait one column further in.
+      ...(tier > 2 ? [{ x: 7.6, y: 6.3 }, { x: 7.6, y: 7.4 }] : []),
+      ...(tier > 3 ? [{ x: 7.6, y: 5.2 }, { x: 7.6, y: 8.5 }] : []),
     ],
     hostSpot: { x: x1 - 2.4, y: 10.4 },
     managerSpot: { x: 5.5, y: 6.6 },

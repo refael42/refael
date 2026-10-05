@@ -1,4 +1,6 @@
 import { BALANCE } from '../src/data/balance';
+import { TIERS } from '../src/data/buildings';
+import { UPGRADES } from '../src/data/upgrades';
 import { STAND_MAP } from '../src/data/maps';
 import { runBalance, type BalanceReport } from '../src/sim/balance';
 import { formatBig } from '../src/sim/format';
@@ -39,6 +41,10 @@ function print(r: BalanceReport): void {
   out.push(`Burger unlocked: ${f.burger === null ? 'never' : clock(f.burger)}`);
   out.push(`First hire:      ${verdict(f.hire, BALANCE.targets.firstHire)} (target < ${BALANCE.targets.firstHire / 60} min)`);
   out.push(`Bigger building: ${f.building === null ? 'never' : clock(f.building)} (target ${BALANCE.targets.firstBuilding.map((m) => m / 60).join('-')} min)`);
+  const tiers = r.purchases.filter((p) => p.item === 'building').map((p) => `${TIERS[p.level]?.id ?? p.level} ${clock(p.time)}`);
+  out.push(`Buildings: ${tiers.join(', ') || 'none'}`);
+  const dishes = r.purchases.filter((p) => p.level === 1 && UPGRADES.find((u) => u.id === p.item)?.unlocksDish !== undefined);
+  out.push(`Dishes: ${dishes.map((p) => `${p.item} ${clock(p.time)}`).join(', ')}`);
   out.push(`Restaurant levels: ${r.levelUps.map((t, i) => `L${i + 2} ${clock(t)}`).join(', ') || 'none'}`);
   out.push(`Hires: ${r.hires.map((h) => `${clock(h.time)} ${h.role}`).join(', ') || 'none'}  (team at the end: ${r.team}, quit: ${r.quits})`);
   out.push('');

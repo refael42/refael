@@ -38,6 +38,8 @@ function decorLook(A: RenderAssets, kind: number): number {
   if (kind === PropKind.FloorLamp) return L.floorLamp[0]!;
   if (kind === PropKind.Aquarium) return L.aquarium[0]!;
   if (kind === PropKind.Statue) return L.statue[0]!;
+  if (kind === PropKind.Fountain) return L.fountain[0]!;
+  if (kind === PropKind.Piano) return L.piano[0]!;
   return -1;
 }
 

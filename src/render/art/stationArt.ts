@@ -513,7 +513,7 @@ const plateStack = sprite([-12, -16, 12, 6], (c) => {
   for (let i = 0; i < 5; i++) cylinder(c, 0, 0, 0.14, i * 2.2, 1.6, '#DDE2E8', '#F7F9FB');
 });
 
-function plateBase(c: SkCanvas, t: number) {
+export function plateBase(c: SkCanvas, t: number) {
   if (t >= 2) box(c, { x: 0, y: 0, w: 0.3, d: 0.3, h: 1.4, color: '#B07A4A', rim: true });
   const z = t >= 2 ? 1.4 : 0;
   cylinder(c, 0, 0, 0.13, z, 1.2, t === 3 ? '#E8C46A' : '#DDE2E8', t === 3 ? '#FFF1C2' : '#FFFFFF');

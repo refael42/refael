@@ -60,6 +60,8 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.FloorLamp]: 44,
   [PropKind.Aquarium]: 30,
   [PropKind.Statue]: 40,
+  [PropKind.Fountain]: 36,
+  [PropKind.Piano]: 36,
   [PropKind.SaleSign]: 40,
 };
 

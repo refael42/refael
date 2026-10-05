@@ -74,6 +74,24 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'burger', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 70, growth: 1.165, unlocksDish: Dish.Burger,
     requires: { item: 'fries', level: 5 },
     effect: { stat: 'price', per: 0.3, dish: Dish.Burger }, milestone: { stat: 'price', factor: 2, dish: Dish.Burger } },
+  { id: 'falafel', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 900, growth: 1.17, unlocksDish: Dish.Falafel,
+    requires: { item: 'burger', level: 10 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Falafel }, milestone: { stat: 'price', factor: 2, dish: Dish.Falafel } },
+  { id: 'shawarma', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9000, growth: 1.17, unlocksDish: Dish.Shawarma,
+    requires: { item: 'falafel', level: 10 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Shawarma }, milestone: { stat: 'price', factor: 2, dish: Dish.Shawarma } },
+  { id: 'hummus', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 90000, growth: 1.175, unlocksDish: Dish.Hummus,
+    requires: { item: 'building', level: 1 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Hummus }, milestone: { stat: 'price', factor: 2, dish: Dish.Hummus } },
+  { id: 'schnitzel', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 900000, growth: 1.175, unlocksDish: Dish.Schnitzel,
+    requires: { item: 'hummus', level: 10 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Schnitzel }, milestone: { stat: 'price', factor: 2, dish: Dish.Schnitzel } },
+  { id: 'shakshuka', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9e6, growth: 1.18, unlocksDish: Dish.Shakshuka,
+    requires: { item: 'building', level: 2 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Shakshuka }, milestone: { stat: 'price', factor: 2, dish: Dish.Shakshuka } },
+  { id: 'iceCream', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9e7, growth: 1.18, unlocksDish: Dish.IceCream,
+    requires: { item: 'shakshuka', level: 10 },
+    effect: { stat: 'price', per: 0.3, dish: Dish.IceCream }, milestone: { stat: 'price', factor: 2, dish: Dish.IceCream } },
 
   // Kitchen: speed, and quality (= every dish sells for more).
   // Global multipliers grow slowly on purpose: they stack with every recipe level.
@@ -127,6 +145,15 @@ export const UPGRADES: readonly UpgradeDef[] = [
     requires: { item: 'building', level: 2 }, effect: { stat: 'quality', per: 0.03 }, milestone: null },
   { id: 'statue', category: 'decor', anchor: K.Statue, restyle: 'anchor', baseCost: 120000, growth: 1.19, requires: { item: 'place_statue', level: 1 },
     effect: { stat: 'quality', per: 0.02 }, milestone: { stat: 'quality', factor: 1.15 } },
+  // The palace and the empire bring their own showpieces.
+  { id: 'place_fountain', category: 'decor', anchor: K.Fountain, restyle: null, baseCost: 3e9, growth: 2.4, max: 2, build: true,
+    requires: { item: 'building', level: 3 }, effect: { stat: 'arrivals', per: 0.08 }, milestone: null },
+  { id: 'fountain', category: 'decor', anchor: K.Fountain, restyle: 'anchor', baseCost: 1.5e9, growth: 1.2, requires: { item: 'place_fountain', level: 1 },
+    effect: { stat: 'arrivals', per: 0.03 }, milestone: { stat: 'arrivals', factor: 1.1 } },
+  { id: 'place_piano', category: 'decor', anchor: K.Piano, restyle: null, baseCost: 1.5e11, growth: 2.4, max: 2, build: true,
+    requires: { item: 'building', level: 4 }, effect: { stat: 'tips', per: 0.2 }, milestone: null },
+  { id: 'piano', category: 'decor', anchor: K.Piano, restyle: 'anchor', baseCost: 7e10, growth: 1.2, requires: { item: 'place_piano', level: 1 },
+    effect: { stat: 'tips', per: 0.05 }, milestone: { stat: 'tips', factor: 1.15 } },
 
   // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
   { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 3.6e6, growth: 30, max: TIERS.length - 1,

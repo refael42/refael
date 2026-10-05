@@ -58,6 +58,8 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.FloorLamp) return look(L.floorLamp, tier);
   if (kind === PropKind.Aquarium) return look(L.aquarium, tier);
   if (kind === PropKind.Statue) return look(L.statue, tier);
+  if (kind === PropKind.Fountain) return look(L.fountain, tier);
+  if (kind === PropKind.Piano) return look(L.piano, tier);
   if (kind === PropKind.Pass) return A.S.pass;
   if (kind === PropKind.TableSlot) return A.S.tableSlot;
   if (kind === PropKind.StoveSlot) return A.S.stoveSlot;
@@ -243,7 +245,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     if (pop > 0) sprXf(c, A, variant === 1 ? S.scaffoldY : S.scaffoldX, 0, 0, 0, 1, pop, plain);
   } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, plain);
   else if (kind === PropKind.Flowers) sprXf(c, A, look(A.L.look.flowers, tier), 0, 0, Math.sin(t * 1.3 + seed) * 1.2, 1, 1, plain);
-  else if (kind === PropKind.FloorLamp || kind === PropKind.Statue) spr(c, A, base, 0, 0, plain);
+  else if (kind === PropKind.FloorLamp || kind === PropKind.Statue || kind === PropKind.Fountain || kind === PropKind.Piano) spr(c, A, base, 0, 0, plain);
   else if (kind === PropKind.Aquarium) {
     spr(c, A, base, 0, 0, plain);
     // Two fish swim back and forth along the glass, turning at the ends.
@@ -315,7 +317,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
 const BADGE_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 70, [PropKind.Sink]: 56, [PropKind.Fridge]: 92, [PropKind.Pass]: 64, [PropKind.PlatesClean]: 50,
   [PropKind.Table]: 46, [PropKind.Chair]: 54, [PropKind.Plant]: 86, [PropKind.Neon]: 116, [PropKind.StreetSign]: 56,
-  [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.SaleSign]: 82,
+  [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.Fountain]: 84, [PropKind.Piano]: 80, [PropKind.SaleSign]: 82,
 };
 
 /** Green arrows over stations with an affordable upgrade (drawn above everything in the world). */

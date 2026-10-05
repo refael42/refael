@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Dish } from '../src/data/dishes';
+import { DISHES, Dish } from '../src/data/dishes';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { KITCHEN } from '../src/data/staff';
@@ -75,7 +75,7 @@ describe('mods', () => {
     const m = computeMods({});
     expect(m.cookSpeed).toBe(1);
     expect(m.tables).toBe(0);
-    expect(m.menu).toEqual([true, false]);
+    expect(m.menu).toEqual(DISHES.map((d) => d.id === Dish.Fries));
   });
 
   it('add within a stat and multiply milestones on top', () => {

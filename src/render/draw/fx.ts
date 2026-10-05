@@ -42,7 +42,7 @@ const FROM_SCREEN = 1;
 const FX_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 60, [PropKind.Sink]: 44, [PropKind.Fridge]: 80, [PropKind.Pass]: 40, [PropKind.PlatesClean]: 44,
   [PropKind.Table]: 34, [PropKind.Chair]: 34, [PropKind.TableSlot]: 30, [PropKind.Plant]: 60, [PropKind.Neon]: 100, [PropKind.StreetSign]: 70,
-  [PropKind.Flowers]: 50, [PropKind.FloorLamp]: 80, [PropKind.Aquarium]: 56, [PropKind.Statue]: 76,
+  [PropKind.Flowers]: 50, [PropKind.FloorLamp]: 80, [PropKind.Aquarium]: 56, [PropKind.Statue]: 76, [PropKind.Fountain]: 70, [PropKind.Piano]: 66,
 };
 
 export interface Camera {

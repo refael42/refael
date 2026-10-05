@@ -2,6 +2,7 @@ import { Accessory, Hair, Hat, Outfit } from '../data/looks';
 import { Bubble, Emote, Expression, Held } from '../sim/types';
 import { characterSprites } from './art/charArt';
 import { decorSprites } from './art/decorArt';
+import { dishSprites } from './art/dishArt';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { propSprites } from './art/propArt';
@@ -9,10 +10,10 @@ import { LOOKS, stationSprites } from './art/stationArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
-const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue'];
+const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
 const GLOW_PAD = 4;
 
 /**
@@ -48,7 +49,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -64,7 +65,7 @@ const NONE = -1;
 const size = (e: object) => Object.keys(e).length;
 
 /** Dense lookup array indexed by enum value; missing entries draw nothing. */
-function byEnum(n: number, entries: [number, string][]): number[] {
+function byEnum(n: number, entries: readonly (readonly [number, string])[]): number[] {
   const out = new Array<number>(n).fill(NONE);
   for (const [i, name] of entries) {
     const idx = INDEX[name];
@@ -94,6 +95,10 @@ const looks = (base: string): number[] => {
   return out;
 };
 
+/** Order icon and plated look per dish id (src/data/dishes.ts order). */
+const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream'] as const;
+const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma', 'plateHummus', 'plateSchnitzel', 'plateShakshuka', 'plateIceCream'] as const;
+
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
 export const LAYERS = {
   hair: views(size(Hair), [[Hair.Short, 'hairShort'], [Hair.Bob, 'hairBob'], [Hair.Ponytail, 'hairPonytail'], [Hair.Curly, 'hairCurly'], [Hair.Spiky, 'hairSpiky'], [Hair.Bun, 'hairBun']]),
@@ -103,17 +108,16 @@ export const LAYERS = {
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
   held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard']]),
-  bubble: byEnum(Bubble.DishBase + 2, [
+  bubble: byEnum(Bubble.DishBase + DISH_ICONS.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
     [Bubble.NoPlates, 'noPlates'],
     [Bubble.Cv, 'cv'],
     [Bubble.Raise, 'raise'],
-    [Bubble.DishBase, 'fries'],
-    [Bubble.DishBase + 1, 'burger'],
+    ...DISH_ICONS.map((name, i) => [Bubble.DishBase + i, name] as const),
   ]),
   /** Dish icon per dish id (tickets, bubbles). */
-  dishIcon: byEnum(2, [[0, 'fries'], [1, 'burger']]),
+  dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
   /** Station looks by milestone tier. */
   look: {
     stove: looks('stove'),
@@ -133,6 +137,8 @@ export const LAYERS = {
     floorLamp: looks('floorLamp'),
     aquarium: looks('aquarium'),
     statue: looks('statue'),
+    fountain: looks('fountain'),
+    piano: looks('piano'),
   },
   /** Sprite index -> its baked golden aura (-1: none). */
   glow: (() => {
@@ -141,7 +147,7 @@ export const LAYERS = {
     return out;
   })(),
   /** Served dish per dish id, then per milestone tier of its recipe. */
-  plate: [looks('plateFries'), looks('plateBurger')],
+  plate: DISH_PLATES.map((name) => looks(name)),
   /** Char code -> glyph sprite, and its advance width. */
   glyph: (() => {
     const out = new Array<number>(128).fill(NONE);

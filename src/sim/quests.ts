@@ -19,7 +19,7 @@ export function questLevel(level: number): QuestLevel {
   const round = Math.floor((k - 1) / e.items.length);
   const goals: QuestGoal[] = [
     { kind: 'upgrade', item, level: e.upgradeLevel.base + e.upgradeLevel.perLevel * (k + round * e.items.length) },
-    k === e.grandAt ? { kind: 'building', tier: 2 } : { kind: 'serve', count: e.serve.base + e.serve.perLevel * k },
+    e.buildingAt[k] !== undefined ? { kind: 'building', tier: e.buildingAt[k]! } : { kind: 'serve', count: e.serve.base + e.serve.perLevel * k },
     k % 2 === 0 ? { kind: 'reviews', count: e.reviews.base + e.reviews.perLevel * k } : { kind: 'earn', amount: e.earn.base * e.earn.growth ** k },
   ];
   return { goals, reward: e.reward.base * e.reward.growth ** k };

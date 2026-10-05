@@ -42,6 +42,8 @@ const CARPETS: Record<DiningFloor, [string, string, string]> = {
   dining: ['#B3202E', '#C9303C', '#6E1220'],
   emerald: ['#11684A', '#1B8560', '#08402C'],
   royal: ['#22408F', '#2F56B5', '#132657'],
+  marble: ['#EDE6D8', '#D9CDB5', '#8A6A2E'],
+  velvet: ['#4A1450', '#601B68', '#250828'],
 };
 
 /** Cheap deterministic per-tile noise for natural variation. */
@@ -69,6 +71,23 @@ function carpet(c: SkCanvas, a: Area, [base, dot, border]: [string, string, stri
     }
   }
   // Dark border band with a gold line: the room reads as a raised "plate".
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.25, a.y0 + 0.25, w - 0.5, h - 0.5), stroke(border, 0.5));
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.3, a.y0 + 0.3, w - 0.6, h - 0.6), stroke(GOLD, 0.05));
+}
+
+/** The palace floor: polished checkered marble with veins and a gold inlay at every corner. */
+function marble(c: SkCanvas, a: Area) {
+  const [light, dark, border] = CARPETS.marble;
+  tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? light : dark));
+  for (let ty = a.y0; ty < a.y1; ty++) {
+    for (let tx = a.x0; tx < a.x1; tx++) {
+      const h = hash(tx, ty);
+      c.drawLine(tx + h * 0.6, ty + 0.1, tx + 0.4 + h * 0.5, ty + 0.9, stroke('#B8A98C', 0.025, 0.6));
+      c.drawRect(Skia.XYWHRect(tx - 0.06, ty - 0.06, 0.12, 0.12), fill(GOLD, 0.9));
+    }
+  }
+  const w = a.x1 - a.x0;
+  const h = a.y1 - a.y0;
   c.drawRect(Skia.XYWHRect(a.x0 + 0.25, a.y0 + 0.25, w - 0.5, h - 0.5), stroke(border, 0.5));
   c.drawRect(Skia.XYWHRect(a.x0 + 0.3, a.y0 + 0.3, w - 0.6, h - 0.6), stroke(GOLD, 0.05));
 }
@@ -101,6 +120,8 @@ function floor(c: SkCanvas, a: Area, doorX: number) {
     dining: () => carpet(c, a, CARPETS.dining),
     emerald: () => carpet(c, a, CARPETS.emerald),
     royal: () => carpet(c, a, CARPETS.royal),
+    marble: () => marble(c, a),
+    velvet: () => carpet(c, a, CARPETS.velvet),
     lot: () => {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#C9A36B'));
       for (let ty = a.y0; ty < a.y1; ty++) {
