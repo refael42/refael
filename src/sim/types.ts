@@ -63,6 +63,11 @@ export const PropKind = {
   StoveSlot: 17,
   /** Building work on the lot next door (variant 0 runs along x, 1 along y). */
   Scaffold: 18,
+  /** Decor placed in build mode. */
+  Flowers: 19,
+  FloorLamp: 20,
+  Aquarium: 21,
+  Statue: 22,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

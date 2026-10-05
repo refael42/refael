@@ -33,10 +33,10 @@ function markFootprint(g: Grid, cx: number, cy: number, w: number, d: number): v
 }
 
 /**
- * How many of the map's table and stove spots are in use, and how many tables (the first ones)
- * have their second chair: bought furniture blocks tiles too.
+ * How many of the map's table and stove spots are in use, how many tables (the first ones)
+ * have their second chair, and the tiles of decor placed in build mode: furniture blocks tiles.
  */
-export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves, pairTables = 0): Grid {
+export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves, pairTables = 0, placed: readonly Point[] = []): Grid {
   const g: Grid = {
     w: map.width,
     h: map.height,
@@ -59,6 +59,7 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
     markFootprint(g, t.x, t.y, 1, 1);
     for (const seat of SEAT_OFFSETS.slice(0, i < pairTables ? 2 : 1)) markFootprint(g, t.x + seat.x, t.y + seat.y, 1, 1);
   });
+  for (const p of placed) markFootprint(g, p.x, p.y, 1, 1);
   for (const door of map.doors) {
     const a = tileIndex(g, Math.floor(door.inside.x), Math.floor(door.inside.y));
     const c = tileIndex(g, Math.floor(door.outside.x), Math.floor(door.outside.y));
@@ -78,6 +79,44 @@ const DIRS: readonly [number, number, number][] = [
   [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
   [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
 ];
+
+/** Every tile a walker can get to from `from` (1 = reachable), with the same rules as paths. */
+export function reachableFrom(g: Grid, from: Point): Uint8Array {
+  const seen = new Uint8Array(g.w * g.h);
+  const start = tileIndex(g, Math.floor(from.x), Math.floor(from.y));
+  const queue = [start];
+  seen[start] = 1;
+  while (queue.length > 0) {
+    const cur = queue.pop()!;
+    const cx = cur % g.w;
+    const cy = Math.floor(cur / g.w);
+    for (const [dx, dy] of DIRS) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (!inBounds(g, nx, ny)) continue;
+      const nb = tileIndex(g, nx, ny);
+      if (seen[nb] || !canStep(g, cur, nb, -1)) continue;
+      if (dx !== 0 && dy !== 0 && (!canStep(g, cur, tileIndex(g, cx + dx, cy), -1) || !canStep(g, cur, tileIndex(g, cx, cy + dy), -1))) continue;
+      seen[nb] = 1;
+      queue.push(nb);
+    }
+  }
+  return seen;
+}
+
+/** Can someone get to point p (walk onto it, or stand next to it when it is furniture like a chair)? */
+export function canReach(g: Grid, reach: Uint8Array, p: Point): boolean {
+  const tx = Math.floor(p.x);
+  const ty = Math.floor(p.y);
+  if (!inBounds(g, tx, ty)) return false;
+  if (reach[tileIndex(g, tx, ty)]) return true;
+  if (g.walk[tileIndex(g, tx, ty)]) return false;
+  for (const [dx, dy] of DIRS) {
+    if (dx !== 0 && dy !== 0) continue;
+    if (inBounds(g, tx + dx, ty + dy) && reach[tileIndex(g, tx + dx, ty + dy)]) return true;
+  }
+  return false;
+}
 
 /** 8-way A* over tiles. The goal tile may be a blocked one (a chair is walked *onto*). */
 function aStar(g: Grid, start: number, goal: number): number[] | null {

@@ -2,18 +2,19 @@ import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/lo
 import { mapForTier, STAND_MAP, type MapDef } from '../data/maps';
 import { NAMES } from '../data/names';
 import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
+import { DECOR_BY_ID } from '../data/decor';
 import { TRAITS, type TraitId } from '../data/traits';
 import { UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave } from './big';
 import { capOf, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWorker } from './game/create';
-import type { GameState } from './game/types';
+import type { GameState, PlacedDecor } from './game/types';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -32,6 +33,8 @@ export interface SaveData {
   day: number;
   levels: Record<string, number>;
   team: WorkerData[];
+  /** Decor placed in build mode (tile centers). */
+  placed: PlacedDecor[];
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -59,6 +62,8 @@ function plainWorker(role: Role, name: number): WorkerData {
 export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v1 (M3) had no hiring: every restaurant came with a cook, a waiter and a dishwasher.
   1: (old) => ({ ...old, day: 1, hires: 0, team: (['cook', 'waiter', 'washer'] as const).map((r, i) => plainWorker(r, i)) }),
+  // v2 (M4) had no build mode.
+  2: (old) => ({ ...old, placed: [] }),
 };
 
 export type LoadResult =
@@ -78,6 +83,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     day: s.day,
     levels: { ...s.levels },
     team: s.staff.filter((st) => !st.leaving).map((st) => ({ ...workerOf(st), wage: toSave(st.wage) })),
+    placed: s.placed.map((p) => ({ ...p })),
   };
 }
 
@@ -147,7 +153,7 @@ function cleanWorker(raw: unknown): WorkerData | null {
 function validate(o: Record<string, unknown>): SaveData | null {
   if (o.version !== SAVE_VERSION) return null;
   if (!finite(o.savedAt) || !finite(o.rating) || !finite(o.served) || !finite(o.hires) || !finite(o.day)) return null;
-  if (!bigText(o.coins) || !bigText(o.earned) || !Array.isArray(o.team)) return null;
+  if (!bigText(o.coins) || !bigText(o.earned) || !Array.isArray(o.team) || !Array.isArray(o.placed)) return null;
   const levels = cleanLevels(o.levels);
   if (!levels) return null;
   const team = o.team.map(cleanWorker).filter((w): w is WorkerData => w !== null);
@@ -162,6 +168,8 @@ function validate(o: Record<string, unknown>): SaveData | null {
     day: Math.max(1, Math.floor(o.day)),
     levels,
     team,
+    // Only known decor on real coordinates; whether a spot is still free is checked when the game is built.
+    placed: o.placed.filter((p): p is PlacedDecor => isRecord(p) && typeof p.item === 'string' && p.item in DECOR_BY_ID && finite(p.x) && finite(p.y)).map((p) => ({ item: p.item, x: p.x, y: p.y })),
   };
 }
 
@@ -201,5 +209,6 @@ export function restoreGame(save: SaveData, seed: number): GameState {
     hires: save.hires,
     day: save.day,
     team: savedTeam(save),
+    placed: save.placed,
   });
 }

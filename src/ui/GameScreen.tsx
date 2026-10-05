@@ -3,17 +3,20 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TIERS } from '../data/buildings';
-import { mapForTier, STAND_MAP } from '../data/maps';
+import { DECOR } from '../data/decor';
+import { mapForTier, STAND_MAP, type Point } from '../data/maps';
 import { LINEUP } from '../data/scenes';
 import { UPGRADES } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
 import { mapBackground, type BackgroundDef } from '../render/art/background';
 import type { Camera } from '../render/draw/fx';
-import { isoX, isoY } from '../render/iso';
+import { floorAt, isoX, isoY } from '../render/iso';
+import type { BuildOverlay } from '../render/draw/drawScene';
 import { SceneCanvas } from '../render/SceneCanvas';
 import { useGame, useLineup, usePoll, type GameBoot } from '../render/useSimulation';
 import { toSave } from '../sim/big';
-import { canBuy, levelOf } from '../sim/economy/upgrades';
+import { canBuy, levelOf, upgradeDef } from '../sim/economy/upgrades';
+import { buildableTiles } from '../sim/game/build';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState } from '../sim/game/types';
 import type { PropKind } from '../sim/types';
@@ -25,6 +28,7 @@ import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
 import { GearButton, SettingsPanel } from './SettingsPanel';
+import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { UpgradePanel } from './UpgradePanel';
@@ -55,10 +59,10 @@ function Labels({ camera }: { camera: Camera }) {
   );
 }
 
-function CornerButton({ label, count, onPress, color }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' }) {
+function CornerButton({ label, count, onPress, color }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange' }) {
   return (
     <View>
-      <JuicyButton label={label} onPress={onPress} style={[styles.cornerButton, color === 'purple' && styles.staffButton]} />
+      <JuicyButton label={label} onPress={onPress} style={[styles.cornerButton, color === 'purple' && styles.staffButton, color === 'orange' && styles.buildButton]} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>
@@ -91,13 +95,48 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const [staff, setStaff] = useState<StaffView | null>(null);
   const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
-  const affordable = wallet ? UPGRADES.filter((u) => canBuy(u, wallet.levels, wallet.coins, wallet.map)).length : 0;
+  const affordable = wallet ? UPGRADES.filter((u) => !u.build && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length : 0;
+  const buildable = wallet ? BUILD_ITEMS.filter((id) => canBuy(upgradeDef(id), wallet.levels, wallet.coins, wallet.map)).length : 0;
   const t = useT();
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
   const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
   const panelOpen = useRef(false);
   panelOpen.current = panel !== null || staff !== null;
+
+  // Build mode: what is picked, which tile, and the free tiles shown on the floor.
+  const [build, setBuild] = useState<{ item: string | null; tile: Point | null } | null>(null);
+  const buildRef = useRef(build);
+  buildRef.current = build;
+  const overlay = useSharedValue<BuildOverlay | null>(null);
+  const freeTiles = useRef<Point[]>([]);
+  const [freeCount, setFreeCount] = useState(0);
+  useEffect(() => {
+    if (!build) {
+      overlay.value = null;
+      return;
+    }
+    const decor = DECOR.find((d) => build.item === `place_${d.id}`);
+    // Free tiles only change when something is built, so a slow refresh is plenty.
+    const refresh = () => {
+      const game = gameRef.current;
+      freeTiles.current = game ? buildableTiles(game) : [];
+      setFreeCount(freeTiles.current.length);
+      overlay.value = {
+        tiles: decor ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
+        pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : [],
+      };
+    };
+    refresh();
+    const timer = setInterval(refresh, 1000);
+    return () => clearInterval(timer);
+  }, [build, gameRef, overlay]);
+  const placeBuild = () => {
+    const b = buildRef.current;
+    if (!b?.item) return;
+    command(b.item === 'tables' ? { type: 'buy', item: 'tables' } : { type: 'buy', item: b.item, ...(b.tile ? { at: b.tile } : {}) });
+    setBuild({ item: b.item, tile: null });
+  };
 
   // The building: its background, where the camera looks (the building site while the
   // scaffolding is up), and a celebration when the bigger place opens.
@@ -143,10 +182,21 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   }, [selected, selectedId]);
   // Building work starts: get the menus out of the way of the show.
   useEffect(() => {
-    if (building >= 0) close();
+    if (building >= 0) {
+      close();
+      setBuild(null);
+    }
   }, [building, close]);
   const onTap = useCallback(
     (x: number, y: number, cam: Camera) => {
+      const b = buildRef.current;
+      if (b) {
+        // In build mode a tap picks the tile under the finger (if something can go there).
+        const p = floorAt(x, y, cam.x, cam.y, cam.zoom);
+        const tile = freeTiles.current.find((f) => Math.floor(f.x) === Math.floor(p.x) && Math.floor(f.y) === Math.floor(p.y));
+        if (tile && b.item && b.item !== 'tables') setBuild({ item: b.item, tile });
+        return;
+      }
       const hit = tap(x, y, cam);
       trace(`hit ${hit === null ? 'nothing' : typeof hit === 'string' ? hit : JSON.stringify(hit)}`);
       if (hit && hit !== 'action') {
@@ -164,11 +214,12 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} />
+      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
-      {!panel && !staff && (
+      {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
+          <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
           <CornerButton label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
           <CornerButton label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
@@ -181,6 +232,17 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onBuy={(item) => command({ type: 'buy', item })}
           onShowAll={() => open(null)}
           onClose={close}
+        />
+      )}
+      {build && wallet && (
+        <BuildPanel
+          wallet={wallet}
+          item={build.item}
+          tile={build.tile}
+          freeTiles={freeCount}
+          onItem={(item) => setBuild({ item, tile: null })}
+          onPlace={placeBuild}
+          onDone={() => setBuild(null)}
         />
       )}
       {building >= 0 && <ConstructionNote />}
@@ -242,6 +304,7 @@ const styles = StyleSheet.create({
   cornerRow: { flexDirection: 'row', gap: 10 },
   cornerButton: { minHeight: 52, paddingHorizontal: 20, backgroundColor: '#35B957', borderColor: '#FFE08A', borderWidth: 2.5 },
   staffButton: { backgroundColor: '#6A2C8F', borderColor: '#E8C9FF' },
+  buildButton: { backgroundColor: '#D9822B', borderColor: '#FFE08A' },
   badge: {
     position: 'absolute',
     top: -6,

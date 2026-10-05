@@ -2,7 +2,9 @@ import type { Point } from '../../data/maps';
 import { canBuy, computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { PropKind } from '../types';
 import { startConstruction } from './construction';
-import { addSeat, addStove, addTable } from './create';
+import { DECOR } from '../../data/decor';
+import { autoTile, canPlaceAt } from './build';
+import { addSeat, addStove, addTable, placeDecor } from './create';
 import { chairOf, route } from './customers';
 import { emit, Ev } from './events';
 import type { GameState } from './types';
@@ -30,10 +32,16 @@ function rerouteWalkers(s: GameState): void {
   }
 }
 
-/** Buys one level if allowed and affordable. Returns whether it happened. */
-export function buyUpgrade(s: GameState, id: string): boolean {
+/**
+ * Buys one level if allowed and affordable. Decor goes on tile `at` (it must be free), or on the
+ * nearest free tile when no spot was chosen. Returns whether it happened.
+ */
+export function buyUpgrade(s: GameState, id: string, at?: Point): boolean {
   const def = upgradeDef(id);
   if (!canBuy(def, s.levels, s.coins, s.map)) return false;
+  const decor = def.build ? DECOR.find((d) => d.kind === def.anchor) : undefined;
+  const tile = decor ? (at ? (canPlaceAt(s, at.x, at.y) ? at : null) : autoTile(s)) : null;
+  if (decor && !tile) return false;
   const level = levelOf(s.levels, id);
   s.coins = s.coins.sub(costOf(def, level));
   const before = s.mods;
@@ -47,24 +55,28 @@ export function buyUpgrade(s: GameState, id: string): boolean {
     return true;
   }
 
-  let at = anchorPoints(s, def.anchor);
+  let fx = anchorPoints(s, def.anchor);
+  if (decor && tile) {
+    fx = [placeDecor(s, decor.id, tile)];
+    rerouteWalkers(s);
+  }
   if (s.mods.tables > before.tables) {
     const table = addTable(s);
     rerouteWalkers(s);
-    at = table ? [table] : [];
+    fx = table ? [table] : [];
   }
   if (s.mods.stoves > before.stoves) {
     const stove = addStove(s);
     rerouteWalkers(s);
-    at = stove ? [stove] : [];
+    fx = stove ? [stove] : [];
   }
   if (s.mods.seats > before.seats) {
     const table = addSeat(s);
     rerouteWalkers(s);
-    at = table ? [chairOf(table, 1)] : [];
+    fx = table ? [chairOf(table, 1)] : [];
   }
   const milestone = milestonesReached(level + 1) > milestonesReached(level) ? 1 : 0;
-  for (const p of at) emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone, def.anchor);
+  for (const p of fx) emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone, def.anchor);
   s.bumpAt[def.anchor] = s.time;
   return true;
 }

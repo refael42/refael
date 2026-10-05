@@ -54,6 +54,11 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Neon]: 64,
   [PropKind.StreetSign]: 34,
   [PropKind.StoveSlot]: 10,
+  [PropKind.Flowers]: 24,
+  [PropKind.FloorLamp]: 44,
+  [PropKind.Aquarium]: 30,
+  [PropKind.Statue]: 40,
+  [PropKind.SaleSign]: 40,
 };
 
 const ANCHORS: readonly PropKind[] = [...new Set(UPGRADES.map((u) => u.anchor))];
@@ -107,7 +112,7 @@ function apply(s: GameState, cmd: Command): void {
   } else if (cmd.type === 'wash') {
     handWash(s);
   } else if (cmd.type === 'buy') {
-    buyUpgrade(s, cmd.item);
+    buyUpgrade(s, cmd.item, cmd.at);
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
     s.coins = s.coins.add(coins);

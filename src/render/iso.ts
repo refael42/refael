@@ -14,6 +14,13 @@ export function isoY(x: number, y: number, z = 0): number {
   return (x + y) * HALF_H - z;
 }
 
+/** The floor point (tiles) under a screen point, for a camera at (camX, camY) with `zoom`. */
+export function floorAt(sx: number, sy: number, camX: number, camY: number, zoom: number): { x: number; y: number } {
+  const wx = (sx - camX) / zoom / HALF_W;
+  const wy = (sy - camY) / zoom / HALF_H;
+  return { x: (wx + wy) / 2, y: (wy - wx) / 2 };
+}
+
 /** Screen-space bounds of a floor rectangle, used for camera limits. */
 export function isoBounds(width: number, height: number, top = 0) {
   return {

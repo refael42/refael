@@ -1,6 +1,6 @@
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
-import type { Point } from '../../data/maps';
+import { SERVE_OFFSET, type Point } from '../../data/maps';
 import { KITCHEN, ROLES, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { followPath, setPose } from '../movement';
@@ -13,8 +13,7 @@ import { CustomerState, OrderState, TableState, type GameState, type Order, type
 import { gainXp, walkOut } from './workers';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
-/** Where staff stand to serve or clear a table: its front edge, clear of both chairs. */
-export const besideTable = (t: Table): Point => ({ x: t.x, y: t.y + 0.75 });
+export const besideTable = (t: Table): Point => ({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
 /** ...facing the table from there. */
 const FACING_TABLE = Facing.BackRight;
 

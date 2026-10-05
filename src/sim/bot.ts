@@ -3,6 +3,7 @@ import { UPGRADES } from '../data/upgrades';
 import { ZERO, type Big } from './big';
 import { canBuy, costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
 import { signingFee } from './game/applicants';
+import { autoTile } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
 import { hasRoom, headcount } from './game/workers';
@@ -80,12 +81,12 @@ function wanted(s: GameState, role: string): number {
   }
 }
 
-/** The cheapest upgrade this budget buys right now, if any. */
-export function cheapestAffordable(s: GameState, budget: Big = s.coins): string | null {
+/** The cheapest upgrade this budget buys right now, if any (`skip`: rows known not to fit). */
+export function cheapestAffordable(s: GameState, budget: Big = s.coins, skip: ReadonlySet<string> = new Set()): string | null {
   let best: string | null = null;
   let bestCost = Infinity;
   for (const def of UPGRADES) {
-    if (!canBuy(def, s.levels, budget, s.map)) continue;
+    if (skip.has(def.id) || !canBuy(def, s.levels, budget, s.map)) continue;
     const cost = costOf(def, levelOf(s.levels, def.id)).toNumber();
     if (cost < bestCost) {
       bestCost = cost;
@@ -100,6 +101,9 @@ export function createBot(options: BotOptions): Bot {
   const purchases: Purchase[] = [];
   const hires: Hire[] = [];
   const earnedAt: { time: number; earned: Big }[] = [];
+  /** Decor with no free tile left in this building (cleared when the building grows). */
+  const noRoom = new Set<string>();
+  let noRoomTier = 0;
   const buy = (s: GameState, item: string) => {
     const level = levelOf(s.levels, item);
     purchases.push({ time: s.time, item, level: level + 1, cost: costOf(upgradeDef(item), level).toNumber() });
@@ -158,8 +162,15 @@ export function createBot(options: BotOptions): Bot {
       return;
     }
     if (saveForBuilding(s, budget)) return;
-    const item = cheapestAffordable(s, budget);
-    if (item) buy(s, item);
+    if (s.map.tier !== noRoomTier) {
+      noRoom.clear();
+      noRoomTier = s.map.tier;
+    }
+    const item = cheapestAffordable(s, budget, noRoom);
+    if (!item) return;
+    // Decor goes on the first free tile, like a player who does not mind where; with none left, stop trying.
+    if (upgradeDef(item).build && !autoTile(s)) noRoom.add(item);
+    else buy(s, item);
   };
   return { act, purchases, hires };
 }

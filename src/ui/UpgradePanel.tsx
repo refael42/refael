@@ -170,7 +170,8 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
     slide.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
   }, [slide]);
   const slideStyle = useAnimatedStyle(() => ({ transform: [{ translateX: slide.value * 420 }] }));
-  const items = station === null ? UPGRADES.filter((u) => u.category === category) : UPGRADES.filter((u) => u.anchor === station);
+  // Decor is placed in build mode, not bought from a list: those rows live in the build panel.
+  const items = (station === null ? UPGRADES.filter((u) => u.category === category) : UPGRADES.filter((u) => u.anchor === station)).filter((u) => !u.build);
   // One upgrade: its name. Several on one station (the pass holds the menu): their category.
   const title = station === null ? t('ui.upgrades') : items.length === 1 ? t(`up.${items[0]!.id}`) : t(`cat.${items[0]?.category ?? 'menu'}`);
   return (
@@ -186,7 +187,7 @@ export function UpgradePanel({ wallet, station, onBuy, onShowAll, onClose }: Pro
       {station === null && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs} contentContainerStyle={styles.tabsInner}>
           {CATEGORIES.map((c) => {
-            const count = UPGRADES.filter((u) => u.category === c && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length;
+            const count = UPGRADES.filter((u) => u.category === c && !u.build && canBuy(u, wallet.levels, wallet.coins, wallet.map)).length;
             return (
               <Pressable key={c} onPress={() => setCategory(c)} style={[styles.tab, c === category && styles.tabOn]}>
                 <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{t(`cat.${c}`)}</Text>

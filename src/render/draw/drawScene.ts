@@ -24,6 +24,23 @@ function eveningOf(phase: number): number {
   return Math.max(0, 1 - Math.abs(phase - 0.62) / 0.1);
 }
 
+/** Build mode on screen: free tiles (x, y pairs) and the picked one with the piece previewed there. */
+export interface BuildOverlay {
+  tiles: number[];
+  /** [x, y, prop kind] of the picked tile, or empty. */
+  pick: number[];
+}
+
+function decorLook(A: RenderAssets, kind: number): number {
+  'worklet';
+  const L = A.L.look;
+  if (kind === PropKind.Flowers) return L.flowers[0]!;
+  if (kind === PropKind.FloorLamp) return L.floorLamp[0]!;
+  if (kind === PropKind.Aquarium) return L.aquarium[0]!;
+  if (kind === PropKind.Statue) return L.statue[0]!;
+  return -1;
+}
+
 /** After the night tint: lamp halos and the neon sign shine through the dark. */
 function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number, t: number): void {
   'worklet';
@@ -32,10 +49,11 @@ function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number,
     const o = i * STRIDE;
     if (d[o + F.type] !== EntityType.Prop) continue;
     const kind = d[o + PF.kind]!;
-    if (kind !== PropKind.Lamp && kind !== PropKind.Neon) continue;
+    if (kind !== PropKind.Lamp && kind !== PropKind.Neon && kind !== PropKind.FloorLamp) continue;
     const x = isoX(d[o + F.x]!, d[o + F.y]!);
     const y = isoY(d[o + F.x]!, d[o + F.y]!, d[o + PF.lift]!);
     if (kind === PropKind.Lamp) sprFade(c, A, A.S.glowHalo, x, y - 76, 1.8, night * (0.75 + Math.sin(t * 2 + i) * 0.15));
+    else if (kind === PropKind.FloorLamp) sprFade(c, A, A.S.glowHalo, x, y - 52, 1.4, night * 0.85);
     else sprFade(c, A, A.L.look.neonLit[0]!, x, y, 1, night * 0.7);
   }
 }
@@ -47,6 +65,7 @@ function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number,
 export function drawScene(
   c: SkCanvas, A: RenderAssets, snap: Snapshot, alpha: number, t: number, dt: number,
   cam: Camera, fx: FxState, hud: HudLayout | null, vignette: SkPaint | null, W: number, H: number, selected: number, selectedId: number,
+  build: BuildOverlay | null,
 ): void {
   'worklet';
   if (hud) processEvents(fx, snap, hudAnchors(hud));
@@ -69,10 +88,23 @@ export function drawScene(
   } else {
     c.drawPicture(A.background);
   }
+  // Build mode: every free tile glows softly on the floor, under everything standing on it.
+  if (build) {
+    const glow = 0.65 + Math.sin(t * 3) * 0.2;
+    for (let i = 0; i < build.tiles.length; i += 2) sprFade(c, A, A.S.tileFree, isoX(build.tiles[i]!, build.tiles[i + 1]!), isoY(build.tiles[i]!, build.tiles[i + 1]!), 1, glow);
+  }
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;
     if (d[o + F.type] === EntityType.Character) drawCharacter(c, A, d, o, alpha, t, selectedId);
     else drawProp(c, A, d, o, t, looks);
+  }
+  // ...and the picked tile with a see-through preview of the piece, bobbing a little.
+  if (build && build.pick.length === 3) {
+    const px = isoX(build.pick[0]!, build.pick[1]!);
+    const py = isoY(build.pick[0]!, build.pick[1]!);
+    sprFade(c, A, A.S.tilePicked, px, py, 1, 0.9);
+    const look = decorLook(A, build.pick[2]!);
+    if (look >= 0) sprFade(c, A, look, px, py - 4 - Math.abs(Math.sin(t * 3)) * 4, 1, 0.75);
   }
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;

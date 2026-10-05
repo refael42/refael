@@ -59,6 +59,7 @@ function finishConstruction(s: GameState): void {
     hires: s.stats.hires,
     day: s.day,
     team: s.staff.filter((st) => !st.leaving).map(workerOf),
+    placed: s.placed,
   });
   const keep = {
     rng: s.rng,

@@ -46,6 +46,10 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.Plant) return look(variant === 1 ? L.plantBush : L.plantPalm, tier);
   if (kind === PropKind.Neon) return look(L.neonBoard, tier);
   if (kind === PropKind.StreetSign) return look(L.streetSign, tier);
+  if (kind === PropKind.Flowers) return look(L.flowers, tier);
+  if (kind === PropKind.FloorLamp) return look(L.floorLamp, tier);
+  if (kind === PropKind.Aquarium) return look(L.aquarium, tier);
+  if (kind === PropKind.Statue) return look(L.statue, tier);
   if (kind === PropKind.Pass) return A.S.pass;
   if (kind === PropKind.TableSlot) return A.S.tableSlot;
   if (kind === PropKind.StoveSlot) return A.S.stoveSlot;
@@ -230,6 +234,19 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     const pop = age < 0 ? 0 : age < 0.4 ? easeOutBack(clamp01(age / 0.4)) : 1;
     if (pop > 0) sprXf(c, A, variant === 1 ? S.scaffoldY : S.scaffoldX, 0, 0, 0, 1, pop, plain);
   } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, plain);
+  else if (kind === PropKind.Flowers) sprXf(c, A, look(A.L.look.flowers, tier), 0, 0, Math.sin(t * 1.3 + seed) * 1.2, 1, 1, plain);
+  else if (kind === PropKind.FloorLamp || kind === PropKind.Statue) spr(c, A, base, 0, 0, plain);
+  else if (kind === PropKind.Aquarium) {
+    spr(c, A, base, 0, 0, plain);
+    // Two fish swim back and forth along the glass, turning at the ends.
+    for (let k = 0; k < 2; k++) {
+      const phase = t * (0.35 + k * 0.12) + seed + k * 2;
+      const u = Math.sin(phase) * 0.3;
+      const goingRight = Math.cos(phase) > 0;
+      const z = 30 + k * 7 + Math.sin(t * 2 + k) * 1.5;
+      sprXf(c, A, k === 0 ? S.fishOrange : S.fishBlue, ox(u, 0.2), oy(u, 0.2, z), 0, goingRight ? -1 : 1, 1, plain);
+    }
+  }
   else if (kind === PropKind.PassDish) {
     // Ready dish pops onto the pass, then bobs and sparkles until someone serves it.
     const age = t - d[o + PF.since]!;
@@ -290,6 +307,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
 const BADGE_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 70, [PropKind.Sink]: 56, [PropKind.Fridge]: 92, [PropKind.Pass]: 64, [PropKind.PlatesClean]: 50,
   [PropKind.Table]: 46, [PropKind.Chair]: 54, [PropKind.Plant]: 86, [PropKind.Neon]: 116, [PropKind.StreetSign]: 56,
+  [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.SaleSign]: 82,
 };
 
 /** Green arrows over stations with an affordable upgrade (drawn above everything in the world). */

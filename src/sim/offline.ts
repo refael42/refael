@@ -20,7 +20,7 @@ export interface OfflineEarnings {
 
 /** Coins per second this restaurant makes with nobody tapping except slow seating. */
 export function measureIncomeRate(save: SaveData, seed: number): Big {
-  const s = createGame(mapOfSave(save), seed, { levels: save.levels, rating: save.rating, coins: ZERO, team: savedTeam(save) });
+  const s = createGame(mapOfSave(save), seed, { levels: save.levels, rating: save.rating, coins: ZERO, team: savedTeam(save), placed: save.placed });
   const bot = createBot({ reaction: OFFLINE.reactionSeconds, helpStaff: false, buy: false });
   const run = (seconds: number) => {
     for (let i = Math.round(seconds / STEP_SEC); i > 0; i--) {

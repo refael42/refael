@@ -99,6 +99,8 @@ export const CHAIR_OFFSET: Point = { x: -0.62, y: 0 };
 /** Seats around a table: the first chair, then the one opposite it (bought: "More chairs"). */
 export const SEAT_OFFSETS: readonly Point[] = [CHAIR_OFFSET, { x: 0.62, y: 0 }];
 export const MAX_SEATS = SEAT_OFFSETS.length;
+/** Where staff stand to serve or clear a table: its front edge, clear of both chairs. */
+export const SERVE_OFFSET: Point = { x: 0, y: 0.75 };
 /**
  * The opposite chair faces away from the camera, so its backrest is a prop of its own placed
  * this far past the chair: it then sorts (and draws) in front of the person sitting there.

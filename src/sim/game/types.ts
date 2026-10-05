@@ -95,7 +95,8 @@ export type Command =
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
-  | { type: 'buy'; item: string }
+  /** `at` = the tile for decor placed in build mode. */
+  | { type: 'buy'; item: string; at?: Point }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }
   | { type: 'reject'; applicant: number }
@@ -255,6 +256,14 @@ export interface GameState {
   nextNoticeId: number;
   /** The next building tier going up (closed meanwhile), or null. */
   construction: Construction | null;
+  /** Decor placed in build mode (tile centers); `item` is a DecorId. */
+  placed: PlacedDecor[];
+}
+
+export interface PlacedDecor {
+  item: string;
+  x: number;
+  y: number;
 }
 
 export interface Construction {

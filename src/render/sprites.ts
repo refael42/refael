@@ -1,14 +1,15 @@
 import { Accessory, Hair, Hat, Outfit } from '../data/looks';
 import { Bubble, Emote, Expression, Held } from '../sim/types';
 import { characterSprites } from './art/charArt';
+import { decorSprites } from './art/decorArt';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
 import type { SpriteDef } from './sprite';
 
-const ALL = { ...characterSprites, ...propSprites, ...stationSprites, ...fxSprites, ...glyphSprites };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof fxSprites;
+const ALL = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...fxSprites, ...glyphSprites };
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -85,6 +86,10 @@ export const LAYERS = {
     neonLit: looks('neonLit'),
     streetSign: looks('streetSign'),
     plateSingle: looks('plateSingle'),
+    flowers: looks('flowers'),
+    floorLamp: looks('floorLamp'),
+    aquarium: looks('aquarium'),
+    statue: looks('statue'),
   },
   /** Served dish per dish id, then per milestone tier of its recipe. */
   plate: [looks('plateFries'), looks('plateBurger')],

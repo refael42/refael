@@ -1,16 +1,18 @@
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
-import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef } from '../../data/maps';
+import { DECOR, DECOR_BY_ID, placeRow, type DecorId } from '../../data/decor';
+import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef, type Point } from '../../data/maps';
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
-import { computeMods, type Levels } from '../economy/upgrades';
+import { computeMods, levelOf, type Levels } from '../economy/upgrades';
 import { buildGrid } from '../grid';
 import { createRng } from '../rng';
 import type { PropView } from '../types';
 import { PropKind } from '../types';
 import { applicantLook, generatePerson, rankOf, uniformLook } from './people';
 import { createStaff } from './staff';
-import { TableState, type GameState, type Person, type Staff, type Table } from './types';
+import { autoTile, canPlaceAt } from './build';
+import { TableState, type GameState, type Person, type PlacedDecor, type Staff, type Table } from './types';
 import { spawnPedestrian } from './walkers';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
@@ -38,8 +40,43 @@ export function propFrom(id: number, f: Furniture): PropView {
 }
 
 const rebuildGrid = (s: GameState) => {
-  s.grid = buildGrid(s.map, s.tables.length, s.stoves.length, s.tables.filter((t) => t.seats > 1).length);
+  s.grid = buildGrid(s.map, s.tables.length, s.stoves.length, s.tables.filter((t) => t.seats > 1).length, s.placed);
 };
+
+/** Puts a decor piece on a tile: its prop, the tile it now blocks, and the record the save keeps. */
+export function placeDecor(s: GameState, item: DecorId, at: Point): Point {
+  const tile = { x: Math.floor(at.x) + 0.5, y: Math.floor(at.y) + 0.5 };
+  s.props.push(propFrom(s.nextId++, { kind: DECOR_BY_ID[item]!.kind, ...tile, w: 1, d: 1, blocks: true }));
+  s.placed.push({ item, ...tile });
+  rebuildGrid(s);
+  return tile;
+}
+
+/**
+ * Decor from a save goes back where it was. A piece whose spot is gone (another building, a
+ * changed layout) moves to the nearest free tile; with no room left it is dropped (and so is its level).
+ */
+function restoreDecor(s: GameState, placed: readonly PlacedDecor[]): void {
+  let changed = false;
+  for (const d of DECOR) {
+    const row = placeRow(d.id);
+    const want = levelOf(s.levels, row);
+    if (want <= 0) continue;
+    const spots = placed.filter((p) => p.item === d.id);
+    let n = 0;
+    for (; n < want; n++) {
+      const p = spots[n];
+      const at = p && canPlaceAt(s, p.x, p.y) ? p : autoTile(s, p);
+      if (!at) break;
+      placeDecor(s, d.id, at);
+    }
+    if (n !== want) {
+      s.levels = { ...s.levels, [row]: n };
+      changed = true;
+    }
+  }
+  if (changed) s.mods = computeMods(s.levels);
+}
 
 /**
  * Chair props for one seat. The first chair has its back to the wall side and is one piece;
@@ -150,6 +187,8 @@ export interface GameSetup {
   served?: number;
   hires?: number;
   day?: number;
+  /** Where the decor bought in build mode stands. */
+  placed?: readonly PlacedDecor[];
 }
 
 export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
@@ -193,11 +232,13 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     notices: [],
     nextNoticeId: 1,
     construction: null,
+    placed: [],
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);
   const stoveCount = Math.min(map.stoves.length, map.startStoves + mods.stoves);
   while (s.stoves.length < stoveCount) addStove(s);
+  restoreDecor(s, setup.placed ?? []);
   if (setup.team) {
     for (const w of setup.team) {
       const { role, look, xp, morale, hiredDay, lastRaiseDay, trial, ...person } = w;

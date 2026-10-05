@@ -8,7 +8,7 @@ import { trace } from '../trace';
 import type { BackgroundDef } from './art/background';
 import { buildRenderAssets, type RenderAssets } from './assets';
 import { centerOn, clampCam, glide, zoomAt, type Cam, type WorldBounds } from './camera';
-import { drawScene } from './draw/drawScene';
+import { drawScene, type BuildOverlay } from './draw/drawScene';
 import { createFx, FxKind, spawnFx, type Camera, type FxState } from './draw/fx';
 import type { HudLayout } from './draw/hud';
 import { isoX, isoY } from './iso';
@@ -87,6 +87,8 @@ interface Props {
   selected?: SharedValue<number>;
   /** Character id to ring (the worker or applicant whose card is open), -1 for none. */
   selectedId?: SharedValue<number>;
+  /** Build mode marks (free tiles, the picked one), or null outside build mode. */
+  build?: SharedValue<BuildOverlay | null>;
 }
 
 /**
@@ -97,7 +99,7 @@ interface Props {
  * there too; the UI thread only reads it to draw. (A gesture-handler + worklet setup crashed
  * the app natively on the owner's phone at the first touch, with no error to read.)
  */
-export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId }: Props) {
+export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, focus, hud, uiFps, buildMs, onTap, onCamera, selected, selectedId, build }: Props) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [assets, setAssets] = useState<RenderAssets | null>(null);
   const empty = useMemo(emptyPicture, []);
@@ -299,7 +301,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       const started = performance.now();
       if (!recorder.value) recorder.value = Skia.PictureRecorder();
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
-      drawScene(c, assets, snap, alpha, t, dt, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1);
+      drawScene(c, assets, snap, alpha, t, dt, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1, build ? build.value : null);
       const next = recorder.value.finishRecordingAsPicture();
       // Web (CanvasKit/WASM) never garbage-collects Skia objects: free pictures a few frames old.
       // Native frees them by itself, and freeing by hand there can pull a picture out from under
@@ -317,7 +319,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       picture.value = next;
       buildMs.value = buildMs.value * 0.9 + (performance.now() - started) * 0.1;
     },
-    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, ripple, lastRipple, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camera, hud, vignette, W, H, selected, selectedId],
+    [assets, empty, snapshot, uiFps, buildMs, picture, previous, recorder, fx, ripple, lastRipple, arrival, lastSeq, lastNow, fpsFrames, fpsStart, camera, hud, vignette, W, H, selected, selectedId, build],
   );
   useFrameCallback(onFrame);
 

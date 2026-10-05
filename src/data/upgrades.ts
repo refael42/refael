@@ -48,6 +48,8 @@ export interface UpgradeDef {
   spots?: 'tables' | 'stoves' | 'seats';
   /** Level 1 adds this dish to the menu. */
   unlocksDish?: Dish;
+  /** Bought by placing it on a free tile in build mode (one level = one more on the floor). */
+  build?: boolean;
   requires?: { item: string; level: number };
 }
 
@@ -99,6 +101,24 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'arrivals', per: 0.05 }, milestone: { stat: 'tips', factor: 1.1 } },
   { id: 'sign', category: 'marketing', anchor: K.StreetSign, restyle: 'anchor', baseCost: 8, growth: 1.15,
     effect: { stat: 'arrivals', per: 0.06 }, milestone: { stat: 'arrivals', factor: 1.1 } },
+
+  // Decor placed in build mode: each one placed adds a little, the track lifts them all.
+  { id: 'place_flowers', category: 'decor', anchor: K.Flowers, restyle: null, baseCost: 800, growth: 1.9, max: 6, build: true,
+    effect: { stat: 'arrivals', per: 0.025 }, milestone: null },
+  { id: 'flowers', category: 'decor', anchor: K.Flowers, restyle: 'anchor', baseCost: 400, growth: 1.16, requires: { item: 'place_flowers', level: 1 },
+    effect: { stat: 'arrivals', per: 0.02 }, milestone: { stat: 'arrivals', factor: 1.1 } },
+  { id: 'place_lamp', category: 'decor', anchor: K.FloorLamp, restyle: null, baseCost: 3000, growth: 2, max: 6, build: true,
+    effect: { stat: 'tips', per: 0.04 }, milestone: null },
+  { id: 'lamp', category: 'decor', anchor: K.FloorLamp, restyle: 'anchor', baseCost: 1500, growth: 1.17, requires: { item: 'place_lamp', level: 1 },
+    effect: { stat: 'tips', per: 0.03 }, milestone: { stat: 'tips', factor: 1.15 } },
+  { id: 'place_aquarium', category: 'decor', anchor: K.Aquarium, restyle: null, baseCost: 25000, growth: 2.1, max: 3, build: true,
+    requires: { item: 'building', level: 1 }, effect: { stat: 'patience', per: 0.06 }, milestone: null },
+  { id: 'aquarium', category: 'decor', anchor: K.Aquarium, restyle: 'anchor', baseCost: 12000, growth: 1.18, requires: { item: 'place_aquarium', level: 1 },
+    effect: { stat: 'patience', per: 0.03 }, milestone: { stat: 'tips', factor: 1.1 } },
+  { id: 'place_statue', category: 'decor', anchor: K.Statue, restyle: null, baseCost: 250000, growth: 2.2, max: 3, build: true,
+    requires: { item: 'building', level: 2 }, effect: { stat: 'quality', per: 0.03 }, milestone: null },
+  { id: 'statue', category: 'decor', anchor: K.Statue, restyle: 'anchor', baseCost: 120000, growth: 1.19, requires: { item: 'place_statue', level: 1 },
+    effect: { stat: 'quality', per: 0.02 }, milestone: { stat: 'quality', factor: 1.15 } },
 
   // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
   { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 2e6, growth: 30, max: TIERS.length - 1,

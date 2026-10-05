@@ -18,7 +18,7 @@ const STEEL_DARK = '#7E8A98';
 const VELVET = '#C8202E';
 
 /** `name0`..`name3` sprites from one parametric drawing. */
-function looks(name: string, bounds: SpriteDef['bounds'], draw: (c: SkCanvas, t: number) => void): Record<string, SpriteDef> {
+export function looks(name: string, bounds: SpriteDef['bounds'], draw: (c: SkCanvas, t: number) => void): Record<string, SpriteDef> {
   return Object.fromEntries(Array.from({ length: LOOKS }, (_, t) => [`${name}${t}`, sprite(bounds, (c) => draw(c, t))]));
 }
 

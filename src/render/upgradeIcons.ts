@@ -18,6 +18,14 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   sign: { base: 'streetSign', looks: true },
   building: { base: 'saleSign', looks: false },
   seats: { base: 'chair0', looks: false },
+  place_flowers: { base: 'flowers0', looks: false },
+  flowers: { base: 'flowers', looks: true },
+  place_lamp: { base: 'floorLamp0', looks: false },
+  lamp: { base: 'floorLamp', looks: true },
+  place_aquarium: { base: 'aquarium0', looks: false },
+  aquarium: { base: 'aquarium', looks: true },
+  place_statue: { base: 'statue0', looks: false },
+  statue: { base: 'statue', looks: true },
 };
 
 export function upgradeIcon(id: string, tier: number): SpriteName {
