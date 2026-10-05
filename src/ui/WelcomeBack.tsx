@@ -10,6 +10,7 @@ import { gold, panel } from './theme';
 
 interface Props {
   earnings: OfflineEarnings;
+  manager?: string;
   /** Called with the multiplier the player ended up with (1, or the ad bonus). */
   onCollect: (multiplier: number) => void;
 }
@@ -53,7 +54,7 @@ function Duration({ seconds }: { seconds: number }) {
   );
 }
 
-export function WelcomeBack({ earnings, onCollect }: Props) {
+export function WelcomeBack({ earnings, manager, onCollect }: Props) {
   const t = useT();
   const [multiplier, setMultiplier] = useState(1);
   const [adLeft, setAdLeft] = useState(0);
@@ -81,6 +82,8 @@ export function WelcomeBack({ earnings, onCollect }: Props) {
     <View style={styles.backdrop}>
       <Animated.View style={[styles.card, popStyle]}>
         <Text style={styles.title}>{t('ui.welcome')}</Text>
+        {/* The name on a line of its own: no mixing of Hebrew and Latin in one string. */}
+        {manager && <Text style={styles.manager}>{manager}</Text>}
         <View style={styles.awayRow}>
           <Text style={styles.label}>{t('ui.away')}</Text>
           <Duration seconds={earnings.awaySeconds} />
@@ -129,6 +132,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 6px 0px #120818',
   },
   title: { color: '#FFE9A8', fontSize: 24, fontWeight: '900' },
+  manager: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: -4 },
   awayRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   label: { color: '#E8D7F0', fontSize: 14, fontWeight: '700', textAlign: 'center' },
   note: { color: '#C9B3D6', fontSize: 12, fontWeight: '600' },

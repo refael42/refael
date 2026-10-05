@@ -9,7 +9,7 @@ import { gold, panel } from './theme';
  * The bigger restaurant opens: a white flash (it also hides the moment the new building is
  * drawn for the first time), then a big card with the new name that pops and fades away.
  */
-export function TierBanner({ tier, onDone }: { tier: number; onDone: () => void }) {
+export function TierBanner({ tier, restaurant, onDone }: { tier: number; restaurant?: string; onDone: () => void }) {
   const t = useT();
   const flash = useSharedValue(1);
   const pop = useSharedValue(0);
@@ -26,6 +26,7 @@ export function TierBanner({ tier, onDone }: { tier: number; onDone: () => void 
     <View style={styles.fill} pointerEvents="none">
       <Animated.View style={[styles.fill, styles.flash, flashStyle]} />
       <Animated.View style={[styles.card, cardStyle]}>
+        {restaurant && <Text style={styles.restaurant}>{restaurant}</Text>}
         <Text style={styles.title}>{t('ui.grew')}</Text>
         {def && <Text style={styles.name}>{t(`tier.${def.id}`)}</Text>}
       </Animated.View>
@@ -56,6 +57,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     boxShadow: '0px 6px 0px #120818',
   },
+  restaurant: { color: gold, fontSize: 15, fontWeight: '900', marginBottom: 2 },
   title: { color: '#FFE9A8', fontSize: 18, fontWeight: '900' },
   name: { color: '#FFFFFF', fontSize: 34, fontWeight: '900', marginTop: 2 },
   note: {

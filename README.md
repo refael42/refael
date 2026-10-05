@@ -26,6 +26,11 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 
 ## איך משחקים
 
+- **בפעם הראשונה:** מסך פתיחה, "ברוכים הבאים" (בוחרים שפה), שם המנהל/ת ושם המסעדה (אפשר
+  להשאיר ריק או ללחוץ על הקובייה 🎲), שלושה כרטיסי "איך משחקים", ואז הדרכה: **יד לבנה**
+  מראה על מה ללחוץ, והודעה למעלה אומרת מה לעשות. אפשר תמיד "לדלג על ההדרכה".
+- **למעלה:** מטבעות (משמאל), היום (באמצע, שמש/ירח ופס שמתמלא עד סוף היום), דירוג הכוכבים
+  (מימין). מטבעות שעפים למונה נספרים כשהם נוחתים. "x3 רצף" מתחת למטבעות = תשלומים ברצף = טיפים גדולים יותר.
 - **גוררים** עם האצבע כדי לזוז במפה, **צובטים** עם שתי אצבעות כדי לעשות זום (בדפדפן: גלגלת העכבר).
 - לקוח בתור עם בועת כיסא → **לוחצים עליו** כדי להושיב.
 - מנה מוכנה על הדלפק (קופצת ומנצנצת) → **לוחצים עליה** כדי להגיש.
@@ -60,7 +65,8 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
   לוחצים עליו במפה. אי אפשר לחסום שולחן, תור או מעבר — המשחק בודק.
 - **רמה 100:** הכיריים, הכיור, המקרר והשלט ברחוב גדלים ומקבלים דגם חדש (מנדף נחושת, מדיח
   תעשייתי, מקרר ענק, שלט חוצות).
-- **גלגל השיניים** (למטה בצד): שפה, מונה FPS, גלריית דמויות, בדיקת עומס, איפוס התקדמות.
+- **גלגל השיניים** (למטה בצד): שפה, השמות (עריכה), איך משחקים, מונה FPS, גלריית דמויות, בדיקת עומס,
+  איפוס התקדמות (מתחיל הכול מחדש, כולל מסכי הפתיחה וההדרכה).
 - המשחק נשמר לבד. כשחוזרים אחרי יותר מדקה — מסך "ברוכים השבים" עם הכסף שהצוות הרוויח.
 
 ## Project layout
@@ -69,8 +75,8 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 |--------|------------------|
 | `src/sim` | Pure, deterministic simulation: customers, kitchen, A*, commands (no UI imports) |
 | `src/data` | Data tables: map, dishes, customer types, economy, looks |
-| `src/render` | Skia renderer: procedural low-poly art → atlas, isometric drawing, FX, HUD, camera |
-| `src/ui` | React Native screen, buttons, overlays |
+| `src/render` | Skia renderer: procedural low-poly art → atlas, isometric drawing, FX, camera; HUD/splash icons |
+| `src/ui` | React Native screen, HUD, opening animation, first-run screens, tutorial, panels |
 | `src/store` | Zustand stores |
 | `src/i18n` | Hebrew + English strings |
 | `tests` | Vitest unit tests |

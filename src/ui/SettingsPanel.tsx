@@ -31,9 +31,9 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
 
 const RESET_CONFIRM_MS = 4000;
 
-export function SettingsPanel({ onClose }: { onClose: () => void }) {
+export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => void; onHowTo: () => void; onNames: () => void }) {
   const t = useT();
-  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame } = useSettings();
+  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -81,6 +81,21 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
               <Text style={styles.rowLabel}>{t('set.sound')}</Text>
               <Text style={styles.soon}>{t('set.soon')}</Text>
             </View>
+            {profile && (
+              <View style={styles.row}>
+                <View style={styles.names}>
+                  <Text style={styles.rowLabel}>{profile.manager}</Text>
+                  <Text style={styles.soon}>{profile.restaurant}</Text>
+                </View>
+                <Pressable accessibilityRole="button" onPress={onNames} style={styles.chip}>
+                  <Text style={styles.chipText}>{t('set.edit')}</Text>
+                </Pressable>
+              </View>
+            )}
+            <Pressable accessibilityRole="button" onPress={onHowTo} style={styles.row}>
+              <Text style={styles.rowLabel}>{t('set.howTo')}</Text>
+              <Text style={styles.chevron}>{'?'}</Text>
+            </Pressable>
             <Toggle label={t('set.fps')} on={showPerf} onPress={togglePerf} />
             <Text style={styles.section}>{t('set.testing')}</Text>
             <Toggle label={t('set.cast')} on={view === 'cast'} onPress={() => setView(view === 'cast' ? 'game' : 'cast')} />
@@ -134,6 +149,8 @@ const styles = StyleSheet.create({
   chipText: { color: '#E8D7F0', fontWeight: '800', fontSize: 13 },
   chipTextOn: { color: '#2A1530' },
   soon: { color: '#9C88A8', fontWeight: '700', fontSize: 12 },
+  names: { flexShrink: 1, gap: 1, paddingVertical: 6 },
+  chevron: { color: gold, fontWeight: '900', fontSize: 18, width: 26, height: 26, borderRadius: 13, borderWidth: 2, borderColor: gold, textAlign: 'center', lineHeight: 22 },
   switch: { width: 50, height: 28, borderRadius: 14, backgroundColor: '#5A4E66', padding: 3, alignItems: 'flex-start' },
   switchOn: { backgroundColor: '#35B957', alignItems: 'flex-end' },
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#FFFFFF' },

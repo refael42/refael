@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TIERS } from '../data/buildings';
 import { DECOR } from '../data/decor';
 import { mapForTier, STAND_MAP, type Point } from '../data/maps';
+import { TUTORIAL_STEPS } from '../data/tutorial';
 import { LINEUP } from '../data/scenes';
 import { UPGRADES } from '../data/upgrades';
 import { isRTL, useT } from '../i18n';
@@ -33,6 +34,9 @@ import { Hud } from './Hud';
 import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
+import { HowToPlay } from './HowToPlay';
+import { Tutorial } from './Tutorial';
+import { Welcome } from './Welcome';
 import { UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
 
@@ -61,9 +65,9 @@ function Labels({ camera }: { camera: Camera }) {
   );
 }
 
-function CornerButton({ label, count, onPress, color }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange' }) {
+function CornerButton({ label, count, onPress, color, ref }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange'; ref?: Ref<View> }) {
   return (
-    <View>
+    <View ref={ref}>
       <JuicyButton label={label} onPress={onPress} style={[styles.cornerButton, color === 'purple' && styles.staffButton, color === 'orange' && styles.buildButton]} />
       {count > 0 && (
         <View style={styles.badge}>
@@ -85,10 +89,14 @@ const readWallet = (s: GameState) => ({ coins: s.coins, levels: s.levels, map: s
 function GameRunner({ boot }: { boot: GameBoot }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { showPerf, stress } = useSettings();
-  // Frozen until the welcome-back money is collected, so nothing earned can slip away.
-  const paused = useRef(boot.offline !== null);
+  const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial } = useSettings();
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
+  // First run: welcome, names and how to play come before anything happens.
+  const onboarding = !loaded || profile === null;
+  // Frozen during the first-run screens, and until the welcome-back money is collected so
+  // nothing earned can slip away.
+  const paused = useRef(true);
+  paused.current = onboarding || welcome !== null;
   const { snapshot, stats, tap, command, gameRef } = useGame(STAND_MAP, GAME_SEED, stress, boot, paused);
   const uiFps = useSharedValue(0);
   const buildMs = useSharedValue(0);
@@ -104,6 +112,14 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
   // touch handlers, and swapping them in the middle of a touch crashes on phones.
   const hud = useMemo(() => ({ left: insets.left + 12, top: insets.top + 10, right: width - insets.right - 12 }), [insets.left, insets.top, insets.right, width]);
+  // The tutorial's glove needs the camera and where the corner buttons are.
+  const camera = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
+  const onCamera = useCallback((cam: Camera) => {
+    camera.current = cam;
+  }, []);
+  const upgradesButton = useRef<View>(null);
+  const staffButton = useRef<View>(null);
+  const tutorialButtons = useMemo(() => ({ upgrades: upgradesButton, staff: staffButton }), []);
   const panelOpen = useRef(false);
   panelOpen.current = panel !== null || staff !== null;
 
@@ -192,6 +208,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   }, [building, close]);
   const onTap = useCallback(
     (x: number, y: number, cam: Camera) => {
+      camera.current = cam;
       const b = buildRef.current;
       if (b) {
         // In build mode a tap picks the tile under the finger (if something can go there).
@@ -211,21 +228,20 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   );
   const collect = (multiplier: number) => {
     if (welcome) command({ type: 'grant', coins: toSave(welcome.coins.mul(multiplier)) });
-    paused.current = false;
     setWelcome(null);
   };
 
   return (
     <>
-      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} />
+      <SceneCanvas snapshot={snapshot} background={background} focus={focus} hud={hud} uiFps={uiFps} buildMs={buildMs} onTap={onTap} selected={selected} selectedId={selectedId} build={overlay} hudFeed={hudFeed} onReady={markReady} onCamera={onCamera} />
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
           <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
-          <CornerButton label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
-          <CornerButton label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
+          <CornerButton ref={staffButton} label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
+          <CornerButton ref={upgradesButton} label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
       )}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
@@ -249,9 +265,22 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onDone={() => setBuild(null)}
         />
       )}
+      {!onboarding && tutorial < TUTORIAL_STEPS.length && !welcome && building < 0 && (
+        <Tutorial gameRef={gameRef} camera={camera} buttons={tutorialButtons} layout={hud} menuOpen={panel !== null || staff !== null || build !== null} />
+      )}
       {building >= 0 && <ConstructionNote />}
-      {banner !== null && <TierBanner tier={banner} onDone={endBanner} />}
-      {welcome && <WelcomeBack earnings={welcome} onCollect={collect} />}
+      {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
+      {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
+      {loaded && !profile && (
+        <Welcome
+          // A player who already has a restaurant only picks names: no lessons, no tutorial.
+          pages={boot.save ? ['hello', 'names'] : ['hello', 'names', 'howto']}
+          onDone={(p) => {
+            setProfile(p);
+            if (boot.save) setTutorial(TUTORIAL_STEPS.length);
+          }}
+        />
+      )}
     </>
   );
 }
@@ -289,15 +318,31 @@ function CastView() {
 
 export function GameScreen() {
   const insets = useSafeAreaInsets();
-  const { lang, view, gameEpoch } = useSettings();
+  const { lang, view, gameEpoch, profile, setProfile } = useSettings();
   const [settings, setSettings] = useState(false);
+  const [extra, setExtra] = useState<'howto' | 'names' | null>(null);
+  const openExtra = (which: 'howto' | 'names') => {
+    setSettings(false);
+    setExtra(which);
+  };
   return (
     <View style={[styles.root, { direction: isRTL(lang) ? 'rtl' : 'ltr' }]}>
       {view === 'game' ? <GameView key={`game${gameEpoch}`} /> : <CastView key="cast" />}
       <View style={[styles.corner, { bottom: insets.bottom + 10, start: insets.left + 10 }]}>
         <GearButton onPress={() => setSettings(true)} />
       </View>
-      {settings && <SettingsPanel onClose={() => setSettings(false)} />}
+      {settings && <SettingsPanel onClose={() => setSettings(false)} onHowTo={() => openExtra('howto')} onNames={() => openExtra('names')} />}
+      {extra === 'howto' && <HowToPlay onClose={() => setExtra(null)} />}
+      {extra === 'names' && (
+        <Welcome
+          pages={['names']}
+          initial={profile}
+          onDone={(p) => {
+            setProfile(p);
+            setExtra(null);
+          }}
+        />
+      )}
     </View>
   );
 }

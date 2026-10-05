@@ -9,7 +9,6 @@ import Animated, {
   withSequence,
   withSpring,
   withTiming,
-  type SharedValue,
 } from 'react-native-reanimated';
 import { useT } from '../i18n';
 import type { SplashIcon } from '../render/art/splashArt';
@@ -17,15 +16,14 @@ import { hudIcon, splashIcon } from '../render/icons';
 import { finishSplash, mountGame, useLaunch } from '../store/launch';
 import { textShadow } from './theme';
 
-// The opening animation: a sunburst, the title popping in, street food dropping onto a row
-// and bobbing, and a loading bar with a coin rolling along its edge. The game mounts underneath
+// The opening animation: a sunburst, the title popping in with a chef hat landing on it, and
+// a loading bar with a coin rolling along its edge. The game mounts underneath
 // once the intro has played (its loading would stutter the intro on web), and the splash fades
 // away as soon as the restaurant is ready. Every launch; a tap skips the wait once it is ready.
 
 export const SPLASH_BG = '#2A1230';
-/** Title and food land first, then loading starts. */
-const INTRO_MS = 1300;
-const FOODS: SplashIcon[] = ['splashBurger', 'splashFries', 'splashPita', 'splashSoda'];
+/** The title and its hat land first, then loading starts. */
+const INTRO_MS = 1100;
 const PHRASES = ['splash.loading1', 'splash.loading2', 'splash.loading3', 'splash.loading4'];
 const PHRASE_MS = 700;
 const BAR_W = 300;
@@ -34,35 +32,16 @@ const COIN = 30;
 
 const icon = (name: SplashIcon, px: number) => splashIcon(name, Math.round(px * PixelRatio.get()));
 
-function Food({ name, index, size, bob }: { name: SplashIcon; index: number; size: number; bob: SharedValue<number> }) {
-  const drop = useSharedValue(0);
-  useEffect(() => {
-    // Bounce easing lands on the row and hops, never sinking through it (a spring would).
-    drop.value = withDelay(450 + index * 140, withTiming(1, { duration: 750, easing: Easing.bounce }));
-  }, [drop, index]);
-  const style = useAnimatedStyle(() => {
-    // Neighbours bob in opposite directions, like a little dance.
-    const b = index % 2 === 0 ? bob.value : 1 - bob.value;
-    return {
-      opacity: drop.value > 0.02 ? 1 : 0,
-      transform: [{ translateY: (1 - drop.value) * -260 + b * -6 }, { rotate: `${(1 - drop.value) * -40 + (b - 0.5) * 6}deg` }],
-    };
-  });
-  return <Animated.Image source={{ uri: icon(name, size) }} style={[{ width: size, height: size }, style]} />;
-}
-
 export function Splash() {
   const t = useT();
   const { width, height } = useWindowDimensions();
   const ready = useLaunch((s) => s.ready);
   const k = Math.max(0.8, Math.min(1.4, height / 390));
-  const food = Math.round(82 * k);
   const rayPx = Math.ceil(Math.hypot(width, height) * 1.15);
 
   const rays = useSharedValue(0);
   const title = useSharedValue(0);
   const hat = useSharedValue(0);
-  const bob = useSharedValue(0);
   const progress = useSharedValue(0);
   const leave = useSharedValue(0);
   const [phrase, setPhrase] = useState(0);
@@ -72,8 +51,7 @@ export function Splash() {
   useEffect(() => {
     rays.value = withRepeat(withTiming(360, { duration: 24000, easing: Easing.linear }), -1);
     title.value = withDelay(120, withSpring(1, { damping: 8, stiffness: 150 }));
-    hat.value = withDelay(1050, withTiming(1, { duration: 650, easing: Easing.bounce }));
-    bob.value = withDelay(1200, withRepeat(withTiming(1, { duration: 650, easing: Easing.inOut(Easing.sin) }), -1, true));
+    hat.value = withDelay(650, withTiming(1, { duration: 650, easing: Easing.bounce }));
     // Most of the bar fills during the intro; the last stretch creeps while the game loads.
     progress.value = withSequence(withTiming(0.6, { duration: INTRO_MS, easing: Easing.out(Easing.quad) }), withTiming(0.92, { duration: 4000, easing: Easing.out(Easing.cubic) }));
     const intro = setTimeout(mountGame, INTRO_MS);
@@ -82,7 +60,7 @@ export function Splash() {
       clearTimeout(intro);
       clearInterval(words);
     };
-  }, [rays, title, hat, bob, progress]);
+  }, [rays, title, hat, progress]);
 
   // Fill the bar, say we're open, fade out. Runs once: when ready, or on a tap after that.
   const gone = useRef(false);
@@ -121,13 +99,8 @@ export function Splash() {
           style={[styles.rays, { width: rayPx, height: rayPx, left: (width - rayPx) / 2, top: (height - rayPx) / 2 }, raysStyle]}
         />
         <View style={styles.column}>
-          <View style={styles.foods}>
-            {FOODS.map((name, i) => (
-              <Food key={name} name={name} index={i} size={food} bob={bob} />
-            ))}
-          </View>
           <View>
-            <Animated.Text style={[styles.title, { fontSize: Math.round(46 * k) }, titleStyle]} numberOfLines={1}>
+            <Animated.Text style={[styles.title, { fontSize: Math.round(54 * k) }, titleStyle]} numberOfLines={1}>
               {t('app.title')}
             </Animated.Text>
             <Animated.Image source={{ uri: icon('splashHat', 60) }} style={[styles.hat, hatStyle]} />
@@ -153,7 +126,6 @@ const styles = StyleSheet.create({
   fill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   rays: { position: 'absolute' },
   column: { alignItems: 'center', gap: 6 },
-  foods: { flexDirection: 'row', gap: 14, marginBottom: 2, direction: 'ltr' },
   title: { color: '#FFD85A', fontWeight: '900', letterSpacing: 0.5, ...textShadow('#120818', 4, 0) },
   // Perched on the title's first letter.
   hat: { position: 'absolute', width: 60, height: 60, left: -22, top: -24 },

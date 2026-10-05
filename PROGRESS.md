@@ -10,7 +10,8 @@
 | M3 | Economy, upgrade catalog engine, save/load, offline progress, balance sim | ✅ Done |
 | M4 | Applicants, hiring, wages, morale, staff cards | ✅ Done |
 | M5 | Building tiers, construction sequence, build mode, decor (+ chairs, couples, patience types, Lv 100 expansions) | ✅ Done |
-| M5b | First run: welcome screen, restaurant + manager name, how-to-play tutorial (owner request, moved up from M7) | ⏳ Next |
+| M5b | New HUD, opening animation, first run: welcome, names, how to play, pointing-hand tutorial (owner requests) | ✅ Done |
+| M5c | Customer reviews (a good review = a bonus) and rewards that grow with better service (owner request) | ⏳ Next |
 | M6 | Automation (+ shift manager for the waiters), Rush hour, Upgrades screen (search/filter/ROI) | — |
 | M7 | Full polish: audio, haptics, weather, quests, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
@@ -29,16 +30,21 @@
   FPS counter, character gallery, crowd test, reset progress).
 - The restaurant must be able to **grow**: more tables now (M3), more kitchens/cooks with
   hiring (M4) and bigger buildings (M5).
-- The coin counter and the stars must look crisp (the first HUD looked low quality on the
-  phone): chunky gradient pills with a gold rim; icons and digits baked at screen resolution.
+- The coin counter and the stars must look crisp and nice ("ugly right now"): since M5b the
+  top bar is a React Native overlay (real bold font, big glossy coin/star icons, dark glass
+  pills with a gold rim, a day strip and a rating strip) — see HUD below.
+- An opening animation when the app starts ("food or a loading bar, your choice"); the food
+  row was then removed at the owner's request ("doesn't look that good"): sunburst, title with
+  a chef hat landing on it, loading bar with a rolling coin, cooking phrases.
 - The phone app closed at the first touch (no error anywhere) → touch handling rebuilt
   (see Camera / Input below and Known issues).
 - Owner ideas done in M5: tables with more chairs and couples; customers who can wait longer
   or not, shown clearly; stations that expand with a new design after many upgrades (Lv 100).
   The host/hostess already exists (hired once the team has 3 people).
-- Owner ideas still to do: a **welcome / first-run screen with a how-to-play tutorial** ("very
-  important" — next, M5b; a local profile only, no real accounts), and a **shift manager**
-  (אחמ"ש) who runs the waiters (M6, automation).
+- Done in M5b: the **welcome / first-run screens and how-to-play tutorial** ("very important";
+  a local profile only, no real accounts).
+- Owner ideas still to do: **customer reviews** that give a bonus when good, and **more reward
+  the better the service** (M5c, next); a **shift manager** (אחמ"ש) who runs the waiters (M6).
 
 ## Locked decisions
 
@@ -203,6 +209,25 @@
   get a bigger model (chef's range with a copper hood, industrial dishwasher with a steam
   tower, walk-in fridge, lit billboard) in a puff of building dust; the row says "+ bigger!"
   on the way there. Everything else keeps the gold aura (from Lv 75).
+- **HUD (M5b, `src/ui/Hud.tsx`):** coins top left, the day in the middle, the rating top right,
+  in both languages (coins fly to fixed spots). The canvas only reports, through one shared
+  value, coins still in the air and how many coins/stars have landed: the counter rolls up as
+  they land (never shows money that has not arrived) and the icons bounce on each landing.
+  Polled at 15 Hz (coins) and 2 Hz (day, rating) — never per frame. The icons are vector art
+  baked once into PNGs at the screen's density. This replaced the sharp HUD atlas.
+- **Opening animation (M5b, `src/ui/Splash.tsx`):** plays on every launch. The game mounts
+  under it once the intro has played (its loading would stutter the intro on web) and it
+  fades out as soon as the art is baked (`onReady` from the canvas); a tap skips the wait.
+- **First run (M5b):** welcome (with the language choice) → manager and restaurant names
+  (optional; a dice suggests names; kept in the settings store on this phone only) → three
+  how-to-play cards → a tutorial: a white glove taps what to do next and a message says it
+  (seat a customer → serve the dish → coins and tips → buy an upgrade → hire a helper →
+  "you run the place now"). Each step ends by itself when it is done (`src/sim/tutorial.ts`,
+  pure and tested: a scripted new player finishes in ~100 s of game time); Skip any time.
+  The game is frozen behind the welcome screens. A player who already has a save only picks
+  names (no lessons). Reset progress starts the whole first run again. The names show on the
+  welcome-back screen, the "restaurant grew" banner and in the settings (editable), where
+  "How to play" also lives.
 - **Scenery behind the walls** (`MapDef.backdrop`) is render-only and baked into the background
   before the walls, so the walls hide it correctly. (Props are depth-sorted *on top of* the
   background, so a tree placed behind a wall used to draw over it.)
@@ -261,6 +286,8 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M4 game, production build, sharp-atlas HUD | ~27 | 0.7–0.9 ms | 14.7 (16.9 with the staff panel open) |
 | Same, JS-thread touches (another sandbox session) | ~27 | — | 12.9–13.5 |
 | M5 diner / bistro / grand, production build | 40 / 69 / 111 | 1.2 / 2.1 / 1.7 ms | 10–12 / 12 / 13–14 |
+| M5b busy diner, new RN HUD overlay | ~45 | — | 12.3 |
+| M5b new game during the tutorial (glove + message) | 27 | 0.7 ms | 16–18 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -268,7 +295,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 191 unit tests.
+- `npm run check` — typecheck + 198 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
@@ -276,11 +303,13 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 ## Known issues / not verified
 
 - Not run on a physical Android/iOS device by me (sandbox has no device or emulator). The
-  owner's phone closed the app at the first touch, also after the first hotfix (web-only
-  picture disposal, stable memoized canvas). Second fix: touches moved off gesture-handler
-  worklets to plain React Native touches (above) — **not confirmed yet**. If it still closes:
-  the last `[trace]` lines in the terminal, and whether touching the ⚙ button first also
-  closes it.
+  first-touch crash on the owner's phone is fixed (touches moved off gesture-handler worklets
+  to plain React Native touches) — confirmed by the owner.
+- Not seen on a phone yet: the name fields with the on-screen keyboard in landscape (the card
+  sits at the top of the screen so the keyboard has room), and the opening animation's timing
+  on a real device.
+- Tutorial "hire a helper" waits for an applicant at the door and enough coins for the
+  signing fee; a new player keeps serving meanwhile (or taps Skip).
 - Customers enter/leave through the front door of the building, but there is no visible door
   frame yet (front walls are cut away by design).
 - Expo DevTools fails to launch in the sandbox (runs as root) — harmless.

@@ -73,5 +73,22 @@ const hudMoon = sprite([-24, -24, 24, 24], (c: SkCanvas) => {
   for (const [x, y, r] of [[14, 8, 2.4], [18, -12, 1.6], [6, 14, 1.4]] as const) c.drawCircle(x, y, r, fill('#FFF6C8'));
 });
 
-export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon };
+/** The tutorial's pointing hand: a white cartoon glove, fingertip at the top middle. */
+const hudHand = sprite([-22, -32, 22, 32], (c: SkCanvas) => {
+  const edge = '#2A1530';
+  const glove = (p: ReturnType<typeof path.rrect>) => {
+    c.drawPath(p, stroke(edge, 4.4));
+    c.drawPath(p, fill('#FFFFFF'));
+  };
+  glove(path.rrect(-5, -30, 10, 30, 5));
+  glove(path.rrect(-15, -9, 30, 26, 10));
+  glove(path.smooth([[-14, -2], [-22, -9], [-20, -14], [-12, -9], [-8, -4]], true, 0.8));
+  for (const x of [-6, 2]) c.drawLine(x, -8, x, -2, stroke('#C9C2D6', 1.6));
+  c.drawPath(path.rrect(-13, 15, 26, 11, 4), stroke(edge, 4.4));
+  c.drawPath(path.rrect(-13, 15, 26, 11, 4), fill('#E2B13C'));
+  c.drawOval(Skia.XYWHRect(-3, -27, 4, 10), fill('#FFFFFF', 0.9));
+  c.drawOval(Skia.XYWHRect(-11, -6, 12, 6), fill('#EDE8F6'));
+});
+
+export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon, hudHand };
 export type HudIcon = keyof typeof hudIcons;
