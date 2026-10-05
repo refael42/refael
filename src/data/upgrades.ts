@@ -98,7 +98,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'stove', category: 'kitchen', anchor: K.Stove, restyle: 'anchor', baseCost: 12, growth: 1.15, expands: true,
     effect: { stat: 'cookSpeed', per: 0.08 }, milestone: { stat: 'cookSpeed', factor: 1.5 } },
   // Another stove makes room for another cook.
-  { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 3, spots: 'stoves',
+  { id: 'stove2', category: 'kitchen', anchor: K.StoveSlot, restyle: null, baseCost: 350, growth: 20, spots: 'stoves',
     effect: { stat: 'stoves', per: 1 }, milestone: null },
   { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17, expands: true,
     effect: { stat: 'quality', per: 0.04 }, milestone: { stat: 'quality', factor: 1.25 } },

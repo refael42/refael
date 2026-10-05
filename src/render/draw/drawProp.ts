@@ -61,7 +61,7 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.Statue) return look(L.statue, tier);
   if (kind === PropKind.Fountain) return look(L.fountain, tier);
   if (kind === PropKind.Piano) return look(L.piano, tier);
-  if (kind === PropKind.Pass) return A.S.pass;
+  if (kind === PropKind.Pass) return variant === 1 ? A.S.passLong : A.S.pass;
   if (kind === PropKind.TableSlot) return A.S.tableSlot;
   if (kind === PropKind.StoveSlot) return A.S.stoveSlot;
   return -1;
@@ -221,7 +221,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
     spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);
   }
-  else if (kind === PropKind.Pass) spr(c, A, S.pass, 0, 0, plain);
+  else if (kind === PropKind.Pass) spr(c, A, variant === 1 ? S.passLong : S.pass, 0, 0, plain);
   else if (kind === PropKind.TableSlot) {
     // Floor space for one more table: a dashed spot with ghost furniture and a "+" when affordable.
     sprFade(c, A, S.tableSlot, 0, 0, 1, 0.7 + Math.sin(t * 3) * 0.2);

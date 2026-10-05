@@ -32,22 +32,26 @@ const flame = sprite([-4, -10, 4, 2], (c) => {
   c.drawPath(path.smooth([[0, -5], [1.3, -1.8], [0.8, 0], [-0.8, 0], [-1.3, -1.8]]), fill('#FFE07A'));
 });
 
-const pass = sprite([-62, -92, 62, 24], (c) => {
-  floorShadow(c, 0.1, 0, 1.2, 0.3);
-  box(c, { x: 0, y: 0, w: 0.8, d: 2.8, h: 21, color: WOOD_DARK });
-  onFaceX(c, 0.4, 1.4, () => {
-    for (let a = 0.12; a < 2.7; a += 0.46) rectIn(c, a, 3, 0.36, 14, lighten(WOOD_DARK, 0.08));
+/** The pass counter, `len` tiles long (3; 5 in the deep buildings' bigger kitchen). */
+function passCounter(c: SkCanvas, len: number) {
+  const d = len - 0.2;
+  floorShadow(c, 0.1, 0, len * 0.4, 0.3);
+  box(c, { x: 0, y: 0, w: 0.8, d, h: 21, color: WOOD_DARK });
+  onFaceX(c, 0.4, d / 2, () => {
+    for (let a = 0.12; a < d - 0.1; a += 0.46) rectIn(c, a, 3, 0.36, 14, lighten(WOOD_DARK, 0.08));
   });
-  onFaceY(c, 1.4, -0.4, () => rectIn(c, 0.08, 3, 0.64, 14, lighten(WOOD_DARK, 0.06)));
-  box(c, { x: 0, y: 0, z: 21, w: 0.84, d: 2.84, h: 2, color: GOLD, rim: true });
-  box(c, { x: 0, y: 0, z: 23, w: 0.8, d: 2.8, h: 1, color: '#D8DEE5' });
+  onFaceY(c, d / 2, -0.4, () => rectIn(c, 0.08, 3, 0.64, 14, lighten(WOOD_DARK, 0.06)));
+  box(c, { x: 0, y: 0, z: 21, w: 0.84, d: d + 0.04, h: 2, color: GOLD, rim: true });
+  box(c, { x: 0, y: 0, z: 23, w: 0.8, d, h: 1, color: '#D8DEE5' });
   // Service bell: rung when a dish is ready.
-  cylinder(c, 0.15, 1.2, 0.07, 24, 1, '#B8892A', GOLD);
-  cylinder(c, 0.15, 1.2, 0.05, 25, 3, GOLD, '#FFE08A');
+  cylinder(c, 0.15, d / 2 - 0.2, 0.07, 24, 1, '#B8892A', GOLD);
+  cylinder(c, 0.15, d / 2 - 0.2, 0.05, 25, 3, GOLD, '#FFE08A');
   // Ticket rail on the kitchen side: orders hang here until cooked.
-  for (const y of [-1.35, 1.35]) box(c, { x: -0.4, y, z: 24, w: 0.05, d: 0.05, h: 30, color: '#C9D1D9' });
-  box(c, { x: -0.4, y: 0, z: 50, w: 0.06, d: 2.76, h: 3, color: '#D8DEE5', rim: true });
-});
+  for (const y of [-(d / 2 - 0.05), d / 2 - 0.05]) box(c, { x: -0.4, y, z: 24, w: 0.05, d: 0.05, h: 30, color: '#C9D1D9' });
+  box(c, { x: -0.4, y: 0, z: 50, w: 0.06, d: d - 0.04, h: 3, color: '#D8DEE5', rim: true });
+}
+const pass = sprite([-62, -92, 62, 24], (c) => passCounter(c, 3));
+const passLong = sprite([-94, -108, 94, 40], (c) => passCounter(c, 5));
 /** A paper order ticket (billboard), hanging from its clip. */
 const ticket = sprite([-8, -2, 8, 20], (c) => {
   c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-1.6, -1, 3.2, 3), 0.6, 0.6), fill('#7E8A98'));
@@ -151,7 +155,7 @@ const scaffoldX = sprite([-26, -100, 26, 18], (c) => scaffold(c, true));
 const scaffoldY = sprite([-26, -100, 26, 18], (c) => scaffold(c, false));
 
 export const propSprites = {
-  ovenGlow, pan, patty, pot, flame, pass, washPlate, plateDirty, glass, glassEmpty, stain,
+  ovenGlow, pan, patty, pot, flame, pass, passLong, washPlate, plateDirty, glass, glassEmpty, stain,
   ticket, plateSingleDirty, treePalm, treeRound, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
 };
 

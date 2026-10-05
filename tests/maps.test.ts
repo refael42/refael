@@ -154,5 +154,28 @@ describe('map generator', () => {
       }
     });
   });
-});
 
+  it('from the grand restaurant on the building also grows toward the street, with a bigger kitchen', () => {
+    for (let t = 1; t < TIERS.length; t++) {
+      const prev = mapForTier(t - 1);
+      const map = mapForTier(t);
+      expect(map.building.y1).toBe(TIERS[t]!.depth);
+      expect(map.building.y1).toBeGreaterThanOrEqual(prev.building.y1);
+      expect(map.stoves.length).toBeGreaterThanOrEqual(prev.stoves.length);
+      // The street moves with the front wall: the door opens onto the sidewalk.
+      const sidewalk = map.areas.find((a) => a.floor === 'sidewalk')!;
+      expect(sidewalk.y0).toBe(map.building.y1);
+      expect(map.doors[0]!.outside.y).toBeGreaterThan(sidewalk.y0);
+    }
+    const empire = mapForTier(TIERS.length - 1);
+    expect(empire.building.y1).toBeGreaterThan(STAND_MAP.building.y1);
+    expect(empire.stoves.length).toBeGreaterThan(STAND_MAP.stoves.length + 2);
+    expect(empire.passSlots.length).toBeGreaterThan(STAND_MAP.passSlots.length);
+    // Every cook can get to their stove.
+    TIERS.forEach((_, t) => {
+      const map = mapForTier(t);
+      const grid = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length);
+      for (const st of map.stoves) expect(findPath(grid, map.doors[0]!.inside, st.cook), `tier ${t} cook ${st.cook.y}`).not.toBeNull();
+    });
+  });
+});
