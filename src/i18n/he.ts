@@ -206,6 +206,7 @@ export const he: Record<TKey, string> = {
   'role.washer': 'שוטף/ת כלים',
   'role.host': 'מארח/ת',
   'role.cleaner': 'מנקה',
+  'role.manager': 'אחמ"ש',
   'skill.speed': 'מהירות',
   'skill.quality': 'איכות',
   'skill.charm': 'קסם אישי',

@@ -70,6 +70,8 @@ export interface MapDef {
   passTop: number;
   /** Where a waiter stands to pick up from a pass slot (same index), on the dining side. */
   pickupSpots: Point[];
+  /** The shift manager's post: the end of the pass, where dishes are called out. */
+  managerSpot: Point;
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
   hostSpot: Point;
@@ -200,6 +202,7 @@ function buildMap(tier: number): MapDef {
       ...(tier > 1 ? [{ x: 6.7, y: 9.6 }, { x: 6.7, y: 3.0 }] : []),
     ],
     hostSpot: { x: x1 - 2.4, y: 10.4 },
+    managerSpot: { x: 5.5, y: 6.6 },
     cleanerIdle: [
       { x: 7.3, y: 11.3 },
       { x: 10.3, y: 11.3 },

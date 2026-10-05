@@ -12,10 +12,14 @@ import { hasRoom } from './workers';
 // Job applicants: they walk up to the door with a CV, wait a while, and leave if ignored.
 
 const team = (s: GameState) => s.staff.filter((st) => !st.leaving).length;
+const count = (s: GameState, role: Role) => s.staff.filter((st) => st.role === role && !st.leaving).length;
+/** The team is big enough for this job (and has the jobs it depends on). */
+const ready = (s: GameState, r: Role) =>
+  team(s) >= ROLES[r].minTeam && Object.entries(ROLES[r].needs ?? {}).every(([need, n]) => count(s, need as Role) >= (n ?? 0));
 
 /** Which job the next applicant wants: only jobs with room, empty jobs first. */
 function pickRole(s: GameState): Role | null {
-  const open = ROLE_LIST.filter((r) => hasRoom(s, r) && team(s) >= ROLES[r].minTeam);
+  const open = ROLE_LIST.filter((r) => hasRoom(s, r) && ready(s, r));
   if (open.length === 0) return null;
   const missing = (r: Role) => !s.staff.some((st) => st.role === r && !st.leaving);
   if (missing('cook') && open.includes('cook')) return 'cook';

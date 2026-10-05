@@ -70,6 +70,7 @@ const HAND_MADE: MapDef = {
     { x: 6.7, y: 5.2 },
   ],
   hostSpot: { x: 11.6, y: 10.4 },
+  managerSpot: { x: 5.5, y: 6.6 },
   cleanerIdle: [
     { x: 7.3, y: 11.3 },
     { x: 10.3, y: 11.3 },
@@ -148,7 +149,7 @@ describe('map generator', () => {
         // ...and the spot where staff serve and clear it.
         expect(findPath(grid, door, { x: spot.x, y: spot.y + 0.75 }), `tier ${t} serve ${spot.x},${spot.y}`).not.toBeNull();
       }
-      for (const p of [...map.pickupSpots, map.washerSpot, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, ...map.queue]) {
+      for (const p of [...map.pickupSpots, map.washerSpot, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, ...map.queue]) {
         expect(findPath(grid, door, p), `tier ${t} spot ${p.x},${p.y}`).not.toBeNull();
       }
     });

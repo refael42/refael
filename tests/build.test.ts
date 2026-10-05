@@ -24,7 +24,7 @@ function allReachable(s: GameState): boolean {
   const map = s.map;
   const g = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, s.placed);
   const reach = reachableFrom(g, map.doors[0]!.inside);
-  const points = [...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop];
+  const points = [...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop];
   for (const t of map.tables) points.push({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y }, ...SEAT_OFFSETS.map((o) => ({ x: t.x + o.x, y: t.y + o.y })));
   return points.every((p) => canReach(g, reach, p));
 }

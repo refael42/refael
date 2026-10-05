@@ -1,7 +1,7 @@
 import { Dish } from '../../data/dishes';
 import type { Look } from '../../data/looks';
 import { NAMES } from '../../data/names';
-import { APPLICANTS, DAY, ROLES, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
+import { APPLICANTS, DAY, ROLES, SHIFT, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
 import { TRAIT_FX, TRAIT_LIST, TRAITS, type TraitId } from '../../data/traits';
 import type { Big } from '../big';
 import { randomLook } from '../looks';
@@ -74,7 +74,19 @@ export function rankOf(level: number): number {
 /** XP needed to go from `level` to `level + 1`. */
 export const xpToNext = (level: number) => Math.round(STAFF.xp.first * STAFF.xp.growth ** (level - 1));
 
-/** How fast someone works right now: speed stat, morale, energy, scolding, night owls. */
+/** The shift manager on duty, if there is one. */
+export const managerOnShift = (s: GameState): Staff | undefined => s.staff.find((st) => st.role === 'manager' && !st.leaving && !st.pendingRole);
+
+/** Jobs the shift manager runs. */
+export const FLOOR_TEAM: readonly Role[] = ['waiter', 'host', 'cleaner'];
+
+/** How much quicker the waiters are with a manager on shift (1 = no manager). */
+export function waiterLead(s: GameState): number {
+  const m = managerOnShift(s);
+  return m ? 1 + SHIFT.waiterSpeed * statFactor(m.stats.charm) : 1;
+}
+
+/** How fast someone works right now: speed stat, morale, energy, scolding, night owls, the manager. */
 export function workRate(s: GameState, st: Staff): number {
   const e = STAFF.energy;
   const m = STAFF.morale;
@@ -82,7 +94,8 @@ export function workRate(s: GameState, st: Staff): number {
   const mood = m.slowest + (m.fastest - m.slowest) * st.morale;
   const scold = s.time < st.scoldUntil ? 1 + STAFF.scold.speedBonus : 1;
   const night = has(st, 'nightOwl') && s.dayTime / DAY.seconds >= TRAIT_FX.nightFrom ? 1 + TRAIT_FX.nightOwlBonus : 1;
-  return statFactor(st.stats.speed) * tired * mood * scold * night;
+  const lead = st.role === 'waiter' ? waiterLead(s) : 1;
+  return statFactor(st.stats.speed) * tired * mood * scold * night * lead;
 }
 
 /** Picks the stat a level-up improves: mostly the job's main stats. */

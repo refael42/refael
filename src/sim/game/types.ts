@@ -140,6 +140,8 @@ export type Job =
   | { kind: 'cook'; order: number; phase: 'cooking' | 'plating' }
   | { kind: 'pickup'; order: number; phase: 'toPass' | 'handoff' | 'toTable' | 'serve' }
   | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop'; plates?: number }
+  /** The shift manager's table visit to calm an impatient guest. */
+  | { kind: 'calm'; customer: number; phase: 'walk' | 'talk' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */

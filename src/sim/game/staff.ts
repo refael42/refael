@@ -1,15 +1,15 @@
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import { SERVE_OFFSET, type Point } from '../../data/maps';
-import { KITCHEN, ROLES, STAFF, type Role } from '../../data/staff';
+import { KITCHEN, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { followPath, setPose } from '../movement';
 import { chance } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
 import { dishSpot, emote, route, seatCustomer, startEating, tableFor } from './customers';
 import { emit, Ev } from './events';
-import { has, statFactor, workRate } from './people';
-import { CustomerState, OrderState, TableState, type GameState, type Order, type Person, type Staff, type Table } from './types';
+import { has, managerOnShift, statFactor, workRate } from './people';
+import { CustomerState, OrderState, TableState, type Customer, type GameState, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
@@ -30,6 +30,8 @@ export function homeOf(s: GameState, st: Staff): Point {
       return s.map.hostSpot;
     case 'cleaner':
       return s.map.cleanerIdle[st.slot % s.map.cleanerIdle.length]!;
+    case 'manager':
+      return s.map.managerSpot;
   }
 }
 
@@ -39,7 +41,12 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
   washer: Facing.BackLeft,
   host: Facing.FrontRight,
   cleaner: Facing.FrontLeft,
+  // Looking out over the dining room.
+  manager: Facing.FrontRight,
 };
+
+/** What each job carries when not carrying food or plates. */
+const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard };
 
 /** The first free slot for a job (stoves for cooks, idle spots for the others). */
 export function freeSlot(s: GameState, role: Role, except?: Staff): number {
@@ -62,7 +69,7 @@ export function createStaff(s: GameState, role: Role, person: Person, look: Staf
     facing: HOME_FACING[role],
     pose: Pose.Idle,
     poseTime: 0,
-    held: role === 'cook' ? Held.Spatula : Held.None,
+    held: TOOL[role] ?? Held.None,
     expression: Expression.Happy,
     emote: 0,
     emoteTime: 0,
@@ -185,15 +192,24 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
 
 // ---------- waiter & cleaner ----------
 
+/** How much patience the guest waiting for this order has left (0..1); 1 if they are gone. */
+function patienceOf(s: GameState, o: Order): number {
+  const c = s.customers.find((x) => x.id === o.customer);
+  return c && c.patienceMax > 0 ? c.patienceLeft / c.patienceMax : 1;
+}
+
 function findJob(s: GameState, st: Staff): void {
   if (st.role === 'waiter') {
-    const ready = s.orders
-      .filter((o) => o.state === OrderState.Ready && o.waiter < 0)
-      .sort((a, b) => a.since - b.since)[0];
-    if (ready) {
-      ready.waiter = st.id;
+    const manager = managerOnShift(s);
+    const ready = s.orders.filter((o) => o.state === OrderState.Ready && o.waiter < 0);
+    // A shift manager sends the dish whose guest is closest to losing patience; otherwise the oldest goes first.
+    ready.sort(manager ? (a, b) => patienceOf(s, a) - patienceOf(s, b) : (a, b) => a.since - b.since);
+    const order = ready[0];
+    if (order) {
+      order.waiter = st.id;
       st.path = [];
-      setJob(st, { kind: 'pickup', order: ready.id, phase: 'toPass' });
+      setJob(st, { kind: 'pickup', order: order.id, phase: 'toPass' });
+      if (manager && manager.emote === Emote.None) emote(manager, Emote.Exclaim);
       return;
     }
   }
@@ -325,6 +341,63 @@ function updateRunner(s: GameState, st: Staff, dt: number): boolean {
   return true;
 }
 
+// ---------- shift manager ----------
+
+const CALMABLE: readonly CustomerState[] = [CustomerState.Reading, CustomerState.Waiting];
+
+/** The seated guest closest to losing patience, if anyone is below the manager's threshold. */
+function mostImpatient(s: GameState): Customer | undefined {
+  let best: Customer | undefined;
+  for (const c of s.customers) {
+    if (!CALMABLE.includes(c.state) || c.table < 0 || c.patienceMax <= 0) continue;
+    const left = c.patienceLeft / c.patienceMax;
+    if (left < SHIFT.calmBelow && (!best || left < best.patienceLeft / best.patienceMax)) best = c;
+  }
+  return best;
+}
+
+/**
+ * At the end of the pass with the clipboard (calling out dishes happens in findJob); every
+ * few seconds walks over to the most impatient seated guest and calms them down.
+ */
+function updateManager(s: GameState, st: Staff, dt: number): boolean {
+  const job = st.job;
+  if (job?.kind === 'calm') {
+    const c = s.customers.find((x) => x.id === job.customer);
+    if (!c || !CALMABLE.includes(c.state) || c.table < 0) {
+      setJob(st, { kind: 'home' });
+      st.path = [];
+      return false;
+    }
+    if (job.phase === 'walk') {
+      if (walkTo(s, st, besideTable(s.tables[c.table]!), dt)) {
+        setPose(st, Pose.Idle);
+        st.facing = FACING_TABLE;
+        setJob(st, { kind: 'calm', customer: c.id, phase: 'talk' });
+      }
+      return true;
+    }
+    st.jobTime += dt * workRate(s, st);
+    if (st.jobTime < SHIFT.talkSeconds) return true;
+    c.patienceLeft = Math.min(c.patienceMax, c.patienceLeft + c.patienceMax * SHIFT.calmPatience * statFactor(st.stats.charm));
+    emote(c, Emote.Heart);
+    c.expression = Expression.Happy;
+    gainXp(s, st);
+    st.path = [];
+    setJob(st, { kind: 'home' });
+    return true;
+  }
+  goHome(s, st, dt);
+  st.jobTime += dt * workRate(s, st);
+  if (st.leaving || st.jobTime < SHIFT.calmEverySeconds) return false;
+  const c = mostImpatient(s);
+  if (c) {
+    st.path = [];
+    setJob(st, { kind: 'calm', customer: c.id, phase: 'walk' });
+  } else st.jobTime = SHIFT.calmEverySeconds - 1; // Nobody needs it: look again in a second.
+  return false;
+}
+
 // ---------- host ----------
 
 /** The host welcomes the first person in line and sends them to the nearest free table. */
@@ -438,6 +511,7 @@ export function updateStaff(s: GameState, dt: number): void {
       busy = updateWasher(s, st, dt);
       washing = washing || busy;
     } else if (st.role === 'host') busy = updateHost(s, st, dt);
+    else if (st.role === 'manager') busy = updateManager(s, st, dt);
     else busy = updateRunner(s, st, dt);
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;
@@ -454,7 +528,7 @@ export function switchRole(s: GameState, st: Staff, role: Role): void {
   st.pendingRole = null;
   st.look = { ...ROLES[role].look, skin: st.look.skin, hair: st.look.hair, hairColor: st.look.hairColor };
   st.speed = ROLES[role].walkSpeed;
-  st.held = role === 'cook' ? Held.Spatula : Held.None;
+  st.held = TOOL[role] ?? Held.None;
   st.slot = freeSlot(s, role, st);
   st.path = [];
   setJob(st, null);

@@ -4,8 +4,8 @@ import { LOOKS } from './scenes';
 // Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
 // everyone else is hired from applicants who show up at the door.
 
-export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner';
-export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner'];
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager'];
 
 export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
 export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
@@ -22,8 +22,10 @@ export interface RoleDef {
   cap: number;
   /** How often applicants want this job (relative). */
   weight: number;
-  /** Applicants only show up for this job once the team is this big. */
+  /** Applicants only show up for this job once the team is this big... */
   minTeam: number;
+  /** ...and has at least this many of these jobs (a shift manager needs waiters to run). */
+  needs?: Partial<Record<Role, number>>;
   /** The stats this job uses most; level-ups mostly improve these. */
   primary: readonly [StatId, StatId];
 }
@@ -34,7 +36,29 @@ export const ROLES: Record<Role, RoleDef> = {
   washer: { role: 'washer', walkSpeed: 1.5, look: LOOKS.washer, wageDishes: 2, cap: 1, weight: 3, minTeam: 0, primary: ['speed', 'stamina'] },
   host: { role: 'host', walkSpeed: 1.5, look: LOOKS.host, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 3, primary: ['charm', 'speed'] },
   cleaner: { role: 'cleaner', walkSpeed: 1.6, look: LOOKS.cleaner, wageDishes: 2, cap: 2, weight: 2, minTeam: 3, primary: ['speed', 'stamina'] },
+  manager: { role: 'manager', walkSpeed: 1.7, look: LOOKS.manager, wageDishes: 5, cap: 1, weight: 2, minTeam: 5, needs: { waiter: 2 }, primary: ['charm', 'stamina'] },
 };
+
+/**
+ * The shift manager (owner request) runs the waiters from the end of the pass: calls out ready
+ * dishes (the guest who has waited the longest first), keeps the floor team quick, fresh and in
+ * good spirits, and walks over to calm the most impatient guest now and then. Effects scale
+ * with their charm (and how well they work right now).
+ */
+export const SHIFT = {
+  /** Waiters' work speed with a manager on shift (at charm 5). */
+  waiterSpeed: 0.2,
+  /** Share of the waiters' tiredness the manager takes away. */
+  drainCut: 0.4,
+  /** Morale the floor team (waiters, host, cleaners) gains per minute. */
+  moralePerMinute: 0.08,
+  /** A table visit every this many seconds (at speed 5), to a guest whose patience is below `calmBelow`. */
+  calmEverySeconds: 9,
+  calmBelow: 0.7,
+  /** Seconds at the table, and the share of the guest's patience it gives back. */
+  talkSeconds: 1.4,
+  calmPatience: 0.35,
+} as const;
 
 export const STARTING_STAFF: readonly Role[] = ['cook'];
 

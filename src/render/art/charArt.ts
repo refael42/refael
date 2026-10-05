@@ -388,6 +388,15 @@ const menu = sprite([-8, -12, 8, 4], (c) => {
   onFaceX(c, 0.015, 0.07, () => rectIn(c, 0.02, 2, 0.1, 1, '#F2C14E'));
 });
 
+/** The shift manager's clipboard: a wooden board, a sheet, a metal clip. */
+const clipboard = sprite([-8, -14, 8, 4], (c) => {
+  box(c, { x: 0, y: 0, w: 0.03, d: 0.13, h: 11, color: '#A8703E' });
+  onFaceX(c, 0.015, 0.065, () => rectIn(c, 0.012, 1, 0.106, 8.4, '#FFFDF4'));
+  onFaceX(c, 0.015, 0.065, () => rectIn(c, 0.03, 3, 0.07, 0.6, '#9AA3AD'));
+  onFaceX(c, 0.015, 0.065, () => rectIn(c, 0.03, 5, 0.07, 0.6, '#9AA3AD'));
+  box(c, { x: 0, y: 0, z: 9.6, w: 0.04, d: 0.06, h: 1.8, color: '#C9D1D9' });
+});
+
 const charShadow = sprite([-16, -10, 16, 10], (c) => floorShadow(c, 0, 0, 0.2, 0.34));
 
 export const characterSprites = {
@@ -411,6 +420,6 @@ export const characterSprites = {
   washerF: washer.F, washerB: washer.B,
   sunglasses, glasses, cameraF: camera.F, cameraB: camera.B,
   backpackF: backpack.F, backpackB: backpack.B, backpackStrapsF: backpackStraps.F, backpackStrapsB: backpackStraps.B,
-  trayFull, trayEmpty, trayDirty, phone, spatula, menu,
+  trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard,
 };
 

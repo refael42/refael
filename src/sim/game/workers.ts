@@ -1,12 +1,12 @@
 import { TIERS } from '../../data/buildings';
-import { DAY, ROLES, STAFF, type Role } from '../../data/staff';
+import { DAY, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { followPath } from '../movement';
 import { chance, pick } from '../rng';
 import { Emote, Expression } from '../types';
 import { emote, route } from './customers';
 import { emit, Ev } from './events';
-import { clampStat, has, levelUpStat, rankOf, wageFor, xpToNext } from './people';
+import { clampStat, FLOOR_TEAM, has, levelUpStat, managerOnShift, rankOf, wageFor, xpToNext } from './people';
 import type { GameState, Notice, Staff } from './types';
 
 // The team over time: experience, energy, the daily payroll, raises, quitting, and everything
@@ -51,11 +51,15 @@ function levelUp(s: GameState, st: Staff): void {
 }
 
 /** Energy drains while working (stamina and workaholics resist) and refills while idle. */
-function updateEnergy(s: GameState, st: Staff, dt: number): void {
+function updateEnergy(s: GameState, st: Staff, dt: number, managed: boolean): void {
   const e = STAFF.energy;
   if (st.busy) {
-    if (!has(st, 'workaholic')) st.energy -= dt * e.drainPerSecond * Math.max(0.3, 1 - e.staminaPerPoint * (st.stats.stamina - 5));
+    // A shift manager keeps the waiters from running themselves ragged.
+    const lead = managed && st.role === 'waiter' ? 1 - SHIFT.drainCut : 1;
+    if (!has(st, 'workaholic')) st.energy -= dt * e.drainPerSecond * lead * Math.max(0.3, 1 - e.staminaPerPoint * (st.stats.stamina - 5));
   } else st.energy += dt * e.recoverPerSecond;
+  // ...and the whole floor team in good spirits.
+  if (managed && FLOOR_TEAM.includes(st.role)) st.morale = Math.min(1, st.morale + (dt * SHIFT.moralePerMinute) / 60);
   st.energy = clamp01(st.energy);
   if (st.energy < e.tired) {
     st.expression = Expression.Sleepy;
@@ -140,7 +144,8 @@ function maybeAskRaise(s: GameState, st: Staff): void {
 
 /** The day clock: energy every step, payday when a day ends. */
 export function updateWorkers(s: GameState, dt: number): void {
-  for (const st of s.staff) if (!st.leaving) updateEnergy(s, st, dt);
+  const managed = managerOnShift(s) !== undefined;
+  for (const st of s.staff) if (!st.leaving) updateEnergy(s, st, dt, managed);
   s.dayTime += dt;
   if (s.dayTime >= DAY.seconds) {
     s.dayTime -= DAY.seconds;

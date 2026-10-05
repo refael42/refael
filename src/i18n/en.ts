@@ -204,6 +204,7 @@ export const en = {
   'role.washer': 'Dishwasher',
   'role.host': 'Host',
   'role.cleaner': 'Cleaner',
+  'role.manager': 'Shift manager',
   'skill.speed': 'Speed',
   'skill.quality': 'Quality',
   'skill.charm': 'Charm',
