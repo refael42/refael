@@ -9,6 +9,11 @@ import { chairOf, route } from './customers';
 import { emit, Ev } from './events';
 import type { GameState } from './types';
 
+/** An upgrade's effect plays on at most this many of its pieces (each one costs frame time). */
+const UPGRADE_FX_SPOTS = 4;
+/** Added to the event's milestone flag: play the effect without the "LV n" text. */
+export const UPGRADE_QUIET = 2;
+
 /** Where an upgrade "lives" on the map right now (every table for tablecloths, etc.). */
 export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   if (kind === PropKind.Table) return s.tables.map((t) => ({ x: t.x, y: t.y }));
@@ -76,7 +81,9 @@ export function buyUpgrade(s: GameState, id: string, at?: Point): boolean {
     fx = table ? [chairOf(table, 1)] : [];
   }
   const milestone = milestonesReached(level + 1) > milestonesReached(level) ? 1 : 0;
-  for (const p of fx) emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone, def.anchor);
+  // Dozens of tables or chairs: the effect plays on a few of them, the level shows on one.
+  const shown = fx.length <= UPGRADE_FX_SPOTS ? fx : Array.from({ length: UPGRADE_FX_SPOTS }, (_, i) => fx[Math.floor((i * fx.length) / UPGRADE_FX_SPOTS)]!);
+  shown.forEach((p, i) => emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone + (i > 0 ? UPGRADE_QUIET : 0), def.anchor));
   s.bumpAt[def.anchor] = s.time;
   return true;
 }

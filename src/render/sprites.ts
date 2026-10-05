@@ -6,9 +6,48 @@ import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
-import type { SpriteDef } from './sprite';
+import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
+import { sprite, type SpriteDef } from './sprite';
 
-const ALL = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...fxSprites, ...glyphSprites };
+
+/** Stations whose top looks get a golden aura (from the gold milestone on). */
+const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue'];
+const GLOW_PAD = 4;
+
+/**
+ * The aura baked once: the sprite's silhouette spread a few px around and softly blurred, in
+ * gold. One draw per frame instead of eight overlapping copies (which, on a hundred golden
+ * tables and chairs, was most of the late game's frame time).
+ */
+function glowOf(def: SpriteDef): SpriteDef {
+  const [l, t, r, b] = def.bounds;
+  return sprite([l - GLOW_PAD, t - GLOW_PAD, r + GLOW_PAD, b + GLOW_PAD], (c) => {
+    const layer = Skia.Paint();
+    layer.setColorFilter(Skia.ColorFilter.MakeBlend(Skia.Color('#FFD23F'), BlendMode.SrcIn));
+    layer.setImageFilter(Skia.ImageFilter.MakeBlur(1.2, 1.2, TileMode.Decal, null));
+    c.saveLayer(layer);
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      c.save();
+      c.translate(Math.cos(a) * 2.6, Math.sin(a) * 2.6 * 0.8);
+      def.draw(c);
+      c.restore();
+    }
+    c.restore();
+  });
+}
+
+/** `<look>Glow` for the top looks (the last one, and the bigger one at Lv 100 where there is one). */
+const GLOWS: Record<string, SpriteDef> = {};
+for (const base of GLOW_BASES) {
+  for (const n of [LOOKS - 1, LOOKS]) {
+    const def = (BASE as Record<string, SpriteDef>)[`${base}${n}`];
+    if (def) GLOWS[`${base}${n}Glow`] = glowOf(def);
+  }
+}
+
+const ALL = { ...BASE, ...GLOWS };
 export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
@@ -95,6 +134,12 @@ export const LAYERS = {
     aquarium: looks('aquarium'),
     statue: looks('statue'),
   },
+  /** Sprite index -> its baked golden aura (-1: none). */
+  glow: (() => {
+    const out = new Array<number>(Object.keys(ALL).length).fill(NONE);
+    for (const name of Object.keys(GLOWS)) out[INDEX[name.slice(0, -4)]!] = INDEX[name]!;
+    return out;
+  })(),
   /** Served dish per dish id, then per milestone tier of its recipe. */
   plate: [looks('plateFries'), looks('plateBurger')],
   /** Char code -> glyph sprite, and its advance width. */

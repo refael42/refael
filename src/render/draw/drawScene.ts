@@ -80,13 +80,15 @@ export function drawScene(
   c.save();
   c.translate(cam.x + Math.sin(t * 90) * amp, cam.y + Math.cos(t * 77) * amp);
   c.scale(cam.zoom, cam.zoom);
-  // Level of detail: zoomed out, one pre-baked image is far cheaper than ~1000 vector shapes;
-  // zoomed in, vectors stay sharp and off-screen shapes are culled.
-  const bg = A.backgroundImage;
-  if (cam.zoom * A.pixelRatio <= bg.scale * 1.15) {
-    c.drawImageRectOptions(bg.image, bg.src, bg.dst, FilterMode.Linear, MipmapMode.None, A.paints.plain);
-  } else {
-    c.drawPicture(A.background);
+  // The baked background, only the tiles on screen.
+  const viewX0 = -cam.x / cam.zoom;
+  const viewY0 = -cam.y / cam.zoom;
+  const viewX1 = viewX0 + W / cam.zoom;
+  const viewY1 = viewY0 + H / cam.zoom;
+  for (const tile of A.backgroundTiles) {
+    const r = tile.dst;
+    if (r.x > viewX1 || r.y > viewY1 || r.x + r.width < viewX0 || r.y + r.height < viewY0) continue;
+    c.drawImageRectOptions(tile.image, tile.src, r, FilterMode.Linear, MipmapMode.None, A.paints.tile);
   }
   // Build mode: every free tile glows softly on the floor, under everything standing on it.
   if (build) {

@@ -161,16 +161,18 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
     } else if (type === Ev.Washed) {
       spawnFx(s, FxKind.Burst, t, 0.5, wx, wy - 30);
     } else if (type === Ev.Upgrade) {
-      const milestone = ev[o + E.b]! === 1;
+      const flags = ev[o + E.b]!;
+      const milestone = flags % 2 === 1;
+      const quiet = flags >= 2;
       const y = wy - (FX_HEIGHT[ev[o + E.c]!] ?? 40);
       spawnFx(s, FxKind.LevelUp, t, milestone ? 1.1 : 0.7, wx, y, 0, 0, 0, milestone ? 1 : 0);
       spawnFx(s, FxKind.Burst, t, 0.6, wx, y);
-      spawnFx(s, FxKind.Text, t, milestone ? 1.8 : 1.1, wx, y - 14, 0, 0, a, milestone ? TextStyle.Milestone : TextStyle.Level);
+      if (!quiet) spawnFx(s, FxKind.Text, t, milestone ? 1.8 : 1.1, wx, y - 14, 0, 0, a, milestone ? TextStyle.Milestone : TextStyle.Level);
       // Level 100: the station is rebuilt bigger, in a puff of building dust.
       if (a === EXPAND.level && EXPANDS.includes(ev[o + E.c]!)) {
         for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Dust, t + k * 0.05, 1.4, wx + Math.sin(k * 2.1) * 30, wy - 10 - (k % 3) * 16, 0, 0, 1.1);
       }
-      if (milestone) {
+      if (milestone && !quiet) {
         s.shakeAt = t;
         for (let k = 0; k < 18; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.4, wx, y, (k / 18) * Math.PI * 2, 0, k);
       }

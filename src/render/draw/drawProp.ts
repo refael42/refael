@@ -34,8 +34,10 @@ function look(L: number[], tier: number): number {
 /** A sprite drawn 8 times around itself as a flat silhouette: an outline or a glow. */
 function silhouette(c: SkCanvas, A: RenderAssets, i: number, paint: SkPaint, w: number): void {
   'worklet';
-  for (let k = 0; k < 8; k++) {
-    const a = (k / 8) * Math.PI * 2;
+  // Six copies read as an outline; every copy is a full sprite draw (and a selected kind can be
+  // dozens of chairs).
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2;
     spr(c, A, i, Math.cos(a) * w, Math.sin(a) * w * 0.8, paint);
   }
 }
@@ -80,9 +82,9 @@ function steamColumn(c: SkCanvas, A: RenderAssets, x: number, y: number, t: numb
   }
 }
 
-function sparkles(c: SkCanvas, A: RenderAssets, x: number, y: number, t: number, spread: number, seed: number): void {
+function sparkles(c: SkCanvas, A: RenderAssets, x: number, y: number, t: number, spread: number, seed: number, count = 2): void {
   'worklet';
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < count; i++) {
     const cycle = t * 0.7 + i * 0.5 + seed;
     const k = Math.floor(cycle);
     const s = Math.sin((cycle - k) * Math.PI);
@@ -199,9 +201,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
   }
   const base = baseSprite(A, kind, variant, tier);
   if (base >= 0 && tier >= AURA_TIER) {
-    // Eight overlapping copies add up: keep each one faint so it reads as a glow, not paint.
-    A.paints.aura.setAlphaf(0.09 + Math.sin(t * 2.4 + seed) * 0.04 + Math.min(0.08, (tier - AURA_TIER) * 0.02));
-    silhouette(c, A, base, A.paints.aura, 2.6);
+    // The baked glow (one draw), breathing; the pass and slots have none.
+    const glow = A.L.glow[base] ?? -1;
+    if (glow >= 0) sprFade(c, A, glow, 0, 0, 1, 0.4 + Math.sin(t * 2.4 + seed) * 0.15 + Math.min(0.25, (tier - AURA_TIER) * 0.06));
   }
   if (base >= 0 && looks.selected === kind) {
     // Selected: a soft white outline that breathes, so the player sees what the menu is about.
@@ -304,8 +306,8 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     const stutter = Math.sin(t * 31) * Math.sin(t * 7.7 + seed) > 0.82 + tier * 0.05;
     sprFade(c, A, look(A.L.look.neonLit, tier), 0, 0, 1, stutter ? 0.25 : 0.92 + Math.sin(t * 9) * 0.08);
   }
-  // Top-tier stations twinkle.
-  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot) sparkles(c, A, 0, -28, t, 14, seed);
+  // Top-tier stations twinkle (not every chair: there are dozens of them).
+  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot && kind !== PropKind.Chair) sparkles(c, A, 0, -28, t, 14, seed, kind === PropKind.Table ? 1 : 2);
   c.restore();
 }
 

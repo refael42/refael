@@ -21,7 +21,7 @@ export const Ev = {
   PlateFly: 10,
   /** A plate came out of the sink sparkling clean. */
   Washed: 11,
-  /** An upgrade level was bought here. a = new level, b = 1 if it hit a milestone, c = anchor kind. */
+  /** An upgrade level was bought here. a = new level, b = 1 if it hit a milestone (+2: no level text), c = anchor kind. */
   Upgrade: 12,
   /** Coins granted from outside (offline earnings...): a shower of coins into the HUD. a = amount */
   Bonus: 13,
