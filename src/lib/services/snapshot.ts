@@ -1,5 +1,6 @@
 import { analyze, recommendToday, unlockImpact, type EngineInput, type ProjectAnalysis } from "../engine";
 import type { Store } from "../db/store";
+import { localDate } from "../i18n";
 import type {
   Area,
   Contractor,
@@ -42,6 +43,7 @@ export function toEngineInput(
 ): EngineInput {
   return {
     now,
+    today: localDate(now),
     tasks: tasks.map((t) => ({
       id: t.id,
       title: t.title,

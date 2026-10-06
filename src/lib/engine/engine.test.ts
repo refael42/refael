@@ -261,3 +261,16 @@ describe("bottlenecks (blockers that need you)", () => {
     expect(a.bottlenecks[1].actor).toEqual({ type: "contractor", id: "c-rw" });
   });
 });
+
+describe("project-timezone 'today'", () => {
+  it("uses the provided local date for overdue, not the UTC date", () => {
+    // 22:30 UTC on Oct 5 is already Oct 6 in Israel → a task due Oct 5 is overdue there
+    const late = new Date("2026-10-05T22:30:00Z");
+    const tasks = [task("x", "in_progress", { plannedEnd: "2026-10-05" }), task("y"), task("z"), task("w")];
+    const deps = [dep("x", "y"), dep("y", "z"), dep("z", "w")];
+    const utc = analyze(input(tasks, deps, { now: late }));
+    expect(utc.bottlenecks.find((b) => b.id === "x")?.reason).toBe("bottleneck");
+    const local = analyze(input(tasks, deps, { now: late, today: "2026-10-06" }));
+    expect(local.bottlenecks.find((b) => b.id === "x")?.reason).toBe("overdue");
+  });
+});

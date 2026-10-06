@@ -450,12 +450,11 @@ export function analyze(input: EngineInput): ProjectAnalysis {
     criticalPath,
     projectEndHours: sched.projectEnd,
     cycles,
-    bottlenecks: computeBottlenecks(g, byTask, input.now),
+    bottlenecks: computeBottlenecks(g, byTask, input.today ?? input.now.toISOString().slice(0, 10)),
   };
 }
 
-function computeBottlenecks(g: Graph, byTask: Record<string, TaskAnalysis>, now: Date): Bottleneck[] {
-  const today = now.toISOString().slice(0, 10);
+function computeBottlenecks(g: Graph, byTask: Record<string, TaskAnalysis>, today: string): Bottleneck[] {
   const out: Bottleneck[] = [];
   const critical = (set: Set<string>) => [...set].some((id) => byTask[id]?.onCriticalPath);
 

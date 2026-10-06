@@ -12,7 +12,7 @@ import { similarity } from "../ai/text";
 import type { Store } from "../db/store";
 import type { Message, Task } from "../db/types";
 import { serverEnv } from "../env";
-import { fmtDate, fmtDateTime, t } from "../i18n";
+import { fmtDate, fmtDateTime, localDate, t } from "../i18n";
 import { canSeeConversation, isPM } from "./access";
 import type { ProjectSession } from "./auth-types";
 import { areaLabel, areaSubtree, type ProjectSnapshot } from "./snapshot";
@@ -110,7 +110,7 @@ export async function retrieve(store: Store, s: ProjectSession, snap: ProjectSna
   const taskBrief = (task: Task) => {
     const a = snap.analysis.byTask[task.id];
     const who = contractorLabel(snap, task.contractor_id);
-    const late = a.effective !== "done" && task.planned_end && task.planned_end < snap.now.toISOString().slice(0, 10) ? ` · ${t.tasks.overdue}` : "";
+    const late = a.effective !== "done" && task.planned_end && task.planned_end < localDate(snap.now) ? ` · ${t.tasks.overdue}` : "";
     return `${task.title} — ${t.effective[a.effective]} · ${who}${late}${a.blocksTransitive ? ` · חוסם ${a.blocksTransitive}` : ""}`;
   };
   const addTask = (task: Task, root = false) => c.add("task", task.id, `/tasks/${task.id}`, task.title, taskFacts(task), taskBrief(task), root);
@@ -272,7 +272,7 @@ export async function askProject(store: Store, s: ProjectSession, snap: ProjectS
         messages: [
           {
             role: "user",
-            content: `today: ${snap.now.toISOString().slice(0, 10)}\n<records>\n${r.sources.map((x) => `[${x.ref}] ${x.text}`).join("\n")}\n</records>\n\n<question>${q}</question>`,
+            content: `today: ${localDate(snap.now)}\n<records>\n${r.sources.map((x) => `[${x.ref}] ${x.text}`).join("\n")}\n</records>\n\n<question>${q}</question>`,
           },
         ],
       });

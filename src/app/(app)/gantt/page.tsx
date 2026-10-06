@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { GanttChart, type GanttRow } from "@/components/gantt/gantt-chart";
 import { getStore } from "@/lib/db";
-import { t } from "@/lib/i18n";
+import { localDate, t } from "@/lib/i18n";
 import { requireProjectSession } from "@/lib/services/session";
 import { areaPath, loadSnapshot } from "@/lib/services/snapshot";
 
@@ -14,7 +14,7 @@ export default async function GanttPage() {
   const s = await requireProjectSession();
   if (s.role === "contractor") redirect("/my");
   const snap = await loadSnapshot(getStore(), s.project.id);
-  const today = snap.now.toISOString().slice(0, 10);
+  const today = localDate(snap.now);
   // hours from now → day offsets from the start of today
   const hoursIntoDay = (snap.now.getTime() - Date.parse(`${today}T00:00:00Z`)) / 3600_000;
   const rows: GanttRow[] = snap.tasks

@@ -1,4 +1,5 @@
 import type { Area, Contractor, Rule, Task, Trade } from "../db/types";
+import { localDate } from "../i18n";
 import { areaLabel } from "../services/snapshot";
 
 /** What the parsers know about the project when reading a message. */
@@ -21,7 +22,7 @@ export function renderContext(c: ParseContext): string {
   const tradeName = (id: string | null) => c.trades.find((t) => t.id === id)?.name ?? "";
   const contractorName = (id: string | null) => c.contractors.find((x) => x.id === id)?.name ?? "";
   const lines: string[] = [];
-  lines.push(`today: ${c.now.toISOString().slice(0, 10)}`);
+  lines.push(`today: ${localDate(c.now)}`);
   lines.push(`sender: ${c.sender.name} (${c.sender.role ?? "unknown"}${c.sender.contractorId ? `, ${tradeName(c.contractors.find((x) => x.id === c.sender.contractorId)?.trade_id ?? null)}` : ""})`);
   if (c.addressees.length) lines.push(`other participants: ${c.addressees.map((a) => a.name).join(", ")}`);
   lines.push("", "## areas");

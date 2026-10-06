@@ -14,6 +14,7 @@ import { analyze } from "../engine";
 import type { Store } from "../db/store";
 import type { ReminderKind, Task } from "../db/types";
 import { serverEnv } from "../env";
+import { localDate } from "../i18n";
 import { he } from "../i18n/he";
 import { directConversation, projectPMs } from "./messaging";
 import { notify } from "./notify";
@@ -66,7 +67,7 @@ async function tickProject(store: Store, projectId: string, now: Date, windowMin
   const snap = await loadSnapshot(store, projectId, now);
   const pms = await projectPMs(store, projectId);
   if (!pms.length) return { reminders: 0, released: 0 };
-  const today = now.toISOString().slice(0, 10);
+  const today = localDate(now);
   let count = 0;
   const contractorProfile = (t: Task) => (t.contractor_id ? snap.contractorById.get(t.contractor_id)?.profile_id ?? null : null);
 

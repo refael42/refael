@@ -34,6 +34,16 @@ function asDate(d: string | Date): Date {
   return new Date(d);
 }
 
+/** Today's calendar date ('YYYY-MM-DD') in the project timezone — the cutoff for "overdue". */
+export function localDate(d: Date = new Date()): string {
+  const p = Object.fromEntries(
+    fmt({ year: "numeric", month: "2-digit", day: "2-digit" })
+      .formatToParts(d)
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}-${p.month}-${p.day}`;
+}
+
 /** Calendar day key in the project timezone. */
 export function dayKey(d: string | Date): string {
   const p = parts(asDate(d));

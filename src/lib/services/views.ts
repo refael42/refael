@@ -4,7 +4,7 @@
  * screens describe blockers (and who must act) the same way.
  */
 import type { BlockingItem, Bottleneck, EffectiveState, RootBlocker } from "../engine";
-import { fmtDateTime, t } from "../i18n";
+import { fmtDateTime, localDate, t } from "../i18n";
 import type { ProjectSnapshot } from "./snapshot";
 import { analyze, newlyReady, withCompleted } from "../engine";
 import { areaLabel, snapshotRecommendation, snapshotUnlockImpact, toEngineInput } from "./snapshot";
@@ -86,7 +86,7 @@ export function taskCard(s: ProjectSnapshot, id: string): TaskCardVM {
   const task = s.taskById.get(id)!;
   const a = s.analysis.byTask[id];
   const trade = task.trade_id ? s.tradeById.get(task.trade_id) : undefined;
-  const today = s.now.toISOString().slice(0, 10);
+  const today = localDate(s.now);
   const first = a.blockedBy[0];
   return {
     id,

@@ -39,6 +39,8 @@ export interface EngineInput {
   dependencies: EngineDependency[];
   blockers?: EngineBlocker[];
   now: Date;
+  /** Calendar date ('YYYY-MM-DD') in the project's timezone; defaults to the UTC date of `now`. */
+  today?: string;
 }
 
 /** One reason a task cannot start yet. */
