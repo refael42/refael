@@ -33,6 +33,7 @@ export const he = {
     noResults: "אין תוצאות",
     readOnly: "צפייה בלבד",
     saved: "נשמר",
+    install: "התקן כאפליקציה",
   },
 
   nav: {

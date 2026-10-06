@@ -20,6 +20,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
+import { InstallButton } from "@/components/common/install-button";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -138,6 +139,7 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
           <div className="hidden flex-1 lg:block">
             <span className="text-sm text-muted-foreground">{projectName}</span>
           </div>
+          <InstallButton />
           {isDemo && <Badge variant="secondary">{t.app.demoBadge}</Badge>}
           <Link href="/notifications" className="relative rounded-full p-2 hover:bg-accent" aria-label={t.nav.notifications}>
             <Bell className="h-5 w-5" />

@@ -11,7 +11,11 @@
 import { validateNewDependency, type EngineDependency } from "../engine";
 import type { Store } from "../db/store";
 import type { Area, Dependency, Rule, RuleFeedback, Task } from "../db/types";
+import { he } from "../i18n/he";
+import { assertPM } from "./access";
+import { AccessError } from "./auth-types";
 import { areasOverlap } from "./snapshot";
+import type { Ctx } from "./tasks";
 
 export interface DependencySuggestion {
   fromTaskId: string;
@@ -168,4 +172,60 @@ export async function recordRuleFeedback(
     source: "learned",
   });
   return rule;
+}
+
+// ───────────────────────── management (PM) ─────────────────────────
+
+export interface RuleInput {
+  name: string;
+  predecessor_trade_id: string;
+  successor_trade_id: string;
+  predecessor_keyword?: string | null;
+  successor_keyword?: string | null;
+  scope: Rule["scope"];
+  lag_hours: number;
+  active?: boolean;
+}
+
+function validRule(r: RuleInput) {
+  if (!r.name.trim() || !r.predecessor_trade_id || !r.successor_trade_id || !(r.lag_hours >= 0)) throw new AccessError(he.errors.invalid, 403);
+}
+
+export async function createRule(ctx: Ctx, r: RuleInput) {
+  assertPM(ctx.s);
+  validRule(r);
+  const [rule] = await ctx.store.insert("rules", {
+    organization_id: ctx.s.project.organization_id,
+    name: r.name.trim(),
+    predecessor_trade_id: r.predecessor_trade_id,
+    successor_trade_id: r.successor_trade_id,
+    predecessor_keyword: r.predecessor_keyword?.trim() || null,
+    successor_keyword: r.successor_keyword?.trim() || null,
+    scope: r.scope,
+    lag_hours: r.lag_hours,
+    active: r.active ?? true,
+    source: "custom",
+  });
+  return rule;
+}
+
+async function ownRule(ctx: Ctx, id: string) {
+  const rule = await ctx.store.byId("rules", id);
+  // built-in rules (organization_id null) are read-only; override them with a custom rule
+  if (!rule || rule.organization_id !== ctx.s.project.organization_id) throw new AccessError(he.templates.builtinReadonly, 403);
+  return rule;
+}
+
+export async function updateRule(ctx: Ctx, id: string, patch: Partial<RuleInput>) {
+  assertPM(ctx.s);
+  const rule = await ownRule(ctx, id);
+  validRule({ ...rule, ...patch, name: patch.name ?? rule.name } as RuleInput);
+  const [updated] = await ctx.store.update("rules", { id }, patch);
+  return updated;
+}
+
+export async function deleteRule(ctx: Ctx, id: string) {
+  assertPM(ctx.s);
+  await ownRule(ctx, id);
+  await ctx.store.remove("rules", { id });
 }
