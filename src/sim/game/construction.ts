@@ -85,6 +85,7 @@ function finishConstruction(s: GameState): void {
     works: s.works,
     nextWorkId: s.nextWorkId,
     lastVip: s.lastVip,
+    lastRaiseAsk: s.lastRaiseAsk,
     gift: s.gift,
     nextGift: s.nextGift,
     daily: s.daily,

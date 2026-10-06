@@ -136,7 +136,7 @@ function payday(s: GameState): void {
 function maybeAskRaise(s: GameState, st: Staff): void {
   const r = STAFF.raise;
   if (st.trial || st.level < r.minLevel || s.day - st.lastRaiseDay < r.minDaysBetween) return;
-  if (s.notices.some((n) => n.kind === 'raise' && n.staff === st.id)) return;
+  if (s.day - s.lastRaiseAsk < r.teamGapDays || s.notices.some((n) => n.kind === 'raise')) return;
   const odds = r.chance * (has(st, 'workaholic') ? TRAIT_FX.workaholicRaises : 1);
   if (!chance(s.rng, odds)) return;
   // At least the usual step, up to what the market pays now, but never more than +50 % at once.
@@ -145,6 +145,7 @@ function maybeAskRaise(s: GameState, st: Staff): void {
   const most = st.wage.mul(1 + r.maxAmount).ceil();
   const asked = market.gt(step) ? (market.lt(most) ? market : most) : step;
   notify(s, { kind: 'raise', staff: st.id, wage: asked });
+  s.lastRaiseAsk = s.day;
   emote(st, Emote.Coin);
 }
 

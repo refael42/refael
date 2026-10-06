@@ -309,6 +309,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     city: setup.city ?? 0,
     trophies,
     lastVip: -Infinity,
+    lastRaiseAsk: -Infinity,
     gift: null,
     nextGift: GIFT.firstSeconds,
     daily: setup.daily ? { ...setup.daily } : { last: null, streak: 0 },

@@ -101,8 +101,12 @@ export const STAFF = {
   scold: { seconds: 25, speedBonus: 0.25 },
   /** XP per finished job; level n needs `first * growth^(n-1)` more. */
   xp: { perJob: 1, first: 12, growth: 1.6 },
-  /** Daily chance a good worker asks for a raise, and by how much. */
-  raise: { minLevel: 2, minDaysBetween: 2, chance: 0.3, amount: 0.2, maxAmount: 0.5 },
+  /**
+   * Daily chance a good worker asks for a raise, and by how much. Owner request: rare, and
+   * never two at once: one open request at a time, and after anyone asks, nobody else does for
+   * `teamGapDays` days.
+   */
+  raise: { minLevel: 2, minDaysBetween: 6, chance: 0.08, amount: 0.2, maxAmount: 0.5, teamGapDays: 3 },
   /** Wage multiplier per level above 1. */
   wagePerLevel: 0.25,
   /** Signing fee, in days of wage. Training costs `trainDays * level` days of wage. Bonus = one day. */

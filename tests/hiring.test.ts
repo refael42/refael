@@ -184,7 +184,7 @@ describe('growth and management', () => {
     rich(s);
     for (const st of s.staff) for (let i = 0; i < 40; i++) gainXp(s, st);
     let notice;
-    for (let day = 0; day < 30 && !notice; day++) {
+    for (let day = 0; day < 80 && !notice; day++) {
       run(s, DAY.seconds);
       notice = s.notices.find((n) => n.kind === 'raise');
     }
@@ -194,6 +194,28 @@ describe('growth and management', () => {
     queueCommand(s, { type: 'answer', notice: notice.id, yes: true });
     run(s, STEP_SEC);
     expect(st.wage.eq(notice.wage)).toBe(true);
+  });
+
+  it('raise requests are rare and come one at a time (owner request)', () => {
+    const s = createGame(mapForTier(2), 21, { roster: ['cook', 'waiter', 'waiter', 'waiter', 'washer', 'host', 'cleaner'], levels: { building: 2 } });
+    rich(s);
+    for (const st of s.staff) for (let i = 0; i < 60; i++) gainXp(s, st);
+    const asked: number[] = [];
+    for (let day = 0; day < 40; day++) {
+      run(s, DAY.seconds);
+      const open = s.notices.filter((n) => n.kind === 'raise');
+      expect(open.length).toBeLessThanOrEqual(1);
+      for (const n of open) {
+        asked.push(s.day);
+        // Answered at once, like a player would: the next one can come.
+        queueCommand(s, { type: 'answer', notice: n.id, yes: false });
+      }
+      run(s, STEP_SEC);
+    }
+    // Seven good workers for 40 days: only a handful of requests, never on days close together.
+    expect(asked.length).toBeGreaterThan(0);
+    expect(asked.length).toBeLessThanOrEqual(10);
+    for (let i = 1; i < asked.length; i++) expect(asked[i]! - asked[i - 1]!).toBeGreaterThanOrEqual(STAFF.raise.teamGapDays);
   });
 
   it('changing jobs swaps the uniform and the duties', () => {

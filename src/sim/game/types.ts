@@ -340,6 +340,8 @@ export interface GameState {
   trophies: number;
   /** The last VIP guest came at this time. */
   lastVip: number;
+  /** The day someone last asked for a raise (one at a time, with days in between). */
+  lastRaiseAsk: number;
   /** A present on the sidewalk (tap it), and when the next one comes. */
   gift: { x: number; y: number; until: number } | null;
   nextGift: number;
