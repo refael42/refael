@@ -319,6 +319,10 @@ function dayStartMs(date: string): number {
 }
 
 export function durationHours(t: EngineTask, nowMs: number): number {
+  return baseDurationHours(t, nowMs) + (t.status === "done" ? 0 : Math.max(0, t.delayHours ?? 0));
+}
+
+function baseDurationHours(t: EngineTask, nowMs: number): number {
   if (t.status === "done" || t.status === "awaiting_approval") return 0;
   const full =
     t.plannedStart && t.plannedEnd
@@ -621,6 +625,15 @@ export function recommendToday(input: EngineInput, k = 3, base: ProjectAnalysis 
     current = best.res;
   }
   return { taskIds: chosen, unlocked: current.immediate, unlockedAfterLag: current.afterLag };
+}
+
+/**
+ * What-if: how many hours the end of all remaining work moves if `taskId`
+ * takes `delayHours` longer (exact — re-runs the CPM pass, lags included).
+ */
+export function delayImpact(input: EngineInput, taskId: string, delayHours: number, base: ProjectAnalysis = analyze(input)): number {
+  const delayed = analyze({ ...input, tasks: input.tasks.map((t) => (t.id === taskId ? { ...t, delayHours: (t.delayHours ?? 0) + delayHours } : t)) });
+  return Math.max(0, delayed.projectEndHours - base.projectEndHours);
 }
 
 /** Convenience: hours offset from `now` → Date. */

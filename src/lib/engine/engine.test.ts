@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   analyze,
   detectCycles,
+  delayImpact,
   durationHours,
   newlyReady,
   recommendToday,
@@ -272,5 +273,23 @@ describe("project-timezone 'today'", () => {
     expect(utc.bottlenecks.find((b) => b.id === "x")?.reason).toBe("bottleneck");
     const local = analyze(input(tasks, deps, { now: late, today: "2026-10-06" }));
     expect(local.bottlenecks.find((b) => b.id === "x")?.reason).toBe("overdue");
+  });
+});
+
+describe("delay impact (what-if)", () => {
+  // a(2d) → c(1d) → d(1d) ; b(5d) → c : b is critical, a has 72h slack
+  const tasks = [
+    task("a", "planned", { plannedStart: "2026-10-05", plannedEnd: "2026-10-06" }),
+    task("b", "planned", { plannedStart: "2026-10-05", plannedEnd: "2026-10-09" }),
+    task("c", "planned", { plannedStart: "2026-10-05", plannedEnd: "2026-10-05" }),
+    task("d", "planned", { plannedStart: "2026-10-05", plannedEnd: "2026-10-05" }),
+  ];
+  const deps = [dep("a", "c"), dep("b", "c"), dep("c", "d")];
+  it("a critical task's delay moves the project end one-for-one", () => {
+    expect(delayImpact(input(tasks, deps), "b", 24)).toBe(24);
+  });
+  it("slack absorbs delay on non-critical work", () => {
+    expect(delayImpact(input(tasks, deps), "a", 48)).toBe(0);
+    expect(delayImpact(input(tasks, deps), "a", 96)).toBe(24);
   });
 });

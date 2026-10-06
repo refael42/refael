@@ -233,6 +233,8 @@ export const he = {
     dates: "תאריכים",
     overdue: "באיחור",
     slack: (days: string) => `מרווח: ${days} ימים`,
+    delayImpact: (day: number, week: number) =>
+      day > 0 ? `כל יום עיכוב כאן דוחה את סיום הפרויקט ב-${day} ימים (שבוע עיכוב: ${week})` : week > 0 ? `עיכוב של שבוע ידחה את הסיום ב-${week} ימים` : "עיכוב של עד שבוע לא ישפיע על סיום הפרויקט",
   },
 
   area: {

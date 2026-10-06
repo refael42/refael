@@ -145,7 +145,7 @@ export default async function TaskPage({ params }: { params: { id: string } }) {
       )}
 
       {/* Impact */}
-      {staff && (vm.card.blocksTransitive > 0 || vm.unlockIfDone) && (
+      {staff && (vm.card.blocksTransitive > 0 || vm.unlockIfDone || vm.delayDays) && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-4 p-4 text-sm">
             <span className="flex items-center gap-1 font-medium">
@@ -158,6 +158,11 @@ export default async function TaskPage({ params }: { params: { id: string } }) {
               <span className="text-muted-foreground">{t.home.unlocksAfterLag(vm.unlockIfDone.afterLag)}</span>
             )}
             {vm.card.state !== "done" && <span className="text-muted-foreground">{t.tasks.slack(String(vm.slackDays))}</span>}
+            {vm.delayDays && (
+              <span className={vm.delayDays.day > 0 ? "font-medium text-state-critical" : "text-muted-foreground"}>
+                {t.tasks.delayImpact(vm.delayDays.day, vm.delayDays.week)}
+              </span>
+            )}
           </CardContent>
         </Card>
       )}

@@ -16,6 +16,8 @@ export interface EngineTask {
   completedAt?: string | null; // ISO
   blockedReason?: string | null;
   isCritical?: boolean;
+  /** What-if: extra hours added to the remaining duration. */
+  delayHours?: number;
 }
 
 export interface EngineDependency {

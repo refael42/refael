@@ -3,7 +3,8 @@ import type { CompletionReport } from "../db/types";
 import { t } from "../i18n";
 import { canSeeConversation, isStaff } from "./access";
 import type { ProjectSession } from "./auth-types";
-import { areaPath, snapshotUnlockImpact, type ProjectSnapshot } from "./snapshot";
+import { delayImpact } from "../engine";
+import { areaPath, snapshotUnlockImpact, toEngineInput, type ProjectSnapshot } from "./snapshot";
 import { contractorLabel, describeBlocking, taskCard, type BlockerLineVM, type TaskCardVM } from "./views";
 
 export interface TaskDetailVM {
@@ -28,6 +29,8 @@ export interface TaskDetailVM {
   >;
   successors: Array<{ depId: string; lagHours: number; task: TaskCardVM }>;
   unlockIfDone: { immediate: number; afterLag: number } | null;
+  /** days the project end moves per day / week of delay on this task */
+  delayDays: { day: number; week: number } | null;
   history: Array<{ id: string; at: string; text: string; source: string; actor: string | null }>;
   reports: Array<CompletionReport & { submitter: string | null; reviewer: string | null }>;
   messages: Array<{ id: string; conversationId: string; text: string; sender: string; at: string; kind: string; mediaUrl: string | null }>;
@@ -127,6 +130,14 @@ export async function taskDetailView(store: Store, s: ProjectSession, snap: Proj
     ),
     successors: outgoing.map((d) => ({ depId: d.id, lagHours: Number(d.lag_hours), task: taskCard(snap, d.to_task_id) })),
     unlockIfDone: impact ? { immediate: impact.immediate.length, afterLag: impact.afterLag.length } : null,
+    delayDays:
+      task.status === "done"
+        ? null
+        : (() => {
+            const input = toEngineInput(snap.tasks, snap.dependencies, snap.blockers, snap.now);
+            const r = (h: number) => Math.round((delayImpact(input, id, h, snap.analysis) / 24) * 10) / 10;
+            return { day: r(24), week: r(24 * 7) };
+          })(),
     history: audits.map((x) => ({
       id: x.id,
       at: x.created_at,
