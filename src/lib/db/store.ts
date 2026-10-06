@@ -105,6 +105,7 @@ export const PRIMARY_KEYS: Partial<Record<TableName, string[]>> = {
   project_members: ["project_id", "profile_id"],
   conversation_participants: ["conversation_id", "profile_id"],
   message_links: ["message_id", "task_id"],
+  flow_templates: ["organization_id"],
 };
 
 export class StoreError extends Error {

@@ -294,13 +294,47 @@ export const APARTMENT_FLOW: FlowStage[] = [
   },
 ];
 
-export function stageByKey(key: string): FlowStage | undefined {
-  return APARTMENT_FLOW.find((s) => s.key === key);
+export function stageByKey(key: string, flow: FlowStage[] = APARTMENT_FLOW): FlowStage | undefined {
+  return flow.find((s) => s.key === key);
 }
 
 /** Stages each stage opens (inverse of `after`). */
-export function opensOf(key: string): FlowStage[] {
-  return APARTMENT_FLOW.filter((s) => s.after.some((a) => a.key === key));
+export function opensOf(key: string, flow: FlowStage[] = APARTMENT_FLOW): FlowStage[] {
+  return flow.filter((s) => s.after.some((a) => a.key === key));
+}
+
+export const PHASE_KEYS = Object.keys(PHASES) as PhaseKey[];
+
+/**
+ * Problems that make a process unusable (Hebrew messages for the editor):
+ * duplicate / empty keys, missing names, unknown prerequisites, cycles.
+ */
+export function validateFlow(flow: FlowStage[]): string[] {
+  const errors: string[] = [];
+  if (!flow.length) errors.push("התהליך ריק");
+  const keys = new Set<string>();
+  for (const s of flow) {
+    if (!s.key || !/^[a-z0-9_]+$/.test(s.key)) errors.push(`מזהה שלב לא תקין: "${s.key}"`);
+    if (keys.has(s.key)) errors.push(`מזהה כפול: "${s.key}"`);
+    keys.add(s.key);
+    if (!s.name.trim()) errors.push(`לשלב "${s.key}" אין שם`);
+    if (!PHASE_KEYS.includes(s.phase)) errors.push(`שלב "${s.name}": קבוצה לא מוכרת`);
+    if (!(s.days > 0 && s.days <= 365)) errors.push(`שלב "${s.name}": משך לא תקין`);
+  }
+  for (const s of flow)
+    for (const a of s.after) {
+      if (!keys.has(a.key)) errors.push(`שלב "${s.name}" תלוי בשלב שלא קיים`);
+      if (a.key === s.key) errors.push(`שלב "${s.name}" תלוי בעצמו`);
+      if ((a.lag ?? 0) < 0) errors.push(`שלב "${s.name}": זמן המתנה שלילי`);
+    }
+  if (!errors.length) {
+    try {
+      stageLevels(flow);
+    } catch {
+      errors.push("יש מעגל בתהליך – שלב תלוי (בעקיפין) בעצמו");
+    }
+  }
+  return [...new Set(errors)];
 }
 
 /**

@@ -348,6 +348,14 @@ export interface AuditEntry {
   created_at: ISODateTime;
 }
 
+export interface FlowTemplate {
+  organization_id: UUID;
+  /** FlowStage[] — see src/lib/flow/process.ts */
+  stages: import("../flow/process").FlowStage[];
+  updated_by: UUID | null;
+  updated_at: ISODateTime;
+}
+
 export interface Tables {
   organizations: Organization;
   profiles: Profile;
@@ -372,6 +380,7 @@ export interface Tables {
   notifications: NotificationRow;
   push_subscriptions: PushSubscriptionRow;
   audit_log: AuditEntry;
+  flow_templates: FlowTemplate;
 }
 
 export type TableName = keyof Tables;

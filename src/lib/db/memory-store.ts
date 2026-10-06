@@ -135,6 +135,7 @@ export function emptyData(): MemoryData {
     notifications: [],
     push_subscriptions: [],
     audit_log: [],
+    flow_templates: [],
   };
 }
 

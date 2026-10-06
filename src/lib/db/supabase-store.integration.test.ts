@@ -140,6 +140,23 @@ describe.skipIf(!ENABLED)("SupabaseStore against Postgres + PostgREST", () => {
     expect(notes.some((n) => n.kind === "released")).toBe(true);
   });
 
+  it("stores the company process (jsonb) and falls back after reset", async () => {
+    const { loadFlow, saveFlow, resetFlow } = await import("../services/flow-template");
+    const { APARTMENT_FLOW } = await import("../flow/process");
+    const pm = (await store.byId("profiles", DEMO_IDS.pm))!;
+    const project = (await store.byId("projects", DEMO_IDS.project))!;
+    const ctx = { store, now: NOW, s: { profile: pm, memberships: [], project, role: "pm" as const, contractorIds: [], isDemo: false } };
+    const custom = APARTMENT_FLOW.slice(0, 3).map((st, i) => ({ ...st, after: i ? [{ key: APARTMENT_FLOW[i - 1].key, lag: 12 }] : [] }));
+    await saveFlow(ctx, custom);
+    await saveFlow(ctx, custom); // second save updates the same row
+    const loaded = await loadFlow(store, project.organization_id);
+    expect(loaded.custom).toBe(true);
+    expect(loaded.stages.map((x) => x.key)).toEqual(custom.map((x) => x.key));
+    expect(loaded.stages[1].after[0].lag).toBe(12);
+    await resetFlow(ctx);
+    expect((await loadFlow(store, project.organization_id)).custom).toBe(false);
+  });
+
   it("runs the reminders tick (checks, overdue, no-response, digest) idempotently", async () => {
     const { runTick } = await import("../services/reminders");
     const first = await runTick(store, NOW);

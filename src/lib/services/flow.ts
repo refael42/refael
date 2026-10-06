@@ -7,7 +7,8 @@
 import type { Store } from "../db/store";
 import type { Task } from "../db/types";
 import type { EffectiveState } from "../engine/types";
-import { APARTMENT_FLOW, FLOW_TRADES, stageLevels, stageSchedule, type FlowStage } from "../flow/process";
+import { FLOW_TRADES, stageLevels, stageSchedule, type FlowStage } from "../flow/process";
+import { loadFlow } from "./flow-template";
 import { he } from "../i18n/he";
 import { assertPM } from "./access";
 import { messageContractor } from "./messaging";
@@ -16,10 +17,10 @@ import type { ProjectSnapshot } from "./snapshot";
 import { createTasks, insertDependency, ServiceError, type Ctx } from "./tasks";
 
 /** Make sure every trade the process uses exists; returns key → id. */
-export async function ensureFlowTrades(store: Store): Promise<Map<string, string>> {
+export async function ensureFlowTrades(store: Store, flow: FlowStage[]): Promise<Map<string, string>> {
   const trades = await store.select("trades");
   const have = new Set(trades.map((t) => t.key));
-  const needed = new Set(APARTMENT_FLOW.map((s) => s.trade));
+  const needed = new Set(flow.map((s) => s.trade));
   const missing = FLOW_TRADES.filter((t) => needed.has(t.key) && !have.has(t.key));
   if (missing.length) {
     const max = trades.reduce((m, t) => Math.max(m, t.sort_order), 0);
@@ -54,17 +55,18 @@ export async function applyFlow(
   assertPM(ctx.s);
   const { store, s } = ctx;
   if (!input.areaIds.length || input.areaIds.length > 60 || !/^\d{4}-\d{2}-\d{2}$/.test(input.startDate)) throw new ServiceError(he.errors.invalid);
-  const tradeIds = await ensureFlowTrades(store);
+  const { stages: FLOW } = await loadFlow(store, s.project.organization_id);
+  const tradeIds = await ensureFlowTrades(store, FLOW);
   const [areas, contractors, existing] = await Promise.all([
     store.select("areas", { where: { project_id: s.project.id, id: { in: input.areaIds } } }),
     store.select("contractors", { where: { organization_id: s.project.organization_id } }),
     store.select("tasks", { where: { project_id: s.project.id, area_id: { in: input.areaIds } } }),
   ]);
-  const wanted = new Set(input.stageKeys?.length ? input.stageKeys : APARTMENT_FLOW.map((x) => x.key));
+  const wanted = new Set(input.stageKeys?.length ? input.stageKeys : FLOW.map((x) => x.key));
   // a stage's prerequisites are always included, so the chain stays complete
   for (let changed = true; changed; ) {
     changed = false;
-    for (const st of APARTMENT_FLOW)
+    for (const st of FLOW)
       if (wanted.has(st.key))
         for (const a of st.after)
           if (!wanted.has(a.key)) {
@@ -72,10 +74,10 @@ export async function applyFlow(
             changed = true;
           }
   }
-  const stages = APARTMENT_FLOW.filter((x) => wanted.has(x.key));
-  const levels = stageLevels();
+  const stages = FLOW.filter((x) => wanted.has(x.key));
+  const levels = stageLevels(FLOW);
   stages.sort((a, b) => levels.get(a.key)! - levels.get(b.key)!);
-  const schedule = stageSchedule();
+  const schedule = stageSchedule(FLOW);
 
   const contractorFor = (trade: string): string | null => {
     if (input.contractorByTrade && trade in input.contractorByTrade) return input.contractorByTrade[trade] ?? null;
@@ -154,9 +156,9 @@ export interface StageStatus {
 }
 
 /** Live status of every process stage in one area (apartment). */
-export function flowStatus(snap: ProjectSnapshot, areaId: string): Record<string, StageStatus> {
+export function flowStatus(snap: ProjectSnapshot, areaId: string, flow: FlowStage[]): Record<string, StageStatus> {
   const out: Record<string, StageStatus> = {};
-  for (const st of APARTMENT_FLOW) out[st.key] = { key: st.key, taskId: null, state: "missing", contractor: null };
+  for (const st of flow) out[st.key] = { key: st.key, taskId: null, state: "missing", contractor: null };
   for (const t of snap.tasks) {
     if (t.area_id !== areaId || !t.flow_stage || !out[t.flow_stage]) continue;
     out[t.flow_stage] = {

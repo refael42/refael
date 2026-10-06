@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/misc";
 import { getStore } from "@/lib/db";
 import { fmtDate, localDate, t } from "@/lib/i18n";
 import { isStaff } from "@/lib/services/access";
+import { contractorPerformance } from "@/lib/services/performance";
 import { requireProjectSession } from "@/lib/services/session";
 import { areaLabel, loadSnapshot } from "@/lib/services/snapshot";
 import { areaProgress, contractorLabel, homeView } from "@/lib/services/views";
@@ -15,7 +16,14 @@ const DAY = 86_400_000;
 export default async function ReportPage() {
   const s = await requireProjectSession();
   if (!isStaff(s)) redirect("/my");
-  const snap = await loadSnapshot(getStore(), s.project.id);
+  const store = getStore();
+  const snap = await loadSnapshot(store, s.project.id);
+  const [reports, messages] = await Promise.all([
+    snap.tasks.length ? store.select("completion_reports", { where: { task_id: { in: snap.tasks.map((x) => x.id) } } }) : [],
+    store.select("messages", { where: { project_id: s.project.id } }),
+  ]);
+  const perf = contractorPerformance({ contractors: snap.contractors, tasks: snap.tasks, reports, messages, now: snap.now });
+  const pctCell = (v: number | null, good: boolean) => (v === null ? "—" : <span className={good ? "text-state-ready" : "text-state-blocked"}>{v}%</span>);
   const a = snap.analysis;
   const now = snap.now;
   const weekAgo = new Date(now.getTime() - 7 * DAY).toISOString();
@@ -84,6 +92,42 @@ export default async function ReportPage() {
         <Rows
           rows={completed.map((x) => [x.title, `${areaLabel(snap.areaById, x.area_id)} · ${contractorLabel(snap, x.contractor_id)} · ${fmtDate(x.completed_at)}`])}
         />
+      </Section>
+
+      <Section title={t.report.performance}>
+        <p className="text-xs text-muted-foreground">{t.report.performanceHint}</p>
+        {perf.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs text-muted-foreground">
+                  <th className="py-1 text-start font-medium">{t.report.perf.contractor}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.tasks}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.onTime}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.overdue}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.rejected}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.reply}</th>
+                  <th className="py-1 text-start font-medium">{t.report.perf.score}</th>
+                </tr>
+              </thead>
+              <tbody className="num">
+                {perf.map((p) => (
+                  <tr key={p.contractorId} className="border-b last:border-b-0">
+                    <td className="py-1.5 pe-3 font-medium">{p.name}</td>
+                    <td className="py-1.5">{`${p.done}/${p.total}`}</td>
+                    <td className="py-1.5">{pctCell(p.onTimePct, (p.onTimePct ?? 0) >= 80)}</td>
+                    <td className={p.overdue ? "py-1.5 text-state-blocked" : "py-1.5"}>{p.overdue}</td>
+                    <td className="py-1.5">{p.rejectPct === null ? "—" : <span className={p.rejectPct > 20 ? "text-state-blocked" : ""}>{`${p.rejected}/${p.reports}`}</span>}</td>
+                    <td className="py-1.5">{p.medianReplyHours === null ? "—" : t.report.hours(p.medianReplyHours)}</td>
+                    <td className="py-1.5 font-bold">{p.score ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t.report.none}</p>
+        )}
       </Section>
 
       <Section title={t.report.nextWeek}>

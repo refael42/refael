@@ -244,6 +244,13 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
   const T = (key: string) => sid(`task:${key}`);
   const addTask = (key: string, s: Spec) => {
     const done = s.status === "done";
+    // realistic history: most finished work landed by its planned end, about a quarter ran late
+    let plannedEnd = s.pe !== undefined ? day(s.pe) : null;
+    if (done && plannedEnd) {
+      const doneDay = ago(s.doneH ?? 24).slice(0, 10);
+      const late = [...key].reduce((h, ch) => h + ch.charCodeAt(0), 0) % 4 === 0;
+      if (doneDay > plannedEnd && !late) plannedEnd = doneDay;
+    }
     const startedH = s.startedH ?? (s.status === "in_progress" || s.status === "awaiting_approval" || done ? (s.doneH ?? 0) + 72 : undefined);
     db.tasks.push({
       id: T(key),
@@ -256,7 +263,7 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
       status: s.status,
       is_critical: s.critical ?? false,
       planned_start: s.ps !== undefined ? day(s.ps) : null,
-      planned_end: s.pe !== undefined ? day(s.pe) : null,
+      planned_end: plannedEnd,
       check_at: s.checkInH !== undefined ? inH(s.checkInH) : null,
       started_at: startedH !== undefined ? ago(startedH) : null,
       completed_at: done ? ago(s.doneH ?? 24) : null,
