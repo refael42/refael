@@ -22,6 +22,7 @@
 | M7b | Full polish: audio, haptics, weather, settings | ✅ Done (M10, M11) |
 | M12 | Prestige: a branch in a new city (chef trophies, city looks) | ✅ Done |
 | M13 | Hooks that bring players back: daily gift streak, VIP guests, presents on the sidewalk (owner: "more professional and addictive") | ✅ Done |
+| M14 | Professional app icon: store icon, Android adaptive layers (+ themed), splash image, favicon | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -59,6 +60,12 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M14 (owner: "more professional"): **the game's own icon** instead of Expo's default:
+  a white chef hat with a gold band on a plate, a gold star coin, on a plum glow with sparkles.
+  `node scripts/make-icons.mjs` draws every size with CanvasKit (the game's Skia): the 1024
+  store icon, the Android adaptive foreground (inside the 66 dp safe circle) + background +
+  monochrome (themed icons), a splash image and the web favicon. The splash image waits for
+  `expo-splash-screen` (a native package: not added without the owner's OK).
 - Done in M13 (owner: "more professional and addictive"): a **daily gift** (7 days in a row,
   coins = minutes of income, gems on days 3, 6 and 7, an x2 boost on day 7; a missed day starts
   over; opens by itself once a day and from a 🎁 button), **VIP guests** (from minute 15, one at

@@ -20,7 +20,8 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 
 לגרסה חדשה: מורידים שוב את ה-ZIP (או `git pull`) ומריצים שוב את start-windows.bat.
 
-**למפתחים:** `npm run check` (בדיקות), `npm run balance` (דוח קצב התקדמות), `npm run web` (דפדפן).
+**למפתחים:** `npm run check` (בדיקות), `npm run balance` (דוח קצב התקדמות), `npm run web` (דפדפן),
+`node scripts/make-icons.mjs` (מצייר מחדש את אייקון האפליקציה), `node scripts/make-sounds.mjs` (מייצר מחדש את הצלילים).
 
 אחרי התקנת חבילות חדשות — לעצור את השרת (Ctrl+C) ולהפעיל מחדש, אחרת Metro "שוכח" קבצים.
 
