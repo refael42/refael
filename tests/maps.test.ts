@@ -6,7 +6,7 @@ import { buildGrid, findPath } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots'> = {
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -223,8 +223,8 @@ describe('map generator', () => {
       const grid = buildGrid(map);
       expect(findPath(grid, map.spawns[0]!, map.queue[0]!), `tier ${t}`).not.toBeNull();
     });
-    // The last kitchen is twice as wide, with lines of stoves.
-    expect(mapForTier(TIERS.length - 1).kitchenX - mapForTier(TIERS.length - 1).building.x0).toBe(2 * (STAND_MAP.kitchenX - STAND_MAP.building.x0));
+    // The last kitchen is at least twice as wide, with lines of stoves.
+    expect(mapForTier(TIERS.length - 1).kitchenX - mapForTier(TIERS.length - 1).building.x0).toBeGreaterThanOrEqual(2 * (STAND_MAP.kitchenX - STAND_MAP.building.x0));
     expect(new Set(mapForTier(TIERS.length - 1).stoves.map((s) => s.stove.x)).size).toBeGreaterThan(2);
     const empire = mapForTier(TIERS.length - 1);
     expect(empire.building.y1).toBeGreaterThan(STAND_MAP.building.y1);

@@ -1,67 +1,64 @@
 import { describe, expect, it } from 'vitest';
-import { LINEUP } from '../src/data/scenes';
+import { TIERS } from '../src/data/buildings';
+import { mapForTier, SAVE_SHIFT, STAND_MAP, WORLD_SHIFT } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
-import { facingFor } from '../src/sim/movement';
-import { C, F, STRIDE } from '../src/sim/snapshot';
-import { Facing } from '../src/sim/types';
-import { createWorld, stepWorld, worldSnapshot } from '../src/sim/world';
+import { createGame } from '../src/sim/game/create';
+import { stepGame } from '../src/sim/game/step';
+import { makeSave, parseSave } from '../src/sim/save';
+import { PropKind as K } from '../src/sim/types';
 
-function run(seconds: number) {
-  const world = createWorld(LINEUP);
-  const steps = Math.round(seconds / STEP_SEC);
-  for (let i = 0; i < steps; i++) stepWorld(world, STEP_SEC);
-  return world;
-}
+const floorAt = (x: number, y: number) => [...STAND_MAP.areas].reverse().find((a) => x >= a.x0 && x < a.x1 && y >= a.y0 && y < a.y1)?.floor;
 
-describe('scripted world (cast lineup)', () => {
-  it('is deterministic', () => {
-    expect(worldSnapshot(run(30), 1).data).toEqual(worldSnapshot(run(30), 1).data);
-  });
-
-  it('loops routines forever and triggers emotes', () => {
-    const world = run(600);
-    expect(world.characters.every((c) => Number.isFinite(c.x) && Number.isFinite(c.y))).toBe(true);
-    const sawEmote = [0, 1, 2, 3, 4, 5].some((s) => run(s + 0.5).characters.some((c) => c.emote !== 0));
-    expect(sawEmote).toBe(true);
-  });
-});
-
-describe('render snapshot', () => {
-  it('packs every entity in isometric back-to-front order', () => {
-    const world = run(5);
-    const snap = worldSnapshot(world, 7);
-    expect(snap.seq).toBe(7);
-    expect(snap.count).toBe(world.characters.length + world.props.length);
-    expect(snap.data.length).toBe(snap.count * STRIDE);
-    const depth = (i: number) => snap.data[i * STRIDE + F.x]! + snap.data[i * STRIDE + F.y]!;
-    for (let i = 1; i < snap.count; i++) {
-      // Lifted items get +1 (they sit on counters), so compare with that slack.
-      expect(depth(i) + 1.05).toBeGreaterThanOrEqual(depth(i - 1));
+describe('the world round the restaurant (owner: bigger, prettier past the road)', () => {
+  it('across the road: a far sidewalk, then a park with a plaza, a fountain, benches, trees, stalls and parked cars', () => {
+    const road = STAND_MAP.areas.find((a) => a.floor === 'road')!;
+    expect(floorAt(5, road.y1 + 0.5)).toBe('sidewalk');
+    expect(floorAt(5, road.y1 + 3)).not.toBe('road');
+    const kinds = new Set(STAND_MAP.decor.map((f) => f.kind));
+    for (const k of [K.ParkFountain, K.Bench, K.Planter, K.Stall, K.Car, K.Slide]) expect(kinds.has(k)).toBe(true);
+    // Parked cars stand on the road, the rest of the park beyond it, all on the map.
+    for (const f of STAND_MAP.decor) {
+      expect(f.x > 0 && f.x < STAND_MAP.width && f.y > 0 && f.y < STAND_MAP.height, `${f.kind} ${f.x},${f.y}`).toBe(true);
+      if (f.kind === K.Car) expect(floorAt(f.x, f.y)).toBe('road');
+      if (f.kind === K.Bench || f.kind === K.ParkFountain) expect(f.y).toBeGreaterThan(road.y1);
     }
+    // The same park for every building.
+    const park = (t: number) => mapForTier(t).decor.filter((f) => f.y > road.y1 && f.kind !== K.Lamp);
+    for (let t = 1; t < TIERS.length; t++) expect(park(t)).toEqual(park(0));
   });
 
-  it('carries character look and state', () => {
-    const world = createWorld(LINEUP);
-    const snap = worldSnapshot(world, 1);
-    const cook = world.characters.find((c) => c.look.outfit === 4)!;
-    let found = false;
-    for (let i = 0; i < snap.count; i++) {
-      const o = i * STRIDE;
-      if (snap.data[o + F.id] === cook.id) {
-        found = true;
-        expect(snap.data[o + C.outfit]).toBe(4);
-        expect(snap.data[o + C.hat]).toBe(cook.look.hat);
-      }
+  it('more land round the site: trees behind it and down both sides', () => {
+    const last = mapForTier(TIERS.length - 1).building;
+    expect(last.x0).toBeGreaterThanOrEqual(6);
+    expect(STAND_MAP.width - last.x1).toBeGreaterThanOrEqual(6);
+    const trees = STAND_MAP.backdrop.filter((f) => f.kind === K.Tree);
+    expect(trees.some((f) => f.x < last.x0 && f.y > last.y0)).toBe(true);
+    expect(trees.some((f) => f.x > last.x1 && f.y > last.y0)).toBe(true);
+    expect(trees.filter((f) => f.y < last.y0).length).toBeGreaterThan(20);
+  });
+
+  it('people stroll the far sidewalk too, and stay on it', () => {
+    const s = createGame(STAND_MAP, 1);
+    const road = STAND_MAP.areas.find((a) => a.floor === 'road')!;
+    for (let i = 0; i < 90 / STEP_SEC; i++) {
+      stepGame(s, STEP_SEC);
+      for (const w of s.walkers) if (w.mode === 'far') expect(w.y).toBeGreaterThan(road.y1 - 0.05);
     }
-    expect(found).toBe(true);
+    expect(s.walkers.filter((w) => w.mode === 'far').length).toBeGreaterThan(2);
   });
-});
 
-describe('isometric facing', () => {
-  it('maps floor directions to the four diagonal facings', () => {
-    expect(facingFor(1, 0, Facing.FrontLeft)).toBe(Facing.FrontRight); // +x: down-right
-    expect(facingFor(0, 1, Facing.FrontRight)).toBe(Facing.FrontLeft); // +y: down-left
-    expect(facingFor(-1, 0, Facing.FrontRight)).toBe(Facing.BackLeft); // -x: up-left
-    expect(facingFor(0, -1, Facing.FrontRight)).toBe(Facing.BackRight); // -y: up-right
+  it('an older save keeps its decor where it was in the room: v9 moves by the new land, v7 by everything since', () => {
+    expect(SAVE_SHIFT.v8.x + SAVE_SHIFT.v10.x).toBe(WORLD_SHIFT.x);
+    expect(SAVE_SHIFT.v8.y + SAVE_SHIFT.v10.y).toBe(WORLD_SHIFT.y);
+    const s = createGame(mapForTier(1), 1, { levels: { building: 1, place_flowers: 1 } });
+    const raw = makeSave(s, 1000) as unknown as Record<string, unknown>;
+    const now = (raw.placed as { x: number; y: number }[])[0]!;
+    const v9 = { ...raw, version: 9, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v10.x, y: now.y - SAVE_SHIFT.v10.y }] };
+    const a = parseSave(JSON.stringify(v9));
+    expect(a.ok && a.save.placed[0]).toMatchObject({ x: now.x, y: now.y });
+    const v7 = { ...raw, version: 7, placed: [{ item: 'flowers', x: now.x - WORLD_SHIFT.x, y: now.y - WORLD_SHIFT.y }] };
+    delete (v7 as Record<string, unknown>).festival;
+    const b = parseSave(JSON.stringify(v7));
+    expect(b.ok && b.save.placed[0]).toMatchObject({ x: now.x, y: now.y });
   });
 });

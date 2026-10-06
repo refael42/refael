@@ -163,7 +163,7 @@ const saleSign = sprite([-34, -70, 34, 10], (c) => {
  * Land of a later building: a post with a board in the color of that building's floor (a taste
  * of what comes), a gold frame and a big padlock. One per building tier.
  */
-export const LOCK_BOARDS = ['#B3202E', '#11684A', '#22408F', '#D9CDB5', '#4A1450', '#0F7C8C', '#191750'] as const;
+export const LOCK_BOARDS = ['#B3202E', '#11684A', '#22408F', '#D9CDB5', '#4A1450', '#0F7C8C', '#191750', '#B8862A'] as const;
 const lockSigns = Object.fromEntries(
   LOCK_BOARDS.map((board, tier) => [
     `lockSign${tier}`,

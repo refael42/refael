@@ -84,6 +84,14 @@ export const PropKind = {
   Bunting: 30,
   /** A courier's scooter by the curb; variant = its slot (color), active = out on a ride. */
   Scooter: 31,
+  /** Across the street (the park): a bench (variant: facing), a flower planter, a parked car
+   * (variant: color), a market stall (variant: awning), the plaza fountain, a slide. */
+  Bench: 32,
+  Planter: 33,
+  Car: 34,
+  Stall: 35,
+  ParkFountain: 36,
+  Slide: 37,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

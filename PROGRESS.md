@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M23 | Owner: the map past the road (far sidewalk, park, plaza, cars) and bigger all round; an eighth building | ✅ Done |
 | M22 | Owner: deliveries (couriers, takeaway bags, scooters) | ✅ Done |
 | M21 | Owner: weekdays with a busier weekend, livelier characters, keep improving (kids, stats, what's new, weekend flags) | ✅ Done |
 | M20 | Owner: events and FOMO: a 3-day food festival (points, 8 prizes, a trophy only that festival gives), a flash deal, the tourist bus | ✅ Done |
@@ -68,6 +69,22 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M23 (owner: "make the map bigger past the road, prettier; keep making it bigger"):
+  - **Across the road** (the same for every building, `acrossTheStreet` in src/data/maps.ts): a
+    far sidewalk (4 strollers of its own, with their own ids and dice so nothing else the game
+    rolls changed), cars parked by the far curb (never on a crosswalk), lamps, and a 9-tile
+    park: a paved plaza with a fountain (sparkling water), benches and flower planters, market
+    stalls, a gravel path with benches, a playground slide, and trees everywhere else. New
+    floors (park, plaza, gravel), a far curb on the road, new props (bench, planter, car, stall,
+    park fountain, slide).
+  - **More land round the site**: 6 tiles each side and 4 behind (was 2), filled with trees
+    (baked into the background).
+  - **An eighth building, the Crown of flavors** (gold parquet; grows left, back and right;
+    1.2e14 coins; up to 16 stoves; quest level 25 asks for it).
+  - Save v10 moves placed decor and work sites with the site (v7 saves still land right: the
+    v8 shift is kept apart). The income "explosion" check in the balance report now looks at
+    two minutes at a time (two review bonuses in one minute tripped it). fps unchanged (12-13 in
+    the software-GL browser). Tests: tests/world.test.ts.
 - Done in M22 (owner: "deliveries are strong, add them", `src/data/delivery.ts`): a new job,
   the **courier** (1 at the diner, +1..+5 in the bigger buildings, a star courier in the shop).
   With a courier on the team, delivery orders come in (1.6 a minute per courier at 3 stars,

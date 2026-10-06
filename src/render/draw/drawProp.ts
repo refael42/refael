@@ -354,6 +354,16 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
         sprFade(c, A, A.L.scooterRide[slot]!, ox(dx, dy), oy(dx, dy, Math.abs(Math.sin(t * 22)) * 0.8), 1, fade);
       }
     }
+  } else if (kind === PropKind.Bench) spr(c, A, variant === 1 ? S.bench1 : S.bench0, 0, 0, plain);
+  else if (kind === PropKind.Planter) sprXf(c, A, variant === 1 ? S.planter1 : S.planter0, 0, 0, Math.sin(t * 1.3 + seed) * 0.8, 1, 1, plain);
+  else if (kind === PropKind.Car) spr(c, A, A.L.car[variant % A.L.car.length]!, 0, 0, plain);
+  else if (kind === PropKind.Stall) spr(c, A, A.L.stall[variant % A.L.stall.length]!, 0, 0, plain);
+  else if (kind === PropKind.Slide) spr(c, A, S.slide, 0, 0, plain);
+  else if (kind === PropKind.ParkFountain) {
+    spr(c, A, S.parkFountain, 0, 0, plain);
+    // The water glitters and splashes, every droplet a pure function of time.
+    sparkles(c, A, 0, -40, t, 18, seed, 3);
+    sparkles(c, A, 0, -12, t * 0.8, 34, seed + 1, 3);
   } else if (kind === PropKind.Bunting) {
     // Flapping a little in the breeze.
     sprXf(c, A, variant === 1 ? S.bunting1 : S.bunting0, 0, Math.sin(t * 2.2 + seed) * 0.8, Math.sin(t * 1.7 + seed) * 1.2, 1, 1, plain);

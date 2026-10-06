@@ -1,5 +1,5 @@
 import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/looks';
-import { mapForTier, STAND_MAP, WORLD_SHIFT, type MapDef } from '../data/maps';
+import { mapForTier, SAVE_SHIFT, STAND_MAP, type MapDef } from '../data/maps';
 import { NAMES } from '../data/names';
 import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { DECOR_BY_ID } from '../data/decor';
@@ -20,7 +20,7 @@ import { newFestival } from './festival';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -105,14 +105,22 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v7 (M16) maps started at the world's corner; v8 (M18) puts every building in one big site
   // with land around it: placed decor and work sites move with the room (a piece that no longer
   // lands on the dining floor goes to the nearest free tile when the game is built).
-  7: (old) => ({
-    ...old,
-    placed: Array.isArray(old.placed) ? old.placed.map((p) => (isRecord(p) && finite(p.x) && finite(p.y) ? { ...p, x: p.x + WORLD_SHIFT.x, y: p.y + WORLD_SHIFT.y } : p)) : old.placed,
-    works: Array.isArray(old.works) ? old.works.map((w) => (isRecord(w) && isRecord(w.at) && finite(w.at.x) && finite(w.at.y) ? { ...w, at: { x: w.at.x + WORLD_SHIFT.x, y: w.at.y + WORLD_SHIFT.y } } : w)) : old.works,
-  }),
+  // (The shift of that day: the land added round the site in v10 moves them again.)
+  7: (old) => shiftPlaces(old, SAVE_SHIFT.v8),
   // v8 (M19) had no events: no festival seen yet, no deal bought.
   8: (old) => ({ ...old, festival: newFestival(), flash: { slot: -1, bought: false } }),
+  // v9 (M22) had less land round the site and no crown: the whole site moved right and back.
+  9: (old) => shiftPlaces(old, SAVE_SHIFT.v10),
 };
+
+/** Placed decor and work sites, moved with the site by `d` tiles. */
+function shiftPlaces(old: Record<string, unknown>, d: { x: number; y: number }): Record<string, unknown> {
+  return {
+    ...old,
+    placed: Array.isArray(old.placed) ? old.placed.map((p) => (isRecord(p) && finite(p.x) && finite(p.y) ? { ...p, x: p.x + d.x, y: p.y + d.y } : p)) : old.placed,
+    works: Array.isArray(old.works) ? old.works.map((w) => (isRecord(w) && isRecord(w.at) && finite(w.at.x) && finite(w.at.y) ? { ...w, at: { x: w.at.x + d.x, y: w.at.y + d.y } } : w)) : old.works,
+  };
+}
 
 /** Old levels plus the restaurant level that keeps every one of them (nothing is taken away). */
 function withRankFor(raw: unknown): unknown {

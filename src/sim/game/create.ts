@@ -16,7 +16,7 @@ import { applicantLook, generatePerson, rankOf, uniformLook } from './people';
 import { createStaff } from './staff';
 import { autoTile, canPlaceAt } from './build';
 import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
-import { spawnPedestrian } from './walkers';
+import { spawnFarWalker, spawnPedestrian } from './walkers';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
 const FIRST_ARRIVAL_SECONDS = 1.5;
@@ -327,6 +327,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     bus: null,
     nextBus: 0,
     nextDelivery: 0,
+    ambientSeq: 0,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   // Built in one go: rebuilding the grid for each of eighty tables made a big save slow to load.
@@ -350,5 +351,6 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     }
   }
   for (let i = 0; i < AMBIENT.pedestrians; i++) spawnPedestrian(s, true);
+  for (let i = 0; i < AMBIENT.farPedestrians; i++) spawnFarWalker(s, true);
   return s;
 }

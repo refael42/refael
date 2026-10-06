@@ -10,7 +10,7 @@ export interface Point {
 }
 
 /** `lot`: the next building's land (for sale); `locked`: land of later buildings; `path`: the way from the street to the door. */
-export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | 'locked' | 'path' | DiningFloor;
+export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | 'locked' | 'path' | 'park' | 'plaza' | 'gravel' | DiningFloor;
 
 /** A floor rectangle [x0, x1) x [y0, y1), painted in order. */
 export interface Area {
@@ -55,8 +55,9 @@ export interface MapDef {
   doors: { inside: Point; outside: Point }[];
   /** Customers (and applicants) come from and go back to these points on the sidewalk. */
   spawns: Point[];
-  /** Strollers walk the whole street, end to end. */
+  /** Strollers walk the whole street, end to end (and the far sidewalk, across the road). */
   streetEnds: Point[];
+  farStreetEnds: Point[];
   /** The very first customer is already strolling by the door: no empty first half-minute. */
   firstSpawn: Point;
   /** Line spots, front first (tile centers). */
@@ -145,29 +146,36 @@ type Rect = { x0: number; y0: number; x1: number; y1: number };
 
 /** The first diner: a kitchen 4 tiles wide, a dining room of 8, 10 rows deep. */
 const BASE = { kitchen: 4, dining: 8, depth: 10 } as const;
-/** Grass around the whole site, left and behind. */
-const MARGIN = 2;
-/** Sidewalk (2 tiles), road (3) and a strip of grass in front of the building. */
-const STREET = 6;
+/**
+ * Land around the whole site (owner: "make the map bigger, prettier past the road"): grass and
+ * trees left, right and behind. The saves before (v9 and older) had 2 tiles left and behind.
+ */
+const MARGIN_SIDE = 6;
+const MARGIN_BACK = 4;
+const OLD_MARGIN = 2;
+/**
+ * Across the street: sidewalk (2 tiles) and road (3) as before, then the far sidewalk, a park
+ * with a plaza and a fountain in the middle, and a strip of grass at the bottom edge.
+ */
+const STREET = { sidewalk: 2, road: 3, far: 2, park: 9, edge: 1 } as const;
+const STREET_DEPTH = STREET.sidewalk + STREET.road + STREET.far + STREET.park + STREET.edge;
 /** Tables come in blocks of two columns, three tiles apart; the first block starts this far into the room. */
 const FIRST_TABLE_COLUMN = 2.5;
 const BLOCK = 6;
 /** Opening order inside a block (rows from the back wall): spread out first, so a few tables already fill the room. */
 const BLOCK_ORDER: readonly [number, number][] = [[0, 2.5], [1, 2.5], [0, 6.5], [1, 6.5], [0, 4.5], [1, 4.5], [0, 8.5]];
-/** Trees behind the whole site, left to right; those behind a wall go into the backdrop. */
-const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0], [43.5, 0.9, 1], [47.5, 1.1, 0], [51, 1, 1], [54.5, 1, 0]];
 /** Stove rows (from the back wall) in a deep kitchen; the sink keeps row 6. */
 const DEEP_STOVE_ROWS: readonly number[] = [2, 4, 8, 10, 12, 14, 16, 18];
 /** Stoves at most per building: the bigger kitchens have lines of them (owner: "a bigger kitchen"). */
-const STOVE_CAP: readonly number[] = [2, 2, 3, 6, 8, 12, 14];
+const STOVE_CAP: readonly number[] = [2, 2, 3, 6, 8, 12, 14, 16];
 /** A third dishwashing line once the kitchen is this deep (the second one is at row 9). */
 const THIRD_SINK_DEPTH = 18;
 
 const LAST = TIERS.length - 1;
 const grown = (side: keyof Grow, tier: number) => TIERS.slice(1, tier + 1).reduce((sum, t) => sum + t.grow[side], 0);
 /** The first diner's corner in the world: room left of it and behind it for the buildings to come. */
-const DINER_X0 = MARGIN + grown('left', LAST);
-const DINER_Y0 = MARGIN + grown('back', LAST);
+const DINER_X0 = MARGIN_SIDE + grown('left', LAST);
+const DINER_Y0 = MARGIN_BACK + grown('back', LAST);
 /** Where the kitchen ends and the dining room starts, in every building. */
 const KITCHEN_X = DINER_X0 + BASE.kitchen;
 /** The front of the last building: the sidewalk starts here. */
@@ -183,10 +191,21 @@ export function tierRect(t: number): Rect {
   };
 }
 
-const WORLD = { width: tierRect(LAST).x1 + MARGIN, height: STREET_Y + STREET };
+const WORLD = { width: tierRect(LAST).x1 + MARGIN_SIDE, height: STREET_Y + STREET_DEPTH };
 
 /** How far the first diner sits from where it used to (the corner of the old maps): old saves move by this. */
 export const WORLD_SHIFT: Point = { x: DINER_X0 - 2, y: DINER_Y0 - 2 };
+
+/**
+ * Where the first diner's corner was in the saves of v8 and v9 (2 tiles of grass, then room for
+ * the buildings up to the galaxy): v7 saves moved there, v9 saves move on to where it is now
+ * (more land round the site, and the crown's growth left and back).
+ */
+const V9_DINER: Point = { x: OLD_MARGIN + 4, y: OLD_MARGIN + 8 };
+export const SAVE_SHIFT = {
+  v8: { x: V9_DINER.x - 2, y: V9_DINER.y - 2 },
+  v10: { x: DINER_X0 - V9_DINER.x, y: DINER_Y0 - V9_DINER.y },
+} as const;
 
 /** `outer` minus `inner` (inside it), as up to four rectangles: behind, in front, left, right. */
 function ring(outer: Rect, inner: Rect): Rect[] {
@@ -241,6 +260,84 @@ function stoveSpots(tier: number, r: Rect, deep: boolean, fridgeY: number): MapD
   return out.slice(0, STOVE_CAP[tier] ?? out.length);
 }
 
+/** A number in [0, 1) from two integers: the scenery is placed by it, the same every time. */
+const scatter = (a: number, b: number): number => {
+  const h = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+};
+
+/** Trees all round the site: two rows behind it and three columns down each side (baked into the backdrop). */
+function siteTrees(width: number): Furniture[] {
+  const out: Furniture[] = [];
+  const tree = (x: number, y: number, k: number): Furniture => ({ kind: K.Tree, x, y, w: 1, d: 1, blocks: false, ...(scatter(x, y + k) > 0.5 ? { variant: 1 } : {}) });
+  for (const [row, y] of [[0, 0.9], [1, 2.7]] as const) {
+    for (let x = 1 + row * 1.6, i = 0; x < width - 0.6; x += 3.2, i++) out.push(tree(x + (scatter(i, row) - 0.5) * 0.8, y + (scatter(row, i) - 0.5) * 0.5, i));
+  }
+  for (const side of [0, 1]) {
+    for (const [col, dx] of [[0, 0.9], [1, 2.7], [2, 4.5]] as const) {
+      for (let y = MARGIN_BACK + 0.8 + col * 1.3, i = 0; y < STREET_Y - 0.8; y += 3, i++) {
+        const x = side === 0 ? dx : width - dx;
+        out.push(tree(x + (scatter(i, col + side * 3) - 0.5) * 0.6, y, i + col));
+      }
+    }
+  }
+  return out;
+}
+
+/** Across the road (the same for every building): the far sidewalk, cars by its curb, and the park. */
+function acrossTheStreet(width: number, doors: readonly number[]): { areas: Area[]; decor: Furniture[] } {
+  const road = STREET_Y + STREET.sidewalk;
+  const far = road + STREET.road;
+  const park = far + STREET.far;
+  const plazaX = Math.round(width / 2);
+  const plaza = { x0: plazaX - 4, y0: park + 1, x1: plazaX + 4, y1: park + 8 };
+  const pathY = park + 4;
+  const fx = (kind: PropKind, x: number, y: number, variant = 0): Furniture => ({ kind, x, y, w: 0, d: 0, blocks: false, ...(variant ? { variant } : {}) });
+  const decor: Furniture[] = [];
+  // Cars parked along the far curb, never on a crosswalk.
+  for (let x = 3, i = 0; x < width - 2; x += 5.5, i++) {
+    if (doors.some((d) => Math.abs(d - x) < 2.6)) continue;
+    if (scatter(i, 7) < 0.25) continue;
+    decor.push(fx(K.Car, x + (scatter(i, 3) - 0.5), road + 2.45, Math.floor(scatter(i, 5) * 4)));
+  }
+  // Street lamps on the far sidewalk, between the near ones.
+  for (let x = 12; x < width; x += 10) decor.push(fx(K.Lamp, x, far + 0.2));
+  // The plaza: a fountain in the middle, benches facing it, flowers at the corners.
+  decor.push(fx(K.ParkFountain, plazaX, park + 4.5));
+  for (const [dx, dy, facing] of [[-2.6, 2.2, 0], [2.6, 2.2, 0], [-2.6, 6.8, 1], [2.6, 6.8, 1]] as const) decor.push(fx(K.Bench, plazaX + dx, park + dy, facing));
+  for (const [dx, dy] of [[-3.5, 1.5], [3.5, 1.5], [-3.5, 7.5], [3.5, 7.5]] as const) decor.push(fx(K.Planter, plazaX + dx, park + dy, (dx > 0 ? 1 : 0)));
+  // Market stalls along the front of the park, either side of the plaza.
+  for (const [dx, v] of [[-7.5, 0], [-11, 1], [7.5, 2], [11, 0]] as const) if (plazaX + dx > 2 && plazaX + dx < width - 2) decor.push(fx(K.Stall, plazaX + dx, park + 0.9, v));
+  // A playground off to one side.
+  decor.push(fx(K.Slide, plazaX - 16, park + 6.5));
+  // Benches along the gravel path, and trees all over the park (not on the plaza, the path or the playground).
+  for (let x = 4, i = 0; x < width - 3; x += 9, i++) if (Math.abs(x - plazaX) > 6 && Math.abs(x - (plazaX - 16)) > 3) decor.push(fx(K.Bench, x, pathY - 0.45, 0));
+  for (const [row, y] of [[0, park + 2], [1, park + 6.6], [2, park + 8.3]] as const) {
+    for (let x = 1.5 + row * 1.7, i = 0; x < width - 1; x += 3.4, i++) {
+      const tx = x + (scatter(i, row + 9) - 0.5) * 0.9;
+      const ty = y + (scatter(row + 9, i) - 0.5) * 0.5;
+      if (tx > plaza.x0 - 1.2 && tx < plaza.x1 + 1.2 && ty < plaza.y1 + 0.5) continue;
+      if (Math.abs(tx - (plazaX - 16)) < 2.5 && ty > park + 5) continue;
+      if (row === 0 && [-7.5, -11, 7.5, 11].some((dx) => Math.abs(tx - (plazaX + dx)) < 1.6)) continue;
+      decor.push({ kind: K.Tree, x: tx, y: ty, w: 1, d: 1, blocks: false, ...(scatter(i, row) > 0.5 ? { variant: 1 } : {}) });
+    }
+  }
+  // Flower planters dotted along the path.
+  for (let x = 8.5, i = 0; x < width - 3; x += 13, i++) if (Math.abs(x - plazaX) > 6) decor.push(fx(K.Planter, x, pathY + 1.4, i % 2));
+  const areas: Area[] = [
+    { x0: 0, y0: far, x1: width, y1: far + STREET.far, floor: 'sidewalk', walkable: true },
+    { x0: 0, y0: park, x1: width, y1: park + STREET.park, floor: 'park', walkable: false },
+    { x0: 0, y0: pathY, x1: width, y1: pathY + 1, floor: 'gravel', walkable: false },
+    { x0: plazaX - 18, y0: park + 5, x1: plazaX - 14, y1: park + 8, floor: 'gravel', walkable: false },
+    { ...plaza, floor: 'plaza', walkable: false },
+  ];
+  return { areas, decor };
+}
+
+const ALL_DOORS = TIERS.map((_, t) => tierRect(t).x1 - 1.5);
+const ACROSS = acrossTheStreet(WORLD.width, ALL_DOORS);
+const SITE_TREES = siteTrees(WORLD.width);
+
 function buildMap(tier: number): MapDef {
   const t = TIERS[tier]!;
   const r = tierRect(tier);
@@ -251,8 +348,6 @@ function buildMap(tier: number): MapDef {
   const door = x1 - 1.5;
   const KX = KITCHEN_X;
   const blocks = Math.round((x1 - KX - BASE.dining) / BLOCK);
-  const behindWall = (x: number) => x < x1 + 1;
-  const trees = BACK_TREES.filter(([x]) => x < width - 0.5).map(([x, y, variant]) => ({ kind: K.Tree, x, y, w: 1, d: 1, blocks: false, ...(variant ? { variant } : {}) }));
   const fridgeY = deep ? y1 - 1.5 : r.y0 + 8.5;
   // A longer pass in a deep building: five dishes wait at once instead of three.
   const passLength = deep ? 5 : 3;
@@ -276,6 +371,7 @@ function buildMap(tier: number): MapDef {
       ...future.map(({ piece, tier: u }) => ({ ...piece, floor: (u === tier + 1 ? 'lot' : 'locked') as FloorStyle, walkable: false })),
       { x0: 0, y0: STREET_Y, x1: width, y1: STREET_Y + 2, floor: 'sidewalk', walkable: true },
       { x0: 0, y0: STREET_Y + 2, x1: width, y1: STREET_Y + 5, floor: 'road', walkable: false },
+      ...ACROSS.areas,
       { x0: r.x0, y0: r.y0, x1: KX, y1, floor: 'kitchen', walkable: true },
       { x0: KX, y0: r.y0, x1, y1, floor: t.dining, walkable: true },
       ...path,
@@ -295,6 +391,10 @@ function buildMap(tier: number): MapDef {
     streetEnds: [
       { x: 0.5, y: STREET_Y + 0.5 },
       { x: width - 0.5, y: STREET_Y + 1.5 },
+    ],
+    farStreetEnds: [
+      { x: 0.5, y: STREET_Y + 5.6 },
+      { x: width - 0.5, y: STREET_Y + 6.4 },
     ],
     queue: [
       { x: door, y: y1 - 1.5 },
@@ -371,7 +471,7 @@ function buildMap(tier: number): MapDef {
       { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
       { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
       ...Array.from({ length: blocks + 1 }, (_, b) => ({ kind: K.Neon, x: KX + 4 + b * BLOCK, y: r.y0, w: 0, d: 0, blocks: false, lift: 44 })),
-      ...trees.filter((f) => !behindWall(f.x)),
+      ...ACROSS.decor,
       ...Array.from({ length: Math.ceil((width - 7) / 10) }, (_, i) => ({ kind: K.Lamp, x: 7 + i * 10, y: STREET_Y + 1.8, w: 0, d: 0, blocks: false })),
       // The next building's land is for sale (tap the sign); the land after it is locked.
       ...(nextRight ? [{ kind: K.SaleSign, x: (nextRight.piece.x0 + nextRight.piece.x1) / 2 + 0.5, y: y1 - 1.4, w: 0, d: 0, blocks: false }] : []),
@@ -380,13 +480,8 @@ function buildMap(tier: number): MapDef {
         .map(({ tier: u, piece }) => ({ kind: K.LockSign, x: (piece.x0 + piece.x1) / 2, y: (piece.y0 + piece.y1) / 2, w: 0, d: 0, blocks: false, variant: u })),
       { kind: K.StreetSign, x: door - 1.6, y: STREET_Y + 0.25, w: 0, d: 0, blocks: false },
     ],
-    backdrop: [
-      ...trees.filter((f) => behindWall(f.x)),
-      // Down the left side of the site, behind the kitchen wall.
-      ...[3.5, 7, 10.5, 14, 17.5, 21]
-        .filter((y) => y < STREET_Y - 0.5)
-        .map((y, i) => ({ kind: K.Tree, x: 0.8, y, w: 1, d: 1, blocks: false, ...(i % 2 ? { variant: 1 } : {}) })),
-    ],
+    // Trees all round the site, baked into the background (nobody walks among them).
+    backdrop: SITE_TREES,
   };
 }
 

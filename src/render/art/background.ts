@@ -91,6 +91,7 @@ const CARPETS: Record<DiningFloor, [string, string, string]> = {
   velvet: ['#4A1450', '#601B68', '#250828'],
   ocean: ['#0F7C8C', '#2BB3C0', '#0A4452'],
   starlight: ['#191750', '#26246E', '#0B0A2A'],
+  gold: ['#B8862A', '#D9A63A', '#3A2608'],
 };
 
 /** Cheap deterministic per-tile noise for natural variation. */
@@ -205,7 +206,23 @@ const RUGS: Record<DiningFloor, readonly [string, string, string][]> = {
   velvet: [['#1E1440', '#E2B13C', '#8E7BD6'], ['#0E3A3A', '#E2B13C', '#7FD6C2']],
   ocean: [['#F2E6CC', '#0A5A6A', '#E2B13C'], ['#E8714E', '#F6E9D2', '#FFFFFF']],
   starlight: [['#2C1F66', '#E2B13C', '#9FB4E8'], ['#0C0B2E', '#C9A35A', '#FFE27A']],
+  gold: [['#1E1508', '#E2B13C', '#FFF1B8'], ['#7A1F2E', '#FFE27A', '#FFFFFF']],
 };
+
+/** The crown's floor: gold parquet in a checker of two tones, with a black diamond at every corner. */
+function gold(c: SkCanvas, a: Area) {
+  const [base, light, border] = CARPETS.gold;
+  tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? base : light));
+  for (let ty = a.y0; ty <= a.y1; ty++) {
+    for (let tx = a.x0; tx <= a.x1; tx++) {
+      c.drawPath(path.poly([[tx, ty - 0.12], [tx + 0.12, ty], [tx, ty + 0.12], [tx - 0.12, ty]]), fill(border));
+    }
+  }
+  for (let ty = a.y0; ty < a.y1; ty++) {
+    for (let tx = a.x0; tx < a.x1; tx++) if (hash(tx, ty) > 0.8) c.drawCircle(tx + 0.5, ty + 0.5, 0.05, fill('#FFF1B8', 0.8));
+  }
+  floorBorder(c, a, border);
+}
 
 /** A rug on the floor plane: a soft edge, a border band, a diamond or dotted field, fringes. */
 function rug(c: SkCanvas, r: Rug) {
@@ -259,6 +276,43 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
       // Crosswalk in front of the entrance.
       for (let y = a.y0 + 0.25; y < a.y1 - 0.2; y += 0.5) c.drawRect(Skia.XYWHRect(doorX - 0.9, y, 1.8, 0.25), fill('#E9E6E0'));
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, 0.12), fill('#8F8880'));
+      // The far curb, across the road.
+      c.drawRect(Skia.XYWHRect(a.x0, a.y1 - 0.12, w, 0.12), fill('#8F8880'));
+    },
+    // The park across the street: a lusher green, little flowers in the grass.
+    park: () => {
+      const [g0, g1] = city.ground;
+      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? lighten(g0, 0.06) : lighten(g1, 0.1)));
+      const blooms = ['#FFFFFF', '#FFD23F', '#F38DB3', '#B9A3FF'];
+      for (let ty = a.y0; ty < a.y1; ty++) {
+        for (let tx = a.x0; tx < a.x1; tx++) {
+          const h = hash(tx, ty);
+          if (h > 0.55) c.drawCircle(tx + hash(ty, tx), ty + hash(tx + 1, ty), 0.05, fill(darken(g0, 0.18)));
+          if (h > 0.82) c.drawCircle(tx + hash(ty + 2, tx), ty + hash(tx, ty + 2), 0.07, fill(blooms[Math.floor(h * 97) % blooms.length]!));
+        }
+      }
+    },
+    // The plaza: pale stone pavers in a herringbone of two tones, with a darker border.
+    plaza: () => {
+      for (let ty = a.y0; ty < a.y1; ty += 0.5) {
+        for (let tx = a.x0; tx < a.x1; tx += 0.5) {
+          const odd = (Math.round(tx * 2) + Math.round(ty * 2)) % 2 === 0;
+          c.drawRect(Skia.XYWHRect(tx, ty, 0.5, 0.5), fill(odd ? '#E7DDCB' : '#D9CCB4'));
+        }
+      }
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), stroke('#A8987C', 0.1));
+      c.drawRect(Skia.XYWHRect(a.x0 + 0.35, a.y0 + 0.35, w - 0.7, h - 0.7), stroke('#C3B396', 0.05));
+    },
+    // Gravel paths in the park.
+    gravel: () => {
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#D8C9A3'));
+      for (let ty = a.y0; ty < a.y1; ty++) {
+        for (let tx = a.x0; tx < a.x1; tx++) {
+          for (let k = 0; k < 4; k++) c.drawCircle(tx + hash(tx + k, ty), ty + hash(ty, tx + k), 0.03, fill('#B9A77E'));
+        }
+      }
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, 0.05), fill('#B9A77E'));
+      c.drawRect(Skia.XYWHRect(a.x0, a.y1 - 0.05, w, 0.05), fill('#B9A77E'));
     },
     kitchen: () => tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? '#EDEAE4' : '#37333F')),
     dining: () => carpet(c, a, CARPETS.dining),
@@ -268,6 +322,7 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
     velvet: () => carpet(c, a, CARPETS.velvet),
     ocean: () => ocean(c, a),
     starlight: () => starlight(c, a),
+    gold: () => gold(c, a),
     // Land for a later building: the city's grass, dimmed, with a faint diagonal hatch.
     locked: () => {
       const [g0, g1] = city.ground;

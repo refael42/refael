@@ -3,16 +3,16 @@ import type { Point } from '../../data/maps';
 import { isWalkable } from '../grid';
 import { randomLook } from '../looks';
 import { followPath, setPose } from '../movement';
-import { pick, range } from '../rng';
+import { createRng, next, pick, range } from '../rng';
 import { Expression, Facing, Held, Pose } from '../types';
 import { route } from './customers';
 import type { GameState, Walker } from './types';
 
-function makeWalker(s: GameState, mode: Walker['mode'], at: Point, speed: number): Walker {
+function makeWalker(s: GameState, mode: Walker['mode'], at: Point, speed: number, rng = s.rng, id = s.nextId++): Walker {
   return {
-    id: s.nextId++,
+    id,
     mode,
-    look: randomLook(s.rng),
+    look: randomLook(rng),
     x: at.x,
     y: at.y,
     prevX: at.x,
@@ -55,6 +55,31 @@ export function spawnPedestrian(s: GameState, spread = false): void {
   s.walkers.push(w);
 }
 
+const AMBIENT_IDS = 2_000_000_000;
+
+/**
+ * Strollers across the road, on the far sidewalk. They have their own dice (seeded by their id):
+ * adding them changed nothing else the game rolls.
+ */
+export function spawnFarWalker(s: GameState, spread = false): void {
+  const ends = s.map.farStreetEnds;
+  if (ends.length < 2) return;
+  // Ids of their own (far above the game's), so the game's ids (VIPs, children...) stay the same too.
+  const id = AMBIENT_IDS + s.ambientSeq++;
+  const rng = createRng(id * 7919 + 17);
+  const forward = next(rng) < 0.5;
+  const start = ends[forward ? 0 : 1]!;
+  const end = ends[forward ? 1 : 0]!;
+  const w = makeWalker(s, 'far', { x: start.x, y: start.y + range(rng, -0.3, 0.3) }, range(rng, AMBIENT.pedestrianSpeed.min, AMBIENT.pedestrianSpeed.max), rng, id);
+  if (spread) {
+    const t = range(rng, 0.05, 0.95);
+    w.x = w.prevX = start.x + (end.x - start.x) * t;
+    w.y = w.prevY = start.y + (end.y - start.y) * t;
+  }
+  w.path = route(s, w, { x: end.x, y: end.y + range(rng, -0.3, 0.3) });
+  s.walkers.push(w);
+}
+
 function randomWalkableTile(s: GameState): Point {
   for (let i = 0; i < 50; i++) {
     const p = { x: Math.floor(range(s.rng, 0, s.map.width)) + 0.5, y: Math.floor(range(s.rng, 0, s.map.height)) + 0.5 };
@@ -88,7 +113,11 @@ export function updateWalkers(s: GameState, dt: number): void {
       w.pause = range(s.rng, AMBIENT.stressPause.min, AMBIENT.stressPause.max);
     }
   }
-  const before = s.walkers.length;
-  s.walkers = s.walkers.filter((w) => w.mode !== 'pedestrian' || w.path.length > 0);
-  for (let i = s.walkers.length; i < before; i++) spawnPedestrian(s);
+  const done = (mode: Walker['mode']) => s.walkers.filter((w) => w.mode === mode && w.path.length === 0).length;
+  const near = done('pedestrian');
+  const far = done('far');
+  if (near + far === 0) return;
+  s.walkers = s.walkers.filter((w) => (w.mode !== 'pedestrian' && w.mode !== 'far') || w.path.length > 0);
+  for (let i = 0; i < near; i++) spawnPedestrian(s);
+  for (let i = 0; i < far; i++) spawnFarWalker(s);
 }

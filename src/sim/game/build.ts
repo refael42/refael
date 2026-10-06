@@ -10,7 +10,7 @@ import { reservedBy } from './works';
 // with every table and every second chair in place: the room can never get blocked.
 
 const key = (x: number, y: number) => Math.floor(y) * 1000 + Math.floor(x);
-const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight'];
+const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight', 'gold'];
 
 /** Spots one building needs free: tables and their chairs and serving spots, staff spots, the line. */
 function spotsOf(map: MapDef): Point[] {

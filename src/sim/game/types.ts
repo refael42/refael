@@ -248,7 +248,8 @@ export type Notice =
 
 /** Ambient people: sidewalk strollers (always) and stress-test roamers (perf testing). */
 export interface Walker extends CharacterView {
-  mode: 'pedestrian' | 'stress';
+  /** `far`: strolls the far sidewalk, across the road. */
+  mode: 'pedestrian' | 'far' | 'stress';
   path: Point[];
   speed: number;
   pause: number;
@@ -381,6 +382,8 @@ export interface GameState {
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
+  /** Strollers across the road counted apart from everything else (their ids, their dice). */
+  ambientSeq: number;
   /** When the next delivery order comes in (sim time). */
   nextDelivery: number;
   /** The tourist bus outside (null = none), and when the next one comes. */

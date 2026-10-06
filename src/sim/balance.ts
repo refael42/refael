@@ -102,14 +102,16 @@ export function runBalance(o: BalanceOptions): BalanceReport {
   }
   const bulkMinutes = [...perMinute].filter(([, n]) => n > BALANCE.bulkPerMinute).map(([minute, count]) => ({ minute, count }));
 
-  // Against the best minute so far: a slow minute (a payday, a trial shift) followed by a normal
-  // one is not an explosion; income far above anything before it is.
+  // Against the best so far: a slow minute (a payday, a trial shift) followed by a normal one is
+  // not an explosion; income far above anything before it is. Two minutes at a time: two
+  // five-star review bonuses landing in the same minute are luck, not a runaway economy.
   const incomeJumps: BalanceReport['incomeJumps'] = [];
-  let best = samples[0]?.perMinute ?? 0;
+  const smooth = (i: number) => (i > 0 ? (samples[i]!.perMinute + samples[i - 1]!.perMinute) / 2 : samples[i]!.perMinute);
+  let best = samples[0] ? smooth(0) : 0;
   for (let i = 1; i < samples.length; i++) {
-    const factor = best > 0 ? samples[i]!.perMinute / best : 0;
+    const factor = best > 0 ? smooth(i) / best : 0;
     if (factor > BALANCE.incomeJump) incomeJumps.push({ time: samples[i]!.time, factor });
-    best = Math.max(best, samples[i]!.perMinute);
+    best = Math.max(best, smooth(i));
   }
 
   return {

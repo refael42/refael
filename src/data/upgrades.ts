@@ -162,7 +162,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // game income grows more slowly, and at 30x each they came hours apart (balance bot: the
   // resort at 295 min, the galaxy not within 5 hours).
   { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 3.6e6, growth: 30, max: TIERS.length - 1,
-    costs: [3.6e6, 1.08e8, 3.24e9, 9.72e10, 8e11, 9e12], effect: { stat: 'building', per: 1 }, milestone: null },
+    costs: [3.6e6, 1.08e8, 3.24e9, 9.72e10, 8e11, 9e12, 1.2e14], effect: { stat: 'building', per: 1 }, milestone: null },
   // The restaurant level (owner request): opens the next hundred levels of everything, and every
   // dish sells for a bit more. A crew builds it; it shows up once enough tracks hit the cap.
   { id: 'rank', category: 'building', anchor: K.Neon, restyle: null, baseCost: 2e6, growth: 50,
