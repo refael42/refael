@@ -4,6 +4,7 @@ import {
   CalendarRange,
   CheckCheck,
   ClipboardList,
+  FileBarChart,
   FileText,
   HardHat,
   Home,
@@ -50,6 +51,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   templates: Settings2,
   notifications: Bell,
   settings: Settings,
+  report: FileBarChart,
 };
 
 export interface ShellProps {
@@ -87,7 +89,7 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
   return (
     <div className="flex min-h-dvh">
       {/* Desktop sidebar (start side = right in RTL) */}
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e bg-muted/30 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-e bg-muted/30 print:hidden lg:flex">
         <div className="flex items-center gap-2 p-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <HardHat className="h-5 w-5" />
@@ -131,7 +133,7 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/95 px-3 backdrop-blur lg:px-6">
+        <header className="sticky top-0 z-30 flex h-14 print:hidden items-center gap-2 border-b bg-background/95 px-3 backdrop-blur lg:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
               <HardHat className="h-4 w-4" />
@@ -184,7 +186,7 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
         <main className="flex-1 pb-20 lg:pb-6">{children}</main>
 
         {/* Mobile bottom bar */}
-        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur lg:hidden">
+        <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur print:hidden lg:hidden">
           <div className="grid" style={{ gridTemplateColumns: `repeat(${primary.length + (rest.length ? 1 : 0)}, minmax(0, 1fr))` }}>
             {primary.map((item) => {
               const Icon = ICONS[item.key];

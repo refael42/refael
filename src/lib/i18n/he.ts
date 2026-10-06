@@ -49,6 +49,7 @@ export const he = {
     gantt: "גאנט",
     templates: "תבניות וחוקים",
     settings: "הגדרות פרויקט",
+    report: "דוח שבועי",
     notifications: "התראות",
     myTasks: "המשימות שלי",
     menu: "תפריט",
@@ -478,6 +479,23 @@ export const he = {
     feedback: (acc: number, rej: number) => `אושר ${acc} · נדחה ${rej}`,
     builtinReadonly: "חוק מובנה – ניתן להשבית בלבד דרך חוק מותאם",
     learnedHint: "חוקים \"נלמדים\" נוצרים אוטומטית כשאתה מוסיף את אותה תלות בין מקצועות פעמיים",
+  },
+
+  report: {
+    title: "דוח סטטוס שבועי",
+    period: (from: string, to: string) => `תקופה: ${from} – ${to}`,
+    generated: (d: string) => `הופק: ${d}`,
+    print: "הדפס / שמור PDF",
+    progress: "התקדמות כוללת",
+    completedWeek: "הושלמו השבוע",
+    nextWeek: "מתוכנן לשבוע הבא (לפי הגרף)",
+    blockers: "חסמים מרכזיים",
+    pendingApprovals: "ממתינים לאישור",
+    projectedEnd: "סיום צפוי",
+    target: "יעד חוזי",
+    byFloor: "התקדמות לפי קומה",
+    none: "—",
+    readyToStart: "מוכן להתחלה",
   },
 
   bulk: {

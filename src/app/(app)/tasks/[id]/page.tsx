@@ -14,11 +14,12 @@ import { fmtDate, fmtDateTime, t } from "@/lib/i18n";
 import { mediaSrc } from "@/lib/media";
 import { canSeeTask, isPM, isStaff } from "@/lib/services/access";
 import { requireProjectSession } from "@/lib/services/session";
-import { areaLabel, loadSnapshot } from "@/lib/services/snapshot";
+import { areaLabel, areasOverlap, loadSnapshot } from "@/lib/services/snapshot";
 import { taskDetailView } from "@/lib/services/task-detail";
 import { formOptions, type BlockerLineVM } from "@/lib/services/views";
 import { cn } from "@/lib/utils";
 import { ReportDoneButton } from "@/components/completion/report-done-button";
+import { PinPicker } from "@/components/plans/pin-picker";
 
 export default async function TaskPage({ params }: { params: { id: string } }) {
   const s = await requireProjectSession();
@@ -293,7 +294,7 @@ export default async function TaskPage({ params }: { params: { id: string } }) {
       {/* Plan pin */}
       {staff && (
         <Card>
-          <CardContent className="flex items-center gap-2 p-4 text-sm">
+          <CardContent className="flex flex-wrap items-center gap-2 p-4 text-sm">
             <MapPin className="h-4 w-4" />
             <span className="font-medium">{t.tasks.planPin}:</span>
             {vm.pin ? (
@@ -301,8 +302,9 @@ export default async function TaskPage({ params }: { params: { id: string } }) {
                 {vm.pin.planTitle}
               </Link>
             ) : (
-              <span className="text-muted-foreground">{t.tasks.noPin}</span>
+              !pm && <span className="text-muted-foreground">{t.tasks.noPin}</span>
             )}
+            {pm && <PinPicker taskId={task.id} value={task.plan_pin_id} pins={await pinOptions(store, snap, task.area_id)} />}
           </CardContent>
         </Card>
       )}
@@ -365,4 +367,20 @@ function DateItem({ icon: Icon, label, value }: { icon: typeof Clock; label: str
       <span className="num font-medium">{value}</span>
     </div>
   );
+}
+
+/** Pins on the project's plans; those in the task's area (or around it) first. */
+async function pinOptions(store: ReturnType<typeof getStore>, snap: Awaited<ReturnType<typeof loadSnapshot>>, areaId: string | null) {
+  const plans = await store.select("plan_files", { where: { project_id: snap.project.id } });
+  if (!plans.length) return [];
+  const pins = await store.select("plan_pins", { where: { plan_file_id: { in: plans.map((p) => p.id) } } });
+  const related = (a: string | null) => !!a && !!areaId && areasOverlap(snap.areaById, a, areaId);
+  return pins
+    .map((p) => ({
+      value: p.id,
+      label: `${plans.find((f) => f.id === p.plan_file_id)?.title ?? ""} · ${p.label ?? (p.area_id ? snap.areaById.get(p.area_id)?.name : "") ?? ""}`,
+      rel: related(p.area_id),
+    }))
+    .sort((a, b) => Number(b.rel) - Number(a.rel) || a.label.localeCompare(b.label, "he", { numeric: true }))
+    .map(({ value, label }) => ({ value, label }));
 }
