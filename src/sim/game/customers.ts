@@ -1,4 +1,5 @@
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
+import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import { REVIEW } from '../../data/reviews';
@@ -56,7 +57,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 export function updateArrivals(s: GameState): void {
   if (s.construction || s.time < s.nextArrival) return;
   const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
-  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz) / 60;
+  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day)) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
@@ -338,7 +339,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           // The party's leader asks for a table and keeps the time; friends just wait with them.
           if (c.party === c.id) {
             c.bubble = Bubble.Seat;
-            startWait(c, CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience);
+            startWait(c, CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience * weatherPatience(s.day));
           }
           setState(c, CustomerState.Queued);
         }
@@ -379,7 +380,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           c.order = id;
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;
-          startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience);
+          startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day));
           setState(c, CustomerState.Waiting);
         }
         break;

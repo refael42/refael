@@ -20,6 +20,7 @@ import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
 import { logEarnings } from '../shop';
+import { weatherOn } from '../weather';
 
 function tickTimers(c: CharacterView, dt: number): void {
   c.poseTime += dt;
@@ -174,6 +175,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.
     bumps: [...s.bumpAt],
+    weather: weatherOn(s.day),
     works: s.works.flatMap((w) => {
       const p = siteOf(s, w);
       return [p.x, p.y, w.total > 0 ? 1 - w.left / w.total : 1, Math.max(0, w.left), upgradeDef(w.item).anchor];

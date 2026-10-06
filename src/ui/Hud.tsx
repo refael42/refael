@@ -22,6 +22,7 @@ import { big } from '../sim/big';
 import { formatBig, formatNumber } from '../sim/format';
 import type { GameState } from '../sim/game/types';
 import { useSettings } from '../store/settings';
+import { weatherOn } from '../sim/weather';
 import { textShadow } from './theme';
 
 // The top bar: coins, the day and the rating. Plain React Native on top of the canvas, so the
@@ -98,7 +99,7 @@ function CoinPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedVal
   );
 }
 
-const readDay = (s: GameState) => ({ day: s.day, phase: s.dayTime / DAY.seconds });
+const readDay = (s: GameState) => ({ day: s.day, phase: s.dayTime / DAY.seconds, weather: weatherOn(s.day) });
 
 /** Top middle: sun or moon, "Day N", and a strip that fills as the day goes by. */
 function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
@@ -112,7 +113,8 @@ function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
       <Pill style={styles.dayPill}>
         {/* Label and number as separate Texts: one mixed string scrambles in Hebrew. */}
         <View style={[styles.dayRow, { direction: rtl ? 'rtl' : 'ltr' }]}>
-          <Image source={{ uri: iconUri(night ? 'hudMoon' : 'hudSun', 28) }} style={styles.dayIcon} />
+          {/* The day's weather (sun, clouds, rain); the moon at night. */}
+          <Image source={{ uri: iconUri(night ? 'hudMoon' : WEATHER_ICON[day.weather], 28) }} style={styles.dayIcon} />
           <Text style={styles.dayLabel}>{t('ui.day')}</Text>
           <Text style={styles.dayNumber}>{day.day}</Text>
         </View>
@@ -123,6 +125,8 @@ function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
     </View>
   );
 }
+
+const WEATHER_ICON = ['hudSun', 'hudCloud', 'hudRain'] as const;
 
 const readRating = (s: GameState) => s.rating;
 const readBuzz = (s: GameState) => s.time < s.buzzUntil;

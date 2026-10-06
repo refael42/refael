@@ -17,6 +17,7 @@
 | M7a | Balance pass, then the pay-to-win item shop with gems and star workers (owner request) | ✅ Done |
 | M8a | Owner requests from the late game: perf (baked glows, tiled background), wages due under the money, best value everywhere; more food (6 dishes), two more buildings (palace, empire), fountain & piano decor | ✅ Done |
 | M9 | Owner requests: big upgrades take time (crews, timers, tap to hurry, gems to finish), bulk x1/x10/x100/max, restaurant level caps every 100 levels, deeper buildings with a bigger kitchen, rugs, moving decor | ✅ Done |
+| M10 | Owner fixes (shop scrolls, only the tapped piece glows, late-game lag pass 2), second sink, weather | ✅ Done |
 | M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
@@ -55,6 +56,13 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M10 (owner report): the **shop scrolls** (also quests and settings: a card is no
+  longer a button around its list); **only the tapped piece is outlined**; **late-game lag**:
+  off-screen culling, no aura on chairs, low detail for the crowd of tables when zoomed far out
+  (+13-15% fps in the test browser), and polled UI re-renders only when a value changes (the
+  whole game screen used to re-render twice a second). Also a **second sink** in the deep
+  kitchens and **weather** (sunny / cloudy / rain: rain streaks and a grey sky; rain = fewer
+  walk-ins, more patient guests; the first 3 days are always sunny).
 - Done in M9 (owner requests): **big upgrades take time** so the game does not race (milestones,
   new recipes, stoves, showpieces, buildings, restaurant levels; 2 crews, more in the shop), and
   can be **sped up** (tap the site) or **finished with gems**; **bulk buying** x1/x10/x100/max for
@@ -392,8 +400,6 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Seating is manual until you hire a host (M4); while the app is closed the offline estimate
   assumes slow seating by the staff. Deeper automation comes in M6.
 - Staff jobs are still simple loops; workers never take breaks (energy only lowers speed).
-- Deep buildings add stoves and a longer pass, but there is still one sink (one dishwasher):
-  a second washing line needs per-sink plate stacks in the sim. Not done yet.
 - Tables stay on their fixed spots (only decor can be moved in build mode).
 - The bot puts decor on the free tile nearest the back corner, so its rooms look clustered;
   players choose.

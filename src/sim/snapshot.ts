@@ -62,6 +62,8 @@ export interface Snapshot {
   bestBadge: number[];
   /** Big upgrades in progress, WORK_STRIDE numbers each (see W). */
   works: number[];
+  /** Today's weather (src/data/weather.ts). */
+  weather: number;
 }
 
 /** Packed work sites: floor position, progress 0..1, seconds left, the station's prop kind. */
@@ -77,9 +79,10 @@ export interface SnapshotExtra {
   badges?: number[];
   bestBadge?: number[];
   works?: number[];
+  weather?: number;
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [] };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [], weather: 0 };
 
 interface SortItem {
   depth: number;
@@ -164,5 +167,6 @@ export function packSnapshot(
     badges: extra.badges ?? [],
     bestBadge: extra.bestBadge ?? [],
     works: extra.works ?? [],
+    weather: extra.weather ?? 0,
   };
 }

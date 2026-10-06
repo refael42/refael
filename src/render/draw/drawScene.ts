@@ -1,4 +1,5 @@
 import { FilterMode, MipmapMode, type SkCanvas, type SkPaint } from '@shopify/react-native-skia';
+import { Weather } from '../../data/weather';
 import { F, P as PF, STRIDE, type Snapshot } from '../../sim/snapshot';
 import { EntityType, PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
@@ -32,6 +33,8 @@ function eveningOf(phase: number): number {
 const CULL_SIDE = 140;
 const CULL_UNDER = 170;
 const CULL_OVER = 60;
+/** Rain streaks on screen at once (a rainy day). */
+const RAIN_STREAKS = 90;
 /** Below this zoom the crowd of small furniture is drawn without glows and sparkles. */
 const DETAIL_ZOOM = 0.62;
 
@@ -69,6 +72,18 @@ function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number,
     if (kind === PropKind.Lamp) sprFade(c, A, A.S.glowHalo, x, y - 76, 1.8, night * (0.75 + Math.sin(t * 2 + i) * 0.15));
     else if (kind === PropKind.FloorLamp) sprFade(c, A, A.S.glowHalo, x, y - 52, 1.4, night * 0.85);
     else sprFade(c, A, A.L.look.neonLit[0]!, x, y, 1, night * 0.7);
+  }
+}
+
+/** Rain in screen space: thin slanted streaks falling at a few speeds (one line each). */
+function drawRain(c: SkCanvas, A: RenderAssets, W: number, H: number, t: number, amount: number): void {
+  'worklet';
+  const n = Math.round(RAIN_STREAKS * amount);
+  for (let i = 0; i < n; i++) {
+    const speed = 560 + (i % 5) * 70;
+    const x = ((i * 0.6180339 + 0.13) % 1) * (W + 80) - 20 + Math.sin(i * 7.1) * 10;
+    const y = ((t * speed + i * 97) % (H + 80)) - 40;
+    c.drawLine(x, y, x - 7, y + 22, A.paints.rain);
   }
 }
 
@@ -142,6 +157,15 @@ export function drawScene(
   drawWorks(c, A, snap.works, t);
   drawWorldFx(c, A, fx, t);
   c.restore();
+  // The day's weather: a grey sky when cloudy, grey and streaks of rain when it rains (fading
+  // in as the day starts).
+  if (snap.weather !== Weather.Sunny) {
+    const rain = snap.weather === Weather.Rain;
+    const fadeIn = Math.min(1, phase * 25);
+    A.paints.overcast.setAlphaf((rain ? 0.16 : 0.08) * fadeIn);
+    c.drawRect({ x: 0, y: 0, width: W, height: H }, A.paints.overcast);
+    if (rain) drawRain(c, A, W, H, t, fadeIn);
+  }
   // Evening and night: tint the world, then let the lights glow through it.
   const evening = eveningOf(phase);
   if (evening > 0) {

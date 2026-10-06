@@ -44,6 +44,9 @@ export interface RenderAssets {
     redText: SkPaint;
     /** Building-site dust (alpha set per draw). */
     dust: SkPaint;
+    /** Weather: rain streaks, the grey of a rainy or cloudy day (alpha set per frame). */
+    rain: SkPaint;
+    overcast: SkPaint;
   };
   /**
    * The background (floors, walls, street) baked once into image tiles, drawn at every zoom:
@@ -181,6 +184,8 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       night: solid('#12123F', 0),
       redText: tint('#FF6A5E'),
       dust: tint('#FFF3DC'),
+      rain: strokePaint('#E2F0FF', 1.7, 0.55),
+      overcast: solid('#3A4A6A', 0),
     },
     backgroundTiles,
     pixelRatio,

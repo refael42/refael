@@ -103,5 +103,29 @@ const hudGem = sprite([-24, -22, 24, 24], (c: SkCanvas) => {
   c.drawCircle(-9, -13, 2, fill('#FFFFFF', 0.95));
 });
 
-export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon, hudHand, hudGem };
+/** A puffy cloud (cloudy days), optionally with the sun peeking out behind it. */
+function cloud(c: SkCanvas, dx: number, dy: number, k: number, base: string) {
+  const puffs: [number, number, number][] = [[-9, 3, 8], [0, -3, 11], [10, 2, 9], [3, 6, 8]];
+  for (const [x, y, r] of puffs) c.drawCircle(dx + x * k, dy + y * k + 2, r * k, fill('#5A6A86'));
+  for (const [x, y, r] of puffs) c.drawCircle(dx + x * k, dy + y * k, r * k, radial(dx - 4, dy - 8, 22 * k, ['#FFFFFF', base], [0, 1]));
+}
+
+const hudCloud = sprite([-24, -24, 24, 24], (c: SkCanvas) => {
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 - 0.4;
+    c.drawLine(8 + Math.cos(a) * 10, -8 + Math.sin(a) * 10, 8 + Math.cos(a) * 15, -8 + Math.sin(a) * 15, stroke('#FFD23F', 2.6));
+  }
+  c.drawCircle(8, -8, 9, radial(5, -11, 12, ['#FFF6B0', '#FFC21A'], [0, 1]));
+  cloud(c, -3, 5, 1, '#D8E2F0');
+});
+
+/** Rain: a grey cloud with blue drops. */
+const hudRain = sprite([-24, -24, 24, 24], (c: SkCanvas) => {
+  for (const [x, y] of [[-10, 12], [-1, 15], [8, 12], [-5, 20], [4, 20]] as const) {
+    c.drawPath(path.smooth([[x, y - 4], [x + 2, y], [x, y + 2], [x - 2, y]], true, 0.9), fill('#5FB8FF'));
+  }
+  cloud(c, 0, -5, 1.05, '#AEB8CC');
+});
+
+export const hudIcons = { hudCoin, hudStar, hudSun, hudMoon, hudHand, hudGem, hudCloud, hudRain };
 export type HudIcon = keyof typeof hudIcons;
