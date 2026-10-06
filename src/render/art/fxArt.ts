@@ -228,7 +228,24 @@ const ring = sprite([-14, -14, 14, 14], (c) => {
   c.drawCircle(0, 0, 11, stroke('#FFF8D6', 1.4));
 });
 
+/** A present on the sidewalk: a red box with a gold ribbon and a bow. */
+const giftBox = sprite([-14, -24, 14, 6], (c) => {
+  c.drawOval(Skia.XYWHRect(-11, -2, 22, 7), fill('#000000', 0.25));
+  glossy(c, path.rrect(-10, -12, 20, 13, 2), '#E5483B', '#8A1E1A');
+  glossy(c, path.rrect(-11.5, -16, 23, 5, 1.5), '#F25A4C', '#8A1E1A');
+  c.drawRect(Skia.XYWHRect(-2, -16, 4, 17), fill('#FFD23F'));
+  c.drawRect(Skia.XYWHRect(-2, -16, 4, 17), stroke('#9A6A00', 0.8));
+  for (const dx of [-1, 1]) glossy(c, path.smooth([[0, -16], [dx * 8, -22], [dx * 9, -17], [dx * 2, -15]], true, 0.8), '#FFD23F', '#9A6A00');
+  c.drawCircle(0, -16, 2.2, fill('#FFE27A'));
+});
+/** The VIP's crown, floating over their head. */
+const crown = sprite([-10, -9, 10, 5], (c) => {
+  glossy(c, path.poly([[-8, 3], [-8, -4], [-4, -1], [0, -7], [4, -1], [8, -4], [8, 3]]), '#FFD23F', '#9A6A00');
+  for (const x of [-5, 0, 5]) c.drawCircle(x, 0.5, 1.2, fill(x === 0 ? '#E5483B' : '#5FB8FF'));
+});
+
 export const fxSprites = {
+  giftBox, crown,
   bubble, heart, anger, clock, bolt, snail, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
   arrowUp, plusBadge, confetti, gear, cv, raise, rankStar,
   steam, sparkle, soap, puff, ring,

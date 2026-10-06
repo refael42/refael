@@ -84,6 +84,10 @@ function finishConstruction(s: GameState): void {
     earnLog: s.earnLog,
     works: s.works,
     nextWorkId: s.nextWorkId,
+    lastVip: s.lastVip,
+    gift: s.gift,
+    nextGift: s.nextGift,
+    daily: s.daily,
     city: s.city,
     trophies: s.trophies,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.

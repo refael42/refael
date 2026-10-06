@@ -21,6 +21,7 @@
 | M11 | Sound effects, music loop and vibration (owner approved), switches in the settings | ✅ Done |
 | M7b | Full polish: audio, haptics, weather, settings | ✅ Done (M10, M11) |
 | M12 | Prestige: a branch in a new city (chef trophies, city looks) | ✅ Done |
+| M13 | Hooks that bring players back: daily gift streak, VIP guests, presents on the sidewalk (owner: "more professional and addictive") | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -58,6 +59,13 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M13 (owner: "more professional and addictive"): a **daily gift** (7 days in a row,
+  coins = minutes of income, gems on days 3, 6 and 7, an x2 boost on day 7; a missed day starts
+  over; opens by itself once a day and from a 🎁 button), **VIP guests** (from minute 15, one at
+  a time at least 5 minutes apart: a crown and a golden glow; their bonus = 45 s of income x
+  the service grade, sometimes 2 gems) and **presents on the sidewalk** (every 4 minutes for 45 s:
+  a minute of income or 3 gems). Chances come from id hashes, not the game's dice, so nothing
+  else in the sim moved. Toasts at the top name each moment.
 - Done in M12 (the next roadmap stage, prestige): **a branch in a new city** from the grand
   restaurant on. Trophies = 2 per power of ten earned past 3e7 (grand ~3-4, palace ~6-7), each
   +25% to all prices forever; kept: gems, forever perks, crews, names; reset: building,

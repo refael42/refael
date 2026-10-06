@@ -47,6 +47,8 @@ import { Welcome } from './Welcome';
 import { canBuyNow, UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
 import { WorksTray } from './WorksTray';
+import { EventToast } from './EventToast';
+import { DailyButton, DailyPanel, dailyReady } from './Daily';
 import { BranchConfirm, CityChip, readBranch } from './Branch';
 import { cityOf } from '../data/franchise';
 import { useGameSounds } from '../audio/useGameSounds';
@@ -240,6 +242,20 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   }, [tier, building]);
   const [quests, setQuests] = useState(false);
   const [shop, setShop] = useState(false);
+  const [daily, setDaily] = useState(false);
+  // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
+  const dailyShown = useRef(false);
+  useEffect(() => {
+    if (dailyShown.current || onboarding || welcome || tutorial < TUTORIAL_STEPS.length) return;
+    // A moment after the restaurant is up (the game is made in an effect of its own).
+    const timer = setTimeout(() => {
+      const game = gameRef.current;
+      if (!game || dailyShown.current) return;
+      dailyShown.current = true;
+      if (dailyReady(game)) setDaily(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [onboarding, welcome, tutorial, gameRef]);
   const questLevel = usePoll(gameRef, readQuestLevel, 2);
   const [levelBanner, setLevelBanner] = useState<number | null>(null);
   const shownLevel = useRef<number | null>(null);
@@ -358,6 +374,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {!onboarding && <GemPill gameRef={gameRef} onPress={() => setShop(true)} style={{ left: hud.left + 6, top: hud.top + HUD.height + 8 }} />}
       {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
+      {!onboarding && <EventToast gameRef={gameRef} style={{ top: hud.top + HUD.height + 8 }} />}
       {!onboarding && <CityChip gameRef={gameRef} style={{ left: hud.right - HUD.ratingWidth, top: hud.top + HUD.height + 6 }} />}
       <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
@@ -373,10 +390,12 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         <>
           <QuestButton gameRef={gameRef} onPress={() => setQuests(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 68 }} />
           <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
+          <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
       {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} />}
+      {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel

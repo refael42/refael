@@ -309,7 +309,16 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     spr(c, A, S.lamp, 0, 0, plain);
     sprFade(c, A, S.glowHalo, 0, oy(0, 0, 76), 1, 0.75 + Math.sin(t * 2 + seed) * 0.2);
   } else if (kind === PropKind.SaleSign) spr(c, A, S.saleSign, 0, 0, plain);
-  else if (kind === PropKind.WorkSite) {
+  else if (kind === PropKind.Gift) {
+    // Bobs, sparkles and blinks in its last seconds before the street sweeper takes it.
+    const left = d[o + PF.since]! - t;
+    if (left > 6 || Math.sin(t * 14) > -0.3) {
+      const bob = Math.abs(Math.sin(t * 3.2)) * 5;
+      sprFade(c, A, S.glowHalo, 0, -10, 0.8, 0.5 + Math.sin(t * 4) * 0.2);
+      sprXf(c, A, S.giftBox, 0, -bob, Math.sin(t * 3.2) * 6, 1.25, 1.25, plain);
+      sparkles(c, A, 0, -26, t, 12, seed, 2);
+    }
+  } else if (kind === PropKind.WorkSite) {
     // Jolts when tapped (the crew speeds up), the warning lamp blinks.
     const age = t - d[o + PF.since]!;
     const jolt = age >= 0 && age < 0.25 ? Math.sin(age * 60) * (1 - age / 0.25) * 6 : 0;
@@ -331,7 +340,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
 const BADGE_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 70, [PropKind.Sink]: 56, [PropKind.Fridge]: 92, [PropKind.Pass]: 64, [PropKind.PlatesClean]: 50,
   [PropKind.Table]: 46, [PropKind.Chair]: 54, [PropKind.Plant]: 86, [PropKind.Neon]: 116, [PropKind.StreetSign]: 56,
-  [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.Fountain]: 84, [PropKind.Piano]: 80, [PropKind.SaleSign]: 82,
+  [PropKind.Gift]: 30, [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.Fountain]: 84, [PropKind.Piano]: 80, [PropKind.SaleSign]: 82,
 };
 
 /** Green arrows over stations with an affordable upgrade (drawn above everything in the world). */

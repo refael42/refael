@@ -13,6 +13,7 @@ import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
 import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
 import { boostNow } from '../shop';
+import { maybeVip, vipBonus } from '../retention';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
@@ -69,6 +70,7 @@ export function updateArrivals(s: GameState): void {
   const pairTables = s.tables.filter((t) => t.seats >= 2).length;
   const pair = type.pairs && pairTables > 0 && next(s.rng) < (PARTY.pairChance * pairTables) / s.tables.length;
   const leader = newCustomer(s, type, start, slot, -1, pair ? 2 : 1);
+  maybeVip(s, leader);
   s.customers.push(leader);
   if (pair) s.customers.push(newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2));
 }
@@ -112,6 +114,7 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     party: party < 0 ? id : party,
     partySize,
     seat: -1,
+    vip: false,
     patienceKind: PATIENCE_ICON[type.patience],
   };
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
@@ -296,6 +299,7 @@ function pay(s: GameState, c: Customer): void {
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);
   emit(s, Ev.Service, c.x, c.y, stars);
   maybeReview(s, c, stars, price.add(tip));
+  vipBonus(s, c, stars);
 
   const r = ECONOMY.rating;
   if (mood >= ECONOMY.happyMood) {

@@ -5,6 +5,7 @@ import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef, type Point }
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
 import { GEMS } from '../../data/shop';
+import { GIFT } from '../../data/retention';
 import { computeMods, levelOf, type Levels, type Perks } from '../economy/upgrades';
 import { buildGrid } from '../grid';
 import { createRng } from '../rng';
@@ -226,6 +227,8 @@ export interface GameSetup {
   /** Branches: which city this one is in (0 = the first), and chef trophies won so far. */
   city?: number;
   trophies?: number;
+  /** The daily gift streak. */
+  daily?: { last: string | null; streak: number };
 }
 
 /** A job in progress as the save keeps it. */
@@ -302,6 +305,10 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     nextWorkId: (setup.works?.length ?? 0) + 1,
     city: setup.city ?? 0,
     trophies,
+    lastVip: -Infinity,
+    gift: null,
+    nextGift: GIFT.firstSeconds,
+    daily: setup.daily ? { ...setup.daily } : { last: null, streak: 0 },
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);

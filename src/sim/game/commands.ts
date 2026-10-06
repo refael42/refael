@@ -7,6 +7,7 @@ import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf } from './purchase';
 import { moveDecor } from './create';
 import { openBranch } from '../franchise';
+import { claimDaily, openGift } from '../retention';
 import { canPlaceAt } from './build';
 import { finishWorkNow, hurryWork } from './works';
 import type { BulkStep } from '../../data/works';
@@ -23,7 +24,7 @@ export function queueCommand(s: GameState, command: Command): void {
 }
 
 /** Pixel heights of each target's visual center above the floor (for screen-space hit tests). */
-const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60 } as const;
+const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60, gift: 16 } as const;
 
 /** Everything the player can tap right now. The UI projects these and picks the nearest. */
 export function tapTargets(s: GameState): TapTarget[] {
@@ -44,6 +45,8 @@ export function tapTargets(s: GameState): TapTarget[] {
     }
   }
   if (s.dirtyPlates > 0) out.push({ x: s.map.dirtyStack.x, y: s.map.dirtyStack.y, height: HEIGHT.sink, command: { type: 'wash' } });
+  // The present on the sidewalk.
+  if (s.gift) out.push({ x: s.gift.x, y: s.gift.y, height: HEIGHT.gift, command: { type: 'gift' } });
   // A big upgrade in progress: tap the timer over it to speed the crew up.
   for (const w of s.works) {
     const p = siteOf(s, w);
@@ -143,6 +146,10 @@ function apply(s: GameState, cmd: Command): void {
     finishWorkNow(s, cmd.work);
   } else if (cmd.type === 'branch') {
     openBranch(s);
+  } else if (cmd.type === 'gift') {
+    openGift(s);
+  } else if (cmd.type === 'daily') {
+    claimDaily(s, cmd.today, cmd.yesterday);
   } else if (cmd.type === 'move') {
     if (moveDecor(s, cmd.from, cmd.to, canPlaceAt)) {
       rerouteWalkers(s);

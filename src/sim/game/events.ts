@@ -55,6 +55,15 @@ export const Ev = {
   WorkDone: 27,
   /** A branch opened in a new city; (x,y) = its door. a = trophies won, b = the city's number */
   Branch: 28,
+  /** A VIP guest walked in. */
+  VipArrives: 29,
+  /** A VIP paid their bonus. a = coins, b = gems */
+  Vip: 30,
+  /** A present appeared on the sidewalk / was opened. a = coins, b = gems (opened) */
+  GiftAppears: 31,
+  Gift: 32,
+  /** The daily gift was taken. a = coins, b = gems, c = the streak day */
+  Daily: 33,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

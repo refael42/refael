@@ -72,6 +72,8 @@ export const PropKind = {
   Piano: 24,
   /** A big upgrade in progress: a barrier by the station (variant 1: a crate where a showpiece goes). */
   WorkSite: 25,
+  /** A present on the sidewalk (tap it). */
+  Gift: 26,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

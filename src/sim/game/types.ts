@@ -53,6 +53,8 @@ export interface Customer extends CharacterView {
   partySize: number;
   /** Their chair at the table (-1 until seated). */
   seat: number;
+  /** A golden VIP guest: a big bonus when they pay (src/data/retention.ts). */
+  vip: boolean;
 }
 
 export interface Table {
@@ -112,6 +114,10 @@ export type Command =
   | { type: 'move'; from: Point; to: Point }
   /** Hand this restaurant over and open a branch in the next city (prestige). */
   | { type: 'branch' }
+  /** Open the present on the sidewalk. */
+  | { type: 'gift' }
+  /** Take today's daily gift; the dates come from the device clock (the sim has none). */
+  | { type: 'daily'; today: string; yesterday: string }
   | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }
@@ -321,6 +327,13 @@ export interface GameState {
   /** Branches (prestige): the city this restaurant is in (0 = the first one), chef trophies won. */
   city: number;
   trophies: number;
+  /** The last VIP guest came at this time. */
+  lastVip: number;
+  /** A present on the sidewalk (tap it), and when the next one comes. */
+  gift: { x: number; y: number; until: number } | null;
+  nextGift: number;
+  /** The daily gift: the last day claimed (local date, "YYYY-MM-DD") and the streak so far (1..7). */
+  daily: { last: string | null; streak: number };
 }
 
 /** A big upgrade in progress (src/data/works.ts). */

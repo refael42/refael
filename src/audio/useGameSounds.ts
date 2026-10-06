@@ -44,6 +44,15 @@ function soundOf(type: number, a: number, b: number): [SoundId | null, boolean] 
       return a >= 5 ? ['sparkle', false] : [null, false];
     case Ev.Rush:
       return ['rush', false];
+    case Ev.VipArrives:
+      return ['sparkle', true];
+    case Ev.Vip:
+    case Ev.Gift:
+      return ['cash', true];
+    case Ev.GiftAppears:
+      return ['tap', false];
+    case Ev.Daily:
+      return ['fanfare', true];
     case Ev.Crash:
       return ['crash', false];
     default:

@@ -21,6 +21,7 @@ import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
+import { updateGift } from '../retention';
 import { CITIES } from '../../data/franchise';
 
 function tickTimers(c: CharacterView, dt: number): void {
@@ -52,6 +53,7 @@ export function stepGame(s: GameState, dt: number): void {
   landFlyingDishes(s);
   updateTables(s, dt);
   logEarnings(s);
+  updateGift(s);
   updateWalkers(s, dt);
   for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants]) tickTimers(c, dt);
   pruneEvents(s);
@@ -123,6 +125,8 @@ function dynamicProps(s: GameState): PropView[] {
   const stoveSpot = s.map.stoves[s.stoves.length];
   if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
   if (s.construction) out.push(...scaffolding(s.construction));
+  // A present on the sidewalk, waiting for a tap (`since`: when it goes).
+  if (s.gift) out.push(prop(SYNTH - 50, PropKind.Gift, s.gift.x, s.gift.y, { since: s.gift.until }));
   // Big upgrades in progress: a crate where a showpiece goes in, a barrier in front of a station.
   for (const w of s.works) {
     const p = siteOf(s, w);

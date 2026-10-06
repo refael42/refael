@@ -140,6 +140,7 @@ export function createBot(options: BotOptions): Bot {
       const cmd = target.command;
       if (cmd.type === 'wash' && washer) continue; // The dishwasher's job.
       if (cmd.type === 'hurry') continue; // Waits for the crews like a patient player.
+      if (cmd.type === 'gift') continue; // Bonuses stay out of the pacing numbers.
       if (cmd.type === 'seat' && !freeTable) continue;
       if (!options.helpStaff && cmd.type !== 'seat') continue;
       const key = keyOf(cmd);

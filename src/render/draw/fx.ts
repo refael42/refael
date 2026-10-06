@@ -202,6 +202,26 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       s.shakeAt = t;
       for (let k = 0; k < 40; k++) spawnFx(s, FxKind.Confetti, t + k * 0.01, 1.8, wx + Math.sin(k * 1.3) * 120, wy - 80, (k / 40) * Math.PI * 2, 0, k);
       for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Burst, t + k * 0.08, 0.8, wx + Math.sin(k * 2.4) * 140, wy - 60 + Math.cos(k * 1.9) * 40);
+    } else if (type === Ev.VipArrives) {
+      spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
+      for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.1, wx, wy - 50, (k / 10) * Math.PI * 2, 0, k);
+    } else if (type === Ev.Vip || type === Ev.Gift) {
+      // A VIP's bonus or an opened present: a burst and a stream of coins into the counter.
+      spawnFx(s, FxKind.Burst, t, 0.8, wx, wy - 30);
+      spawnFx(s, FxKind.LevelUp, t, 0.9, wx, wy - 40, 0, 0, 0, 1);
+      if (a > 0) {
+        spawnFx(s, FxKind.Text, t, 1.6, wx, wy - 70, 0, 0, a, TextStyle.Milestone);
+        for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Coin, t + k * 0.05, 0.8, wx + Math.sin(k * 2.1) * 14, wy - 30, hud.coinX, hud.coinY, a / 10);
+        s.pending += a;
+      }
+    } else if (type === Ev.Daily) {
+      const n = 30;
+      for (let k = 0; k < n; k++) {
+        const jx = hud.centerX + Math.sin(k * 2.4) * 80;
+        const jy = hud.centerY + Math.cos(k * 1.7) * 40;
+        if (a > 0) spawnFx(s, FxKind.Coin, t + k * 0.03, 0.9, jx, jy, hud.coinX, hud.coinY, a / n, FROM_SCREEN);
+      }
+      if (a > 0) s.pending += a;
     } else if (type === Ev.Branch) {
       // A new branch opens: the biggest celebration there is.
       s.shakeAt = t;

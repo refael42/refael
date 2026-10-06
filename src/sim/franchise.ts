@@ -1,5 +1,6 @@
 import { APPLICANTS } from '../data/staff';
 import { FRANCHISE } from '../data/franchise';
+import { GIFT } from '../data/retention';
 import { mapForTier } from '../data/maps';
 import { big, type Big } from './big';
 import { levelOf } from './economy/upgrades';
@@ -33,7 +34,7 @@ export function openBranch(s: GameState): boolean {
   if (!canOpenBranch(s)) return false;
   const gained = trophiesFor(s.stats.earned);
   const city = s.city + 1;
-  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city });
+  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city, daily: s.daily });
   const keep = {
     tick: s.tick,
     time: s.time,
@@ -43,7 +44,7 @@ export function openBranch(s: GameState): boolean {
     // Ids keep counting up, so nothing new is mistaken for something from the old branch.
     nextId: Math.max(s.nextId, fresh.nextId),
   };
-  Object.assign(s, fresh, keep, { nextArrival: s.time + 1.5, nextApplicant: s.time + APPLICANTS.firstSeconds });
+  Object.assign(s, fresh, keep, { nextArrival: s.time + 1.5, nextApplicant: s.time + APPLICANTS.firstSeconds, nextGift: s.time + GIFT.firstSeconds });
   // The new staff and walkers were made at time zero: nothing about them depends on it but
   // their animation clocks, which run on their own.
   const door = s.map.doors[0]!.inside;

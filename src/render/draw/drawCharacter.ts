@@ -20,6 +20,9 @@ function ly(viewB: boolean, f: number, r: number, z: number): number {
 }
 
 /** One blocky character. All animation is a pure function of sim state + time. */
+/** The `rank` a VIP customer carries (staff ranks are 1 and 2). */
+const VIP_RANK = 3;
+
 export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number, selectedId: number): void {
   'worklet';
   const S = A.S;
@@ -110,6 +113,8 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
     P.ring.setAlphaf(1);
   }
   if (showLegs) spr(c, A, S.charShadow, 0, 0, P.plain);
+  // A VIP guest: a golden glow at their feet (the crown comes with the overlays).
+  if (d[o + C.rank] === VIP_RANK) sprFade(c, A, S.glowHalo, 0, -16, 1.15, 0.55 + Math.sin(t * 4) * 0.2);
   if (flip) c.scale(-1, 1);
   c.scale(1 - breathe * 0.008, 1 + breathe * 0.012);
 
@@ -133,7 +138,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
   spr(c, A, viewB ? L.outfit.B[outfit]! : L.outfit.F[outfit]!, 0, up, P.plain);
   if (accessory === Accessory.Camera) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
   const rank = d[o + C.rank]!;
-  if (rank > 0 && !viewB) {
+  if (rank > 0 && rank < VIP_RANK && !viewB) {
     // Senior staff wear a badge: silver, then gold.
     sprXf(c, A, S.rankStar, lx(false, 0.16, -0.12), ly(false, 0.16, -0.12, 19) + up, 0, 0.75, 0.75, rank >= 2 ? P.gold : P.white);
   }
@@ -189,12 +194,16 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: number[], 
   const emote = d[o + C.emote]!;
   const patience = d[o + C.patience]!;
   const bubble = d[o + C.bubble]!;
-  if (emote === 0 && patience < 0 && bubble === 0) return;
+  if (emote === 0 && patience < 0 && bubble === 0 && d[o + C.rank] !== VIP_RANK) return;
   const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
   const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
   const x = isoX(wx, wy);
   let top = isoY(wx, wy) - 54;
   const P = A.paints;
+  if (d[o + C.rank] === VIP_RANK) {
+    // The VIP's crown, bobbing over everything else above their head.
+    sprXf(c, A, A.S.crown, x, top - 26 - Math.abs(Math.sin(t * 3)) * 3, Math.sin(t * 2) * 8, 1.3, 1.3, P.plain);
+  }
   if (patience >= 0) {
     const w = 22;
     c.drawRRect({ rect: { x: x - w / 2 - 1.5, y: top - 1.5, width: w + 3, height: 6 }, rx: 3, ry: 3 }, P.barBack);

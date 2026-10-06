@@ -51,6 +51,8 @@ export interface SaveData {
   /** Branches: the city this one is in, chef trophies won in the branches before. */
   city: number;
   trophies: number;
+  /** The daily gift streak (older v7 saves have none: a fresh streak). */
+  daily: { last: string | null; streak: number };
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -132,6 +134,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     works: s.works.map((w) => ({ item: w.item, level: w.level, total: w.total, left: Math.max(0, w.left), at: w.at ? { ...w.at } : null })),
     city: s.city,
     trophies: s.trophies,
+    daily: { ...s.daily },
   };
 }
 
@@ -231,6 +234,9 @@ function validate(o: Record<string, unknown>): SaveData | null {
     works: cleanWorks(o.works, levels),
     city: count(o.city),
     trophies: count(o.trophies),
+    daily: isRecord(o.daily) && (typeof o.daily.last === 'string' || o.daily.last === null) && finite(o.daily.streak)
+      ? { last: o.daily.last as string | null, streak: Math.max(0, Math.min(7, Math.floor(o.daily.streak))) }
+      : { last: null, streak: 0 },
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -305,5 +311,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     works: save.works.map((w) => ({ ...w, left: Math.max(0, w.left - away) })),
     city: save.city,
     trophies: save.trophies,
+    daily: save.daily,
   });
 }
