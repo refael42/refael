@@ -1,3 +1,4 @@
+import { LiveRefresh } from "@/components/live/live-refresh";
 import { AppShell } from "@/components/shell/app-shell";
 import { getStore } from "@/lib/db";
 import { navCounts } from "@/lib/services/counts";
@@ -16,6 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       isDemo={s.isDemo}
       counts={counts}
     >
+      <LiveRefresh projectId={s.project.id} />
       {children}
     </AppShell>
   );
