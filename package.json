@@ -17,7 +17,8 @@
     "seed": "tsx scripts/seed-supabase.ts",
     "gen:plan": "tsx scripts/generate-demo-plan.ts",
     "gen:vapid": "web-push generate-vapid-keys",
-    "postinstall": "node scripts/copy-pdf-worker.mjs"
+    "postinstall": "node scripts/copy-pdf-worker.mjs",
+    "test:supabase": "bash scripts/supabase-test/run.sh"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

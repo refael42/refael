@@ -63,7 +63,8 @@ When a new auth user signs up, a trigger links them to an existing profile by ph
 | Command | What it does |
 |---|---|
 | `npm run dev` / `build` / `start` | Next.js |
-| `npm test` | Vitest: engine, services, parser, reminders, Q&A, seed (59 tests) |
+| `npm test` | Vitest: engine, services, parser, reminders, Q&A, seed, timezone |
+| `npm run test:supabase` | Integration test against real Postgres + PostgREST (Supabase's REST layer): store operators, paging, error mapping, completion→release through the services, RLS with a contractor JWT. Needs a local Postgres superuser `psql` (`PSQL=...`) and a `postgrest` binary (`POSTGREST=...`) |
 | `npm run typecheck` / `lint` | TypeScript / ESLint |
 | `npm run seed` | Seed the demo project into Supabase (idempotent, stable ids) |
 | `npm run gen:plan` | Regenerate the demo floor-plan PDF |
@@ -134,7 +135,7 @@ Retrieval is deterministic and comes first: the tasks and root causes for an are
 
 ### Screens
 
-Home ("what can be done now") · project overview · area view · dependency graph (React Flow, RTL dagre layout, filters, critical path, "why blocked" panel) · chat with AI cards · task detail (status, why blocked, predecessors/successors, history, photos, linked messages, plan pin) · approvals inbox · plans (PDF, pins → area panel) · contractor "my tasks for today" · templates/rules · read-only Gantt generated from the graph · notification center · ask the project.
+Home ("what can be done now") · project setup (areas, contractors, team) · bulk task creation across apartments · project overview · area view · dependency graph (React Flow, RTL dagre layout, filters, critical path, "why blocked" panel) · chat with AI cards · task detail (status, why blocked, predecessors/successors, history, photos, linked messages, plan pin) · approvals inbox · plans (PDF, pins → area panel) · contractor "my tasks for today" · templates/rules · read-only Gantt generated from the graph · notification center · ask the project.
 
 ## Security model
 
@@ -164,5 +165,4 @@ Home ("what can be done now") · project overview · area view · dependency gra
 
 - **Next.js 14 is pinned as specified, but it has open security advisories that are only fixed in later majors.** Upgrade before production.
 - In Supabase mode, multi-step writes (e.g. approving a chained suggestion) are separate PostgREST calls, not one transaction. The suggestion is claimed first and rolled back on failure; the DB cycle trigger still guards integrity.
-- Overdue/day boundaries are computed in UTC; display uses `NEXT_PUBLIC_TIME_ZONE` (default `Asia/Jerusalem`).
 - The local parser is deliberately conservative. Claude handles free-form phrasing far better.
