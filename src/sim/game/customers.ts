@@ -2,6 +2,7 @@ import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, PARTY, PATIENCE_ICON, type Customer
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
+import { KITCHEN } from '../../data/staff';
 import { REVIEW } from '../../data/reviews';
 import { SEAT_OFFSETS, type Point } from '../../data/maps';
 import { big, type Big } from '../big';
@@ -133,6 +134,7 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     seat: -1,
     vip: false,
     patienceKind: PATIENCE_ICON[type.patience],
+    menuFrom: -1,
   };
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
   c.path = route(s, start, queueSpot(s, c, leader.queueSlot));
@@ -241,7 +243,8 @@ export function tableFor(s: GameState, size: number, from: Point): Table | undef
 }
 
 /** Manager action: seat someone from the line (and whoever came with them) at a table that fits. */
-export function seatCustomer(s: GameState, c: Customer): boolean {
+/** Sends the party to a free table; `hostId`: the host walking them there (and bringing the menus). */
+export function seatCustomer(s: GameState, c: Customer, hostId = -1): boolean {
   const leader = leaderOf(s, c);
   const table = tableFor(s, leader.partySize, leader);
   if (!table) {
@@ -260,6 +263,7 @@ export function seatCustomer(s: GameState, c: Customer): boolean {
     m.bubble = Bubble.None;
     m.expression = Expression.Happy;
     m.path = route(s, m, chairOf(table, seat));
+    m.menuFrom = hostId;
     setState(m, CustomerState.ToTable);
   });
   return true;
@@ -389,11 +393,19 @@ export function updateCustomers(s: GameState, dt: number): void {
           setPose(c, Pose.Sit);
           // Seat 0 faces the table toward +x, the chair opposite faces back toward -x.
           c.facing = c.seat === 1 ? Facing.BackLeft : Facing.FrontRight;
-          c.held = Held.Menu;
+          // The menu is on the table, or on its way in the host's hand.
+          c.held = c.menuFrom >= 0 ? Held.None : Held.Menu;
           setState(c, CustomerState.Reading);
         }
         break;
       case CustomerState.Reading:
+        if (c.menuFrom >= 0) {
+          // Waiting for the host to hand over the menu (not forever: it is on the table too).
+          if (c.stateTime < KITCHEN.menuWaitSeconds) break;
+          c.menuFrom = -1;
+          c.held = Held.Menu;
+          c.stateTime = 0;
+        }
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
           c.dish = chooseDish(s, CUSTOMER_TYPES[c.type]);
           const id = s.nextId++;

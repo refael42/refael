@@ -55,6 +55,8 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['fanfare', true];
     case Ev.Wheel:
       return ['cash', true];
+    case Ev.Menu:
+      return ['tap', false];
     case Ev.Flyer:
       // Only when the passer-by decides to come in.
       return c === 1 ? ['tap', false] : [null, false];

@@ -81,7 +81,8 @@ function wanted(s: GameState, role: string): number {
       // A second dishwasher once the big kitchen has a second sink and the room is busy.
       return tables >= 16 ? 1 + s.map.extraSinks.length : 1;
     case 'host':
-      return tables >= 4 ? 1 : 0;
+      // One once there are a few tables, then one more for every 16 (the buildings cap them).
+      return tables >= 4 ? 1 + Math.floor(tables / 16) : 0;
     case 'promoter':
       // One once the room is busy, then another for every 20 more tables (the buildings cap them).
       return tables >= 6 ? 1 + Math.floor((tables - 6) / 20) : 0;

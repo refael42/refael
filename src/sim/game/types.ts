@@ -53,6 +53,8 @@ export interface Customer extends CharacterView {
   partySize: number;
   /** Their chair at the table (-1 until seated). */
   seat: number;
+  /** The host bringing their menu (-1: none, the menu is waiting at the table). */
+  menuFrom: number;
   /** A golden VIP guest: a big bonus when they pay (src/data/retention.ts). */
   vip: boolean;
 }
@@ -168,6 +170,8 @@ export type Job =
   | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop'; plates?: number }
   /** The shift manager's table visit to calm an impatient guest. */
   | { kind: 'calm'; customer: number; phase: 'walk' | 'talk' }
+  /** The host welcomes the first in line, walks the party to their table and hands out the menus. */
+  | { kind: 'escort'; customer: number; table: number; party: number[]; phase: 'greet' | 'lead' | 'hand' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */

@@ -12,7 +12,7 @@ import { collectWheel, spinWheel } from '../wheel';
 import { canPlaceAt } from './build';
 import { finishWorkNow, hurryWork } from './works';
 import type { BulkStep } from '../../data/works';
-import { handWash, serveOrder } from './staff';
+import { freeHost, handWash, serveOrder, startEscort } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
 import { claimQuest } from '../quests';
@@ -134,7 +134,12 @@ function apply(s: GameState, cmd: Command): void {
   }
   if (cmd.type === 'seat') {
     const c = s.customers.find((x) => x.id === cmd.customer);
-    if (c && c.state === CustomerState.Queued) seatCustomer(s, c);
+    if (c && c.state === CustomerState.Queued) {
+      // A host free at the stand walks them in; otherwise they go alone.
+      const host = freeHost(s);
+      if (host) startEscort(s, host, c);
+      else seatCustomer(s, c);
+    }
   } else if (cmd.type === 'serve') {
     const o = s.orders.find((x) => x.id === cmd.order);
     if (o && o.state === OrderState.Ready) serveOrder(s, o);

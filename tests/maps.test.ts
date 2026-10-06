@@ -6,7 +6,7 @@ import { buildGrid, findPath } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus'> = {
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },

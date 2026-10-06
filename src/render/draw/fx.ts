@@ -18,7 +18,7 @@ const EXPANDS: readonly number[] = UPGRADES.filter((u) => u.expands).map((u) => 
 
 export const FxKind = {
   Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
-  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16, Grade: 17, Flyer: 18,
+  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16, Grade: 17, Flyer: 18, MenuFly: 19,
 } as const;
 const STRIDE = 10;
 const CAP = 160;
@@ -156,6 +156,9 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       else if (a < -0.0001) spawnFx(s, FxKind.StarDrop, t, 1.0, wx, wy - 56);
     } else if (type === Ev.NoTable) {
       spawnFx(s, FxKind.Cross, t, 0.9, wx, wy - 70);
+    } else if (type === Ev.Menu) {
+      // The host hands the menu over: it opens in the air on its way to the guest.
+      spawnFx(s, FxKind.MenuFly, t, 0.45, wx, wy - 28, isoX(a, ev[o + E.b]!), isoY(a, ev[o + E.b]!) - 22);
     } else if (type === Ev.Flyer) {
       // A flyer flutters from the promoter's hand to the passer-by.
       spawnFx(s, FxKind.Flyer, t, 0.55, wx, wy - 30, isoX(a, ev[o + E.b]!), isoY(a, ev[o + E.b]!) - 26);
@@ -306,6 +309,11 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
         const ang = (k / 5) * Math.PI * 2 + 0.4;
         sprFade(c, A, A.S.puff, x + Math.cos(ang) * p * 14, y + Math.sin(ang) * p * 7 - p * 8, 0.8 + p * 1.4, 1 - p);
       }
+    } else if (kind === FxKind.MenuFly) {
+      const e = p * p * (3 - 2 * p);
+      const dx = x + (d[o + X1]! - x) * e;
+      const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 14;
+      sprXf(c, A, A.S.menu, dx, dy, Math.sin(p * Math.PI) * 30, 1 + Math.sin(p * Math.PI) * 0.4, 1 + Math.sin(p * Math.PI) * 0.4, P.plain);
     } else if (kind === FxKind.Flyer) {
       const e = p * (2 - p);
       const dx = x + (d[o + X1]! - x) * e + Math.sin(p * Math.PI * 3) * 4;

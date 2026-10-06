@@ -27,7 +27,7 @@ export function homeOf(s: GameState, st: Staff): Point {
     case 'washer':
       return st.slot > 0 ? (s.map.extraSinks[st.slot - 1]?.washer ?? s.map.washerSpot) : s.map.washerSpot;
     case 'host':
-      return s.map.hostSpot;
+      return s.map.hostSpots[st.slot % s.map.hostSpots.length] ?? s.map.hostSpot;
     case 'cleaner':
       return s.map.cleanerIdle[st.slot % s.map.cleanerIdle.length]!;
     case 'manager':
@@ -50,7 +50,7 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
 };
 
 /** What each job carries when not carrying food or plates. */
-const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard, promoter: Held.Flyers };
+const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard, promoter: Held.Flyers, host: Held.Menu };
 
 /** The first free slot for a job (stoves for cooks, idle spots for the others). */
 export function freeSlot(s: GameState, role: Role, except?: Staff): number {
@@ -404,27 +404,117 @@ function updateManager(s: GameState, st: Staff, dt: number): boolean {
 
 // ---------- host ----------
 
-/** The host welcomes the first person in line and sends them to the nearest free table. */
+/**
+ * The first one standing in line. Not simply slot 0: someone who came from further away may
+ * still be walking to the front spot while the one behind them is already waiting.
+ */
+export function frontOfLine(s: GameState): Customer | undefined {
+  let front: Customer | undefined;
+  for (const c of s.customers) {
+    if (c.state !== CustomerState.Queued || c.party !== c.id || c.path.length > 0) continue;
+    if (!front || c.queueSlot < front.queueSlot) front = c;
+  }
+  return front;
+}
+
+/** A host at the stand with nobody to walk in (the first one free, if any). */
+export function freeHost(s: GameState): Staff | undefined {
+  return s.staff.find((st) => {
+    // A host still greeting someone counts as free: the manager's tap skips the welcome.
+    if (st.role !== 'host' || st.leaving || (st.job && !(st.job.kind === 'escort' && st.job.phase === 'greet'))) return false;
+    const home = homeOf(s, st);
+    return Math.hypot(st.x - home.x, st.y - home.y) < 0.4;
+  });
+}
+
+/**
+ * The host takes the party to their table (owner request: "hostesses seat the guests, with the
+ * menus"): the guests go to their chairs, the host walks along with the menus, waits for them
+ * to sit and hands each one a menu, then goes back to the stand.
+ */
+export function startEscort(s: GameState, st: Staff, c: Customer): boolean {
+  if (!seatCustomer(s, c, st.id)) {
+    setJob(st, null);
+    return false;
+  }
+  emote(c, Emote.Heart);
+  gainXp(s, st);
+  const party = s.customers.filter((m) => m.party === c.party).map((m) => m.id);
+  st.path = [];
+  setPose(st, Pose.Walk);
+  setJob(st, { kind: 'escort', customer: c.id, table: c.table, party, phase: 'lead' });
+  return true;
+}
+
+function updateEscort(s: GameState, st: Staff, job: Extract<Staff['job'], { kind: 'escort' }>, dt: number): boolean {
+  const table = s.tables[job.table];
+  const party = job.party.map((id) => s.customers.find((c) => c.id === id)).filter((c): c is Customer => c !== undefined && c.table === job.table);
+  if (!table || party.length === 0) {
+    st.path = [];
+    setJob(st, null);
+    return false;
+  }
+  if (job.phase === 'lead') {
+    if (!walkTo(s, st, besideTable(table), dt)) return true;
+    setPose(st, Pose.Idle);
+    st.facing = FACING_TABLE;
+    // Waits for them to sit down (not forever: someone may stop on the way).
+    st.jobTime += dt;
+    if (party.some((c) => c.state === CustomerState.ToTable) && st.jobTime < KITCHEN.escortWaitSeconds) return true;
+    setJob(st, { ...job, phase: 'hand' });
+    setPose(st, Pose.Cheer);
+    return true;
+  }
+  st.jobTime += dt * workRate(s, st);
+  if (st.jobTime < KITCHEN.handMenuSeconds) return true;
+  for (const c of party) {
+    if (c.menuFrom !== st.id) continue;
+    c.menuFrom = -1;
+    // Reading starts now; someone still on the way finds theirs on the table when they sit.
+    if (c.state === CustomerState.Reading) {
+      c.held = Held.Menu;
+      c.stateTime = 0;
+    }
+    emit(s, Ev.Menu, st.x, st.y, c.x, c.y);
+  }
+  st.path = [];
+  setJob(st, null);
+  return true;
+}
+
+/** At the stand, the host welcomes the first person in line, then walks them in. */
 function updateHost(s: GameState, st: Staff, dt: number): boolean {
+  const job = st.job?.kind === 'escort' ? st.job : null;
+  if (job && job.phase !== 'greet') return updateEscort(s, st, job, dt);
   if (!walkTo(s, st, homeOf(s, st), dt)) return true;
   st.facing = HOME_FACING.host;
-  const front = s.customers.find((c) => c.state === CustomerState.Queued && c.queueSlot === 0 && c.path.length === 0);
-  const free = front !== undefined && tableFor(s, front.partySize, front) !== undefined;
+  const front = frontOfLine(s);
+  // Two hosts never greet the same guest.
+  const taken = front !== undefined && s.staff.some((o) => o !== st && o.job?.kind === 'escort' && o.job.customer === front.id);
+  const free = front !== undefined && !taken && tableFor(s, front.partySize, front) !== undefined;
   if (!front || !free || st.leaving) {
     st.jobTime = 0;
+    if (job) setJob(st, null);
     setPose(st, Pose.Idle);
     return false;
   }
+  if (job?.customer !== front.id) setJob(st, { kind: 'escort', customer: front.id, table: -1, party: [], phase: 'greet' });
   setPose(st, Pose.Cheer);
   st.jobTime += dt * workRate(s, st) * statFactor(st.stats.charm);
-  if (st.jobTime >= KITCHEN.hostSeconds) {
-    st.jobTime = 0;
-    if (seatCustomer(s, front)) {
-      emote(front, Emote.Heart);
-      gainXp(s, st);
-    }
-  }
+  if (st.jobTime >= KITCHEN.hostSeconds) startEscort(s, st, front);
   return true;
+}
+
+/**
+ * While every host is walking someone in, the line does not stand still: the first in line
+ * walks to a free table alone after a few seconds (and finds the menu there). With no host at
+ * all, seating stays the manager's tap.
+ */
+function selfSeat(s: GameState): void {
+  const hosts = s.staff.filter((st) => st.role === 'host' && !st.leaving);
+  if (hosts.length === 0 || hosts.some((st) => !st.job || st.job.kind !== 'escort' || st.job.phase === 'greet')) return;
+  const front = frontOfLine(s);
+  if (front && front.stateTime >= KITCHEN.selfSeatSeconds && tableFor(s, front.partySize, front)) seatCustomer(s, front);
 }
 
 // ---------- promoter ----------
@@ -558,6 +648,7 @@ export function updateStaff(s: GameState, dt: number): void {
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;
   }
+  selfSeat(s);
   for (const p of s.props) {
     if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
     else if (p.kind === PropKind.Sink) p.active = washing.has(p.variant === 1 ? 1 + s.map.extraSinks.findIndex((e) => e.sink.x === p.x && e.sink.y === p.y) : 0);

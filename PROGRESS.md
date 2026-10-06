@@ -27,6 +27,7 @@
 | M16 | Owner: "keep growing the map, more stages, more levels, more workers, prettier": two new buildings (resort, galaxy), the promoter, build mode 30x faster | ✅ Done |
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
+| M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -64,6 +65,15 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M19 (owner: "hostesses seat the guests, with a menu animation"): the **host** stands
+  at a post by the door, welcomes the first in line (heart, 2.5 s), then **walks the party to
+  their table** with the menus, waits for them to sit and **hands each guest a menu** (it flies
+  from the host's hand; the guest starts reading only then, or finds it on the table after 8 s).
+  The manager's tap on someone in line still works: with a free host, the host takes them
+  (skipping the welcome); with none, they walk alone. While every host is busy walking someone
+  in, the next in line goes alone after 4 s, so the line never stops. More hosts in bigger
+  buildings (up to 3 posts). The "first in line" is whoever stands at the front spot soonest
+  (someone from further down the street may still be walking to slot 0). Tests: tests/host.test.ts.
 - Done in M18 (owner: "every area of the map shows, locked until paid for; grow in every
   direction, not only right; a bigger kitchen"): **one world for every building** (56x28
   tiles). The last building is the whole site; each smaller one sits inside it and grows by

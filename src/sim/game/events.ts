@@ -70,6 +70,8 @@ export const Ev = {
   Wheel: 35,
   /** A promoter at (x,y) handed a flyer to the passer-by at (a,b); c = 1 if they come in. */
   Flyer: 36,
+  /** A host at (x,y) handed a menu to the guest seated at (a,b). */
+  Menu: 37,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

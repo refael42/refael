@@ -159,4 +159,14 @@ export const KITCHEN = {
   handoffSeconds: 0.35,
   /** The host takes this long (at speed 5) to welcome the first person in line. */
   hostSeconds: 2.5,
+  /**
+   * Then walks them to their table (owner request) and waits for them to sit, at most this long,
+   * hands each one a menu (this long), and goes back to the stand.
+   */
+  escortWaitSeconds: 6,
+  handMenuSeconds: 0.5,
+  /** Guests seated without a host pick up the menu at the table; with one, they wait this long at most for it. */
+  menuWaitSeconds: 8,
+  /** While every host is walking someone in, the first in line walks to a free table alone after this long. */
+  selfSeatSeconds: 4,
 } as const;

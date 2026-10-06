@@ -82,6 +82,8 @@ export interface MapDef {
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
   hostSpot: Point;
+  /** One post per host (the first is `hostSpot`): bigger buildings employ several. */
+  hostSpots: Point[];
   cleanerIdle: Point[];
   /** Job applicants wait here outside the door with their CV. */
   applicantSpots: Point[];
@@ -311,6 +313,11 @@ function buildMap(tier: number): MapDef {
       ...Array.from({ length: deep ? Math.floor((depth - 11) / 1.1) : 0 }, (_, i) => ({ x: KX + 0.7, y: r.y0 + 8.7 + i * 1.1 })),
     ],
     hostSpot: { x: x1 - 2.4, y: y1 - 1.6 },
+    hostSpots: [
+      { x: x1 - 2.4, y: y1 - 1.6 },
+      { x: x1 - 3.5, y: y1 - 1.6 },
+      { x: x1 - 2.4, y: y1 - 2.7 },
+    ],
     // At the end of the pass, where dishes are called out.
     managerSpot: { x: KX - 0.5, y: deep ? r.y0 + 1 + passLength + 0.6 : r.y0 + 4.6 },
     cleanerIdle: [
