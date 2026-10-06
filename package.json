@@ -22,6 +22,8 @@
     "@shopify/react-native-skia": "2.6.2",
     "break_infinity.js": "^2.2.0",
     "expo": "~57.0.26",
+    "expo-audio": "~57.0.5",
+    "expo-haptics": "~57.0.3",
     "expo-localization": "~57.0.2",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",

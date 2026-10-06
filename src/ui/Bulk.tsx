@@ -3,6 +3,7 @@ import { BULK_STEPS, type BulkStep } from '../data/works';
 import { useT } from '../i18n';
 import { useSettings } from '../store/settings';
 import { gold } from './theme';
+import { tapFeedback } from '../audio/sound';
 
 // Bulk buying (owner request): one tap buys one level, ten, a hundred, or as many as the coins
 // pay for. The choice is shared by the upgrade lists and staff training.
@@ -19,7 +20,10 @@ export function BulkToggle() {
           key={String(step)}
           accessibilityRole="radio"
           accessibilityState={{ selected: step === bulk }}
-          onPress={() => setBulk(step)}
+          onPress={() => {
+            tapFeedback();
+            setBulk(step);
+          }}
           hitSlop={4}
           style={[styles.chip, step === bulk && styles.chipOn]}
         >

@@ -12,6 +12,7 @@ import { progressOf, questLevel } from '../sim/quests';
 import { useSettings } from '../store/settings';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { buzz } from '../audio/sound';
 
 // Quests (owner request): the restaurant's level and its list of goals. A goal that is done
 // waits to be claimed; claiming the last one levels the restaurant up.
@@ -146,7 +147,10 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
                 {g.claimed ? (
                   <Text style={styles.doneText}>{`✓ ${t('quest.claimed')}`}</Text>
                 ) : (
-                  <Pressable accessibilityRole="button" disabled={!ready} onPress={() => onCommand({ type: 'claim', quest: i })} style={[styles.claim, !ready && styles.claimOff]}>
+                  <Pressable accessibilityRole="button" disabled={!ready} onPress={() => {
+                      buzz('light');
+                      onCommand({ type: 'claim', quest: i });
+                    }} style={[styles.claim, !ready && styles.claimOff]}>
                     <Image source={{ uri: coinUri() }} style={styles.coin} />
                     <Text style={styles.claimText}>{ready ? t('quest.claim') : formatBig(q.reward)}</Text>
                   </Pressable>

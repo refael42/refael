@@ -18,6 +18,7 @@ import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
 import { BulkToggle } from './Bulk';
 import type { BulkStep } from '../data/works';
+import { buzz } from '../audio/sound';
 
 export interface Wallet {
   coins: Big;
@@ -70,6 +71,8 @@ function BuyButton({ cost, affordable, count, seconds, onPress }: { cost: Big; a
       disabled={!affordable}
       onPress={() => {
         scale.value = withSequence(withTiming(0.86, { duration: 60 }), withSpring(1, { damping: 7, stiffness: 380 }));
+        // The upgrade's own sound comes from the game; the hand feels the tap.
+        buzz('light');
         onPress();
       }}
       hitSlop={6}

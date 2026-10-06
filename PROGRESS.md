@@ -18,6 +18,7 @@
 | M8a | Owner requests from the late game: perf (baked glows, tiled background), wages due under the money, best value everywhere; more food (6 dishes), two more buildings (palace, empire), fountain & piano decor | ✅ Done |
 | M9 | Owner requests: big upgrades take time (crews, timers, tap to hurry, gems to finish), bulk x1/x10/x100/max, restaurant level caps every 100 levels, deeper buildings with a bigger kitchen, rugs, moving decor | ✅ Done |
 | M10 | Owner fixes (shop scrolls, only the tapped piece glows, late-game lag pass 2), second sink, weather | ✅ Done |
+| M11 | Sound effects, music loop and vibration (owner approved), switches in the settings | ✅ Done |
 | M7b | Full polish: audio, haptics, weather, settings | — |
 | M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
 
@@ -56,6 +57,13 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M11 (owner approved downloads and two packages): **sound and vibration**.
+  kenney.nl is blocked by this environment's network policy, so every sound is synthesized
+  by `node scripts/make-sounds.mjs` (oscillators, noise, envelopes; 13 effects and an 18 s cafe
+  loop, 1.2 MB of WAV in assets/sounds): the game owns its audio, no licenses. `expo-audio`
+  (~57.0.5) plays them, `expo-haptics` (~57.0.3) vibrates; both are in Expo Go, no native build.
+  Sounds follow the sim's events (coins, serving, upgrades, milestones, crews, payday, reviews,
+  rush, a dropped dish), throttled per sound; switches for sound, music and vibration.
 - Done in M10 (owner report): the **shop scrolls** (also quests and settings: a card is no
   longer a button around its list); **only the tapped piece is outlined**; **late-game lag**:
   off-screen culling, no aura on chairs, low detail for the crowd of tables when zoomed far out
@@ -396,7 +404,8 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Customers enter/leave through the front door of the building, but there is no visible door
   frame yet (front walls are cut away by design).
 - Expo DevTools fails to launch in the sandbox (runs as root) — harmless.
-- Sound & music: the settings row is a placeholder until audio lands (M7).
+- Sound: checked in the browser that every file loads and plays (no errors), but I cannot
+  listen in the sandbox; vibration is not felt on a real phone yet either.
 - Seating is manual until you hire a host (M4); while the app is closed the offline estimate
   assumes slow seating by the staff. Deeper automation comes in M6.
 - Staff jobs are still simple loops; workers never take breaks (energy only lowers speed).

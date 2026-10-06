@@ -34,7 +34,7 @@ const RESET_CONFIRM_MS = 4000;
 
 export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => void; onHowTo: () => void; onNames: () => void }) {
   const t = useT();
-  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney } = useSettings();
+  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, sound, music, haptics, toggle } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -78,10 +78,9 @@ export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => vo
                 ))}
               </View>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.rowLabel}>{t('set.sound')}</Text>
-              <Text style={styles.soon}>{t('set.soon')}</Text>
-            </View>
+            <Toggle label={t('set.sound')} on={sound} onPress={() => toggle('sound')} />
+            <Toggle label={t('set.music')} on={music} onPress={() => toggle('music')} />
+            <Toggle label={t('set.haptics')} on={haptics} onPress={() => toggle('haptics')} />
             {profile && (
               <View style={styles.row}>
                 <View style={styles.names}>

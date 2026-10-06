@@ -47,6 +47,8 @@ import { Welcome } from './Welcome';
 import { canBuyNow, UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
 import { WorksTray } from './WorksTray';
+import { useGameSounds } from '../audio/useGameSounds';
+import { buzz } from '../audio/sound';
 
 const CAST_BG: BackgroundDef = { width: LINEUP.width, height: LINEUP.height, areas: LINEUP.areas };
 const CAST_FOCUS = { x: 7.6, y: 4.9, zoom: 1.7 };
@@ -132,6 +134,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const paused = useRef(true);
   paused.current = onboarding || welcome !== null;
   const { snapshot, stats, tap, command, gameRef } = useGame(STAND_MAP, GAME_SEED, stress, boot, paused);
+  useGameSounds(gameRef, paused);
   const uiFps = useSharedValue(0);
   const buildMs = useSharedValue(0);
   const selected = useSharedValue<number[]>([]);
@@ -320,6 +323,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         return;
       }
       const hit = tap(x, y, cam);
+      // Serving, seating, cleaning: a small tick in the hand.
+      if (hit === 'action') buzz('tap');
       trace(`hit ${hit === null ? 'nothing' : typeof hit === 'string' ? hit : JSON.stringify(hit)}`);
       if (hit && hit !== 'action') {
         if ('station' in hit) open(hit.station, hit);

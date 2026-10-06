@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { theme } from './theme';
+import { tapFeedback } from '../audio/sound';
 
 interface Props {
   label: string;
@@ -23,7 +24,10 @@ export function JuicyButton({ label, onPress, active = false, style }: Props) {
       onPressOut={() => {
         scale.value = withSequence(withSpring(1.08, { damping: 6, stiffness: 400 }), withSpring(1, { damping: 10, stiffness: 300 }));
       }}
-      onPress={onPress}
+      onPress={() => {
+        tapFeedback();
+        onPress();
+      }}
       hitSlop={6}
     >
       <Animated.View style={[styles.button, active && styles.active, style, animated]}>

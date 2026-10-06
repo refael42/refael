@@ -17,6 +17,7 @@ import { capacity, headcount, trainingCost, trainingPlan } from '../sim/game/wor
 import { BulkToggle } from './Bulk';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
+import { tapFeedback } from '../audio/sound';
 
 export type StaffView = { tab: 'team' | 'applicants' } | { person: number };
 
@@ -129,7 +130,10 @@ function Button({ label, onPress, kind = 'plain', disabled = false }: { label: s
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={() => {
+        tapFeedback();
+        onPress();
+      }}
       style={[styles.button, kind === 'go' && styles.buttonGo, kind === 'danger' && styles.buttonDanger, disabled && styles.buttonOff]}
     >
       <Text style={styles.buttonText}>{label}</Text>

@@ -29,6 +29,11 @@ interface SettingsState {
   /** Levels per tap on a buy or train button (x1, x10, x100, max). */
   bulk: BulkStep;
   setBulk: (bulk: BulkStep) => void;
+  /** Sound effects, background music, vibration. */
+  sound: boolean;
+  music: boolean;
+  haptics: boolean;
+  toggle: (key: 'sound' | 'music' | 'haptics') => void;
   setLang: (lang: Lang) => void;
   togglePerf: () => void;
   toggleStress: () => void;
@@ -56,6 +61,10 @@ export const useSettings = create<SettingsState>((set) => ({
   moneyTaps: 0,
   bulk: 1,
   setBulk: (bulk) => set({ bulk }),
+  sound: true,
+  music: true,
+  haptics: true,
+  toggle: (key) => set((s) => ({ [key]: !s[key] })),
   setLang: (lang) => set({ lang }),
   togglePerf: () => set((s) => ({ showPerf: !s.showPerf })),
   toggleStress: () => set((s) => ({ stress: s.stress > 0 ? 0 : STRESS_WALKERS })),
@@ -68,7 +77,7 @@ export const useSettings = create<SettingsState>((set) => ({
 }));
 
 /** What is kept between launches. */
-const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial });
+const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial, sound: s.sound, music: s.music, haptics: s.haptics });
 
 function readProfile(v: unknown): Profile | null {
   if (!v || typeof v !== 'object') return null;
@@ -89,6 +98,10 @@ export async function loadSettings(deviceLang: Lang): Promise<void> {
     showPerf: saved.showPerf === true,
     profile: readProfile(saved.profile),
     tutorial: typeof saved.tutorial === 'number' && saved.tutorial >= 0 ? Math.floor(saved.tutorial) : 0,
+    // On unless switched off (older settings have none of these).
+    sound: saved.sound !== false,
+    music: saved.music !== false,
+    haptics: saved.haptics !== false,
     loaded: true,
   });
   useSettings.subscribe((s, prev) => {

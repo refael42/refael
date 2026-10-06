@@ -8,6 +8,7 @@ import type { Command, GameState } from '../sim/game/types';
 import { canShop } from '../sim/shop';
 import { gold, panel, textShadow } from './theme';
 import { Overlay, scrollFill } from './Overlay';
+import { tapFeedback } from '../audio/sound';
 
 // The item shop (owner request: pay-to-win): gem packs (a demo, nothing is charged), income
 // boosts and time warps, star workers, and permanent perks, all bought with gems.
@@ -152,7 +153,10 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
                     <Text style={styles.buyText}>{item.cost}</Text>
                   </Pressable>
                 ) : (
-                  <Pressable accessibilityRole="button" disabled={!can} onPress={() => onCommand({ type: 'shop', item: item.id })} style={[styles.buy, !can && styles.buyOff]}>
+                  <Pressable accessibilityRole="button" disabled={!can} onPress={() => {
+                      tapFeedback();
+                      onCommand({ type: 'shop', item: item.id });
+                    }} style={[styles.buy, !can && styles.buyOff]}>
                     <Image source={{ uri: gemUri(16) }} style={styles.gemSmall} />
                     <Text style={styles.buyText}>{can ? item.cost : t('shop.noRoom')}</Text>
                   </Pressable>

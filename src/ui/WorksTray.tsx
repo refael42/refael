@@ -8,6 +8,7 @@ import { crewCount, gemsToFinish } from '../sim/economy/works';
 import { formatDuration } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { gold } from './theme';
+import { tapFeedback } from '../audio/sound';
 
 // What the crews are building right now (owner request: big upgrades take time, and you can
 // pay to finish): one line per job with its time left, and a gem button that finishes it.
@@ -44,7 +45,10 @@ export function WorksTray({ gameRef, onCommand, style }: { gameRef: { current: G
               accessibilityState={{ disabled: !can }}
               disabled={!can}
               hitSlop={6}
-              onPress={() => onCommand({ type: 'finish', work: w.id })}
+              onPress={() => {
+                tapFeedback();
+                onCommand({ type: 'finish', work: w.id });
+              }}
               style={[styles.finish, !can && styles.finishOff]}
             >
               <Text style={styles.finishText}>{`💎${gems}`}</Text>
