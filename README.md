@@ -135,7 +135,7 @@ Retrieval is deterministic and comes first: the tasks and root causes for an are
 
 ### Screens
 
-Home ("what can be done now") · project setup (areas, contractors, team) · bulk task creation across apartments · weekly status report (printable / PDF) · project overview · area view · dependency graph (React Flow, RTL dagre layout, filters, critical path, "why blocked" panel) · chat with AI cards · task detail (status, why blocked, predecessors/successors, history, photos, linked messages, plan pin) · approvals inbox · plans (PDF, pins → area panel) · contractor "my tasks for today" · templates/rules · read-only Gantt generated from the graph · notification center · ask the project.
+Home ("what can be done now") · **construction-process flowchart** (full apartment sequence: what each stage requires and opens, live status per apartment, one-tap generation of an apartment's tasks in order) · project setup (areas, contractors, team) · bulk task creation across apartments · weekly status report (printable / PDF) · project overview · area view · dependency graph (React Flow, RTL dagre layout, filters, critical path, "why blocked" panel) · chat with AI cards · task detail (status, why blocked, predecessors/successors, history, photos, linked messages, plan pin) · approvals inbox · plans (PDF, pins → area panel) · contractor "my tasks for today" · templates/rules · read-only Gantt generated from the graph · notification center · ask the project.
 
 ## Security model
 

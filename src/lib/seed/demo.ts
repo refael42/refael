@@ -263,6 +263,7 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
       blocked_reason: s.reason ?? null,
       created_from_message_id: null,
       plan_pin_id: null,
+      flow_stage: null,
       created_by: DEMO_IDS.pm,
       created_at: ago(24 * 100),
       updated_at: done ? ago(s.doneH ?? 24) : ago(12),

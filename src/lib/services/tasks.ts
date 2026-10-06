@@ -46,6 +46,8 @@ export interface NewTaskInput {
   planned_end?: string | null;
   check_in_days?: number | null;
   is_critical?: boolean;
+  /** stage key of the master construction process (lib/flow/process.ts) */
+  flow_stage?: string | null;
 }
 
 export interface CreateTasksResult {
@@ -68,6 +70,8 @@ export async function createTasks(
     messageId?: string | null;
     chain?: Array<{ from: number; to: number }>;
     affects?: Array<{ fromIndex: number; toTaskId: string }>;
+    /** bulk generation: no per-task assignment messages, no rule suggestions */
+    quiet?: boolean;
   } = { source: "manual" },
 ): Promise<CreateTasksResult> {
   assertPM(ctx.s);
@@ -93,6 +97,7 @@ export async function createTasks(
       started_at: status === "in_progress" || status === "done" ? now.toISOString() : null,
       completed_at: status === "done" ? now.toISOString() : null,
       created_from_message_id: opts.messageId ?? null,
+      flow_stage: i.flow_stage ?? null,
       created_by: s.profile.id,
     } satisfies Partial<Task>;
   });
@@ -125,6 +130,7 @@ export async function createTasks(
       meta: opts.messageId ? { message_id: opts.messageId } : undefined,
     });
     if (opts.messageId) await store.insert("message_links", { message_id: opts.messageId, task_id: t.id, kind: "created" });
+    if (opts.quiet) continue;
     const sent = await messageContractor(store, s.project.id, t.contractor_id, he.sys.taskAssigned(t.title), { task_id: t.id });
     if (sent)
       await notify(store, [
@@ -132,7 +138,7 @@ export async function createTasks(
       ]);
   }
 
-  const suggestions = await suggestFor(ctx, tasks.map((t) => t.id));
+  const suggestions = opts.quiet ? [] : await suggestFor(ctx, tasks.map((t) => t.id));
   return { tasks, dependencies: deps, suggestions };
 }
 
@@ -291,7 +297,7 @@ export async function deleteTask(ctx: Ctx, id: string) {
 
 // ───────────────────────── dependencies ─────────────────────────
 
-async function insertDependency(
+export async function insertDependency(
   ctx: Ctx,
   d: { fromTaskId?: string | null; fromBlockerId?: string | null; toTaskId: string; lagHours?: number; source: Dependency["source"] },
 ): Promise<Dependency> {

@@ -112,6 +112,8 @@ export interface Task {
   blocked_reason: string | null;
   created_from_message_id: UUID | null;
   plan_pin_id: UUID | null;
+  /** stage key in the master construction process, when generated from it */
+  flow_stage: string | null;
   created_by: UUID | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;

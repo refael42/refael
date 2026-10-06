@@ -27,6 +27,7 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
     blocked_reason: null,
     created_from_message_id: null,
     plan_pin_id: null,
+    flow_stage: null,
     created_by: null,
   }),
   dependencies: () => ({

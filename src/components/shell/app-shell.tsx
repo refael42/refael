@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Network,
   Settings,
+  Workflow,
   Settings2,
   Sparkles,
   type LucideIcon,
@@ -52,6 +53,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   notifications: Bell,
   settings: Settings,
   report: FileBarChart,
+  flow: Workflow,
 };
 
 export interface ShellProps {
