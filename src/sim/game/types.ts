@@ -57,6 +57,8 @@ export interface Customer extends CharacterView {
   menuFrom: number;
   /** A golden VIP guest: a big bonus when they pay (src/data/retention.ts). */
   vip: boolean;
+  /** Came on the tourist bus: pays more, double festival points (src/data/events.ts). */
+  tourist: boolean;
 }
 
 export interface Table {
@@ -120,6 +122,14 @@ export type Command =
   | { type: 'gift' }
   /** Take today's daily gift; the dates come from the device clock (the sim has none). */
   | { type: 'daily'; today: string; yesterday: string }
+  /** The phone's clock (ms): which food festival is on. */
+  | { type: 'festival'; now: number }
+  /** Take the next festival reward reached. */
+  | { type: 'festivalClaim' }
+  /** Testing (the settings): the tourist bus comes now. */
+  | { type: 'testBus' }
+  /** Buy the shop's flash deal (`now`: which deal is on). */
+  | { type: 'deal'; now: number }
   /** Spin the lucky wheel (`now` = the phone's clock in ms, for the free spin), then take its prize. */
   | { type: 'spin'; now: number; paid: boolean }
   | { type: 'wheel' }
@@ -356,6 +366,30 @@ export interface GameState {
    * stages, spins so far, and the segment waiting to be taken (-1 = none).
    */
   wheel: { nextFree: number; tokens: number; spins: number; prize: number };
+  /**
+   * The food festival on now (src/data/events.ts): its number (-1 = no clock reading yet), points
+   * so far, rewards taken; and the themes whose trophy was won (kept for good).
+   */
+  festival: { id: number; points: number; claimed: number; trophies: number[] };
+  /** The flash deal last bought (its number), so each deal sells once. */
+  flash: { slot: number; bought: boolean };
+  /** The tourist bus outside (null = none), and when the next one comes. */
+  bus: Bus | null;
+  nextBus: number;
+}
+
+/** The tourist bus: drives in, lets the group off one by one, then drives on. */
+export interface Bus {
+  /** Where it stops on the road; tourists step off at `door`. */
+  x: number;
+  y: number;
+  door: Point;
+  /** Sim times: it started driving in; it leaves (Infinity until everyone is off). */
+  arrive: number;
+  leave: number;
+  /** Tourists still on board, and when the next one steps off. */
+  aboard: number;
+  nextDrop: number;
 }
 
 /** A big upgrade in progress (src/data/works.ts). */

@@ -7,8 +7,13 @@ import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
 import { EXPAND } from '../../data/upgrades';
 import { LOOKS } from '../art/stationArt';
+import { BUS } from '../../data/events';
 
 const EXPAND_TIER = EXPAND.tier;
+const BUS_DRIVE = BUS.driveSeconds;
+/** The bus comes from this many tiles up the road and drives this far on. */
+const BUS_FROM = 14;
+const BUS_TO = 18;
 
 // Props are static sprites plus "stateless" effects: every particle position is a pure function
 // of time, so steam/bubbles/sparkles cost no memory and never need pooling or cleanup.
@@ -319,6 +324,18 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
       sprXf(c, A, S.giftBox, 0, -bob, Math.sin(t * 3.2) * 6, 1.25, 1.25, plain);
       sparkles(c, A, 0, -26, t, 12, seed, 2);
     }
+  } else if (kind === PropKind.Bus) {
+    // Slows to a stop (ease-out), idles with a little engine shake, then pulls away (ease-in).
+    const k = clamp01((t - d[o + PF.since]!) / BUS_DRIVE);
+    const leave = d[o + PF.progress]!;
+    const m = leave > 0 ? clamp01((t - leave) / BUS_DRIVE) : 0;
+    const dx = -BUS_FROM * (1 - k) * (1 - k) * (1 - k) + BUS_TO * m * m;
+    const moving = k < 1 || m > 0;
+    const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.35;
+    spr(c, A, S.bus, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+  } else if (kind === PropKind.Trophy) {
+    spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
+    sparkles(c, A, 0, -52, t, 10, seed, 1);
   } else if (kind === PropKind.WorkSite) {
     // Jolts when tapped (the crew speeds up), the warning lamp blinks.
     const age = t - d[o + PF.since]!;

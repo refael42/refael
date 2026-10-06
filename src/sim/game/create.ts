@@ -1,3 +1,4 @@
+import { newFestival } from '../festival';
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
 import { DECOR, DECOR_BY_ID, placeRow, type DecorId } from '../../data/decor';
@@ -232,6 +233,9 @@ export interface GameSetup {
   daily?: { last: string | null; streak: number };
   /** The lucky wheel. */
   wheel?: { nextFree: number; tokens: number; spins: number; prize: number };
+  /** The food festival on (and trophies won), and the flash deal last bought. */
+  festival?: GameState['festival'];
+  flash?: GameState['flash'];
 }
 
 /** A job in progress as the save keeps it. */
@@ -315,6 +319,10 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     nextGift: GIFT.firstSeconds,
     daily: setup.daily ? { ...setup.daily } : { last: null, streak: 0 },
     wheel: setup.wheel ? { ...setup.wheel } : { nextFree: 0, tokens: 0, spins: 0, prize: -1 },
+    festival: setup.festival ? { ...setup.festival, trophies: [...setup.festival.trophies] } : newFestival(),
+    flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
+    bus: null,
+    nextBus: 0,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   // Built in one go: rebuilding the grid for each of eighty tables made a big save slow to load.

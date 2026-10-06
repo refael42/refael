@@ -6,12 +6,14 @@ import { formatNumber } from '../sim/format';
 import { Ev } from '../sim/game/events';
 import type { GameState } from '../sim/game/types';
 import { gold } from './theme';
+import { FESTIVAL_THEMES } from '../data/events';
 
 // A short note at the top for the special moments: a VIP walks in, a VIP's bonus, a present on
-// the sidewalk and what was inside. The sim's events are read a few times a second.
+// the sidewalk and what was inside, a festival starting or a festival prize ready, the tourist
+// bus. The sim's events are read a few times a second.
 
-const SHOW_MS = 3500;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift];
+const SHOW_MS = 4200;
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus];
 
 interface Toast {
   id: number;
@@ -42,21 +44,44 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const reward = [toast.coins > 0 ? `+${formatNumber(toast.coins)} 🪙` : '', toast.gems > 0 ? `+${toast.gems} 💎` : ''].filter(Boolean).join('  ');
-  const text =
-    toast.type === Ev.VipArrives ? t('toast.vip') : toast.type === Ev.Vip ? `${t('toast.vipPaid')} ${reward}` : toast.type === Ev.GiftAppears ? t('toast.gift') : `${t('toast.giftOpened')} ${reward}`;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus;
+  const reward = festive ? '' : [toast.coins > 0 ? `+${formatNumber(toast.coins)} 🪙` : '', toast.gems > 0 ? `+${toast.gems} 💎` : ''].filter(Boolean).join('  ');
+  const text = textOf(toast, reward, t);
   return (
     <View style={[styles.wrap, style]} pointerEvents="none">
-      <Animated.View key={toast.id} entering={FadeInDown.duration(220)} exiting={FadeOut.duration(200)} style={[styles.toast, toast.type === Ev.VipArrives && styles.vip]}>
+      <Animated.View key={toast.id} entering={FadeInDown.duration(220)} exiting={FadeOut.duration(200)} style={[styles.toast, toast.type === Ev.VipArrives && styles.vip, festive && styles.festive]}>
         <Text style={styles.text}>{text}</Text>
       </Animated.View>
     </View>
   );
 }
 
+function textOf(toast: Toast, reward: string, t: (k: string) => string): string {
+  switch (toast.type) {
+    case Ev.VipArrives:
+      return t('toast.vip');
+    case Ev.Vip:
+      return `${t('toast.vipPaid')} ${reward}`;
+    case Ev.GiftAppears:
+      return t('toast.gift');
+    case Ev.FestivalStart: {
+      // a = the theme, b = prizes of the last festival paid now.
+      const dish = t(`fest.name.${FESTIVAL_THEMES[toast.coins]?.id ?? 'fries'}`);
+      return `${t('toast.festival').replace('{dish}', dish)}${toast.gems > 0 ? ` ${t('toast.festivalPaid')}` : ''}`;
+    }
+    case Ev.FestivalStep:
+      return t('toast.festivalStep');
+    case Ev.Bus:
+      return t('toast.bus');
+    default:
+      return `${t('toast.giftOpened')} ${reward}`;
+  }
+}
+
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   toast: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(42,21,48,0.92)', borderWidth: 2, borderColor: gold },
   vip: { borderColor: '#FFE27A', backgroundColor: 'rgba(90,60,10,0.92)' },
+  festive: { borderColor: '#FF9A5A', backgroundColor: 'rgba(110,30,40,0.94)' },
   text: { color: '#FFF4E3', fontSize: 14, fontWeight: '900' },
 });

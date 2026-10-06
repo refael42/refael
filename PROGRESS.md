@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M20 | Owner: events and FOMO: a 3-day food festival (points, 8 prizes, a trophy only that festival gives), a flash deal, the tourist bus | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -65,6 +66,30 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M20 (owner: "events and more addictive things that create FOMO"), all tuned in
+  `src/data/events.ts`:
+  - **Food festival**: a new one every 3 days by the phone's clock (the same days on every phone,
+    counted from a fixed date), six themes taking turns (fries, burger, falafel, shawarma, hummus,
+    ice cream). Paying guests bring points (1, +1 for the festival dish, +1 for 5 stars, +10 for a
+    VIP, double for tourists); points open an 8-step track (coins, gems, wheel spins, a x2 boost)
+    ending in **that festival's trophy** (+10% on every bill for good, kept in every branch; it
+    comes round again only after the five other themes). A chip under the rating counts down
+    (red in the last 6 hours, green "Prize!" when one waits); the panel shows the track and the
+    trophy collection. Points only come while playing (the offline estimate never runs a
+    festival). Prizes reached but not taken are paid when the next festival starts. The sim
+    stays pure: the UI tells it the clock every 5 s (`festival` command).
+  - **Flash deal**: one shop item 30-50% off for 3 hours (a new one every 3 hours, the same for
+    everyone), once per deal; a card on top of the shop and a red chip with its clock. Deals on
+    perks already owned are skipped.
+  - **Tourist bus** (sim time, so never while away): from 7 minutes in and 25 guests served,
+    every 7-12 minutes a bus drives in on the road, 5-8 tourists step off one by one into the
+    line (waiting on the step while the line is full, up to 18 s), then it drives on. Tourists pay
+    +50%. Its timing comes from a hash, not the game's dice. The settings' testing section has
+    "call the tourist bus".
+  - Save v9 (festival + deal state; an older save starts with no festival seen and no trophies).
+    Stored wheel spins may now pass the stage cap (festival prizes add spins; a save keeps 50).
+    Tests: tests/events.test.ts (clock, points, track order, rollover, trophies across branches
+    and saves, deals, the bus, where everything stands on every map).
 - Done in M19 (owner: "hostesses seat the guests, with a menu animation"): the **host** stands
   at a post by the door, welcomes the first in line (heart, 2.5 s), then **walks the party to
   their table** with the menus, waits for them to sit and **hands each guest a menu** (it flies
@@ -462,6 +487,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M5 diner / bistro / grand, production build | 40 / 69 / 111 | 1.2 / 2.1 / 1.7 ms | 10–12 / 12 / 13–14 |
 | M5b busy diner, new RN HUD overlay | ~45 | — | 12.3 |
 | M5b new game during the tutorial (glove + message) | 27 | 0.7 ms | 16–18 |
+| M19/M20 busy bistro (hosts, the tourist bus), production build | ~50 | — | 10.7–12 (zoomed in: ~4.5) |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with

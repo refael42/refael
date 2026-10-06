@@ -5,7 +5,8 @@ import { useT } from '../i18n';
 import { hudIcon } from '../render/icons';
 import { usePoll } from '../render/useSimulation';
 import type { Command, GameState } from '../sim/game/types';
-import { canShop } from '../sim/shop';
+import { canShop, dealAt } from '../sim/shop';
+import { countdown } from './Festival';
 import { gold, panel, textShadow } from './theme';
 import { Overlay, scrollFill } from './Overlay';
 import { tapFeedback } from '../audio/sound';
@@ -36,12 +37,76 @@ const ICON: Record<string, string> = {
 
 const gemUri = (px: number) => hudIcon('hudGem', Math.round(px * PixelRatio.get()));
 
+/** Today's flash deal, flat (polled: plain values compare cheaply). */
+const readDeal = (s: GameState) => {
+  const now = Date.now();
+  const deal = dealAt(s, now);
+  if (!deal) return null;
+  return { id: deal.item.id, cost: deal.cost, was: deal.item.cost, off: deal.off, bought: deal.bought, can: !deal.bought && canShop(s, deal.item, deal.cost), short: s.gems < deal.cost, secondsLeft: Math.ceil((deal.ends - now) / 1000) };
+};
+
 /** What the cards need, read a few times a second. */
 const readShop = (s: GameState) => ({
   gems: s.gems,
   can: Object.fromEntries(SHOP.map((i) => [i.id, canShop(s, i)])) as Record<string, boolean>,
   owned: { ...s.perks },
 });
+
+/** The flash deal on top of the shop: one item cheaper for a few hours, with the clock running. */
+function DealCard({ gameRef, onCommand, onGems }: { gameRef: { current: GameState | null }; onCommand: (cmd: Command) => void; onGems: () => void }) {
+  const t = useT();
+  const d = usePoll(gameRef, readDeal, 2);
+  if (!d) return null;
+  const item = SHOP.find((i) => i.id === d.id)!;
+  return (
+    <View style={styles.deal}>
+      <View style={styles.dealRibbon}>
+        <Text style={styles.dealRibbonText}>{`⚡ ${t('deal.title')}  -${Math.round(d.off * 100)}%`}</Text>
+      </View>
+      <Text style={styles.dealIcon}>{item.kind === 'star' ? '⭐' : ICON[item.id] ?? '🎁'}</Text>
+      <View style={styles.dealBody}>
+        <Title item={item} />
+        <Description item={item} />
+      </View>
+      <View style={styles.dealSide}>
+        {d.bought ? (
+          <Text style={styles.owned}>{t('deal.bought').replace('{t}', countdown(d.secondsLeft, t))}</Text>
+        ) : (
+          <>
+            <Text style={styles.dealWas}>{d.was}</Text>
+            <Pressable
+              accessibilityRole="button"
+              disabled={!d.can && !d.short}
+              onPress={() => {
+                if (d.short) return onGems();
+                tapFeedback();
+                onCommand({ type: 'deal', now: Date.now() });
+              }}
+              style={[styles.buy, d.short ? styles.buyShort : !d.can && styles.buyOff]}
+            >
+              <Image source={{ uri: gemUri(16) }} style={styles.gemSmall} />
+              <Text style={styles.buyText}>{d.can || d.short ? d.cost : t('shop.noRoom')}</Text>
+            </Pressable>
+            <Text style={styles.dealTime}>{`⏰ ${t('deal.endsIn')} ${countdown(d.secondsLeft, t)}`}</Text>
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+/** Next to the gems: the deal's discount and its clock, while it is still there to take. */
+export function DealChip({ gameRef, onPress, style }: { gameRef: { current: GameState | null }; onPress: () => void; style: object }) {
+  const t = useT();
+  const d = usePoll(gameRef, readDeal, 1);
+  if (!d || d.bought) return null;
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel="flash deal" onPress={onPress} hitSlop={6} style={[styles.dealChip, style]}>
+      <Text style={styles.dealChipText}>{`⚡-${Math.round(d.off * 100)}%`}</Text>
+      <Text style={styles.dealChipTime}>{countdown(d.secondsLeft, t)}</Text>
+    </Pressable>
+  );
+}
 
 function Title({ item }: { item: ShopItem }) {
   const t = useT();
@@ -129,6 +194,7 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
         </View>
         {tab === 'gems' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
         <ScrollView style={scrollFill} contentContainerStyle={styles.grid}>
+          {tab !== 'gems' && <DealCard gameRef={gameRef} onCommand={onCommand} onGems={() => setTab('gems')} />}
           {items.map((item) => {
             const can = data.can[item.id] ?? false;
             const owned = (item.kind === 'perk' || item.kind === 'crew') && data.owned[item.id] === 1;
@@ -299,6 +365,17 @@ const styles = StyleSheet.create({
   pillText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900', minWidth: 20, ...textShadow('#120818', 1, 0) },
   plus: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#35B957', alignItems: 'center', justifyContent: 'center' },
   plusText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900', lineHeight: 18 },
+  deal: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, paddingTop: 16, borderRadius: 14, backgroundColor: '#4A1E2A', borderWidth: 2, borderColor: '#FF7A5A' },
+  dealRibbon: { position: 'absolute', top: -2, start: 10, backgroundColor: '#E5483B', borderRadius: 8, paddingHorizontal: 8 },
+  dealRibbonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
+  dealIcon: { fontSize: 34 },
+  dealBody: { flex: 1, alignItems: 'flex-start', gap: 2 },
+  dealSide: { alignItems: 'center', gap: 2 },
+  dealWas: { color: '#B9A3C6', fontSize: 12, fontWeight: '800', textDecorationLine: 'line-through' },
+  dealTime: { color: '#FFB0A6', fontSize: 11.5, fontWeight: '800' },
+  dealChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, paddingHorizontal: 8, borderRadius: 13, backgroundColor: '#C8352B', borderWidth: 1.5, borderColor: '#FFB0A6', boxShadow: '0px 2px 0px rgba(18,8,24,0.85)' },
+  dealChipText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  dealChipTime: { color: '#FFE9A8', fontSize: 11, fontWeight: '800' },
   boost: { backgroundColor: '#FF7A1A', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, marginEnd: 2 },
   boostText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
 });

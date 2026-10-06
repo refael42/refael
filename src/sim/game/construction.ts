@@ -90,6 +90,9 @@ function finishConstruction(s: GameState): void {
     nextGift: s.nextGift,
     daily: s.daily,
     wheel: s.wheel,
+    festival: s.festival,
+    flash: s.flash,
+    nextBus: s.nextBus,
     city: s.city,
     trophies: s.trophies,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.

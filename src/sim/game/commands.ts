@@ -16,7 +16,9 @@ import { freeHost, handWash, serveOrder, startEscort } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
 import { claimQuest } from '../quests';
-import { addGems, buyShopItem, grantCoins } from '../shop';
+import { addGems, buyDeal, buyShopItem, grantCoins } from '../shop';
+import { claimFestival, syncFestival } from '../festival';
+import { startBus } from './bus';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
@@ -129,6 +131,16 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'gems':
       return addGems(s, cmd.amount);
+    case 'festival':
+      return syncFestival(s, cmd.now);
+    case 'festivalClaim':
+      claimFestival(s);
+      return;
+    case 'deal':
+      buyDeal(s, cmd.now);
+      return;
+    case 'testBus':
+      return startBus(s);
     default:
       break;
   }

@@ -76,6 +76,10 @@ export const PropKind = {
   Gift: 26,
   /** Land of a later building, fenced off: a padlock sign (variant = that building's tier). */
   LockSign: 27,
+  /** The tourist bus on the road (src/data/events.ts). */
+  Bus: 28,
+  /** A festival trophy; variant = its theme. */
+  Trophy: 29,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

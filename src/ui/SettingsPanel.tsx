@@ -34,7 +34,7 @@ const RESET_CONFIRM_MS = 4000;
 
 export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => void; onHowTo: () => void; onNames: () => void }) {
   const t = useT();
-  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, sound, music, haptics, toggle } = useSettings();
+  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, callTestBus, sound, music, haptics, toggle } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -103,6 +103,10 @@ export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => vo
             <Pressable accessibilityRole="button" onPress={addTestMoney} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.testMoney')}</Text>
               <Text style={styles.chevron}>{'+'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={callTestBus} style={styles.row}>
+              <Text style={styles.rowLabel}>{t('set.testBus')}</Text>
+              <Text style={styles.chevron}>{'🚌'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={reset} style={[styles.reset, armed && styles.resetArmed]}>
               <Text style={styles.resetText}>{armed ? t('set.resetConfirm') : t('set.reset')}</Text>

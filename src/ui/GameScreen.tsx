@@ -39,7 +39,8 @@ import { HowToPlay } from './HowToPlay';
 import { ReviewToast } from './ReviewToast';
 import { RushButton } from './RushButton';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
-import { GemPill, Shop } from './Shop';
+import { DealChip, GemPill, Shop } from './Shop';
+import { FestivalChip, FestivalPanel, useFestivalClock } from './Festival';
 import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
@@ -131,7 +132,7 @@ const readCity = (s: GameState) => s.city;
 function GameRunner({ boot }: { boot: GameBoot }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial, moneyTaps } = useSettings();
+  const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial, moneyTaps, busTaps } = useSettings();
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
   // First run: welcome, names and how to play come before anything happens.
   const onboarding = !loaded || profile === null;
@@ -165,6 +166,13 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     const gift = big(TEST_MONEY.min).max(game.coins.mul(TEST_MONEY.times));
     command({ type: 'grant', coins: toSave(gift) });
   }, [moneyTaps, gameRef, command]);
+  // Testing: "call the tourist bus" in the settings.
+  const busSeen = useRef(busTaps);
+  useEffect(() => {
+    if (busTaps === busSeen.current) return;
+    busSeen.current = busTaps;
+    command({ type: 'testBus' });
+  }, [busTaps, command]);
   // The tutorial's glove needs the camera and where the corner buttons are.
   const camera = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
   const onCamera = useCallback((cam: Camera) => {
@@ -244,6 +252,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [shop, setShop] = useState(false);
   const [daily, setDaily] = useState(false);
   const [wheel, setWheel] = useState(false);
+  const [festival, setFestival] = useState(false);
+  useFestivalClock(command, true);
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
   const dailyShown = useRef(false);
   useEffect(() => {
@@ -378,7 +388,13 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!onboarding && <GemPill gameRef={gameRef} onPress={() => setShop(true)} style={{ left: hud.left + 6, top: hud.top + HUD.height + 8 }} />}
       {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
       {!onboarding && <EventToast gameRef={gameRef} style={{ top: hud.top + HUD.height + 8 }} />}
-      {!onboarding && <CityChip gameRef={gameRef} style={{ left: hud.right - HUD.ratingWidth, top: hud.top + HUD.height + 6 }} />}
+      {!onboarding && (
+        <View style={[styles.rightColumn, { left: hud.right - HUD.ratingWidth, top: hud.top + HUD.height + 6, width: HUD.ratingWidth }]} pointerEvents="box-none">
+          <CityChip gameRef={gameRef} style={styles.inColumn} />
+          {tutorial >= TUTORIAL_STEPS.length && <FestivalChip gameRef={gameRef} onPress={() => setFestival(true)} style={styles.inColumn} />}
+          {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
+        </View>
+      )}
       <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
@@ -401,6 +417,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} />}
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
+      {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -518,6 +535,9 @@ export function GameScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1022' },
   corner: { position: 'absolute' },
+  /** Under the rating: the branch's city, the festival, the flash deal. */
+  rightColumn: { position: 'absolute', alignItems: 'flex-end', gap: 6, direction: 'ltr' },
+  inColumn: { position: 'relative' },
   cornerRow: { flexDirection: 'row', gap: 10 },
   cornerButton: { minHeight: 52, paddingHorizontal: 20, backgroundColor: '#35B957', borderColor: '#FFE08A', borderWidth: 2.5 },
   staffButton: { backgroundColor: '#6A2C8F', borderColor: '#E8C9FF' },

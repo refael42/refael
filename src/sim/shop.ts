@@ -1,3 +1,4 @@
+import { FLASH } from '../data/events';
 import { NAMES } from '../data/names';
 import { GEMS, SHOP_BY_ID, STAR, WARP_MIN_PER_SECOND, type ShopItem } from '../data/shop';
 import { ROLES, STAT_IDS, type StatId } from '../data/staff';
@@ -10,6 +11,7 @@ import { createStaff } from './game/staff';
 import type { GameState } from './game/types';
 import { hasRoom } from './game/workers';
 import { advanceWorks } from './game/works';
+import { hash01 } from './retention';
 import { int } from './rng';
 import { Emote } from './types';
 
@@ -48,10 +50,10 @@ export function incomeRate(s: GameState) {
 /** The income multiplier running now (1 = no boost). */
 export const boostNow = (s: GameState): number => (s.time < s.boost.until ? s.boost.mult : 1);
 
-/** Can this be bought right now (enough gems, room for a star, a perk not owned yet)? */
-export function canShop(s: GameState, item: ShopItem): boolean {
+/** Can this be bought right now (enough gems, room for a star, a perk not owned yet)? `cost`: a deal's price. */
+export function canShop(s: GameState, item: ShopItem, cost = item.kind === 'gems' ? 0 : item.cost): boolean {
   if (item.kind === 'gems') return false;
-  if (s.gems < item.cost) return false;
+  if (s.gems < cost) return false;
   if (item.kind === 'star') return hasRoom(s, item.role);
   if (item.kind === 'perk' || item.kind === 'crew') return !s.perks[item.id];
   if (item.kind === 'boost') return boostNow(s) <= item.mult;
@@ -73,11 +75,11 @@ function hireStar(s: GameState, role: ShopItem & { kind: 'star' }): void {
   s.stats.hires += 1;
 }
 
-/** Spends gems on a shop item. Returns whether it happened. */
-export function buyShopItem(s: GameState, id: string): boolean {
+/** Spends gems on a shop item (`cost`: a deal's price). Returns whether it happened. */
+export function buyShopItem(s: GameState, id: string, cost?: number): boolean {
   const item = SHOP_BY_ID[id];
-  if (!item || !canShop(s, item) || item.kind === 'gems') return false;
-  s.gems -= item.cost;
+  if (!item || item.kind === 'gems' || !canShop(s, item, cost ?? item.cost)) return false;
+  s.gems -= cost ?? item.cost;
   switch (item.kind) {
     case 'boost': {
       // Buying the same boost again adds its time.
@@ -104,6 +106,47 @@ export function buyShopItem(s: GameState, id: string): boolean {
       s.mods = computeMods(s.levels, s.perks, s.trophies);
       break;
   }
+  return true;
+}
+
+// ---------- the flash deal ----------
+
+const DEAL_MS = FLASH.everyHours * 3600 * 1000;
+
+export interface Deal {
+  /** The deal's number (a new one every few hours, the same on every phone). */
+  slot: number;
+  item: Exclude<ShopItem, { kind: 'gems' }>;
+  /** Its price now, and the share taken off. */
+  cost: number;
+  off: number;
+  /** When it ends (phone clock, ms). */
+  ends: number;
+  bought: boolean;
+}
+
+/** Today's deal at this moment. Deals that sell something already owned for good are skipped. */
+export function dealAt(s: GameState, now: number): Deal | null {
+  const slot = Math.floor(now / DEAL_MS);
+  const deals = FLASH.deals;
+  const start = Math.floor(hash01(slot * 1.37 + 0.5) * deals.length);
+  for (let k = 0; k < deals.length; k++) {
+    const d = deals[(start + k) % deals.length]!;
+    const item = SHOP_BY_ID[d.item];
+    if (!item || item.kind === 'gems') continue;
+    if ((item.kind === 'perk' || item.kind === 'crew') && s.perks[item.id]) continue;
+    const bought = s.flash.slot === slot && s.flash.bought;
+    return { slot, item, cost: Math.max(1, Math.round(item.cost * (1 - d.off))), off: d.off, ends: (slot + 1) * DEAL_MS, bought };
+  }
+  return null;
+}
+
+/** Takes the deal (once). */
+export function buyDeal(s: GameState, now: number): boolean {
+  const deal = dealAt(s, now);
+  if (!deal || deal.bought || !buyShopItem(s, deal.item.id, deal.cost)) return false;
+  s.flash = { slot: deal.slot, bought: true };
+  emit(s, Ev.Deal, 0, 0, deal.cost);
   return true;
 }
 

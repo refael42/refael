@@ -5,6 +5,8 @@ import { characterSprites } from './art/charArt';
 import { decorSprites } from './art/decorArt';
 import { dishSprites } from './art/dishArt';
 import { workSprites } from './art/workArt';
+import { eventSprites } from './art/eventArt';
+import { FESTIVAL_THEMES } from '../data/events';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { LOCK_BOARDS, propSprites } from './art/propArt';
@@ -12,7 +14,7 @@ import { LOOKS, stationSprites } from './art/stationArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...workSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...workSprites, ...eventSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -51,7 +53,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof workSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -100,7 +102,7 @@ const looks = (base: string): number[] => {
 const TREE_SPRITE = { palm: 'treePalm', round: 'treeRound', olive: 'treeOlive', cypress: 'treeCypress' } as const;
 
 /** Order icon and plated look per dish id (src/data/dishes.ts order). */
-const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream'] as const;
+export const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream'] as const;
 const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma', 'plateHummus', 'plateSchnitzel', 'plateShakshuka', 'plateIceCream'] as const;
 
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
@@ -124,6 +126,8 @@ export const LAYERS = {
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
   /** The padlock sign on later land, by that building's tier. */
   lockSign: LOCK_BOARDS.map((_, tier) => INDEX[`lockSign${tier}`]!),
+  /** Festival trophies by theme (src/data/events.ts). */
+  trophy: FESTIVAL_THEMES.map((_, i) => INDEX[`trophy${i}`]!),
   /** Tree sprites per city: [city * 2 + map variant] (src/data/franchise.ts). */
   trees: CITIES.flatMap((city) => city.trees.map((k) => INDEX[TREE_SPRITE[k]]!)),
   /** Station looks by milestone tier. */

@@ -133,8 +133,8 @@ describe('lucky wheel', () => {
     delete raw.wheel;
     const old = parseSave(JSON.stringify(raw));
     expect(old.ok && old.save.wheel).toEqual({ nextFree: 0, tokens: 0, spins: 0, prize: -1 });
-    raw.wheel = { nextFree: 5, tokens: 99, spins: -3, prize: 42 };
+    raw.wheel = { nextFree: 5, tokens: 999, spins: -3, prize: 42 };
     const bad = parseSave(JSON.stringify(raw));
-    expect(bad.ok && bad.save.wheel).toEqual({ nextFree: 5, tokens: WHEEL.maxTokens, spins: 0, prize: -1 });
+    expect(bad.ok && bad.save.wheel).toEqual({ nextFree: 5, tokens: WHEEL.maxStored, spins: 0, prize: -1 });
   });
 });

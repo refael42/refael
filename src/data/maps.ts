@@ -89,6 +89,11 @@ export interface MapDef {
   applicantSpots: Point[];
   /** Promoters hand out flyers here on the sidewalk, either side of the door. */
   promoterSpots: Point[];
+  /** The tourist bus stops here on the road (its middle), and tourists step off at `busDoor`. */
+  busStop: Point;
+  busDoor: Point;
+  /** Festival trophies won stand here, at the back of the sidewalk past the applicants. */
+  trophySpots: Point[];
   sink: Furniture;
   washerSpot: Point;
   /** More dishwashing lines in the bigger kitchens: a sink and where its washer stands. All wash the same pile. */
@@ -331,6 +336,10 @@ function buildMap(tier: number): MapDef {
       { x: door + 1.6, y: STREET_Y + 0.7 },
       { x: door + 2.5, y: STREET_Y + 0.95 },
     ],
+    // Past the applicants, in the lane by the sidewalk; the bus door is at its back end.
+    busStop: { x: Math.min(width - 3, door + 5.5), y: STREET_Y + 2.75 },
+    busDoor: { x: Math.min(width - 3, door + 5.5) - 1.1, y: STREET_Y + 1.7 },
+    trophySpots: Array.from({ length: 6 }, (_, i) => ({ x: Math.min(width - 6, door + 3.4) + i * 0.8, y: STREET_Y + 0.22 })),
     // On the sidewalk's back half (people walk past in front), away from the door and the line.
     promoterSpots: [
       { x: door - 4, y: STREET_Y + 0.55 },

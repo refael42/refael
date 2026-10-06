@@ -22,6 +22,7 @@ import { updateWorkers } from './workers';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
+import { updateBus } from './bus';
 import { CITIES } from '../../data/franchise';
 
 function tickTimers(c: CharacterView, dt: number): void {
@@ -54,6 +55,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateTables(s, dt);
   logEarnings(s);
   updateGift(s);
+  updateBus(s);
   updateWalkers(s, dt);
   for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants]) tickTimers(c, dt);
   pruneEvents(s);
@@ -127,6 +129,15 @@ function dynamicProps(s: GameState): PropView[] {
   if (s.construction) out.push(...scaffolding(s.construction));
   // A present on the sidewalk, waiting for a tap (`since`: when it goes).
   if (s.gift) out.push(prop(SYNTH - 50, PropKind.Gift, s.gift.x, s.gift.y, { since: s.gift.until }));
+  // The tourist bus: drawn where it stops, the renderer drives it in and out (`since` = it set
+  // off toward the stop, `progress` = when it pulls away, 0 = not yet). Nothing walks on the road,
+  // so it is drawn over the sidewalk behind it.
+  if (s.bus) out.push(prop(SYNTH - 51, PropKind.Bus, s.bus.x, s.bus.y, { since: s.bus.arrive, progress: s.bus.leave < Infinity ? s.bus.leave : 0, active: s.bus.aboard > 0, depthBias: 2 }));
+  // Festival trophies won, on show by the door.
+  s.festival.trophies.forEach((theme, i) => {
+    const p = s.map.trophySpots[i];
+    if (p) out.push(prop(SYNTH - 60 - i, PropKind.Trophy, p.x, p.y, { variant: theme }));
+  });
   // Big upgrades in progress: a crate where a showpiece goes in, a barrier in front of a station.
   for (const w of s.works) {
     const p = siteOf(s, w);

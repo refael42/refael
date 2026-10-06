@@ -26,6 +26,8 @@ interface SettingsState {
   tutorial: number;
   /** Taps on the "test money" button (testing only); the game grants coins on each new one. */
   moneyTaps: number;
+  /** Testing: taps on "call the tourist bus". */
+  busTaps: number;
   /** Levels per tap on a buy or train button (x1, x10, x100, max). */
   bulk: BulkStep;
   setBulk: (bulk: BulkStep) => void;
@@ -42,6 +44,7 @@ interface SettingsState {
   setProfile: (profile: Profile) => void;
   setTutorial: (step: number) => void;
   addTestMoney: () => void;
+  callTestBus: () => void;
 }
 
 /** Number of extra walkers the stress toggle adds (target: 60 fps with ~60 animated entities). */
@@ -59,6 +62,7 @@ export const useSettings = create<SettingsState>((set) => ({
   profile: null,
   tutorial: 0,
   moneyTaps: 0,
+  busTaps: 0,
   bulk: 1,
   setBulk: (bulk) => set({ bulk }),
   sound: true,
@@ -74,6 +78,7 @@ export const useSettings = create<SettingsState>((set) => ({
   setProfile: (profile) => set({ profile }),
   setTutorial: (tutorial) => set({ tutorial }),
   addTestMoney: () => set((s) => ({ moneyTaps: s.moneyTaps + 1 })),
+  callTestBus: () => set((s) => ({ busTaps: s.busTaps + 1 })),
 }));
 
 /** What is kept between launches. */

@@ -13,12 +13,14 @@ import { questLevel } from './quests';
 import { GEMS, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
 import { newWheel } from './wheel';
+import { FESTIVAL, FESTIVAL_THEMES } from '../data/events';
+import { newFestival } from './festival';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -57,6 +59,9 @@ export interface SaveData {
   daily: { last: string | null; streak: number };
   /** The lucky wheel (older v7 saves have none: a new wheel, its free spin ready). */
   wheel: { nextFree: number; tokens: number; spins: number; prize: number };
+  /** The food festival on, its points and rewards taken, trophies won; the flash deal last bought. */
+  festival: { id: number; points: number; claimed: number; trophies: number[] };
+  flash: { slot: number; bought: boolean };
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -103,6 +108,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
     placed: Array.isArray(old.placed) ? old.placed.map((p) => (isRecord(p) && finite(p.x) && finite(p.y) ? { ...p, x: p.x + WORLD_SHIFT.x, y: p.y + WORLD_SHIFT.y } : p)) : old.placed,
     works: Array.isArray(old.works) ? old.works.map((w) => (isRecord(w) && isRecord(w.at) && finite(w.at.x) && finite(w.at.y) ? { ...w, at: { x: w.at.x + WORLD_SHIFT.x, y: w.at.y + WORLD_SHIFT.y } } : w)) : old.works,
   }),
+  // v8 (M19) had no events: no festival seen yet, no deal bought.
+  8: (old) => ({ ...old, festival: newFestival(), flash: { slot: -1, bought: false } }),
 };
 
 /** Old levels plus the restaurant level that keeps every one of them (nothing is taken away). */
@@ -148,6 +155,8 @@ export function makeSave(s: GameState, now: number): SaveData {
     trophies: s.trophies,
     daily: { ...s.daily },
     wheel: { ...s.wheel },
+    festival: { ...s.festival, trophies: [...s.festival.trophies] },
+    flash: { ...s.flash },
   };
 }
 
@@ -251,6 +260,8 @@ function validate(o: Record<string, unknown>): SaveData | null {
       ? { last: o.daily.last as string | null, streak: Math.max(0, Math.min(7, Math.floor(o.daily.streak))) }
       : { last: null, streak: 0 },
     wheel: cleanWheel(o.wheel),
+    festival: cleanFestival(o.festival),
+    flash: isRecord(o.flash) && finite(o.flash.slot) ? { slot: Math.floor(o.flash.slot), bought: o.flash.bought === true } : { slot: -1, bought: false },
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -260,7 +271,15 @@ function cleanWheel(raw: unknown): SaveData['wheel'] {
   if (!isRecord(raw) || !finite(raw.nextFree)) return newWheel();
   const count = (v: unknown) => (finite(v) && v >= 0 ? Math.floor(v) : 0);
   const prize = finite(raw.prize) && Number.isInteger(raw.prize) && raw.prize >= 0 && raw.prize < WHEEL_SEGMENTS.length ? raw.prize : -1;
-  return { nextFree: raw.nextFree, tokens: Math.min(WHEEL.maxTokens, count(raw.tokens)), spins: count(raw.spins), prize };
+  return { nextFree: raw.nextFree, tokens: Math.min(WHEEL.maxStored, count(raw.tokens)), spins: count(raw.spins), prize };
+}
+
+/** The festival (rewards taken within the track, one trophy per theme), or a fresh one. */
+function cleanFestival(raw: unknown): SaveData['festival'] {
+  if (!isRecord(raw) || !finite(raw.id)) return newFestival();
+  const count = (v: unknown) => (finite(v) && v >= 0 ? Math.floor(v) : 0);
+  const trophies = Array.isArray(raw.trophies) ? [...new Set(raw.trophies.filter((t): t is number => finite(t) && Number.isInteger(t) && t >= 0 && t < FESTIVAL_THEMES.length))] : [];
+  return { id: Math.floor(raw.id), points: count(raw.points), claimed: Math.min(FESTIVAL.track.length, count(raw.claimed)), trophies };
 }
 
 /** Jobs on upgrades that still exist, one per item, each bringing the next level. */
@@ -335,5 +354,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     trophies: save.trophies,
     daily: save.daily,
     wheel: save.wheel,
+    festival: save.festival,
+    flash: save.flash,
   });
 }

@@ -15,6 +15,8 @@ import { emit, Ev } from './events';
 import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
 import { boostNow } from '../shop';
 import { maybeVip, vipBonus } from '../retention';
+import { festivalBonus, festivalPoints } from '../festival';
+import { BUS } from '../../data/events';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
@@ -93,6 +95,15 @@ export function walkIn(s: GameState, at: Point, look: Customer['look']): Custome
   return arrive(s, pickType(s), { x: at.x, y: at.y }, slot, look);
 }
 
+/** A tourist steps off the bus at `at` and heads for the line (with a friend, maybe). Null if the line is full. */
+export function touristArrives(s: GameState, at: Point): Customer | null {
+  const slot = freeQueueSlot(s);
+  if (slot < 0) return null;
+  const c = arrive(s, pickType(s), { x: at.x, y: at.y }, slot);
+  for (const m of s.customers) if (m.party === c.party) m.tourist = true;
+  return c;
+}
+
 /** A newcomer heading for the line; `party` = their leader's id (-1: they lead), `slot` = their place in line. */
 function newCustomer(s: GameState, type: CustomerType, start: Point, slot: number, party: number, partySize: number): Customer {
   const id = s.nextId++;
@@ -135,6 +146,7 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     vip: false,
     patienceKind: PATIENCE_ICON[type.patience],
     menuFrom: -1,
+    tourist: false,
   };
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
   c.path = route(s, start, queueSpot(s, c, leader.queueSlot));
@@ -304,7 +316,9 @@ function pay(s: GameState, c: Customer): void {
   // Good service is worth more than the tip: the whole bill follows the grade.
   const stars = serviceStars(mood);
   // A shop boost multiplies the whole bill (and so the tip).
-  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s)).floor();
+  // So do the festival trophies, and tourists on holiday pay more.
+  const extra = festivalBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1);
+  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.stats.bestCombo = Math.max(s.stats.bestCombo, s.combo);
   s.lastPayTime = s.time;
@@ -321,6 +335,7 @@ function pay(s: GameState, c: Customer): void {
   emit(s, Ev.Service, c.x, c.y, stars);
   maybeReview(s, c, stars, price.add(tip));
   vipBonus(s, c, stars);
+  festivalPoints(s, c, stars);
 
   const r = ECONOMY.rating;
   if (mood >= ECONOMY.happyMood) {

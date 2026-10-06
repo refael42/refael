@@ -38,6 +38,8 @@ export const WHEEL = {
   freeEveryHours: 4,
   /** Spins stored from cleared stages, at most this many. */
   maxTokens: 5,
+  /** Festival rewards add spins past that; a save keeps at most this many. */
+  maxStored: 50,
   /** An extra spin, any time. */
   gemCost: 20,
   /** The very first spin always lands here (15 gems: a taste of the shop, without flooding the first stand with coins). */

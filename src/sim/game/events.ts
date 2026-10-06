@@ -72,6 +72,16 @@ export const Ev = {
   Flyer: 36,
   /** A host at (x,y) handed a menu to the guest seated at (a,b). */
   Menu: 37,
+  /** A new food festival started. a = its theme, b = rewards of the last one paid now (not taken in time) */
+  FestivalStart: 38,
+  /** Festival points reached a new step of the track; (x,y) = the guest. a = steps reached */
+  FestivalStep: 39,
+  /** A festival reward was taken. a = coins, b = gems, c = the step */
+  FestivalClaim: 40,
+  /** The tourist bus pulled up; (x,y) = where it stops. a = tourists on board */
+  Bus: 41,
+  /** The flash deal was bought. a = gems paid */
+  Deal: 42,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
