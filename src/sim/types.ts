@@ -80,6 +80,8 @@ export const PropKind = {
   Bus: 28,
   /** A festival trophy; variant = its theme. */
   Trophy: 29,
+  /** Weekend flags along the front of the building; variant = the color order. */
+  Bunting: 30,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

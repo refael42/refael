@@ -66,6 +66,20 @@ export const PARTY = {
   pairChance: 0.4,
   /** Where the friend stands next to them in line (tiles). */
   queueOffset: { x: 0.3, y: 0.42 },
+  /** Chance that the friend is a child (families: not with students), drawn smaller. Just the look. */
+  kidChance: 0.3,
+  kidTypes: ['regular', 'tourist', 'relaxed'] as readonly CustomerTypeId[],
 };
 
+/** The `rank` a child carries in the render snapshot (staff use 1-2, a VIP 3). */
+export const KID_RANK = 4;
+
 export const CUSTOMER_TYPE_LIST: readonly CustomerType[] = Object.values(CUSTOMER_TYPES);
+
+/** Body language only (no effect on the game): when waiting guests look impatient or reach for a phone. */
+export const ANIM = {
+  /** Below this share of patience, someone in line taps a foot. */
+  impatientBelow: 0.4,
+  /** Seconds into the wait for food before a phone comes out. */
+  phoneAfter: 2.5,
+};

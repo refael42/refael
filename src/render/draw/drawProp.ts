@@ -333,6 +333,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const moving = k < 1 || m > 0;
     const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.35;
     spr(c, A, S.bus, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+  } else if (kind === PropKind.Bunting) {
+    // Flapping a little in the breeze.
+    sprXf(c, A, variant === 1 ? S.bunting1 : S.bunting0, 0, Math.sin(t * 2.2 + seed) * 0.8, Math.sin(t * 1.7 + seed) * 1.2, 1, 1, plain);
   } else if (kind === PropKind.Trophy) {
     spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
     sparkles(c, A, 0, -52, t, 10, seed, 1);

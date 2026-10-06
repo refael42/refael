@@ -28,6 +28,9 @@ interface SettingsState {
   moneyTaps: number;
   /** Testing: taps on "call the tourist bus". */
   busTaps: number;
+  /** The "what's new" card last shown (src/data/news.ts NEWS.version). */
+  seenNews: number;
+  setSeenNews: (v: number) => void;
   /** Levels per tap on a buy or train button (x1, x10, x100, max). */
   bulk: BulkStep;
   setBulk: (bulk: BulkStep) => void;
@@ -63,6 +66,8 @@ export const useSettings = create<SettingsState>((set) => ({
   tutorial: 0,
   moneyTaps: 0,
   busTaps: 0,
+  seenNews: 0,
+  setSeenNews: (seenNews) => set({ seenNews }),
   bulk: 1,
   setBulk: (bulk) => set({ bulk }),
   sound: true,
@@ -82,7 +87,7 @@ export const useSettings = create<SettingsState>((set) => ({
 }));
 
 /** What is kept between launches. */
-const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial, sound: s.sound, music: s.music, haptics: s.haptics });
+const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial, sound: s.sound, music: s.music, haptics: s.haptics, seenNews: s.seenNews });
 
 function readProfile(v: unknown): Profile | null {
   if (!v || typeof v !== 'object') return null;
@@ -107,6 +112,7 @@ export async function loadSettings(deviceLang: Lang): Promise<void> {
     sound: saved.sound !== false,
     music: saved.music !== false,
     haptics: saved.haptics !== false,
+    seenNews: typeof saved.seenNews === 'number' ? saved.seenNews : 0,
     loaded: true,
   });
   useSettings.subscribe((s, prev) => {

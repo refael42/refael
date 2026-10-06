@@ -1,8 +1,10 @@
-import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
+import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
-import { KITCHEN } from '../../data/staff';
+import { ANIM } from '../../data/customers';
+import { DAY, KITCHEN } from '../../data/staff';
+import { weekArrivals } from '../calendar';
 import { REVIEW } from '../../data/reviews';
 import { SEAT_OFFSETS, type Point } from '../../data/maps';
 import { big, type Big } from '../big';
@@ -14,10 +16,13 @@ import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
 import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
 import { boostNow } from '../shop';
-import { maybeVip, vipBonus } from '../retention';
+import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
 import { BUS } from '../../data/events';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
+
+/** About one guest in three checks their phone while waiting for the food. */
+const phoneUser = (c: Customer) => c.id % 3 === 1;
 
 export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
 
@@ -61,7 +66,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 export function updateArrivals(s: GameState): void {
   if (s.construction || s.time < s.nextArrival) return;
   const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
-  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day)) / 60;
+  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds)) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
@@ -80,7 +85,12 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   if (look) leader.look = { ...look };
   maybeVip(s, leader);
   s.customers.push(leader);
-  if (pair) s.customers.push(newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2));
+  if (pair) {
+    const friend = newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2);
+    // Some come with a child (by the id: the game's dice are left alone).
+    if (PARTY.kidTypes.includes(type.id) && hash01(friend.id * 5.31 + 0.2) < PARTY.kidChance) friend.rank = KID_RANK;
+    s.customers.push(friend);
+  }
   return leader;
 }
 
@@ -305,6 +315,7 @@ export function startEating(s: GameState, c: Customer, dish: number, quality: nu
   t.since = s.time;
   c.order = -1;
   c.bubble = Bubble.None;
+  c.held = Held.None;
   c.expression = Expression.Eating;
   setPose(c, Pose.SitEat);
   setState(c, CustomerState.Eating);
@@ -400,6 +411,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           c.facing = Facing.BackLeft;
         }
         drainPatience(c, dt);
+        // Standing still and running out of patience: tapping a foot (just the look).
+        if (c.path.length === 0) setPose(c, c.patience < ANIM.impatientBelow ? Pose.Impatient : Pose.Idle);
         if (c.patienceLeft <= 0) walkout(s, c);
         break;
       }
@@ -439,6 +452,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           drainPatience(c, dt);
           if (c.patienceLeft <= 0) walkout(s, c);
         }
+        // Some pass the wait on their phone, until they get fed up (just the look; by their id).
+        if (c.state === CustomerState.Waiting) c.held = phoneUser(c) && c.stateTime > ANIM.phoneAfter && c.patience > ANIM.impatientBelow ? Held.Phone : Held.None;
         break;
       }
       case CustomerState.Eating:

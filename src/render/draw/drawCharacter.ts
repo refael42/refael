@@ -2,7 +2,7 @@ import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import { Accessory, Outfit } from '../../data/looks';
 import { EMOTE_SECONDS, STEP_SEC } from '../../data/sim';
 import { C, F, type Packed } from '../../sim/snapshot';
-import { Expression, Held, Pose } from '../../sim/types';
+import { Emote, Expression, Held, Pose } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, spr, sprFade, sprXf } from './primitives';
@@ -20,8 +20,12 @@ function ly(viewB: boolean, f: number, r: number, z: number): number {
 }
 
 /** One blocky character. All animation is a pure function of sim state + time. */
-/** The `rank` a VIP customer carries (staff ranks are 1 and 2). */
+/** The `rank` a VIP customer carries (staff ranks are 1 and 2), and a child (src/data/customers.ts KID_RANK). */
 const VIP_RANK = 3;
+const KID_RANK = 4;
+/** Children are drawn this size; sitting, they are lifted onto the seat. */
+const KID_SCALE = 0.74;
+const KID_SEAT_LIFT = 4;
 
 export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number, selectedId: number): void {
   'worklet';
@@ -49,8 +53,23 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   const pants = P.pants[d[o + C.pants]!]!;
   const hairPaint = P.hair[d[o + C.hairColor]!]!;
 
+  const poseTime = d[o + C.poseTime]!;
+  const emote = d[o + C.emote]!;
+  const emoteAge = d[o + C.emoteTime]!;
+  const sleepy = expression === Expression.Sleepy;
+
   // ----- pose -----
-  const breathe = Math.sin(t * 2.4 + phase);
+  const breathe = Math.sin(t * (sleepy ? 1.3 : 2.4) + phase);
+  /** The whole body off the floor (px, legs too), a tilt about the feet (degrees, + = toward
+   * where they face), squash (+ = wider and shorter), and where the head looks (px). */
+  let hop = 0;
+  let lean = 0;
+  let squash = 0;
+  let headX = 0;
+  let headY = 0;
+  /** Now and then a look to one side and back (idle, sitting, waiting). */
+  const g = Math.sin(t * 0.53 + phase * 2.3);
+  const glance = clamp01((Math.abs(g) - 0.72) / 0.18) * (g > 0 ? 1 : -1);
   let bob = breathe * 0.35;
   let nearLeg = 0;
   let farLeg = 0;
@@ -71,15 +90,32 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     nearArm = -s * 0.045;
     farArm = s * 0.045;
     bob = Math.abs(Math.cos(t * 9 + phase)) * 1.3;
+    // Leaning into the walk and rocking from foot to foot; carefully upright with a full tray.
+    const careful = held === Held.TrayFull || held === Held.DirtyPlates;
+    lean = (careful ? 1 : 3) + s * (careful ? 0.5 : 1.4);
+    // Setting off: a little push forward.
+    if (poseTime < 0.2) lean += Math.sin((poseTime / 0.2) * Math.PI) * 3;
   } else if (pose === Pose.Sit || pose === Pose.SitEat) {
     showLegs = false;
     bob = -1.5 + breathe * 0.3;
+    // Sitting down: a soft plop into the chair.
+    if (poseTime < 0.35) squash = Math.sin((poseTime / 0.35) * Math.PI) * 0.11;
     if (pose === Pose.SitEat) {
       const p = (t * 0.9 + phase) % 1;
       const raise = 0.5 - 0.5 * Math.cos(p * Math.PI * 2);
       armUp = true;
       armUpLift = raise * 7;
       biting = raise > 0.7;
+      // Leaning in for each bite.
+      lean = raise * 2.5;
+      headY = raise * 0.8;
+    } else if (held === Held.Phone) {
+      // Head down over the phone, a thumb tapping away.
+      headY = 1.3;
+      armUpLift = Math.sin(t * 15 + phase) > 0.4 ? 0.9 : 0;
+      lean = 1.5;
+    } else {
+      headX = glance * 1.1;
     }
   } else if (pose === Pose.Cook || pose === Pose.Wash) {
     armUp = true;
@@ -87,12 +123,59 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     armUpLift = Math.max(0, Math.sin(t * rate + phase)) * (pose === Pose.Cook ? 5 : 2.5);
     farArm = Math.sin(t * rate + phase + 1.5) * 0.03;
     bob = Math.abs(Math.sin(t * rate + phase)) * 0.6;
+    // Over the stove or the sink, swaying with the stirring or the scrubbing.
+    lean = 2.5 + Math.sin(t * rate + phase) * 0.9;
+    headY = 0.6;
   } else if (pose === Pose.Impatient) {
     nearLift = Math.max(0, Math.sin(t * 13 + phase)) * 2;
+    // Looking about: where is the table?
+    headX = Math.sin(t * 2.6 + phase) * 1.3;
+    lean = Math.sin(t * 1.7 + phase) * 1.2;
   } else if (pose === Pose.Phone) {
     armUp = true;
+    headY = 1.3;
   } else if (pose === Pose.Cheer) {
     bob = Math.abs(Math.sin(t * 8 + phase)) * 4;
+    // A wave with the free hand (the other may hold the menus or the flyers).
+    armUp = true;
+    armUpLift = 3 + Math.sin(t * 16 + phase) * 2.5;
+    lean = Math.sin(t * 8 + phase) * 1.5;
+  } else {
+    // Standing: a settle after stopping, and a look around now and then.
+    if (poseTime < 0.25) squash = Math.sin((poseTime / 0.25) * Math.PI) * 0.06;
+    headX = glance * 1.3;
+  }
+  // Dozing off: the head nods, then jerks back up.
+  if (sleepy) {
+    const nod = (t * 0.35 + phase) % 1;
+    headY += nod < 0.8 ? nod * 2 : (1 - nod) * 8;
+  }
+  // Feelings show in the whole body for a moment after the bubble pops up.
+  if (emote !== Emote.None && emoteAge >= 0) {
+    const a = emoteAge;
+    if (emote === Emote.Heart || emote === Emote.Coin) {
+      // A happy hop, a little squash on landing.
+      if (a < 0.42) hop = Math.sin((a / 0.42) * Math.PI) * (emote === Emote.Heart ? 7 : 3.5);
+      else if (a < 0.6) squash = Math.sin(((a - 0.42) / 0.18) * Math.PI) * 0.08;
+    } else if (emote === Emote.Star) {
+      // Two hops: a promotion, a star hire.
+      if (a < 0.84) hop = Math.abs(Math.sin((a / 0.42) * Math.PI)) * 6;
+    } else if (emote === Emote.Exclaim) {
+      // A startle: up on the toes.
+      if (a < 0.28) {
+        hop = Math.sin((a / 0.28) * Math.PI) * 4;
+        squash = -0.08;
+      }
+    } else if (emote === Emote.Anger) {
+      // A stamp and a shake of the head.
+      if (a < 0.7) {
+        headX = Math.sin(a * 40) * 1.6 * (1 - a / 0.7);
+        if (a < 0.15) squash = Math.sin((a / 0.15) * Math.PI) * 0.07;
+      }
+    } else if (emote === Emote.Music) {
+      lean += Math.sin(t * 6 + phase) * 4;
+    }
+    if (!showLegs) hop *= 0.35;
   }
   const shake = expression === Expression.Angry && pose === Pose.Impatient ? Math.sin(t * 50) * 0.6 : 0;
   const up = -bob;
@@ -101,8 +184,13 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   const v = viewB ? 1 : 0;
   const pick = (front: number, back: number) => (v === 1 ? back : front);
 
+  const kid = d[o + C.rank] === KID_RANK;
   c.save();
   c.translate(isoX(wx, wy) + shake, isoY(wx, wy));
+  if (kid) {
+    if (!showLegs) c.translate(0, -KID_SEAT_LIFT);
+    c.scale(KID_SCALE, KID_SCALE);
+  }
   if (d[o + F.id] === selectedId) {
     // Selected worker: a breathing ring at their feet.
     P.ring.setAlphaf(0.6 + Math.sin(t * 6) * 0.3);
@@ -112,11 +200,17 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     c.restore();
     P.ring.setAlphaf(1);
   }
-  if (showLegs) spr(c, A, S.charShadow, 0, 0, P.plain);
+  if (showLegs) {
+    // The shadow shrinks as they leave the floor.
+    const k = 1 - Math.min(0.35, hop * 0.035);
+    sprXf(c, A, S.charShadow, 0, 0, 0, k, k, P.plain);
+  }
   // A VIP guest: a golden glow at their feet (the crown comes with the overlays).
   if (d[o + C.rank] === VIP_RANK) sprFade(c, A, S.glowHalo, 0, -16, 1.15, 0.55 + Math.sin(t * 4) * 0.2);
+  if (hop > 0) c.translate(0, -hop);
   if (flip) c.scale(-1, 1);
-  c.scale(1 - breathe * 0.008, 1 + breathe * 0.012);
+  if (lean !== 0) c.rotate(lean, 0, 0);
+  c.scale(1 - breathe * 0.008 + squash * 0.6, 1 + breathe * 0.012 - squash);
 
   const leg = (near: boolean, shift: number, lift: number) => {
     const dx = lx(viewB, shift, 0);
@@ -160,20 +254,23 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     hy = ly(viewB, nearArm, -ARM_R, 10) + up;
   }
 
-  spr(c, A, pick(S.headF, S.headB), 0, up, skin);
+  const headUp = up + headY;
+  spr(c, A, pick(S.headF, S.headB), headX, headUp, skin);
   if (!viewB) {
     let face = L.face[expression]!;
     if (expression === Expression.Eating) face = biting ? S.faceEating : S.faceChew;
     else if ((expression === Expression.Happy || expression === Expression.Neutral) && (t + phase) % 3.7 < 0.13) face = S.faceBlink;
-    spr(c, A, face, 0, up, P.plain);
-    spr(c, A, L.faceAccessory[accessory]!, 0, up, P.plain);
+    spr(c, A, face, headX, headUp, P.plain);
+    spr(c, A, L.faceAccessory[accessory]!, headX, headUp, P.plain);
   }
-  spr(c, A, viewB ? L.hair.B[hair]! : L.hair.F[hair]!, 0, up, hairPaint);
-  spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, 0, up, P.plain);
+  spr(c, A, viewB ? L.hair.B[hair]! : L.hair.F[hair]!, headX, headUp, hairPaint);
+  spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, headX, headUp, P.plain);
 
   if (held !== Held.None) {
     if (held === Held.TrayFull || held === Held.TrayEmpty || held === Held.DirtyPlates) {
-      spr(c, A, L.held[held]!, lx(viewB, 0.1, -0.3), ly(viewB, 0.1, -0.3, 23) + up, P.plain);
+      // The tray wobbles a little with every step.
+      const wobble = pose === Pose.Walk ? Math.sin(t * 18 + phase) * 0.7 : 0;
+      spr(c, A, L.held[held]!, lx(viewB, 0.1, -0.3), ly(viewB, 0.1, -0.3, 23) + up + wobble, P.plain);
     } else if (held === Held.Spatula) {
       const sx = lx(viewB, 0.04, -ARM_R);
       const sy = ly(viewB, 0.04, -ARM_R, 10) + up - Math.max(0, Math.sin(t * 7 + phase)) * 4;
@@ -198,7 +295,7 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
   const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
   const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
   const x = isoX(wx, wy);
-  let top = isoY(wx, wy) - 54;
+  let top = isoY(wx, wy) - (d[o + C.rank] === KID_RANK ? 42 : 54);
   const P = A.paints;
   if (d[o + C.rank] === VIP_RANK) {
     // The VIP's crown, bobbing over everything else above their head.

@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M21 | Owner: weekdays with a busier weekend, livelier characters, keep improving (kids, stats, what's new, weekend flags) | ✅ Done |
 | M20 | Owner: events and FOMO: a 3-day food festival (points, 8 prizes, a trophy only that festival gives), a flash deal, the tourist bus | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
@@ -66,6 +67,26 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M21 (owner: "weekdays normal, the weekend usually busier; animations for the
+  characters; keep improving everything"):
+  - **The week** (`src/data/calendar.ts`): day 1 is a Sunday; Friday and Saturday bring 30-60%
+    more walk-ins (picked per day from a hash, like the weather), Thursday's last 40% a little
+    more (x1.15). The day pill shows the weekday (🎉 on the weekend), a toast says when the
+    weekend starts, and flags hang along the front of the building. Pace is unchanged (bistro at
+    ~32 min in the balance bot).
+  - **Character animation** (all in the renderer, pure functions of pose, pose time, emote and
+    time): a lean into the walk and a rock from foot to foot (careful and upright with a full
+    tray, whose plates wobble), a push when setting off, a settle when stopping, a soft plop into
+    the chair, glances around, a lean into every bite, stirring and scrubbing sways, a waving
+    host, nodding off when sleepy; emotes move the body: a hop for a heart or a coin, two for a
+    star, a startle, a stamp and a head shake in anger. The sim adds body language only: guests
+    in line tap a foot below 40% patience, and one guest in three looks at a phone while waiting
+    for the food.
+  - **Families**: about a third of the friends of regulars, tourists and relaxed guests are
+    children (drawn at 74%, lifted onto the chair), decided from the id (no dice).
+  - **What's new** card once after an update (`src/data/news.ts`, not for new players) and a
+    **restaurant stats** card in the settings.
+  - The festival's "started" toast no longer pops up on a brand-new game (mid-tutorial).
 - Done in M20 (owner: "events and more addictive things that create FOMO"), all tuned in
   `src/data/events.ts`:
   - **Food festival**: a new one every 3 days by the phone's clock (the same days on every phone,

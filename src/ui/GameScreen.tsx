@@ -46,6 +46,10 @@ import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
 import { canBuyNow, UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
+import { NewsCard } from './News';
+import { StatsPanel } from './Stats';
+import { liveGame } from './liveGame';
+import { NEWS } from '../data/news';
 import { WorksTray } from './WorksTray';
 import { EventToast } from './EventToast';
 import { DailyButton, DailyPanel, dailyReady } from './Daily';
@@ -136,12 +140,22 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
   // First run: welcome, names and how to play come before anything happens.
   const onboarding = !loaded || profile === null;
+  // What's new since the last update: once, for players who already know the game (a new
+  // player learns it all from the tutorial instead).
+  const seenNews = useSettings((s) => s.seenNews);
+  const setSeenNews = useSettings((s) => s.setSeenNews);
+  useEffect(() => {
+    if (loaded && (profile === null || tutorial < TUTORIAL_STEPS.length) && seenNews < NEWS.version) setSeenNews(NEWS.version);
+  }, [loaded, profile, tutorial, seenNews, setSeenNews]);
+  const newsDue = loaded && profile !== null && tutorial >= TUTORIAL_STEPS.length && seenNews < NEWS.version;
   // Frozen during the first-run screens, and until the welcome-back money is collected so
   // nothing earned can slip away.
   const paused = useRef(true);
   paused.current = onboarding || welcome !== null;
   const { snapshot, stats, tap, command, gameRef } = useGame(STAND_MAP, GAME_SEED, stress, boot, paused);
   useGameSounds(gameRef, paused);
+  // Screens opened from the settings (the stats) read the running restaurant from here.
+  liveGame.ref = gameRef;
   const uiFps = useSharedValue(0);
   const buildMs = useSharedValue(0);
   const selected = useSharedValue<number[]>([]);
@@ -257,7 +271,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
   const dailyShown = useRef(false);
   useEffect(() => {
-    if (dailyShown.current || onboarding || welcome || tutorial < TUTORIAL_STEPS.length) return;
+    if (dailyShown.current || onboarding || welcome || newsDue || tutorial < TUTORIAL_STEPS.length) return;
     // A moment after the restaurant is up (the game is made in an effect of its own).
     const timer = setTimeout(() => {
       const game = gameRef.current;
@@ -266,7 +280,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       if (dailyReady(game)) setDaily(true);
     }, 1500);
     return () => clearTimeout(timer);
-  }, [onboarding, welcome, tutorial, gameRef]);
+  }, [onboarding, welcome, newsDue, tutorial, gameRef]);
   const questLevel = usePoll(gameRef, readQuestLevel, 2);
   const [levelBanner, setLevelBanner] = useState<number | null>(null);
   const shownLevel = useRef<number | null>(null);
@@ -455,6 +469,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {levelBanner !== null && branchBanner === null && <LevelBanner level={levelBanner} onDone={endLevelBanner} />}
       {rankBanner !== null && levelBanner === null && <LevelBanner level={rankBanner} rank={{ opens: rankBanner * RANK.levels }} onDone={endRankBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
+      {newsDue && !welcome && <NewsCard onClose={() => setSeenNews(NEWS.version)} />}
       {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
       {loaded && !profile && (
         <Welcome
@@ -505,8 +520,8 @@ export function GameScreen() {
   const insets = useSafeAreaInsets();
   const { lang, view, gameEpoch, profile, setProfile } = useSettings();
   const [settings, setSettings] = useState(false);
-  const [extra, setExtra] = useState<'howto' | 'names' | null>(null);
-  const openExtra = (which: 'howto' | 'names') => {
+  const [extra, setExtra] = useState<'howto' | 'names' | 'stats' | null>(null);
+  const openExtra = (which: 'howto' | 'names' | 'stats') => {
     setSettings(false);
     setExtra(which);
   };
@@ -516,8 +531,9 @@ export function GameScreen() {
       <View style={[styles.corner, { bottom: insets.bottom + 10, start: insets.left + 10 }]}>
         <GearButton onPress={() => setSettings(true)} />
       </View>
-      {settings && <SettingsPanel onClose={() => setSettings(false)} onHowTo={() => openExtra('howto')} onNames={() => openExtra('names')} />}
+      {settings && <SettingsPanel onClose={() => setSettings(false)} onHowTo={() => openExtra('howto')} onNames={() => openExtra('names')} onStats={() => openExtra('stats')} />}
       {extra === 'howto' && <HowToPlay onClose={() => setExtra(null)} />}
+      {extra === 'stats' && <StatsPanel onClose={() => setExtra(null)} />}
       {extra === 'names' && (
         <Welcome
           pages={['names']}

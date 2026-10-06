@@ -82,6 +82,8 @@ export const Ev = {
   Bus: 41,
   /** The flash deal was bought. a = gems paid */
   Deal: 42,
+  /** The weekend started. a = % more walk-ins today */
+  Weekend: 43,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

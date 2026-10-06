@@ -96,4 +96,28 @@ function trophy(color: string, accent: string) {
 
 const trophies = Object.fromEntries(FESTIVAL_THEMES.map((theme, i) => [`trophy${i}`, trophy(theme.color, theme.accent)]));
 
-export const eventSprites = { bus, ...trophies };
+// ---------- weekend bunting ----------
+
+const FLAGS = ['#E5483B', '#F2C14E', '#35B957', '#3E7BC8', '#E2649B', '#FF8A2A'];
+/** Height of the string above the floor (px): over everyone's heads. */
+const BUNTING_Z = 74;
+
+/** One tile of flags on a sagging string along x; `shift` picks where the colors start. */
+function bunting(shift: number) {
+  return sprite([-40, -110, 40, -40], (c) => {
+    const at = (x: number, sag: number) => P(x, 0, BUNTING_Z - sag);
+    const sagOf = (x: number) => (1 - 4 * x * x) * 6;
+    const pts = Array.from({ length: 9 }, (_, i) => at(-0.5 + i / 8, sagOf(-0.5 + i / 8)));
+    c.drawPath(path.polyline(pts), stroke('#FFF4E3', 1));
+    for (let k = 0; k < 3; k++) {
+      const x = -0.36 + k * 0.33;
+      const [ax, ay] = at(x - 0.09, sagOf(x - 0.09));
+      const [bx, by] = at(x + 0.09, sagOf(x + 0.09));
+      const [tx, ty] = at(x, sagOf(x) - 12);
+      c.drawPath(path.poly([[ax, ay], [bx, by], [tx, ty]]), fill(FLAGS[(k + shift) % FLAGS.length]!));
+      c.drawPath(path.poly([[ax, ay], [bx, by], [tx, ty]]), stroke(darken(FLAGS[(k + shift) % FLAGS.length]!, 0.3), 0.5));
+    }
+  });
+}
+
+export const eventSprites = { bus, ...trophies, bunting0: bunting(0), bunting1: bunting(3) };

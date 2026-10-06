@@ -1,3 +1,5 @@
+import { WEEKDAY_IDS } from '../data/calendar';
+import { isWeekend, weekdayOf } from '../sim/calendar';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Image, PixelRatio, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -99,7 +101,7 @@ function CoinPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedVal
   );
 }
 
-const readDay = (s: GameState) => ({ day: s.day, phase: s.dayTime / DAY.seconds, weather: weatherOn(s.day) });
+const readDay = (s: GameState) => ({ day: s.day, phase: s.dayTime / DAY.seconds, weather: weatherOn(s.day), weekday: weekdayOf(s.day), weekend: isWeekend(s.day) });
 
 /** Top middle: sun or moon, "Day N", and a strip that fills as the day goes by. */
 function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
@@ -117,6 +119,7 @@ function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
           <Image source={{ uri: iconUri(night ? 'hudMoon' : WEATHER_ICON[day.weather], 28) }} style={styles.dayIcon} />
           <Text style={styles.dayLabel}>{t('ui.day')}</Text>
           <Text style={styles.dayNumber}>{day.day}</Text>
+          <Text style={[styles.weekday, day.weekend && styles.weekend]}>{`${day.weekend ? '🎉' : '·'} ${t(`week.${WEEKDAY_IDS[day.weekday]}`)}`}</Text>
         </View>
         <View style={styles.track}>
           <View style={[styles.trackFill, night && styles.trackNight, { width: `${Math.min(100, day.phase * 100)}%` }]} />
@@ -219,7 +222,7 @@ export function Hud({ gameRef, feed, layout }: Props) {
   );
 }
 
-const DAY_W = 124;
+const DAY_W = 168;
 const RIM = '#F2C14E';
 /** Room on a pill's left end for the icon that sits on it. */
 const UNDER_ICON = HUD.icon - HUD.iconOut + 2;
@@ -246,6 +249,8 @@ const styles = StyleSheet.create({
   dayRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
   dayIcon: { width: 28, height: 28 },
   dayLabel: { color: '#FFE9A8', fontSize: 13, fontWeight: '800', ...textShadow('rgba(10,4,14,0.9)', 1, 0) },
+  weekday: { color: '#C9B3D6', fontSize: 12.5, fontWeight: '800', ...textShadow('rgba(10,4,14,0.9)', 1, 0) },
+  weekend: { color: '#FFB547', fontWeight: '900' },
   dayNumber: { color: '#FFFFFF', fontSize: 19, fontWeight: '900', ...textShadow('rgba(10,4,14,0.9)', 2, 0) },
   track: { position: 'absolute', left: 14, right: 14, bottom: 3, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.16)', overflow: 'hidden' },
   trackFill: { height: '100%', borderRadius: 2, backgroundColor: '#FFB547' },

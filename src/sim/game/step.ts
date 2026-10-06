@@ -23,6 +23,7 @@ import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
 import { updateBus } from './bus';
+import { isWeekend } from '../calendar';
 import { CITIES } from '../../data/franchise';
 
 function tickTimers(c: CharacterView, dt: number): void {
@@ -133,6 +134,11 @@ function dynamicProps(s: GameState): PropView[] {
   // off toward the stop, `progress` = when it pulls away, 0 = not yet). Nothing walks on the road,
   // so it is drawn over the sidewalk behind it.
   if (s.bus) out.push(prop(SYNTH - 51, PropKind.Bus, s.bus.x, s.bus.y, { since: s.bus.arrive, progress: s.bus.leave < Infinity ? s.bus.leave : 0, active: s.bus.aboard > 0, depthBias: 2 }));
+  // The weekend: flags along the front of the restaurant.
+  if (isWeekend(s.day)) {
+    const b = s.map.building;
+    for (let x = b.x0 + 0.5, i = 0; x < b.x1; x++, i++) out.push(prop(SYNTH - 300 - i, PropKind.Bunting, x, b.y1, { variant: i % 2, depthBias: 0.6 }));
+  }
   // Festival trophies won, on show by the door.
   s.festival.trophies.forEach((theme, i) => {
     const p = s.map.trophySpots[i];

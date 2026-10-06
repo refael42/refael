@@ -59,6 +59,8 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['cash', true];
     case Ev.FestivalStart:
       return ['fanfare', true];
+    case Ev.Weekend:
+      return ['sparkle', false];
     case Ev.FestivalStep:
       return ['sparkle', true];
     case Ev.Bus:

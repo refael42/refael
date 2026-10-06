@@ -38,10 +38,12 @@ export const festivalBonus = (s: GameState): number => 1 + FESTIVAL.trophyBonus 
 export function syncFestival(s: GameState, now: number): void {
   const id = festivalAt(now);
   if (id <= s.festival.id) return;
+  const first = s.festival.id < 0;
   let paid = 0;
-  if (s.festival.id >= 0) while (claimFestival(s)) paid += 1;
+  if (!first) while (claimFestival(s)) paid += 1;
   s.festival = { id, points: 0, claimed: 0, trophies: s.festival.trophies };
-  emit(s, Ev.FestivalStart, 0, 0, themeIndex(id), paid);
+  // The very first clock reading is a new game (or an old save): no news, the chip is enough.
+  if (!first) emit(s, Ev.FestivalStart, 0, 0, themeIndex(id), paid);
 }
 
 /** A guest paid: festival points (`tourist`s bring double). Says when a new step is reached. */

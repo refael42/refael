@@ -1,3 +1,4 @@
+import { isWeekend, weekArrivals } from '../calendar';
 import { TIERS } from '../../data/buildings';
 import { DAY, ROLES, RUSH, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
@@ -184,6 +185,8 @@ export function updateWorkers(s: GameState, dt: number): void {
     s.dayTime -= DAY.seconds;
     s.day += 1;
     payday(s);
+    // The weekend starts: more walk-ins all day (the screen says so).
+    if (isWeekend(s.day) && !isWeekend(s.day - 1)) emit(s, Ev.Weekend, 0, 0, Math.round((weekArrivals(s.day, 0) - 1) * 100));
   }
   // Information cards fade on their own; decisions wait for the manager.
   s.notices = s.notices.filter((n) => n.kind === 'raise' || n.kind === 'trial' || s.time - n.time < 12);

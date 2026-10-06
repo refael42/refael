@@ -32,7 +32,7 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
 
 const RESET_CONFIRM_MS = 4000;
 
-export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => void; onHowTo: () => void; onNames: () => void }) {
+export function SettingsPanel({ onClose, onHowTo, onNames, onStats }: { onClose: () => void; onHowTo: () => void; onNames: () => void; onStats: () => void }) {
   const t = useT();
   const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, callTestBus, sound, music, haptics, toggle } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
@@ -92,6 +92,10 @@ export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => vo
                 </Pressable>
               </View>
             )}
+            <Pressable accessibilityRole="button" onPress={onStats} style={styles.row}>
+              <Text style={styles.rowLabel}>{t('set.stats')}</Text>
+              <Text style={styles.chevron}>{'📊'}</Text>
+            </Pressable>
             <Pressable accessibilityRole="button" onPress={onHowTo} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.howTo')}</Text>
               <Text style={styles.chevron}>{'?'}</Text>
