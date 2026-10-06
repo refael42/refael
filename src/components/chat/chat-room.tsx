@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { analyzeMessageAction } from "@/app/actions/ai";
 import { markReadAction, sendMessageAction } from "@/app/actions/chat";
 import { ReportDoneButton } from "@/components/completion/report-done-button";
 import type { TaskFormOptions } from "@/components/tasks/task-form-dialog";
@@ -91,6 +92,9 @@ export function ChatRoom({
       return false;
     }
     router.refresh();
+    // AI parsing runs after the send so the message shows up immediately;
+    // the suggestion card appears when it finishes (live refresh).
+    if (temp.kind === "text") void analyzeMessageAction(res.data.id).then(() => router.refresh());
     return true;
   }
 

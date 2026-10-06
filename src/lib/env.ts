@@ -20,7 +20,7 @@ export const serverEnv = {
     return process.env.ANTHROPIC_API_KEY ?? "";
   },
   get anthropicModel() {
-    return process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5-5";
+    return process.env.ANTHROPIC_MODEL ?? "claude-opus-5-5";
   },
   get cronSecret() {
     return process.env.CRON_SECRET ?? "";
