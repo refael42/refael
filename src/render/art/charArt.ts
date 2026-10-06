@@ -397,6 +397,17 @@ const clipboard = sprite([-8, -14, 8, 4], (c) => {
   box(c, { x: 0, y: 0, z: 9.6, w: 0.04, d: 0.06, h: 1.8, color: '#C9D1D9' });
 });
 
+/** The promoter's flyers: a little fan of bright sheets, the top one with the restaurant's burger. */
+const flyers = sprite([-9, -16, 9, 4], (c) => {
+  const sheets: [number, string][] = [[-0.035, '#47B2BE'], [0, '#F38DB3'], [0.035, '#FFFDF4']];
+  sheets.forEach(([dy, color], i) => {
+    box(c, { x: 0, y: dy, z: i * 0.6, w: 0.02, d: 0.11, h: 12, color });
+  });
+  onFaceX(c, 0.012, 0.09, () => rectIn(c, 0.015, 7, 0.08, 3.4, '#E5483B'));
+  onFaceX(c, 0.012, 0.09, () => rectIn(c, 0.03, 4.4, 0.05, 1.6, '#F2C14E'));
+  onFaceX(c, 0.012, 0.09, () => rectIn(c, 0.02, 2, 0.07, 0.8, '#454556'));
+});
+
 const charShadow = sprite([-16, -10, 16, 10], (c) => floorShadow(c, 0, 0, 0.2, 0.34));
 
 export const characterSprites = {
@@ -420,6 +431,6 @@ export const characterSprites = {
   washerF: washer.F, washerB: washer.B,
   sunglasses, glasses, cameraF: camera.F, cameraB: camera.B,
   backpackF: backpack.F, backpackB: backpack.B, backpackStrapsF: backpackStraps.F, backpackStrapsB: backpackStraps.B,
-  trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard,
+  trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard, flyers,
 };
 

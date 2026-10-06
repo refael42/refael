@@ -1,12 +1,12 @@
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import { SERVE_OFFSET, type Point } from '../../data/maps';
-import { KITCHEN, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
+import { KITCHEN, PROMO, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
-import { followPath, setPose } from '../movement';
+import { facingFor, followPath, setPose } from '../movement';
 import { chance } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
-import { dishSpot, emote, route, seatCustomer, startEating, tableFor } from './customers';
+import { dishSpot, emote, route, seatCustomer, startEating, tableFor, walkIn } from './customers';
 import { emit, Ev } from './events';
 import { has, managerOnShift, statFactor, workRate } from './people';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Order, type Person, type Staff, type Table } from './types';
@@ -32,6 +32,8 @@ export function homeOf(s: GameState, st: Staff): Point {
       return s.map.cleanerIdle[st.slot % s.map.cleanerIdle.length]!;
     case 'manager':
       return s.map.managerSpot;
+    case 'promoter':
+      return s.map.promoterSpots[st.slot % s.map.promoterSpots.length]!;
   }
 }
 
@@ -43,10 +45,12 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
   cleaner: Facing.FrontLeft,
   // Looking out over the dining room.
   manager: Facing.FrontRight,
+  // Facing the street.
+  promoter: Facing.FrontLeft,
 };
 
 /** What each job carries when not carrying food or plates. */
-const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard };
+const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard, promoter: Held.Flyers };
 
 /** The first free slot for a job (stoves for cooks, idle spots for the others). */
 export function freeSlot(s: GameState, role: Role, except?: Staff): number {
@@ -423,6 +427,43 @@ function updateHost(s: GameState, st: Staff, dt: number): boolean {
   return true;
 }
 
+// ---------- promoter ----------
+
+/**
+ * The promoter waits on the sidewalk and hands a flyer to each passer-by who comes close; now
+ * and then one of them turns round and walks in (more often for a charming promoter).
+ */
+function updatePromoter(s: GameState, st: Staff, dt: number): boolean {
+  if (!walkTo(s, st, homeOf(s, st), dt)) return true;
+  if (st.leaving) {
+    setPose(st, Pose.Idle);
+    return false;
+  }
+  st.jobTime = Math.min(PROMO.everySeconds, st.jobTime + dt * workRate(s, st) * statFactor(st.stats.speed));
+  const near = st.jobTime >= PROMO.everySeconds ? s.walkers.find((w) => w.mode === 'pedestrian' && !w.flyer && Math.hypot(w.x - st.x, w.y - st.y) < PROMO.reach) : undefined;
+  if (!near) {
+    // Arm up for a moment after a flyer, then waiting with the stack, looking out at the street.
+    if (st.pose !== Pose.Cheer || st.poseTime > 0.6) {
+      setPose(st, Pose.Idle);
+      st.facing = HOME_FACING.promoter;
+    }
+    return false;
+  }
+  st.jobTime = 0;
+  near.flyer = true;
+  st.facing = facingFor(near.x - st.x, near.y - st.y, st.facing);
+  setPose(st, Pose.Cheer);
+  gainXp(s, st);
+  const comes = chance(s.rng, PROMO.walkIn * statFactor(st.stats.charm)) ? walkIn(s, near, near.look) : null;
+  emit(s, Ev.Flyer, st.x, st.y, near.x, near.y, comes ? 1 : 0);
+  if (comes) {
+    emote(comes, Emote.Heart);
+    // The passer-by is the new customer now: they leave the street (a new stroller takes their place).
+    near.path = [];
+  } else emote(near, Emote.Exclaim);
+  return true;
+}
+
 // ---------- tables & dishwashing ----------
 
 /**
@@ -512,6 +553,7 @@ export function updateStaff(s: GameState, dt: number): void {
       if (busy) washing.add(Math.min(st.slot, s.map.extraSinks.length));
     } else if (st.role === 'host') busy = updateHost(s, st, dt);
     else if (st.role === 'manager') busy = updateManager(s, st, dt);
+    else if (st.role === 'promoter') busy = updatePromoter(s, st, dt);
     else busy = updateRunner(s, st, dt);
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;

@@ -82,6 +82,9 @@ function wanted(s: GameState, role: string): number {
       return tables >= 16 ? 1 + s.map.extraSinks.length : 1;
     case 'host':
       return tables >= 4 ? 1 : 0;
+    case 'promoter':
+      // One once the room is busy, then another for every 20 more tables (the buildings cap them).
+      return tables >= 6 ? 1 + Math.floor((tables - 6) / 20) : 0;
     default:
       return tables >= 6 ? 1 : 0;
   }

@@ -68,6 +68,8 @@ export const Ev = {
   WheelSpin: 34,
   /** The wheel's prize was taken. a = coins, b = gems, c = the segment */
   Wheel: 35,
+  /** A promoter at (x,y) handed a flyer to the passer-by at (a,b); c = 1 if they come in. */
+  Flyer: 36,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

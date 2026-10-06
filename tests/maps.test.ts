@@ -80,6 +80,11 @@ const HAND_MADE: MapDef = {
     { x: 14.1, y: 12.7 },
     { x: 15.0, y: 12.95 },
   ],
+  promoterSpots: [
+    { x: 8.5, y: 12.55 },
+    { x: 3.5, y: 12.55 },
+    { x: 2.5, y: 12.55 },
+  ],
   sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
   washerSpot: { x: 3.55, y: 8 },
   extraSinks: [],

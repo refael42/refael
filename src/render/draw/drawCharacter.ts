@@ -178,7 +178,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
       const sx = lx(viewB, 0.04, -ARM_R);
       const sy = ly(viewB, 0.04, -ARM_R, 10) + up - Math.max(0, Math.sin(t * 7 + phase)) * 4;
       spr(c, A, L.held[held]!, sx, sy, P.plain);
-    } else if (held === Held.Clipboard) {
+    } else if (held === Held.Clipboard || held === Held.Flyers) {
       // Held low against the chest, not in front of the face like a phone.
       spr(c, A, L.held[held]!, hx, hy + 9, P.plain);
     } else {

@@ -350,6 +350,7 @@ export const en = {
   'role.host': 'Host',
   'role.cleaner': 'Cleaner',
   'role.manager': 'Shift manager',
+  'role.promoter': 'Promoter',
   'skill.speed': 'Speed',
   'skill.quality': 'Quality',
   'skill.charm': 'Charm',

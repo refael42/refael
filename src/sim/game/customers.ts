@@ -65,14 +65,31 @@ export function updateArrivals(s: GameState): void {
   if (slot < 0) return; // The line is full: this one walks on by.
   const type = pickType(s);
   const spawn = s.stats.served === 0 && s.customers.length === 0 ? s.map.firstSpawn : pick(s.rng, s.map.spawns);
-  const start = { x: spawn.x, y: spawn.y + range(s.rng, -0.3, 0.3) };
+  arrive(s, type, { x: spawn.x, y: spawn.y + range(s.rng, -0.3, 0.3) }, slot);
+}
+
+/** Someone (and maybe a friend) heads for the line from `start`. */
+function arrive(s: GameState, type: CustomerType, start: Point, slot: number, look?: Customer['look']): Customer {
   // Friends come along only once there are tables for two: the more of them, the more pairs.
   const pairTables = s.tables.filter((t) => t.seats >= 2).length;
   const pair = type.pairs && pairTables > 0 && next(s.rng) < (PARTY.pairChance * pairTables) / s.tables.length;
   const leader = newCustomer(s, type, start, slot, -1, pair ? 2 : 1);
+  if (look) leader.look = { ...look };
   maybeVip(s, leader);
   s.customers.push(leader);
   if (pair) s.customers.push(newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2));
+  return leader;
+}
+
+/**
+ * A passer-by with a flyer decides to come in: they become a customer right where they stand
+ * (same face, same clothes). Not if the line is full or the place is closed for building.
+ */
+export function walkIn(s: GameState, at: Point, look: Customer['look']): Customer | null {
+  if (s.construction) return null;
+  const slot = freeQueueSlot(s);
+  if (slot < 0) return null;
+  return arrive(s, pickType(s), { x: at.x, y: at.y }, slot, look);
 }
 
 /** A newcomer heading for the line; `party` = their leader's id (-1: they lead), `slot` = their place in line. */

@@ -24,6 +24,7 @@
 | M13 | Hooks that bring players back: daily gift streak, VIP guests, presents on the sidewalk (owner: "more professional and addictive") | ✅ Done |
 | M14 | Professional app icon: store icon, Android adaptive layers (+ themed), splash image, favicon | ✅ Done |
 | M15 | Lucky wheel (owner request): free spin every 4 h, a spin per cleared stage, extra spins for gems | ✅ Done |
+| M16 | Owner: "keep growing the map, more stages, more levels, more workers, prettier": two new buildings (resort, galaxy), the promoter, build mode 30x faster | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -61,6 +62,22 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M16 (owner: "keep growing the map: more stages, more levels, more workers, prettier"):
+  **two new buildings** after the empire: the **culinary resort** (44x20, a sea-glass mosaic
+  floor with a white wave border, sand and coral rugs) and the **taste galaxy** (50x22, a
+  night-blue carpet with golden stars). Both deeper again: up to 7 stoves, a third sink, room
+  for 15 waiters and 8 cleaners. Their prices are set by hand (`costs` on the building row): on the 30x
+  curve the resort came at 295 min and the galaxy not within 5 hours; now the resort comes at
+  ~190 min on a first run, ~108 / ~95 min with 4 / 8 trophies, the galaxy ~188 / ~139 min with
+  4 / 8 trophies (branches are the way to the top). Quests ask for them at stages 17 and 21.
+  Restaurant levels and quest stages were already endless. **A new worker, the promoter**
+  (from the bistro: 1, then 2 and 3 in the big buildings): stands on the sidewalk in a yellow
+  tee with a cap, hands a flyer to each passer-by once (a paper flutters over), and ~30% of
+  them (more with charm) turn and walk in as customers, keeping their look. The bot hires one
+  at ~37 min. **Build mode is 30x faster** on the big maps: one cut tree (articulation points
+  over straight steps, which connect exactly the tiles 8-way paths do) answers "does closing
+  this tile cut anything off?" for every tile at once (galaxy: 67 ms -> 2 ms per check); a
+  test checks it against the full search on every tile of every building.
 - Done in M15 (owner: "a cool wheel of fortune"): **the lucky wheel** (🎡 by the stage button,
   with a FREE tag or the time left). 8 prizes: 5/15/30/60 minutes of income in coins, 5 or 15
   gems, x2 income for 10 minutes, and a jackpot (2 hours of income + 25 gems, 3%). A free spin

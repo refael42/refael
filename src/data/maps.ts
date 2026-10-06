@@ -78,6 +78,8 @@ export interface MapDef {
   cleanerIdle: Point[];
   /** Job applicants wait here outside the door with their CV. */
   applicantSpots: Point[];
+  /** Promoters hand out flyers here on the sidewalk, either side of the door. */
+  promoterSpots: Point[];
   sink: Furniture;
   washerSpot: Point;
   /** More dishwashing lines in the bigger kitchens: a sink and where its washer stands. All wash the same pile. */
@@ -239,6 +241,12 @@ function buildMap(tier: number): MapDef {
     applicantSpots: [
       { x: x1 + 0.1, y: y1 + 0.7 },
       { x: x1 + 1, y: y1 + 0.95 },
+    ],
+    // On the sidewalk's back half (people walk past in front), away from the door and the line.
+    promoterSpots: [
+      { x: door - 4, y: y1 + 0.55 },
+      { x: Math.max(1.5, door - 9), y: y1 + 0.55 },
+      { x: Math.max(2.5, door - 14), y: y1 + 0.55 },
     ],
     sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
     washerSpot: { x: 3.55, y: 8 },

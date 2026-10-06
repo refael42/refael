@@ -232,6 +232,8 @@ export interface Walker extends CharacterView {
   path: Point[];
   speed: number;
   pause: number;
+  /** A promoter gave them a flyer already (one each). */
+  flyer?: boolean;
 }
 
 /** A review a customer wrote about the restaurant (newest last). */

@@ -352,6 +352,7 @@ export const he: Record<TKey, string> = {
   'role.host': 'מארח/ת',
   'role.cleaner': 'מנקה',
   'role.manager': 'אחמ"ש',
+  'role.promoter': 'יחצ״ן/ית',
   'skill.speed': 'מהירות',
   'skill.quality': 'איכות',
   'skill.charm': 'קסם אישי',

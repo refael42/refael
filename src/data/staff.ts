@@ -4,8 +4,8 @@ import { LOOKS } from './scenes';
 // Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
 // everyone else is hired from applicants who show up at the door.
 
-export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager';
-export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager'];
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter'];
 
 export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
 export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
@@ -37,7 +37,22 @@ export const ROLES: Record<Role, RoleDef> = {
   host: { role: 'host', walkSpeed: 1.5, look: LOOKS.host, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 3, primary: ['charm', 'speed'] },
   cleaner: { role: 'cleaner', walkSpeed: 1.6, look: LOOKS.cleaner, wageDishes: 2, cap: 2, weight: 2, minTeam: 3, primary: ['speed', 'stamina'] },
   manager: { role: 'manager', walkSpeed: 1.7, look: LOOKS.manager, wageDishes: 5, cap: 1, weight: 2, minTeam: 5, needs: { waiter: 2 }, primary: ['charm', 'stamina'] },
+  // No place for one at the first diner: the bigger buildings each add some (src/data/buildings.ts).
+  promoter: { role: 'promoter', walkSpeed: 1.6, look: LOOKS.promoter, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 4, primary: ['charm', 'speed'] },
 };
+
+/**
+ * The promoter (owner request: "more workers") works the sidewalk: a flyer for whoever walks
+ * by, and now and then one of them turns round and comes in to eat.
+ */
+export const PROMO = {
+  /** A flyer every this many seconds (at speed 5)... */
+  everySeconds: 3.5,
+  /** ...to a passer-by this close (tiles), each one once. */
+  reach: 2.8,
+  /** The chance they come in (at charm 5; charm moves it like every stat). */
+  walkIn: 0.3,
+} as const;
 
 /**
  * The shift manager (owner request) runs the waiters from the end of the pass: calls out ready
