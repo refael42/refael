@@ -28,7 +28,7 @@ export type ConversationType = "direct" | "group";
 export type MessageKind = "text" | "image" | "voice" | "file" | "system";
 export type AiStatus = "none" | "suggested" | "accepted" | "dismissed";
 export type ReportStatus = "pending" | "approved" | "rejected";
-export type ReminderKind = "check" | "overdue" | "no_response" | "escalation" | "critical_blocker";
+export type ReminderKind = "check" | "overdue" | "no_response" | "escalation" | "critical_blocker" | "digest";
 export type ReminderStatus = "pending" | "sent" | "resolved" | "dismissed";
 export type ChangeSource = "manual" | "chat" | "ai" | "system";
 
@@ -205,7 +205,7 @@ export interface Message {
 }
 
 export interface MessageMeta {
-  action?: "request_photo" | "task_released" | "follow_up" | "report_rejected";
+  action?: "request_photo" | "task_released" | "follow_up" | "report_rejected" | "digest";
   task_id?: UUID;
   [key: string]: unknown;
 }

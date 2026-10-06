@@ -44,6 +44,12 @@ export function localDate(d: Date = new Date()): string {
   return `${p.year}-${p.month}-${p.day}`;
 }
 
+/** Hour of day (0–23) in the project timezone. */
+export function localHour(d: Date = new Date()): number {
+  const h = fmt({ hour: "2-digit", hourCycle: "h23" }).formatToParts(d).find((x) => x.type === "hour")?.value ?? "0";
+  return Number(h);
+}
+
 /** Calendar day key in the project timezone. */
 export function dayKey(d: string | Date): string {
   const p = parts(asDate(d));

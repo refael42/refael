@@ -14,9 +14,9 @@ import { analyze } from "../engine";
 import type { Store } from "../db/store";
 import type { ReminderKind, Task } from "../db/types";
 import { serverEnv } from "../env";
-import { localDate } from "../i18n";
+import { localDate, localHour } from "../i18n";
 import { he } from "../i18n/he";
-import { directConversation, projectPMs } from "./messaging";
+import { directConversation, messageContractor, projectPMs } from "./messaging";
 import { notify } from "./notify";
 import { releaseReady } from "./release";
 import { areaLabel, loadSnapshot, toEngineInput } from "./snapshot";
@@ -199,10 +199,63 @@ async function tickProject(store: Store, projectId: string, now: Date, windowMin
     }
   }
 
-  // 6. drying / lag elapsed since the last window → release
+  // 6. morning digest (once per person per local day, from DIGEST_HOUR)
+  if (localHour(now) >= serverEnv.digestHour) count += await sendDigests(store, snap, pms, today, now);
+
+  // 7. drying / lag elapsed since the last window → release
   const since = new Date(now.getTime() - windowMinutes * 60_000);
   const beforeAnalysis = analyze(toEngineInput(snap.tasks, snap.dependencies, snap.blockers, since));
   const released = await releaseReady(store, projectId, { actor: null, source: "system", now, beforeAnalysis });
 
   return { reminders: count, released: released.length };
+}
+
+/**
+ * "What can I do today": each contractor with open work gets a chat message
+ * listing his ready / in-progress tasks; each PM gets a one-line summary.
+ */
+async function sendDigests(store: Store, snap: Awaited<ReturnType<typeof loadSnapshot>>, pms: string[], today: string, now: Date) {
+  const projectId = snap.project.id;
+  const a = snap.analysis;
+  let n = 0;
+  for (const c of snap.contractors) {
+    if (!c.profile_id || !snap.members.some((m) => m.profile_id === c.profile_id && m.role === "contractor")) continue;
+    const mine = snap.tasks.filter((x) => x.contractor_id === c.id && x.status !== "done");
+    const ready = mine.filter((x) => a.byTask[x.id].effective === "ready").map((x) => x.title);
+    const inProgress = mine.filter((x) => a.byTask[x.id].effective === "in_progress").map((x) => x.title);
+    if (!ready.length && !inProgress.length) continue;
+    if (!(await remind(store, { projectId, kind: "digest", dedupeKey: `digest:${projectId}:${c.profile_id}:${today}`, target: c.profile_id, now }))) continue;
+    n++;
+    const waiting = mine.filter((x) => a.byTask[x.id].effective === "blocked").length;
+    await messageContractor(store, projectId, c.id, he.sys.digest(c.name, ready.slice(0, 8), inProgress.slice(0, 8), waiting), { action: "digest" });
+    await notify(store, [
+      {
+        profileId: c.profile_id,
+        projectId,
+        kind: "digest",
+        title: he.notify.digestTitle,
+        body: he.notify.contractorDigestBody(ready.length, inProgress.length),
+        link: "/my",
+      },
+    ]);
+  }
+  const overdue = snap.tasks.filter(
+    (x) => x.status !== "done" && x.planned_end && x.planned_end < today && ["ready", "in_progress"].includes(a.byTask[x.id].effective),
+  ).length;
+  const openBlockers = snap.blockers.filter((b) => b.status === "open").length;
+  for (const pm of pms) {
+    if (!(await remind(store, { projectId, kind: "digest", dedupeKey: `digest:${projectId}:${pm}:${today}`, target: pm, now }))) continue;
+    n++;
+    await notify(store, [
+      {
+        profileId: pm,
+        projectId,
+        kind: "digest",
+        title: he.notify.digestTitle,
+        body: he.notify.pmDigest(a.readyIds.length, a.awaitingIds.length, openBlockers, overdue),
+        link: "/",
+      },
+    ]);
+  }
+  return n;
 }

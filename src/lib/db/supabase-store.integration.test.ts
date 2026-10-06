@@ -140,6 +140,15 @@ describe.skipIf(!ENABLED)("SupabaseStore against Postgres + PostgREST", () => {
     expect(notes.some((n) => n.kind === "released")).toBe(true);
   });
 
+  it("runs the reminders tick (checks, overdue, no-response, digest) idempotently", async () => {
+    const { runTick } = await import("../services/reminders");
+    const first = await runTick(store, NOW);
+    expect(first.reminders).toBeGreaterThan(5);
+    const kinds = new Set((await store.select("reminders")).map((r) => r.kind));
+    expect([...kinds]).toEqual(expect.arrayContaining(["check", "overdue", "no_response", "digest"]));
+    expect((await runTick(store, new Date(NOW.getTime() + 60_000))).reminders).toBe(0);
+  });
+
   it("RLS: a contractor's JWT only sees and changes his own data", async () => {
     const authId = "11111111-1111-1111-1111-111111111111";
     psql(`insert into auth.users(id, phone) values ('${authId}', '972501110002')`); // Shor → linked by trigger

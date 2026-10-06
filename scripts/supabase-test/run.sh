@@ -14,7 +14,8 @@ PROXY_PORT=${PROXY_PORT:-3902}
 
 $PSQL -v ON_ERROR_STOP=1 -q -d postgres -c "drop database if exists $DB" -c "create database $DB"
 $PSQL -v ON_ERROR_STOP=1 -q -d "$DB" -f scripts/supabase-test/stub.sql
-for f in supabase/migrations/*_schema.sql supabase/migrations/*_rls_auth_realtime.sql; do
+# every migration in order, except pg_cron scheduling (extension not available on plain Postgres)
+for f in $(ls supabase/migrations/*.sql | grep -v _cron); do
   $PSQL -v ON_ERROR_STOP=1 -q -d "$DB" -f "$f" 2>&1 | grep -v -E "NOTICE|WARNING|HINT" || true
 done
 $PSQL -v ON_ERROR_STOP=1 -q -d "$DB" -f scripts/supabase-test/grants.sql

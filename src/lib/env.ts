@@ -34,6 +34,10 @@ export const serverEnv = {
   get vapidSubject() {
     return process.env.VAPID_SUBJECT ?? "mailto:admin@siteflow.local";
   },
+  /** Local hour (project timezone) from which the morning digest is sent. */
+  get digestHour() {
+    return Number(process.env.DIGEST_HOUR ?? 7);
+  },
   /** Hours without a reply before a "no response" reminder fires. */
   get noResponseHours() {
     return Number(process.env.NO_RESPONSE_HOURS ?? 6);

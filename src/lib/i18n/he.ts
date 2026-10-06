@@ -365,6 +365,16 @@ export const he = {
     taskAssigned: (task: string) => `📌 משימה חדשה עבורך: "${task}"`,
     followUp: (task: string) => `היי, מה המצב עם "${task}"? אשמח לעדכון ותמונה אם הסתיים.`,
     noResponseFollowUp: "היי, ראית את ההודעה הקודמת? אשמח לתשובה.",
+    digest: (name: string, ready: string[], inProgress: string[], waiting: number) =>
+      [
+        `☀️ בוקר טוב ${name}!`,
+        ready.length ? `אפשר לבצע היום:\n${ready.map((x) => `• ${x}`).join("\n")}` : "",
+        inProgress.length ? `בביצוע אצלך:\n${inProgress.map((x) => `• ${x}`).join("\n")}` : "",
+        waiting ? `${waiting} משימות נוספות ממתינות לאחרים – אעדכן כשישתחררו.` : "",
+        "בסיום עבודה – לחץ ״בוצע + תמונה״.",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
   },
 
   notify: {
@@ -396,6 +406,10 @@ export const he = {
     approvedTitle: "הביצוע אושר",
     rejectedTitle: "הביצוע הוחזר לתיקון",
     assignedTitle: "משימה חדשה",
+    digestTitle: "סיכום בוקר",
+    pmDigest: (ready: number, approvals: number, blockers: number, overdue: number) =>
+      `${ready} משימות מוכנות לביצוע · ${approvals} ממתינות לאישורך · ${blockers} חסמים חיצוניים פתוחים · ${overdue} באיחור`,
+    contractorDigestBody: (ready: number, inProgress: number) => `היום: ${ready} מוכנות לביצוע, ${inProgress} בביצוע`,
   },
 
   plans: {

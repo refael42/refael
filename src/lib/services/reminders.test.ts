@@ -45,3 +45,19 @@ describe("reminders tick", () => {
     expect(esc.every((n) => n.urgent)).toBe(true);
   });
 });
+
+describe("morning digest", () => {
+  it("sends each contractor his day once, only after the digest hour (Israel time)", async () => {
+    const store = demoStore();
+    await runTick(store, new Date("2026-10-05T03:00:00Z")); // 06:00 in Israel
+    expect(store.data.reminders.filter((r) => r.kind === "digest")).toHaveLength(0);
+    await runTick(store, new Date("2026-10-05T04:30:00Z")); // 07:30
+    const nik = store.data.messages.find((m) => m.meta?.action === "digest" && m.text?.includes("ניקולאי"));
+    expect(nik?.text).toContain("סגירת קירות ותקרות גבס – דירה 10");
+    const pmDigest = store.data.notifications.find((n) => n.kind === "digest" && n.profile_id === DEMO_IDS.pm);
+    expect(pmDigest?.body).toMatch(/מוכנות לביצוע/);
+    const count = store.data.reminders.filter((r) => r.kind === "digest").length;
+    await runTick(store, new Date("2026-10-05T09:00:00Z"));
+    expect(store.data.reminders.filter((r) => r.kind === "digest")).toHaveLength(count);
+  });
+});
