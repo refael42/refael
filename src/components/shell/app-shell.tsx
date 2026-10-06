@@ -13,6 +13,7 @@ import {
   Menu,
   MessageCircle,
   Network,
+  Settings,
   Settings2,
   Sparkles,
   type LucideIcon,
@@ -48,6 +49,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   gantt: CalendarRange,
   templates: Settings2,
   notifications: Bell,
+  settings: Settings,
 };
 
 export interface ShellProps {

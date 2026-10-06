@@ -63,3 +63,34 @@ export async function createBlockerAction(
 export async function setBlockerStatusAction(id: string, status: ExternalBlocker["status"]) {
   return run(async (ctx) => (await svc.setBlockerStatus(ctx, id, status)).released.length);
 }
+
+/** One task per area: "<title> – <area name>" (same trade, contractor and dates). */
+export async function bulkCreateTasksAction(input: {
+  title: string;
+  areaIds: string[];
+  trade_id?: string | null;
+  contractor_id?: string | null;
+  planned_start?: string | null;
+  planned_end?: string | null;
+}) {
+  return run(async (ctx) => {
+    if (!input.title.trim() || !input.areaIds.length || input.areaIds.length > 100) throw new svc.ServiceError("invalid");
+    const areas = await ctx.store.select("areas", { where: { id: { in: input.areaIds }, project_id: ctx.s.project.id } });
+    const byId = new Map(areas.map((a) => [a.id, a]));
+    const r = await svc.createTasks(
+      ctx,
+      input.areaIds
+        .filter((id) => byId.has(id))
+        .map((id) => ({
+          title: `${input.title.trim()} – ${byId.get(id)!.name}`,
+          area_id: id,
+          trade_id: input.trade_id ?? null,
+          contractor_id: input.contractor_id ?? null,
+          planned_start: input.planned_start ?? null,
+          planned_end: input.planned_end ?? null,
+        })),
+      { source: "manual" },
+    );
+    return { count: r.tasks.length, suggestions: r.suggestions, labels: await svc.suggestionLabels(ctx, r.suggestions) };
+  });
+}
