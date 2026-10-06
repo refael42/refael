@@ -77,9 +77,11 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Fountain]: 36,
   [PropKind.Piano]: 36,
   [PropKind.SaleSign]: 40,
+  [PropKind.LockSign]: 40,
 };
 
-const ANCHORS: readonly PropKind[] = [...new Set(UPGRADES.map((u) => u.anchor))];
+/** Stations with upgrades, and the padlocks on land for later (they open the building upgrades). */
+const ANCHORS: readonly PropKind[] = [...new Set([...UPGRADES.map((u) => u.anchor), PropKind.LockSign])];
 
 /** Every station that has upgrades, wherever it stands right now. */
 export function stationTargets(s: GameState): StationTarget[] {

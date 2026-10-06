@@ -3,6 +3,11 @@ import { CHAIR_OFFSET, mapForTier, STAND_MAP } from '../src/data/maps';
 import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 const grid = buildGrid(STAND_MAP);
+const street = STAND_MAP.areas.find((a) => a.floor === 'sidewalk')!;
+const SIDEWALK = { x: 8.5, y: street.y0 + 0.5 };
+const ROAD = { x: 8.5, y: street.y0 + 3.5 };
+/** The old tests' points, moved with the diner into the world. */
+const at = (x: number, y: number) => ({ x: x + STAND_MAP.building.x0 - 2, y: y + STAND_MAP.building.y0 - 2 });
 
 function pathLength(from: { x: number; y: number }, path: { x: number; y: number }[]) {
   let len = 0;
@@ -18,9 +23,9 @@ describe('walkability grid', () => {
   it('blocks furniture and the outside lawn, opens floors and the sidewalk', () => {
     expect(isWalkable(grid, STAND_MAP.tables[0]!)).toBe(false);
     expect(isWalkable(grid, STAND_MAP.stoves[0]!.stove)).toBe(false);
-    expect(isWalkable(grid, { x: 10.5, y: 10.5 })).toBe(true);
-    expect(isWalkable(grid, { x: 8.5, y: 12.5 })).toBe(true);
-    expect(isWalkable(grid, { x: 8.5, y: 15.5 })).toBe(false);
+    expect(isWalkable(grid, { x: STAND_MAP.kitchenX + 4.5, y: STAND_MAP.building.y0 + 8.5 })).toBe(true);
+    expect(isWalkable(grid, SIDEWALK)).toBe(true);
+    expect(isWalkable(grid, ROAD)).toBe(false);
   });
 });
 
@@ -43,8 +48,8 @@ describe('A* pathfinding', () => {
   });
 
   it('never routes through a table', () => {
-    const path = findPath(grid, { x: 7.5, y: 6.5 }, { x: 10.5, y: 3.5 })!;
-    let prev = { x: 7.5, y: 6.5 };
+    const path = findPath(grid, at(7.5, 6.5), at(10.5, 3.5))!;
+    let prev = at(7.5, 6.5);
     for (const p of path) {
       for (let i = 0; i <= 20; i++) {
         const x = prev.x + ((p.x - prev.x) * i) / 20;
@@ -57,7 +62,7 @@ describe('A* pathfinding', () => {
   });
 
   it('returns null when the goal is unreachable', () => {
-    expect(findPath(grid, { x: 8.5, y: 12.5 }, { x: 8.5, y: 15.5 })).toBeNull();
+    expect(findPath(grid, SIDEWALK, ROAD)).toBeNull();
   });
 });
 

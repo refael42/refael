@@ -1,5 +1,5 @@
 import { PropKind as K, type PropKind } from '../sim/types';
-import { TIERS, type DiningFloor } from './buildings';
+import { TIERS, type DiningFloor, type Grow } from './buildings';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -9,7 +9,8 @@ export interface Point {
   y: number;
 }
 
-export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | DiningFloor;
+/** `lot`: the next building's land (for sale); `locked`: land of later buildings; `path`: the way from the street to the door. */
+export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | 'locked' | 'path' | DiningFloor;
 
 /** A floor rectangle [x0, x1) x [y0, y1), painted in order. */
 export interface Area {
@@ -45,11 +46,17 @@ export interface MapDef {
   areas: Area[];
   /** Interior rectangle; back walls run along its x0 (left wall) and y0 (right wall) edges. */
   building: { x0: number; y0: number; x1: number; y1: number };
+  /** Where the kitchen ends and the dining room begins (the same line in every building). */
+  kitchenX: number;
+  /** Where the camera looks when this building opens. */
+  focus: { x: number; y: number; zoom: number };
   wallHeight: number;
   /** Interior tiles on the building edge that open to the outside tile next to them. */
   doors: { inside: Point; outside: Point }[];
-  /** Pedestrians and customers appear/vanish at these sidewalk ends. */
+  /** Customers (and applicants) come from and go back to these points on the sidewalk. */
   spawns: Point[];
+  /** Strollers walk the whole street, end to end. */
+  streetEnds: Point[];
   /** The very first customer is already strolling by the door: no empty first half-minute. */
   firstSpawn: Point;
   /** Line spots, front first (tile centers). */
@@ -115,74 +122,139 @@ export const BACKREST_SHIFT = 0.2;
 
 
 // ---------- the generator ----------
-// Every tier shares the kitchen strip (x 2..6) and starts at the back wall (y 2). The dining
-// room reaches TIERS[t].width, and the lot for the next tier lies right of it; from the grand
-// restaurant on the building also grows toward the street (TIERS[t].depth), the street moves
-// down, and the kitchen gets more stoves and a longer pass. Tier 0 reproduces the original
-// hand-tuned diner exactly (a test checks it), so later tiers only ADD space.
+// One world for every building (owner request: "every area of the map shows, locked until it
+// is paid for, and it grows in every direction, not only to the right"). The last building is
+// the whole site; each smaller one sits inside it and grows by TIERS[t].grow on each side:
+// right (the dining room), back (more rows behind), front (into the front yard) and left (a
+// wider kitchen with more lines of stoves). The street stays where the last building's front
+// will be, so a small restaurant has a front yard and a path to its door. Everything inside is
+// placed from the room's own edges, so the first diner is laid out exactly as it always was,
+// only further into the world (a test checks it), and a later building only ADDS space.
 
-const Y0 = 2;
-/** The original front wall: deeper buildings than this get the bigger kitchen. */
-const BASE_DEPTH = 12;
+type Rect = { x0: number; y0: number; x1: number; y1: number };
+
+/** The first diner: a kitchen 4 tiles wide, a dining room of 8, 10 rows deep. */
+const BASE = { kitchen: 4, dining: 8, depth: 10 } as const;
+/** Grass around the whole site, left and behind. */
+const MARGIN = 2;
 /** Sidewalk (2 tiles), road (3) and a strip of grass in front of the building. */
 const STREET = 6;
-/** Tables come in blocks of two columns, three tiles apart; the first block starts here. */
-const FIRST_TABLE_COLUMN = 8.5;
+/** Tables come in blocks of two columns, three tiles apart; the first block starts this far into the room. */
+const FIRST_TABLE_COLUMN = 2.5;
 const BLOCK = 6;
-/** Opening order inside a block: spread out first, so a few tables already fill the room. */
-const BLOCK_ORDER: readonly [number, number][] = [[0, 4.5], [1, 4.5], [0, 8.5], [1, 8.5], [0, 6.5], [1, 6.5], [0, 10.5]];
-/** Trees behind the building line, left to right; those behind a wall go into the backdrop. */
-const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0], [43.5, 0.9, 1], [47.5, 1.1, 0], [51, 1, 1]];
-/** Stove rows on the kitchen's back wall in a deep building (the sink keeps y 8). */
-const DEEP_STOVES: readonly number[] = [4, 6, 10, 12, 14, 16, 18];
-/** A third dishwashing line once the kitchen is this deep (the second one is at y 11). */
-const THIRD_SINK_DEPTH = 20;
+/** Opening order inside a block (rows from the back wall): spread out first, so a few tables already fill the room. */
+const BLOCK_ORDER: readonly [number, number][] = [[0, 2.5], [1, 2.5], [0, 6.5], [1, 6.5], [0, 4.5], [1, 4.5], [0, 8.5]];
+/** Trees behind the whole site, left to right; those behind a wall go into the backdrop. */
+const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0], [43.5, 0.9, 1], [47.5, 1.1, 0], [51, 1, 1], [54.5, 1, 0]];
+/** Stove rows (from the back wall) in a deep kitchen; the sink keeps row 6. */
+const DEEP_STOVE_ROWS: readonly number[] = [2, 4, 8, 10, 12, 14, 16, 18];
+/** Stoves at most per building: the bigger kitchens have lines of them (owner: "a bigger kitchen"). */
+const STOVE_CAP: readonly number[] = [2, 2, 3, 6, 8, 12, 14];
+/** A third dishwashing line once the kitchen is this deep (the second one is at row 9). */
+const THIRD_SINK_DEPTH = 18;
 
-/** Every table spot of a room this size, block by block. */
-function roomSpots(width: number, depth: number): Point[] {
-  const deep = depth > BASE_DEPTH;
-  // A deeper room adds rows toward the street, keeping the front row free as the aisle.
-  const extra: [number, number][] = deep ? [[1, 10.5]] : [];
-  for (let y = 12.5; deep && y <= depth - 1.5; y += 2) extra.push([0, y], [1, y]);
+const LAST = TIERS.length - 1;
+const grown = (side: keyof Grow, tier: number) => TIERS.slice(1, tier + 1).reduce((sum, t) => sum + t.grow[side], 0);
+/** The first diner's corner in the world: room left of it and behind it for the buildings to come. */
+const DINER_X0 = MARGIN + grown('left', LAST);
+const DINER_Y0 = MARGIN + grown('back', LAST);
+/** Where the kitchen ends and the dining room starts, in every building. */
+const KITCHEN_X = DINER_X0 + BASE.kitchen;
+/** The front of the last building: the sidewalk starts here. */
+const STREET_Y = DINER_Y0 + BASE.depth + grown('front', LAST);
+
+/** The building of tier `t` in world tiles. */
+export function tierRect(t: number): Rect {
+  return {
+    x0: DINER_X0 - grown('left', t),
+    y0: DINER_Y0 - grown('back', t),
+    x1: KITCHEN_X + BASE.dining + grown('right', t),
+    y1: DINER_Y0 + BASE.depth + grown('front', t),
+  };
+}
+
+const WORLD = { width: tierRect(LAST).x1 + MARGIN, height: STREET_Y + STREET };
+
+/** How far the first diner sits from where it used to (the corner of the old maps): old saves move by this. */
+export const WORLD_SHIFT: Point = { x: DINER_X0 - 2, y: DINER_Y0 - 2 };
+
+/** `outer` minus `inner` (inside it), as up to four rectangles: behind, in front, left, right. */
+function ring(outer: Rect, inner: Rect): Rect[] {
+  const out: Rect[] = [
+    { x0: outer.x0, y0: outer.y0, x1: outer.x1, y1: inner.y0 },
+    { x0: outer.x0, y0: inner.y1, x1: outer.x1, y1: outer.y1 },
+    { x0: outer.x0, y0: inner.y0, x1: inner.x0, y1: inner.y1 },
+    { x0: inner.x1, y0: inner.y0, x1: outer.x1, y1: inner.y1 },
+  ];
+  return out.filter((r) => r.x1 > r.x0 && r.y1 > r.y0);
+}
+
+/** Every table spot of a room, block by block (clear of the door, the line and the host). */
+function roomSpots(r: Rect): Point[] {
+  const depth = r.y1 - r.y0;
+  const deep = depth > BASE.depth;
+  // A deeper room adds rows, keeping the front row free as the aisle.
+  const extra: [number, number][] = deep ? [[1, 8.5]] : [];
+  for (let y = 10.5; deep && y <= depth - 1.5; y += 2) extra.push([0, y], [1, y]);
   const spots: Point[] = [];
-  for (let b = 0; FIRST_TABLE_COLUMN + b * BLOCK + 3 < width - 2; b++) {
-    const c0 = FIRST_TABLE_COLUMN + b * BLOCK;
-    for (const [col, y] of [...BLOCK_ORDER, ...extra]) spots.push({ x: c0 + col * 3, y });
+  for (let b = 0; KITCHEN_X + FIRST_TABLE_COLUMN + b * BLOCK + 3 < r.x1 - 2; b++) {
+    const c0 = KITCHEN_X + FIRST_TABLE_COLUMN + b * BLOCK;
+    for (const [col, y] of [...BLOCK_ORDER, ...extra]) spots.push({ x: c0 + col * 3, y: r.y0 + y });
     // The previous door corner is free now that the door moved on (deep rooms have it already).
-    if (b > 0 && !deep) spots.push({ x: c0 - 3, y: 10.5 });
+    if (b > 0 && !deep) spots.push({ x: c0 - 3, y: r.y0 + 8.5 });
   }
-  return spots;
+  // The corner by the door belongs to the line and the host.
+  return spots.filter((p) => !(p.x > r.x1 - 4 && p.y > r.y1 - 3));
 }
 
 /** A tier's spots: the smaller building's first, in the same order (tables you bought stay put), then the new ones. */
 function tableSpots(tier: number): Point[] {
-  const t = TIERS[tier]!;
-  const all = roomSpots(t.width, t.depth);
+  const all = roomSpots(tierRect(tier));
   if (tier === 0) return all;
   const prev = tableSpots(tier - 1);
   const had = new Set(prev.map((p) => `${p.x},${p.y}`));
   return [...prev, ...all.filter((p) => !had.has(`${p.x},${p.y}`))];
 }
 
+/**
+ * The stoves: a line along the left wall (the original two), and in a kitchen widened to the
+ * left, more lines two tiles apart, each cook standing on its right. The first two are where
+ * they always were; then row by row across every line, so a wide kitchen fills evenly.
+ */
+function stoveSpots(tier: number, r: Rect, deep: boolean, fridgeY: number): MapDef['stoves'] {
+  const rows = deep ? DEEP_STOVE_ROWS.filter((y) => r.y0 + y + 1 <= fridgeY - 0.5) : [2, 4];
+  const lines: number[] = [];
+  for (let x = KITCHEN_X - 3.5; x >= r.x0 + 0.5; x -= 2) lines.push(x);
+  const at = (x: number, y: number) => ({ stove: { kind: K.Stove, x, y: r.y0 + y, w: 1, d: 2, blocks: true }, cook: { x: x + 1.05, y: r.y0 + y } });
+  const out: MapDef['stoves'] = rows.slice(0, 2).map((y) => at(lines[0]!, y));
+  for (const y of rows) for (const x of lines) if (!(x === lines[0] && rows.indexOf(y) < 2)) out.push(at(x, y));
+  return out.slice(0, STOVE_CAP[tier] ?? out.length);
+}
+
 function buildMap(tier: number): MapDef {
   const t = TIERS[tier]!;
-  const next = TIERS[tier + 1];
-  const x1 = t.width;
-  const y1 = t.depth;
-  const deep = y1 > BASE_DEPTH;
-  const width = (next?.width ?? x1) + 2;
-  const height = y1 + STREET;
+  const r = tierRect(tier);
+  const { x1, y1 } = r;
+  const depth = y1 - r.y0;
+  const deep = depth > BASE.depth;
+  const { width, height } = WORLD;
   const door = x1 - 1.5;
-  const blocks = Math.round((x1 - TIERS[0]!.width) / BLOCK);
+  const KX = KITCHEN_X;
+  const blocks = Math.round((x1 - KX - BASE.dining) / BLOCK);
   const behindWall = (x: number) => x < x1 + 1;
   const trees = BACK_TREES.filter(([x]) => x < width - 0.5).map(([x, y, variant]) => ({ kind: K.Tree, x, y, w: 1, d: 1, blocks: false, ...(variant ? { variant } : {}) }));
-  // The kitchen: the original two stoves, or a row of them along the back wall up to the fridge.
-  const fridgeY = deep ? y1 - 1.5 : 10.5;
-  const stoveRows = deep ? DEEP_STOVES.filter((y) => y + 1 <= fridgeY - 0.5) : [4, 6];
+  const fridgeY = deep ? y1 - 1.5 : r.y0 + 8.5;
   // A longer pass in a deep building: five dishes wait at once instead of three.
   const passLength = deep ? 5 : 3;
-  const passY = 3 + passLength / 2;
-  const slots = Array.from({ length: passLength }, (_, i) => 3.5 + i);
+  const slots = Array.from({ length: passLength }, (_, i) => r.y0 + 1.5 + i);
+  // The land of the buildings to come: the next one for sale, the others fenced off and locked.
+  const future = TIERS.slice(tier + 1).flatMap((_, k) => {
+    const u = tier + 1 + k;
+    return ring(tierRect(u), tierRect(u - 1)).map((piece) => ({ piece, tier: u }));
+  });
+  const nextRight = future.find((f) => f.tier === tier + 1 && f.piece.x0 >= x1);
+  // From the sidewalk to the door, while there is a front yard.
+  const path: Area[] = y1 < STREET_Y ? [{ x0: Math.floor(door), y0: y1, x1: Math.floor(door) + 1, y1: STREET_Y, floor: 'path', walkable: true }] : [];
   return {
     id: t.id,
     tier,
@@ -191,19 +263,28 @@ function buildMap(tier: number): MapDef {
     height,
     areas: [
       { x0: 0, y0: 0, x1: width, y1: height, floor: 'grass', walkable: false },
-      ...(next ? [{ x0: x1, y0: 3, x1: next.width + 1, y1: y1 - 1, floor: 'lot' as const, walkable: false }] : []),
-      { x0: 0, y0: y1, x1: width, y1: y1 + 2, floor: 'sidewalk', walkable: true },
-      { x0: 0, y0: y1 + 2, x1: width, y1: y1 + 5, floor: 'road', walkable: false },
-      { x0: 2, y0: Y0, x1: 6, y1, floor: 'kitchen', walkable: true },
-      { x0: 6, y0: Y0, x1, y1, floor: t.dining, walkable: true },
+      ...future.map(({ piece, tier: u }) => ({ ...piece, floor: (u === tier + 1 ? 'lot' : 'locked') as FloorStyle, walkable: false })),
+      { x0: 0, y0: STREET_Y, x1: width, y1: STREET_Y + 2, floor: 'sidewalk', walkable: true },
+      { x0: 0, y0: STREET_Y + 2, x1: width, y1: STREET_Y + 5, floor: 'road', walkable: false },
+      { x0: r.x0, y0: r.y0, x1: KX, y1, floor: 'kitchen', walkable: true },
+      { x0: KX, y0: r.y0, x1, y1, floor: t.dining, walkable: true },
+      ...path,
     ],
-    building: { x0: 2, y0: Y0, x1, y1 },
+    building: { ...r },
+    kitchenX: KX,
+    focus: { x: (r.x0 + x1) / 2 + 0.6, y: (r.y0 + y1) / 2 - 0.6 + (STREET_Y - y1) * 0.25, zoom: t.zoom },
     wallHeight: 64,
     doors: [{ inside: { x: door, y: y1 - 0.5 }, outside: { x: door, y: y1 + 0.5 } }],
-    firstSpawn: { x: door - 3, y: y1 + 0.6 },
+    firstSpawn: { x: door - 3, y: STREET_Y + 0.6 },
+    // Around the corner on either side, as far from the door as the first diner's street ends
+    // were (the street is the whole site now: from its ends the walk took half a minute).
     spawns: [
-      { x: 0.5, y: y1 + 0.5 },
-      { x: width - 0.5, y: y1 + 1.5 },
+      { x: Math.max(0.5, door - 12), y: STREET_Y + 0.5 },
+      { x: Math.min(width - 0.5, door + 9), y: STREET_Y + 1.5 },
+    ],
+    streetEnds: [
+      { x: 0.5, y: STREET_Y + 0.5 },
+      { x: width - 0.5, y: STREET_Y + 1.5 },
     ],
     queue: [
       { x: door, y: y1 - 1.5 },
@@ -213,71 +294,75 @@ function buildMap(tier: number): MapDef {
     ],
     tables: tableSpots(tier),
     startTables: 3,
-    stoves: stoveRows.map((y) => ({ stove: { kind: K.Stove, x: 2.5, y, w: 1, d: 2, blocks: true }, cook: { x: 3.55, y } })),
+    stoves: stoveSpots(tier, r, deep, fridgeY),
     startStoves: 1,
-    pass: { kind: K.Pass, x: 4.5, y: passY, w: 1, d: passLength, blocks: true, ...(deep ? { variant: 1 } : {}) },
-    passSlots: slots.map((y) => ({ x: 4.5, y })),
+    pass: { kind: K.Pass, x: KX - 1.5, y: r.y0 + 1 + passLength / 2, w: 1, d: passLength, blocks: true, ...(deep ? { variant: 1 } : {}) },
+    passSlots: slots.map((y) => ({ x: KX - 1.5, y })),
     passTop: 24,
-    pickupSpots: slots.map((y) => ({ x: 5.5, y })),
+    pickupSpots: slots.map((y) => ({ x: KX - 0.5, y })),
     // Near the pass; bigger buildings employ more waiters, so the line of spots grows.
     waiterIdle: [
-      { x: 6.7, y: 6.3 },
-      { x: 6.7, y: 7.4 },
-      { x: 6.7, y: 5.2 },
-      ...(tier > 0 ? [{ x: 6.7, y: 8.5 }, { x: 6.7, y: 4.1 }] : []),
-      ...(tier > 1 ? [{ x: 6.7, y: 9.6 }, { x: 6.7, y: 3.0 }] : []),
+      { x: KX + 0.7, y: r.y0 + 4.3 },
+      { x: KX + 0.7, y: r.y0 + 5.4 },
+      { x: KX + 0.7, y: r.y0 + 3.2 },
+      ...(tier > 0 ? [{ x: KX + 0.7, y: r.y0 + 6.5 }, { x: KX + 0.7, y: r.y0 + 2.1 }] : []),
+      ...(tier > 1 ? [{ x: KX + 0.7, y: r.y0 + 7.6 }, { x: KX + 0.7, y: r.y0 + 1.0 }] : []),
       // Deeper rooms: on along the kitchen wall toward the street.
-      ...Array.from({ length: deep ? Math.floor((y1 - 13) / 1.1) : 0 }, (_, i) => ({ x: 6.7, y: 10.7 + i * 1.1 })),
+      ...Array.from({ length: deep ? Math.floor((depth - 11) / 1.1) : 0 }, (_, i) => ({ x: KX + 0.7, y: r.y0 + 8.7 + i * 1.1 })),
     ],
     hostSpot: { x: x1 - 2.4, y: y1 - 1.6 },
     // At the end of the pass, where dishes are called out.
-    managerSpot: { x: 5.5, y: deep ? 3 + passLength + 0.6 : 6.6 },
+    managerSpot: { x: KX - 0.5, y: deep ? r.y0 + 1 + passLength + 0.6 : r.y0 + 4.6 },
     cleanerIdle: [
-      { x: 7.3, y: y1 - 0.7 },
-      { x: 10.3, y: y1 - 0.7 },
-      ...Array.from({ length: blocks }, (_, b) => ({ x: 16.3 + b * BLOCK, y: y1 - 0.7 })),
-      ...(tier > 1 ? [{ x: 13.3, y: y1 - 0.7 }] : []),
+      { x: KX + 1.3, y: y1 - 0.7 },
+      { x: KX + 4.3, y: y1 - 0.7 },
+      ...Array.from({ length: blocks }, (_, b) => ({ x: KX + 10.3 + b * BLOCK, y: y1 - 0.7 })),
+      ...(tier > 1 ? [{ x: KX + 7.3, y: y1 - 0.7 }] : []),
     ],
+    // On the sidewalk beside the way in.
     applicantSpots: [
-      { x: x1 + 0.1, y: y1 + 0.7 },
-      { x: x1 + 1, y: y1 + 0.95 },
+      { x: door + 1.6, y: STREET_Y + 0.7 },
+      { x: door + 2.5, y: STREET_Y + 0.95 },
     ],
     // On the sidewalk's back half (people walk past in front), away from the door and the line.
     promoterSpots: [
-      { x: door - 4, y: y1 + 0.55 },
-      { x: Math.max(1.5, door - 9), y: y1 + 0.55 },
-      { x: Math.max(2.5, door - 14), y: y1 + 0.55 },
+      { x: door - 4, y: STREET_Y + 0.55 },
+      { x: Math.max(1.5, door - 9), y: STREET_Y + 0.55 },
+      { x: Math.max(2.5, door - 14), y: STREET_Y + 0.55 },
     ],
-    sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
-    washerSpot: { x: 3.55, y: 8 },
+    sink: { kind: K.Sink, x: KX - 3.5, y: r.y0 + 6, w: 1, d: 2, blocks: true },
+    washerSpot: { x: KX - 2.45, y: r.y0 + 6 },
     // Facing the stoves across the walkway, below the pass.
     extraSinks: [
-      ...(deep ? [{ sink: { kind: K.Sink, x: 4.5, y: 11, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 11 } }] : []),
-      ...(y1 >= THIRD_SINK_DEPTH ? [{ sink: { kind: K.Sink, x: 4.5, y: 14, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 14 } }] : []),
+      ...(deep ? [{ sink: { kind: K.Sink, x: KX - 1.5, y: r.y0 + 9, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: KX - 0.45, y: r.y0 + 9 } }] : []),
+      ...(depth >= THIRD_SINK_DEPTH ? [{ sink: { kind: K.Sink, x: KX - 1.5, y: r.y0 + 12, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: KX - 0.45, y: r.y0 + 12 } }] : []),
     ],
-    dirtyDrop: { x: 3.75, y: 7.25 },
-    cleanStack: { x: 2.5, y: 8.5 },
-    dirtyStack: { x: 2.5, y: 7.5 },
+    dirtyDrop: { x: KX - 2.25, y: r.y0 + 5.25 },
+    cleanStack: { x: KX - 3.5, y: r.y0 + 6.5 },
+    dirtyStack: { x: KX - 3.5, y: r.y0 + 5.5 },
     sinkTop: 22,
-    ticketRail: { x: 4.1, y0: 3.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
+    ticketRail: { x: KX - 1.9, y0: r.y0 + 1.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
     decor: [
-      { kind: K.Fridge, x: 2.5, y: fridgeY, w: 1, d: 1, blocks: true },
-      { kind: K.Plant, x: 6.5, y: 2.5, w: 1, d: 1, blocks: true },
-      { kind: K.Plant, x: x1 - 0.5, y: 2.5, w: 1, d: 1, blocks: true, variant: 1 },
-      { kind: K.Plant, x: 6.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
-      ...Array.from({ length: blocks + 1 }, (_, b) => ({ kind: K.Neon, x: 10 + b * BLOCK, y: 2, w: 0, d: 0, blocks: false, lift: 44 })),
+      { kind: K.Fridge, x: r.x0 + 0.5, y: fridgeY, w: 1, d: 1, blocks: true },
+      { kind: K.Plant, x: KX + 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true },
+      { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
+      { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
+      ...Array.from({ length: blocks + 1 }, (_, b) => ({ kind: K.Neon, x: KX + 4 + b * BLOCK, y: r.y0, w: 0, d: 0, blocks: false, lift: 44 })),
       ...trees.filter((f) => !behindWall(f.x)),
-      ...Array.from({ length: Math.ceil((width - 7) / 10) }, (_, i) => ({ kind: K.Lamp, x: 7 + i * 10, y: y1 + 1.8, w: 0, d: 0, blocks: false })),
-      ...(next ? [{ kind: K.SaleSign, x: x1 + (next.width - x1) / 2 + 0.5, y: y1 - 1.4, w: 0, d: 0, blocks: false }] : []),
-      { kind: K.StreetSign, x: x1 - 3.1, y: y1 + 0.25, w: 0, d: 0, blocks: false },
+      ...Array.from({ length: Math.ceil((width - 7) / 10) }, (_, i) => ({ kind: K.Lamp, x: 7 + i * 10, y: STREET_Y + 1.8, w: 0, d: 0, blocks: false })),
+      // The next building's land is for sale (tap the sign); the land after it is locked.
+      ...(nextRight ? [{ kind: K.SaleSign, x: (nextRight.piece.x0 + nextRight.piece.x1) / 2 + 0.5, y: y1 - 1.4, w: 0, d: 0, blocks: false }] : []),
+      ...future
+        .filter(({ tier: u, piece }) => u > tier + 1 && (piece.x0 >= x1 || piece.y0 >= y1) && (piece.x1 - piece.x0) * (piece.y1 - piece.y0) >= 6)
+        .map(({ tier: u, piece }) => ({ kind: K.LockSign, x: (piece.x0 + piece.x1) / 2, y: (piece.y0 + piece.y1) / 2, w: 0, d: 0, blocks: false, variant: u })),
+      { kind: K.StreetSign, x: door - 1.6, y: STREET_Y + 0.25, w: 0, d: 0, blocks: false },
     ],
     backdrop: [
       ...trees.filter((f) => behindWall(f.x)),
-      { kind: K.Tree, x: 0.8, y: 5.5, w: 1, d: 1, blocks: false },
-      { kind: K.Tree, x: 0.8, y: 9, w: 1, d: 1, blocks: false, variant: 1 },
-      ...(deep ? [{ kind: K.Tree, x: 0.8, y: 12.5, w: 1, d: 1, blocks: false }] : []),
-      ...(y1 >= 16 ? [{ kind: K.Tree, x: 0.8, y: 15.5, w: 1, d: 1, blocks: false, variant: 1 }] : []),
-      ...(y1 >= 20 ? [{ kind: K.Tree, x: 0.8, y: 19, w: 1, d: 1, blocks: false }] : []),
+      // Down the left side of the site, behind the kitchen wall.
+      ...[3.5, 7, 10.5, 14, 17.5, 21]
+        .filter((y) => y < STREET_Y - 0.5)
+        .map((y, i) => ({ kind: K.Tree, x: 0.8, y, w: 1, d: 1, blocks: false, ...(i % 2 ? { variant: 1 } : {}) })),
     ],
   };
 }

@@ -309,6 +309,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     spr(c, A, S.lamp, 0, 0, plain);
     sprFade(c, A, S.glowHalo, 0, oy(0, 0, 76), 1, 0.75 + Math.sin(t * 2 + seed) * 0.2);
   } else if (kind === PropKind.SaleSign) spr(c, A, S.saleSign, 0, 0, plain);
+  else if (kind === PropKind.LockSign) spr(c, A, A.L.lockSign[variant] ?? S.saleSign, 0, 0, plain);
   else if (kind === PropKind.Gift) {
     // Bobs, sparkles and blinks in its last seconds before the street sweeper takes it.
     const left = d[o + PF.since]! - t;

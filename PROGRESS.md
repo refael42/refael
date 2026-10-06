@@ -25,6 +25,8 @@
 | M14 | Professional app icon: store icon, Android adaptive layers (+ themed), splash image, favicon | ✅ Done |
 | M15 | Lucky wheel (owner request): free spin every 4 h, a spin per cleared stage, extra spins for gems | ✅ Done |
 | M16 | Owner: "keep growing the map, more stages, more levels, more workers, prettier": two new buildings (resort, galaxy), the promoter, build mode 30x faster | ✅ Done |
+| M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
+| M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -62,6 +64,30 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M18 (owner: "every area of the map shows, locked until paid for; grow in every
+  direction, not only right; a bigger kitchen"): **one world for every building** (56x28
+  tiles). The last building is the whole site; each smaller one sits inside it and grows by
+  `TIERS[t].grow` per side: right every time, back (grand, palace, empire, resort), left (palace,
+  resort: the kitchen goes from 4 to 8 tiles wide, with up to three lines of stoves, up to 14
+  stoves) and toward the street (galaxy). Room depths are as before, so the pace is too. The
+  next building's land is a sand lot with the "for sale" sign; land for later buildings is
+  dimmed grass behind a fence with a padlock sign whose board has that building's floor color
+  (tap it: the building upgrades). A short path leads from the sidewalk to the door. Customers
+  come from as far as they did at the first diner (the street now spans the whole site;
+  strollers still walk all of it). Save v8 moves placed decor and work sites by the diner's
+  offset into the world. Tests: the diner is the hand-made one moved, every tile of the last
+  building is the building or land to come, each side grows somewhere; the balance test now
+  judges five seeds (median and worst) instead of one lucky one, and an "income explosion" is
+  measured against the best minute so far (a slow minute then a normal one is not one).
+- Done in M17 (owner): **raises** are rare (8% a day, six days apart per person) and one at a
+  time (a single open request, three quiet days for the team after anyone asks). **Late-game
+  lag**: the per-frame snapshot crosses to the UI thread as typed arrays (one block instead of a
+  native call per number: ~10,600 a frame in a big restaurant); A* uses a binary heap (same
+  paths), searches and smoothed paths are cached per grid, smoothing tries the straight line
+  first; new furniture re-plans only the walkers it blocks; bulk buys build the grid once (10
+  tables: 51 ms -> 3.6 ms on a laptop) and skip in-between effect sums (x100: 4.3 -> 1 ms);
+  loading builds the grid once; build mode looks only at the spots a cut can reach. And an
+  empty stove now draws cook applicants like a missing job.
 - Done in M16 (owner: "keep growing the map: more stages, more levels, more workers, prettier"):
   **two new buildings** after the empire: the **culinary resort** (44x20, a sea-glass mosaic
   floor with a white wave border, sand and coral rugs) and the **taste galaxy** (50x22, a

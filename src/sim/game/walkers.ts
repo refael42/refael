@@ -33,14 +33,14 @@ function makeWalker(s: GameState, mode: Walker['mode'], at: Point, speed: number
 }
 
 function otherEnd(s: GameState, from: Point): Point {
-  const ends = s.map.spawns;
+  const ends = s.map.streetEnds;
   const far = ends.reduce((a, b) => (Math.hypot(b.x - from.x, b.y - from.y) > Math.hypot(a.x - from.x, a.y - from.y) ? b : a));
   return { x: far.x, y: far.y + range(s.rng, -0.4, 0.4) };
 }
 
 /** Strollers walk the sidewalk end to end, then reappear as someone new. */
 export function spawnPedestrian(s: GameState, spread = false): void {
-  const start = pick(s.rng, s.map.spawns);
+  const start = pick(s.rng, s.map.streetEnds);
   const w = makeWalker(s, 'pedestrian', { x: start.x, y: start.y }, range(s.rng, AMBIENT.pedestrianSpeed.min, AMBIENT.pedestrianSpeed.max));
   const end = otherEnd(s, start);
   if (spread) {

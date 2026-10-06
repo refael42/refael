@@ -74,6 +74,8 @@ export const PropKind = {
   WorkSite: 25,
   /** A present on the sidewalk (tap it). */
   Gift: 26,
+  /** Land of a later building, fenced off: a padlock sign (variant = that building's tier). */
+  LockSign: 27,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

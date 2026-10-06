@@ -54,7 +54,7 @@ describe('building tiers', () => {
     run(s, CONSTRUCTION.seconds + STEP_SEC * 2);
     expect(s.construction).toBeNull();
     expect(s.map.tier).toBe(1);
-    expect(s.map.building.x1).toBe(TIERS[1]!.width);
+    expect(s.map.building.x1).toBe(mapForTier(1).building.x1);
     expect(s.staff.map((st) => `${st.role}:${st.name}:${st.level}`).sort()).toEqual(team);
     expect(s.coins.gte(coins)).toBe(true);
     expect(s.rating).toBeCloseTo(rating, 5);

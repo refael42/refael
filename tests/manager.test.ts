@@ -56,17 +56,24 @@ describe('shift manager', () => {
       seatAll(s)();
     });
     const m = managerOnShift(s)!;
-    // Find someone waiting at a table and make them nearly fed up.
-    let guest = s.customers.find((c) => c.table >= 0 && (c.state === CustomerState.Waiting || c.state === CustomerState.Reading));
+    // Find someone waiting for their food and make them nearly fed up (not one still reading
+    // the menu: ordering starts their patience afresh).
+    const waiting = () => s.customers.find((c) => c.table >= 0 && c.state === CustomerState.Waiting);
+    let guest = waiting();
     for (let i = 0; i < 2000 && !guest; i++) {
       seatAll(s)();
       stepGame(s, STEP_SEC);
-      guest = s.customers.find((c) => c.table >= 0 && (c.state === CustomerState.Waiting || c.state === CustomerState.Reading));
+      guest = waiting();
     }
     expect(guest).toBeDefined();
     const g = guest!;
     g.patienceMax = 60;
     g.patienceLeft = 12;
+    // The manager's next round is due now, and the cook and the waiters take a break: the
+    // guest's dish must not arrive in the middle of the visit (eating ends it).
+    m.job = null;
+    m.jobTime = SHIFT.calmEverySeconds;
+    s.staff = s.staff.filter((st) => st.role !== 'cook' && st.role !== 'waiter');
     let calmed = false;
     let visited = false;
     run(s, SHIFT.calmEverySeconds + 6, () => {

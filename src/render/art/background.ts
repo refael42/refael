@@ -24,6 +24,8 @@ export interface BackgroundDef {
   wall?: string;
   /** The crosswalk lies in front of the door. */
   doorX?: number;
+  /** Where the kitchen ends: the white tiles on the back wall run this far. */
+  kitchenX?: number;
   /** Rugs under the groups of tables (owner request: a room with areas, not one long grid). */
   rugs?: readonly Rug[];
   /** The branch's city: the ground, the sidewalk and the trees outside. */
@@ -40,19 +42,20 @@ export interface Rug {
   style: number;
 }
 
-/** First table column and block width of the map generator (src/data/maps.ts). */
-const TABLE_COLUMN = 8.5;
+/** First table column (from the kitchen line) and block width of the map generator (src/data/maps.ts). */
+const TABLE_COLUMN = 2.5;
 const TABLE_BLOCK = 6;
 
 /** One rug per block of tables, a little bigger than the tables and their chairs. */
 function rugsOf(map: MapDef): Rug[] {
+  const first = map.kitchenX + TABLE_COLUMN;
   const blocks = new Map<number, { x: number; y: number }[]>();
   for (const t of map.tables) {
-    const b = Math.floor((t.x - TABLE_COLUMN + 0.01) / TABLE_BLOCK);
+    const b = Math.floor((t.x - first + 0.01) / TABLE_BLOCK);
     blocks.set(b, [...(blocks.get(b) ?? []), t]);
   }
   return [...blocks.entries()].map(([b, spots]) => {
-    const c0 = TABLE_COLUMN + b * TABLE_BLOCK;
+    const c0 = first + b * TABLE_BLOCK;
     const ys = spots.map((p) => p.y);
     return {
       x0: c0 - 1.15,
@@ -68,7 +71,7 @@ function rugsOf(map: MapDef): Rug[] {
 /** What the game map looks like as a background. */
 export function mapBackground(map: MapDef, city = 0): BackgroundDef {
   const { width, height, areas, building, wallHeight, backdrop } = map;
-  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, rugs: rugsOf(map), city };
+  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, kitchenX: map.kitchenX, rugs: rugsOf(map), city };
 }
 
 const TREE_ART = { palm: propSprites.treePalm, round: propSprites.treeRound, olive: propSprites.treeOlive, cypress: propSprites.treeCypress } as const;
@@ -265,6 +268,23 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
     velvet: () => carpet(c, a, CARPETS.velvet),
     ocean: () => ocean(c, a),
     starlight: () => starlight(c, a),
+    // Land for a later building: the city's grass, dimmed, with a faint diagonal hatch.
+    locked: () => {
+      const [g0, g1] = city.ground;
+      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? darken(g0, 0.32) : darken(g1, 0.32)));
+      for (let k = a.x0 - (a.y1 - a.y0); k < a.x1; k += 0.9) {
+        c.drawLine(Math.max(a.x0, k), Math.max(a.y0, a.y0 + (a.x0 - k)), Math.min(a.x1, k + (a.y1 - a.y0)), Math.min(a.y1, a.y0 + (a.x1 - k)), stroke('#1C1424', 0.05, 0.25));
+      }
+    },
+    // Stepping stones from the sidewalk to the door.
+    path: () => {
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill(city.sidewalk[1]));
+      for (let y = a.y0 + 0.08; y < a.y1 - 0.05; y += 0.5) {
+        const off = Math.round((y - a.y0) * 2) % 2 === 0 ? 0 : 0.25;
+        c.drawRRect(Skia.RRectXY(Skia.XYWHRect(a.x0 + 0.1 + off, y, 0.55, 0.38), 0.08, 0.08), fill(city.sidewalk[0]));
+      }
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), stroke(city.sidewalk[2], 0.04));
+    },
     lot: () => {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#C9A36B'));
       for (let ty = a.y0; ty < a.y1; ty++) {
@@ -329,9 +349,11 @@ function sconce(c: SkCanvas, a: number, b: number) {
   rectIn(c, a - 0.07, b + 6, 0.14, 4, '#FFE9A8');
 }
 
-function walls(c: SkCanvas, b: NonNullable<BackgroundDef['building']>, H: number, wall: string) {
+function walls(c: SkCanvas, b: NonNullable<BackgroundDef['building']>, H: number, wall: string, kitchen: number) {
   const lenY = b.y1 - b.y0;
   const lenX = b.x1 - b.x0;
+  // A wider kitchen pushes the dining room's paintings and windows along by as much.
+  const k = kitchen - 4;
   // Left wall (along x = x0, faces +x). Face coords: a = 0 at the front end (y1).
   box(c, { x: b.x0 - 0.07, y: (b.y0 + b.y1) / 2, w: 0.14, d: lenY, h: H, color: darken(wall, 0.2), rim: true });
   onFaceX(c, b.x0, b.y1, () => {
@@ -341,16 +363,16 @@ function walls(c: SkCanvas, b: NonNullable<BackgroundDef['building']>, H: number
   // Right wall (along y = y0, faces +y). Face coords: a = 0 at the back corner (x0).
   box(c, { x: (b.x0 + b.x1) / 2, y: b.y0 - 0.07, w: lenX + 0.14, d: 0.14, h: H, color: darken(wall, 0.2), rim: true });
   onFaceY(c, b.y0, b.x0, () => {
-    wallFace(c, lenX, H, 4, wall);
-    painting(c, 5.2, 28, 1.3, 18, ['#E5483B', '#F2C14E', '#47B2BE']);
-    windowPane(c, 10.6, 24, 1.8, 22);
-    for (const a of [4.6, 7, 10.2, 12.8]) sconce(c, a, 44);
+    wallFace(c, lenX, H, kitchen, wall);
+    painting(c, k + 5.2, 28, 1.3, 18, ['#E5483B', '#F2C14E', '#47B2BE']);
+    windowPane(c, k + 10.6, 24, 1.8, 22);
+    for (const a of [4.6, 7, 10.2, 12.8]) sconce(c, k + a, 44);
     // Each added section (6 tiles) gets its own neon sign (a prop), a window and lights.
-    for (let s = FIRST_WALL_LENGTH, k = 0; s + 6 <= lenX; s += 6, k++) {
+    for (let s = k + FIRST_WALL_LENGTH, n = 0; s + 6 <= lenX; s += 6, n++) {
       windowPane(c, s + 3.4, 24, 1.8, 22);
       for (const a of [s + 3.0, s + 5.6]) sconce(c, a, 44);
       // A painting of its own in every section, so the long wall is not the same thing again and again.
-      painting(c, s + 0.9, 28, 1.2, 18, ART[k % ART.length]!);
+      painting(c, s + 0.9, 28, 1.2, 18, ART[n % ART.length]!);
     }
   });
   for (const [x, y] of [[b.x0, b.y0], [b.x0, b.y1], [b.x1, b.y0]] as const) {
@@ -368,7 +390,7 @@ export function recordBackground(def: BackgroundDef): SkPicture {
     for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city);
     for (const r of def.rugs ?? []) rug(c, r);
   });
-  for (const a of def.areas) if (a.floor === 'lot') lotFence(c, a);
+  for (const a of def.areas) if (a.floor === 'lot' || a.floor === 'locked') lotFence(c, a);
   // Back to front, so nearer trees overlap farther ones.
   for (const f of [...(def.backdrop ?? [])].sort((p, q) => p.x + p.y - (q.x + q.y))) {
     if (f.kind !== PropKind.Tree) continue;
@@ -377,6 +399,6 @@ export function recordBackground(def: BackgroundDef): SkPicture {
     TREE_ART[city.trees[f.variant === 1 ? 1 : 0]].draw(c);
     c.restore();
   }
-  if (def.building) walls(c, def.building, def.wallHeight ?? 64, def.wall ?? WALL);
+  if (def.building) walls(c, def.building, def.wallHeight ?? 64, def.wall ?? WALL, (def.kitchenX ?? def.building.x0 + 4) - def.building.x0);
   return rec.finishRecordingAsPicture();
 }

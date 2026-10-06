@@ -159,6 +159,30 @@ const saleSign = sprite([-34, -70, 34, 10], (c) => {
   c.drawPath(path.smooth([[cx - 2, cy - 1.4], [cx - 2, cy - 4], [cx, cy - 5.4], [cx + 2, cy - 4], [cx + 2, cy - 1.4]], false), stroke('#5A3A1A', 1.2));
 });
 
+/**
+ * Land of a later building: a post with a board in the color of that building's floor (a taste
+ * of what comes), a gold frame and a big padlock. One per building tier.
+ */
+export const LOCK_BOARDS = ['#B3202E', '#11684A', '#22408F', '#D9CDB5', '#4A1450', '#0F7C8C', '#191750'] as const;
+const lockSigns = Object.fromEntries(
+  LOCK_BOARDS.map((board, tier) => [
+    `lockSign${tier}`,
+    sprite([-30, -66, 30, 10], (c) => {
+      floorShadow(c, 0, 0, 0.22, 0.22);
+      box(c, { x: 0, y: 0, w: 0.06, d: 0.06, h: 28, color: '#5A3A1A' });
+      box(c, { x: 0, y: 0, z: 24, w: 0.05, d: 0.95, h: 26, color: GOLD, rim: true });
+      onFaceX(c, 0.025, 0.475, () => rectIn(c, 0.05, 26.5, 0.85, 21, board));
+      const [cx, cy] = P(0.03, 0, 37);
+      // The padlock: a gold body with a keyhole, and its shackle.
+      c.drawPath(path.smooth([[cx - 4.2, cy - 1], [cx - 4.2, cy - 6], [cx, cy - 9.5], [cx + 4.2, cy - 6], [cx + 4.2, cy - 1]], false), stroke('#8A6A1A', 2.4));
+      c.drawRRect(Skia.RRectXY(Skia.XYWHRect(cx - 6.5, cy - 2, 13, 10), 2, 2), fill('#FFD54A'));
+      c.drawRRect(Skia.RRectXY(Skia.XYWHRect(cx - 6.5, cy - 2, 13, 10), 2, 2), stroke('#8A6A1A', 1.2));
+      c.drawCircle(cx, cy + 2, 1.5, fill('#5A3A1A'));
+      c.drawRect(Skia.XYWHRect(cx - 0.6, cy + 2, 1.2, 3.2), fill('#5A3A1A'));
+    }),
+  ]),
+);
+
 /** One tile of scaffolding: steel poles, wooden planks and a green safety net. */
 function scaffold(c: SkCanvas, alongX: boolean) {
   const [ax, ay] = alongX ? [1, 0] : [0, 1];
@@ -172,5 +196,6 @@ const scaffoldY = sprite([-26, -100, 26, 18], (c) => scaffold(c, false));
 export const propSprites = {
   ovenGlow, pan, patty, pot, flame, pass, passLong, washPlate, plateDirty, glass, glassEmpty, stain,
   ticket, plateSingleDirty, treePalm, treeRound, treeOlive, treeCypress, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
+  ...lockSigns,
 };
 

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Ref } from 'rea
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TIERS } from '../data/buildings';
 import { DECOR } from '../data/decor';
 import { mapForTier, STAND_MAP, type Point } from '../data/maps';
 import { TUTORIAL_STEPS } from '../data/tutorial';
@@ -22,7 +21,7 @@ import { crewCount } from '../sim/economy/works';
 import { buildableTiles } from '../sim/game/build';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState, PlacedDecor } from '../sim/game/types';
-import type { PropKind } from '../sim/types';
+import { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
 import { markReady } from '../store/launch';
 import { useSettings } from '../store/settings';
@@ -237,9 +236,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   }, [city]);
   const endBranchBanner = useCallback(() => setBranchBanner(null), []);
   const focus = useMemo(() => {
-    if (building < 0) return TIERS[tier]!.focus;
+    if (building < 0) return mapForTier(tier).focus;
     const from = mapForTier(tier).building.x1;
-    return { x: (from + mapForTier(building).building.x1) / 2, y: 7, zoom: 0.9 };
+    return { x: (from + mapForTier(building).building.x1) / 2, y: mapForTier(building).focus.y, zoom: 0.9 };
   }, [tier, building]);
   const [quests, setQuests] = useState(false);
   const [shop, setShop] = useState(false);
@@ -286,6 +285,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
 
   const open = useCallback(
     (station: PropKind | null, at?: { x: number; y: number }) => {
+      // A padlock on land for later opens the building upgrades, like the "for sale" sign.
+      if (station === PropKind.LockSign) station = PropKind.SaleSign;
       // Only the piece that was tapped glows (opened from the button: none).
       selected.value = station !== null && at ? [station, at.x, at.y] : [];
       selectedId.value = -1;

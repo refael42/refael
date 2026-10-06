@@ -7,7 +7,7 @@ import { dishSprites } from './art/dishArt';
 import { workSprites } from './art/workArt';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
-import { propSprites } from './art/propArt';
+import { LOCK_BOARDS, propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
@@ -122,6 +122,8 @@ export const LAYERS = {
   ]),
   /** Dish icon per dish id (tickets, bubbles). */
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
+  /** The padlock sign on later land, by that building's tier. */
+  lockSign: LOCK_BOARDS.map((_, tier) => INDEX[`lockSign${tier}`]!),
   /** Tree sprites per city: [city * 2 + map variant] (src/data/franchise.ts). */
   trees: CITIES.flatMap((city) => city.trees.map((k) => INDEX[TREE_SPRITE[k]]!)),
   /** Station looks by milestone tier. */

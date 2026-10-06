@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/data/buildings';
-import { mapForTier, SEAT_OFFSETS, STAND_MAP, type MapDef } from '../src/data/maps';
+import { mapForTier, SEAT_OFFSETS, STAND_MAP, tierRect, WORLD_SHIFT, type MapDef, type Point } from '../src/data/maps';
 import { PropKind as K } from '../src/sim/types';
 import { buildGrid, findPath } from '../src/sim/grid';
 
-// The first tier used to be drawn by hand; the generator must reproduce it exactly, so every
-// tuned spot (and every test built on them) stays the same.
-const HAND_MADE: MapDef = {
+// The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
+// further into the world, with land around it), so every tuned spot stays where it was.
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -25,6 +25,10 @@ const HAND_MADE: MapDef = {
   doors: [{ inside: { x: 12.5, y: 11.5 }, outside: { x: 12.5, y: 12.5 } }],
   firstSpawn: { x: 9.5, y: 12.6 },
   spawns: [
+    { x: 0.5, y: 12.5 },
+    { x: 21.5, y: 13.5 },
+  ],
+  streetEnds: [
     { x: 0.5, y: 12.5 },
     { x: 21.5, y: 13.5 },
   ],
@@ -115,16 +119,59 @@ const HAND_MADE: MapDef = {
 };
 
 describe('map generator', () => {
-  it('tier 0 is the hand-made diner', () => {
-    expect(mapForTier(0)).toEqual(HAND_MADE);
-    expect(STAND_MAP).toEqual(HAND_MADE);
+  it('tier 0 is the hand-made diner, moved into the world', () => {
+    const at = (p: Point) => ({ ...p, x: p.x + WORLD_SHIFT.x, y: p.y + WORLD_SHIFT.y });
+    const m = STAND_MAP;
+    expect(mapForTier(0)).toBe(m);
+    expect(m.building).toEqual({ x0: HAND_MADE.building.x0 + WORLD_SHIFT.x, y0: HAND_MADE.building.y0 + WORLD_SHIFT.y, x1: HAND_MADE.building.x1 + WORLD_SHIFT.x, y1: HAND_MADE.building.y1 + WORLD_SHIFT.y });
+    expect(m.tables).toEqual(HAND_MADE.tables.map(at));
+    expect(m.stoves).toEqual(HAND_MADE.stoves.map((st) => ({ stove: at(st.stove), cook: at(st.cook) })));
+    for (const key of ['pass', 'hostSpot', 'managerSpot', 'sink', 'washerSpot', 'dirtyDrop', 'cleanStack', 'dirtyStack'] as const) expect(m[key], key).toEqual(at(HAND_MADE[key]));
+    for (const key of ['passSlots', 'pickupSpots', 'waiterIdle', 'cleanerIdle', 'queue'] as const) expect(m[key], key).toEqual(HAND_MADE[key].map(at));
+    expect(m.doors.map((d) => d.inside)).toEqual(HAND_MADE.doors.map((d) => at(d.inside)));
+    expect(m.ticketRail).toEqual({ ...HAND_MADE.ticketRail, x: HAND_MADE.ticketRail.x + WORLD_SHIFT.x, y0: HAND_MADE.ticketRail.y0 + WORLD_SHIFT.y });
+    // The furniture inside the room (fridge, plants, neon) too.
+    const inside = (f: { x: number; y: number }, b: MapDef['building']) => f.x >= b.x0 && f.x <= b.x1 && f.y >= b.y0 && f.y <= b.y1 - 0.4;
+    const kinds: number[] = [K.Fridge, K.Plant, K.Neon];
+    expect(m.decor.filter((f) => kinds.includes(f.kind) && inside(f, m.building))).toEqual(HAND_MADE.decor.filter((f) => kinds.includes(f.kind) && inside(f, HAND_MADE.building)).map(at));
+    for (const key of ['startTables', 'startStoves', 'passTop', 'sinkTop', 'wallHeight', 'theme', 'extraSinks'] as const) expect(m[key], key).toEqual(HAND_MADE[key]);
+  });
+
+  it('one world for every building: the same size, each building inside the next', () => {
+    TIERS.forEach((_, t) => {
+      expect([mapForTier(t).width, mapForTier(t).height]).toEqual([STAND_MAP.width, STAND_MAP.height]);
+      if (t === 0) return;
+      const a = tierRect(t - 1);
+      const b = tierRect(t);
+      const g = TIERS[t]!.grow;
+      expect([a.x0 - b.x0, a.y0 - b.y0, b.x1 - a.x1, b.y1 - a.y1]).toEqual([g.left, g.back, g.right, g.front]);
+    });
+    // Owner request: not only to the right. Some building grows each way.
+    expect(['left', 'back', 'right', 'front'].every((side) => TIERS.some((t) => t.grow[side as keyof typeof t.grow] > 0))).toBe(true);
+  });
+
+  it('all the land to come is on the map from the start: the next lot for sale, the rest locked', () => {
+    TIERS.forEach((_, t) => {
+      const map = mapForTier(t);
+      const last = tierRect(TIERS.length - 1);
+      // Every tile of the last building is the building now, or land for one to come.
+      for (let y = last.y0; y < last.y1; y++) {
+        for (let x = last.x0; x < last.x1; x++) {
+          const a = [...map.areas].reverse().find((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)!;
+          const inside = x >= map.building.x0 && x < map.building.x1 && y >= map.building.y0 && y < map.building.y1;
+          expect(inside || a.floor === 'lot' || a.floor === 'locked' || a.floor === 'path', `tier ${t} tile ${x},${y}: ${a.floor}`).toBe(true);
+        }
+      }
+      const locks = map.decor.filter((f) => f.kind === K.LockSign).map((f) => f.variant);
+      expect(new Set(locks).size).toBe(Math.max(0, TIERS.length - 2 - t));
+    });
   });
 
   it('every tier keeps the old room and adds table spots', () => {
     for (let t = 1; t < TIERS.length; t++) {
       const prev = mapForTier(t - 1);
       const map = mapForTier(t);
-      expect(map.building.x1).toBe(TIERS[t]!.width);
+      expect(map.building.x1).toBe(tierRect(t).x1);
       expect(map.tables.slice(0, prev.tables.length)).toEqual(prev.tables);
       expect(map.tables.length).toBeGreaterThan(prev.tables.length);
       expect(map.waiterIdle.length).toBeGreaterThanOrEqual(3 + (TIERS[t]!.staff.waiter ?? 0));
@@ -161,18 +208,24 @@ describe('map generator', () => {
     });
   });
 
-  it('from the grand restaurant on the building also grows toward the street, with a bigger kitchen', () => {
+  it('the bigger buildings get a bigger kitchen, and a path leads from the street to every door', () => {
     for (let t = 1; t < TIERS.length; t++) {
       const prev = mapForTier(t - 1);
       const map = mapForTier(t);
-      expect(map.building.y1).toBe(TIERS[t]!.depth);
-      expect(map.building.y1).toBeGreaterThanOrEqual(prev.building.y1);
+      expect(map.building.y1 - map.building.y0).toBeGreaterThanOrEqual(prev.building.y1 - prev.building.y0);
       expect(map.stoves.length).toBeGreaterThanOrEqual(prev.stoves.length);
-      // The street moves with the front wall: the door opens onto the sidewalk.
-      const sidewalk = map.areas.find((a) => a.floor === 'sidewalk')!;
-      expect(sidewalk.y0).toBe(map.building.y1);
-      expect(map.doors[0]!.outside.y).toBeGreaterThan(sidewalk.y0);
+      expect(map.kitchenX - map.building.x0).toBeGreaterThanOrEqual(prev.kitchenX - prev.building.x0);
     }
+    TIERS.forEach((_, t) => {
+      const map = mapForTier(t);
+      const sidewalk = map.areas.find((a) => a.floor === 'sidewalk')!;
+      expect(sidewalk.y0).toBe(STAND_MAP.areas.find((a) => a.floor === 'sidewalk')!.y0);
+      const grid = buildGrid(map);
+      expect(findPath(grid, map.spawns[0]!, map.queue[0]!), `tier ${t}`).not.toBeNull();
+    });
+    // The last kitchen is twice as wide, with lines of stoves.
+    expect(mapForTier(TIERS.length - 1).kitchenX - mapForTier(TIERS.length - 1).building.x0).toBe(2 * (STAND_MAP.kitchenX - STAND_MAP.building.x0));
+    expect(new Set(mapForTier(TIERS.length - 1).stoves.map((s) => s.stove.x)).size).toBeGreaterThan(2);
     const empire = mapForTier(TIERS.length - 1);
     expect(empire.building.y1).toBeGreaterThan(STAND_MAP.building.y1);
     expect(empire.stoves.length).toBeGreaterThan(STAND_MAP.stoves.length + 2);
