@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sid } from "@/lib/seed/demo";
-import { APARTMENT_FLOW, type FlowStage } from "@/lib/flow/process";
+import { APARTMENT_FLOW, stagesFor, type FlowStage } from "@/lib/flow/process";
 import { ctxFor, demoStore, NOW } from "@/test/fixtures";
 import { createAreas } from "./settings";
 import { applyFlow, flowStatus } from "./flow";
@@ -14,8 +14,9 @@ describe("apply the construction process to apartments", () => {
     const [floor] = await createAreas(pm, { parentId: sid("area:building"), type: "floor", names: ["קומה 5"] });
     const apts = await createAreas(pm, { parentId: floor.id, type: "apartment", names: ["דירה 21-22"] });
     const res = await applyFlow(pm, { areaIds: apts.map((a) => a.id), startDate: "2026-10-12", staggerDays: 3 });
-    const edges = APARTMENT_FLOW.reduce((n, s) => n + s.after.length, 0);
-    expect(res).toMatchObject({ created: APARTMENT_FLOW.length * 2, linked: edges * 2, areas: 2 });
+    const plain = stagesFor(APARTMENT_FLOW, ["elevator", "parking"]); // the demo building's features
+    const edges = plain.reduce((n, s) => n + s.after.filter((a) => !a.scope).length, 0);
+    expect(res).toMatchObject({ created: plain.length * 2, linked: edges * 2, areas: 2 });
 
     const snap = await loadSnapshot(store, pm.s.project.id, NOW);
     const st = flowStatus(snap, apts[0].id, APARTMENT_FLOW);

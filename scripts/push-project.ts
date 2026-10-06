@@ -64,7 +64,7 @@ const contractorIds = new Set([
 const contractors = data.contractors.filter((c) => contractorIds.has(c.id));
 const profileIds = new Set([...members.map((m) => m.profile_id), ...contractors.map((c) => c.profile_id).filter(Boolean)]);
 const profiles = data.profiles.filter((p) => profileIds.has(p.id));
-const flow = data.flow_templates.find((f) => f.organization_id === project.organization_id);
+const flows = data.flow_templates.filter((f) => f.organization_id === project.organization_id);
 const tradeKeys = new Map(data.trades.map((t) => [t.id, t]));
 const usedTrades = new Set([...tasks.map((t) => t.trade_id), ...contractors.map((c) => c.trade_id)].filter(Boolean) as string[]);
 const org = data.organizations.find((o) => o.id === project.organization_id)!;
@@ -152,7 +152,7 @@ async function main() {
     "dependencies",
     deps.map((d) => ({ ...d, id: id(d.id), project_id: id(pid), from_task_id: id(d.from_task_id), from_blocker_id: id(d.from_blocker_id), to_task_id: id(d.to_task_id), created_by: id(d.created_by) })),
   );
-  if (flow) await insert("flow_templates", [{ ...flow, organization_id: id(org.id), updated_by: id(flow.updated_by) }]);
+  if (flows.length) await insert("flow_templates", flows.map((f) => ({ ...f, kind: f.kind ?? "apartment", organization_id: id(org.id), updated_by: id(f.updated_by) })));
   console.log(`Done. "${project.name}" is in the cloud in setup mode. Log in with ${pmEmail} to continue.`);
 }
 

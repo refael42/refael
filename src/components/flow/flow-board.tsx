@@ -12,7 +12,7 @@ import { t } from "@/lib/i18n";
 export interface BoardRow {
   areaId: string;
   label: string;
-  cells: Array<{ key: string; state: EffectiveState | "missing"; taskId: string | null; contractor: string | null }>;
+  cells: Array<{ key: string; state: EffectiveState | "missing" | "skip"; taskId: string | null; contractor: string | null }>;
   done: number;
   total: number;
   /** names of the stages that can be worked on now / are in progress */
@@ -25,7 +25,9 @@ export function FlowBoard({
   rows,
   editable = false,
   actions,
+  hint = t.flow.boardHint,
 }: {
+  hint?: string;
   stages: Array<{ key: string; name: string; color: string }>;
   rows: BoardRow[];
   /** PM: quick-mark mode (tap a cell = done / not done, no messages) */
@@ -53,7 +55,7 @@ export function FlowBoard({
         )}
       </div>
       <p className={marking ? "rounded-md bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100" : "text-sm text-muted-foreground"}>
-        {marking ? t.setup.markModeHint : t.flow.boardHint}
+        {marking ? t.setup.markModeHint : hint}
       </p>
       <div className="flex flex-wrap gap-3 text-xs">
         {(["ready", "in_progress", "awaiting_approval", "done", "blocked"] as const).map((st) => (
@@ -89,13 +91,19 @@ export function FlowBoard({
                 </th>
                 {rows.map((r) => {
                   const c = r.cells[i];
-                  const title = `${r.label} · ${st.name} · ${c.state === "missing" ? t.flow.missing : t.effective[c.state]}${c.contractor ? ` · ${c.contractor}` : ""}`;
+                  if (c.state === "skip" && !c.taskId)
+                    return (
+                      <td key={r.areaId} className="p-0.5 text-center text-muted-foreground/50" title={`${r.label} · ${st.name} · ${t.flow.skip}`}>
+                        –
+                      </td>
+                    );
+                  const title = `${r.label} · ${st.name} · ${c.state === "missing" || c.state === "skip" ? t.flow.missing : t.effective[c.state]}${c.contractor ? ` · ${c.contractor}` : ""}`;
                   const box = (
                     <span
                       className="mx-auto flex h-5 w-5 items-center justify-center rounded-sm text-white"
                       style={{
-                        backgroundColor: c.state === "missing" ? "transparent" : STATE_HEX[c.state],
-                        border: c.state === "missing" ? "1px dashed #cbd5e1" : undefined,
+                        backgroundColor: c.state === "missing" || c.state === "skip" ? "transparent" : STATE_HEX[c.state],
+                        border: c.state === "missing" || c.state === "skip" ? "1px dashed #cbd5e1" : undefined,
                         // blocked = waiting for earlier stages (normal); faded so what can move now stands out
                         opacity: c.state === "blocked" ? 0.3 : 1,
                       }}

@@ -18,10 +18,31 @@ const H = 70;
 
 function colorOf(s: FlowStageVM) {
   if (!s.live) return s.phaseColor;
-  return s.live.state === "missing" ? "#cbd5e1" : STATE_HEX[s.live.state];
+  return s.live.state === "missing" || s.live.state === "skip" ? "#cbd5e1" : STATE_HEX[s.live.state];
 }
 
-export function FlowViews({ stages, board, editor, tab }: { stages: FlowStageVM[]; board?: React.ReactNode; editor?: React.ReactNode; tab?: string }) {
+function liveLabel(state: NonNullable<FlowStageVM["live"]>["state"]) {
+  return state === "missing" ? t.flow.missing : state === "skip" ? t.flow.skip : t.effective[state];
+}
+
+function LiveBadge({ state }: { state: NonNullable<FlowStageVM["live"]>["state"] }) {
+  if (state === "missing" || state === "skip") return <Badge variant="outline">{liveLabel(state)}</Badge>;
+  return <StateBadge state={state} />;
+}
+
+export function FlowViews({
+  stages,
+  board,
+  editor,
+  tab,
+  boardLabel = t.flow.tabBoard,
+}: {
+  stages: FlowStageVM[];
+  board?: React.ReactNode;
+  editor?: React.ReactNode;
+  tab?: string;
+  boardLabel?: string;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const sel = stages.find((s) => s.key === selected) ?? null;
   return (
@@ -29,7 +50,7 @@ export function FlowViews({ stages, board, editor, tab }: { stages: FlowStageVM[
       <TabsList className="flex w-full overflow-x-auto sm:w-auto sm:self-start">
         <TabsTrigger value="steps">{t.flow.tabSteps}</TabsTrigger>
         <TabsTrigger value="chart">{t.flow.tabChart}</TabsTrigger>
-        {board && <TabsTrigger value="board">{t.flow.tabBoard}</TabsTrigger>}
+        {board && <TabsTrigger value="board">{boardLabel}</TabsTrigger>}
         {editor && <TabsTrigger value="edit">{t.flow.tabEdit}</TabsTrigger>}
       </TabsList>
       {board && <TabsContent value="board">{board}</TabsContent>}
@@ -81,11 +102,13 @@ function StepsView({ stages, onSelect }: { stages: FlowStageVM[]; onSelect: (k: 
               >
                 <span className="flex items-start justify-between gap-2">
                   <span className="font-medium leading-snug">{s.name}</span>
-                  {s.live && (s.live.state === "missing" ? <Badge variant="outline">{t.flow.missing}</Badge> : <StateBadge state={s.live.state} />)}
+                  {s.live && <LiveBadge state={s.live.state} />}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {s.phaseName} · {s.trade} · {t.flow.days(s.days)}
+                  {s.part ? `${s.part} · ` : ""}
+                  {s.trade} · {t.flow.days(s.days)}
                 </span>
+                {s.when && <span className="text-xs font-medium text-violet-700 dark:text-violet-300">{s.when}</span>}
                 {s.after.some((a) => a.lag) && (
                   <span className="flex items-center gap-1 text-xs text-amber-700">
                     <Clock className="h-3 w-3" />
@@ -116,7 +139,7 @@ const StageNode = memo(function StageNode({ data }: NodeProps<N>) {
         <span className="line-clamp-2 font-semibold leading-tight text-slate-900">{data.name}</span>
       </span>
       <span className="truncate text-[10px] text-slate-500">
-        {data.live ? (data.live.state === "missing" ? t.flow.missing : t.effective[data.live.state]) : data.phaseName} · {data.trade}
+        {data.live ? liveLabel(data.live.state) : data.phaseName} · {data.trade}
       </span>
       <Handle type="source" position={Position.Left} className="!h-1.5 !w-1.5 !border-0 !bg-slate-400" />
     </div>
@@ -130,7 +153,7 @@ function Chart({ stages, selected, onSelect }: { stages: FlowStageVM[]; selected
     g.setGraph({ rankdir: "RL", nodesep: 14, ranksep: 60, marginx: 20, marginy: 20 });
     g.setDefaultEdgeLabel(() => ({}));
     for (const s of stages) g.setNode(s.key, { width: W, height: H });
-    for (const s of stages) for (const a of s.after) g.setEdge(a.key, s.key);
+    for (const s of stages) for (const a of s.after) if (!a.building) g.setEdge(a.key, s.key);
     dagre.layout(g);
     const nodes: N[] = stages.map((s) => {
       const p = g.node(s.key);
@@ -138,7 +161,7 @@ function Chart({ stages, selected, onSelect }: { stages: FlowStageVM[]; selected
     });
     const related = selected ? new Set([selected, ...(stages.find((s) => s.key === selected)?.after.map((a) => a.key) ?? []), ...(stages.find((s) => s.key === selected)?.opens.map((o) => o.key) ?? [])]) : null;
     const edges: Edge[] = stages.flatMap((s) =>
-      s.after.map((a) => {
+      s.after.filter((a) => !a.building).map((a) => {
         const hot = related && (a.key === selected || s.key === selected);
         return {
           id: `${a.key}->${s.key}`,
@@ -188,11 +211,13 @@ function StagePanel({ stage, onClose, onSelect, className }: { stage: FlowStageV
       </div>
       <p className="mt-1 text-sm text-muted-foreground">{stage.description}</p>
       <p className="mt-1 text-xs">
+        {stage.part ? `${stage.part} · ` : ""}
         {stage.trade} · {t.flow.days(stage.days)}
       </p>
+      {stage.when && <p className="mt-1 text-xs font-medium text-violet-700 dark:text-violet-300">{stage.when}</p>}
       {stage.live && (
         <div className="mt-2 flex items-center gap-2">
-          {stage.live.state === "missing" ? <Badge variant="outline">{t.flow.missing}</Badge> : <StateBadge state={stage.live.state} />}
+          <LiveBadge state={stage.live.state} />
           {stage.live.contractor && <span className="text-xs text-muted-foreground">{stage.live.contractor}</span>}
         </div>
       )}
@@ -203,8 +228,15 @@ function StagePanel({ stage, onClose, onSelect, className }: { stage: FlowStageV
         </span>
         {stage.after.length === 0 && <span className="text-sm text-muted-foreground">{t.flow.nothing}</span>}
         {stage.after.map((a) => (
-          <button key={a.key} type="button" onClick={() => onSelect(a.key)} className="rounded border px-2 py-1 text-start text-sm hover:bg-accent">
+          <button
+            key={`${a.building ? "b:" : ""}${a.key}`}
+            type="button"
+            disabled={a.building}
+            onClick={() => onSelect(a.key)}
+            className="rounded border px-2 py-1 text-start text-sm hover:bg-accent disabled:hover:bg-transparent"
+          >
             {a.name}
+            {a.building && <span className="ms-1 text-xs text-muted-foreground">{t.flow.fromBuilding}</span>}
             {a.lag ? <span className="ms-1 text-xs text-amber-700">({t.flow.wait(a.lag)})</span> : null}
             {a.why && <span className="block text-xs text-muted-foreground">{a.why}</span>}
           </button>

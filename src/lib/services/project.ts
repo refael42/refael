@@ -5,6 +5,7 @@
 import type { Store } from "../db/store";
 import type { Area, Project } from "../db/types";
 import { serverEnv } from "../env";
+import { FEATURES } from "../flow/process";
 import { he } from "../i18n/he";
 import { assertPM } from "./access";
 import { audit } from "./audit";
@@ -20,6 +21,12 @@ export interface StructureInput {
   aptsPerFloor: number;
   /** number of the first apartment; apartments are numbered continuously */
   firstApt: number;
+  /** "parking" | "elevator" | "sprinklers" */
+  buildingFeatures?: string[];
+  /** apartments on the lowest floor are garden apartments */
+  gardenOnFirst?: boolean;
+  /** apartments on the top floor are duplexes (מכפילים) */
+  duplexOnTop?: boolean;
 }
 
 /** Who may open a project: PMs of any project, listed admins, and anyone in demo mode. */
@@ -72,6 +79,7 @@ export async function createProject(
 export async function buildStructure(store: Store, projectId: string, input: StructureInput): Promise<{ floors: number; apartments: number }> {
   const { floorFrom, floorTo, aptsPerFloor, firstApt } = input;
   const bname = input.buildingName.trim() || he.setup.defaultBuilding;
+  input = { ...input, buildingFeatures: (input.buildingFeatures ?? []).filter((f) => FEATURES[f]?.of === "building") };
   if (!Number.isInteger(floorFrom) || !Number.isInteger(floorTo) || floorTo < floorFrom || floorTo - floorFrom > 60) throw new ServiceError(he.errors.invalid);
   if (!Number.isInteger(aptsPerFloor) || aptsPerFloor < 0 || aptsPerFloor > 30 || !Number.isInteger(firstApt) || firstApt < 0) throw new ServiceError(he.errors.invalid);
 
@@ -82,7 +90,9 @@ export async function buildStructure(store: Store, projectId: string, input: Str
     areas.push(a);
     return a;
   };
-  const building = find(null, bname) ?? (await add({ project_id: projectId, parent_id: null, type: "building", name: bname, sort_order: areas.filter((a) => !a.parent_id).length + 1 }));
+  const building =
+    find(null, bname) ??
+    (await add({ project_id: projectId, parent_id: null, type: "building", name: bname, sort_order: areas.filter((a) => !a.parent_id).length + 1, features: input.buildingFeatures ?? [] }));
   let apt = firstApt;
   let floors = 0;
   let apartments = 0;
@@ -91,13 +101,17 @@ export async function buildStructure(store: Store, projectId: string, input: Str
     const fname = f === 0 ? he.setup.groundFloor : he.setup.floor(f);
     let floor = find(building.id, fname);
     if (!floor) {
-      floor = await add({ project_id: projectId, parent_id: building.id, type: "floor", name: fname, sort_order: f });
+      floor = await add({ project_id: projectId, parent_id: building.id, type: "floor", name: fname, sort_order: f, features: [] });
       floors++;
     }
     for (let k = 0; k < aptsPerFloor; k++, apt++) {
       const aname = he.setup.apartment(apt);
       if (find(floor.id, aname)) continue;
-      rows.push({ project_id: projectId, parent_id: floor.id, type: "apartment", name: aname, sort_order: apt });
+      const features = [
+        ...(input.gardenOnFirst && f === floorFrom ? ["garden"] : []),
+        ...(input.duplexOnTop && f === floorTo ? ["duplex"] : []),
+      ];
+      rows.push({ project_id: projectId, parent_id: floor.id, type: "apartment", name: aname, sort_order: apt, features });
       apartments++;
     }
   }

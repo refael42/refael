@@ -9,13 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/misc";
+import type { FlowKind } from "@/lib/flow/process";
 import { t } from "@/lib/i18n";
 import { AreaPicker } from "./area-picker";
 
 const NOTHING = "__nothing__";
 
 /** Capture apartments that are already under way: "done up to stage X". */
-export function CaptureDialog({ groups, stages, today }: { groups: AreaGroup[]; stages: Array<{ key: string; name: string; step: number }>; today: string }) {
+export function CaptureDialog({
+  groups,
+  stages,
+  today,
+  kind = "apartment",
+}: {
+  groups: AreaGroup[];
+  stages: Array<{ key: string; name: string; step: number }>;
+  today: string;
+  kind?: FlowKind;
+}) {
   const [open, setOpen] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [upTo, setUpTo] = useState<string>(NOTHING);
@@ -55,7 +66,7 @@ export function CaptureDialog({ groups, stages, today }: { groups: AreaGroup[]; 
               disabled={pending || picked.size === 0}
               onClick={async () => {
                 const r = await call(
-                  () => captureExistingAction({ areaIds: [...picked], doneUpTo: upTo === NOTHING ? null : upTo, rescheduleFrom: resched ? from : null }),
+                  () => captureExistingAction({ kind, areaIds: [...picked], doneUpTo: upTo === NOTHING ? null : upTo, rescheduleFrom: resched ? from : null }),
                   (x) => t.setup.captured(x.marked, x.created, x.rescheduled),
                 );
                 if (r) {

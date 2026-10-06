@@ -179,6 +179,23 @@ describe.skipIf(!ENABLED)("SupabaseStore against Postgres + PostgREST", () => {
     expect(flowStatus(snap, apts[0].id, APARTMENT_FLOW).waterproofing.state).toBe("ready");
     const audits = await store.select("audit_log", { where: { project_id: project.id, entity_type: "project" } });
     expect(audits.length).toBeGreaterThan(0);
+
+    // building shared parts: features (text[]) decide the stages; parts become sub-areas
+    const { applyFlow } = await import("../services/flow");
+    const { saveFlow, loadFlow } = await import("../services/flow-template");
+    const building = (await store.select("areas", { where: { project_id: project.id, type: "building" } }))[0];
+    await store.update("areas", { id: building.id }, { features: ["parking"] });
+    const b = await applyFlow(ctx, { kind: "building", areaIds: [building.id], startDate: "2026-10-12" });
+    expect(b.created).toBeGreaterThan(20);
+    const parts = await store.select("areas", { where: { project_id: project.id, parent_id: building.id, type: "common" } });
+    expect(parts.flatMap((p) => p.features)).toEqual(expect.arrayContaining(["roof", "parking", "lobby"]));
+    expect(parts.flatMap((p) => p.features)).not.toContain("elevator");
+    // one custom process per kind
+    const { BUILDING_FLOW } = await import("../flow/process");
+    await saveFlow(ctx, BUILDING_FLOW.slice(0, 2), "building");
+    await saveFlow(ctx, APARTMENT_FLOW.slice(0, 2), "apartment");
+    expect((await loadFlow(store, project.organization_id, "building")).stages).toHaveLength(2);
+    expect((await loadFlow(store, project.organization_id, "apartment")).stages).toHaveLength(2);
   });
 
   it("runs the reminders tick (checks, overdue, no-response, digest) idempotently", async () => {

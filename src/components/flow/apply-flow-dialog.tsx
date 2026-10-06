@@ -8,6 +8,7 @@ import type { AreaGroup } from "@/components/tasks/bulk-task-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import type { FlowKind } from "@/lib/flow/process";
 import { t } from "@/lib/i18n";
 import { AreaPicker } from "./area-picker";
 
@@ -18,7 +19,9 @@ export function ApplyFlowDialog({
   trades,
   contractorsByTrade,
   defaultStart,
+  kind = "apartment",
 }: {
+  kind?: FlowKind;
   groups: AreaGroup[];
   trades: Array<{ key: string; name: string }>;
   contractorsByTrade: Record<string, Option[]>;
@@ -35,13 +38,13 @@ export function ApplyFlowDialog({
     <>
       <Button onClick={() => setOpen(true)}>
         <Workflow />
-        {t.flow.apply}
+        {kind === "building" ? t.flow.applyBuilding : t.flow.apply}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>{t.flow.applyTitle}</DialogTitle>
-            <DialogDescription>{t.flow.applyHint}</DialogDescription>
+            <DialogTitle>{kind === "building" ? t.flow.applyBuildingTitle : t.flow.applyTitle}</DialogTitle>
+            <DialogDescription>{kind === "building" ? t.flow.applyBuildingHint : t.flow.applyHint}</DialogDescription>
           </DialogHeader>
           <AreaPicker groups={groups} picked={picked} onChange={setPicked} />
           <div className="grid grid-cols-2 gap-3">
@@ -74,13 +77,13 @@ export function ApplyFlowDialog({
               onClick={async () => {
                 const contractorByTrade = Object.fromEntries(Object.entries(who).filter(([, v]) => v !== AUTO).map(([k, v]) => [k, v || null]));
                 const r = await call(
-                  () => applyFlowAction({ areaIds: [...picked], startDate: start, staggerDays: Number(stagger) || 0, contractorByTrade }),
+                  () => applyFlowAction({ kind, areaIds: [...picked], startDate: start, staggerDays: Number(stagger) || 0, contractorByTrade }),
                   (x) => t.flow.applied(x.created, x.linked),
                 );
                 if (r) setOpen(false);
               }}
             >
-              {t.flow.apply} ({picked.size})
+              {kind === "building" ? t.flow.applyBuilding : t.flow.apply} ({picked.size})
             </Button>
           </DialogFooter>
         </DialogContent>

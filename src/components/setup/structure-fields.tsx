@@ -1,6 +1,8 @@
 "use client";
 import { Field } from "@/components/common/field";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/misc";
+import { FEATURES } from "@/lib/flow/process";
 import { t } from "@/lib/i18n";
 
 export interface StructureState {
@@ -9,9 +11,21 @@ export interface StructureState {
   floorTo: string;
   aptsPerFloor: string;
   firstApt: string;
+  buildingFeatures: string[];
+  gardenOnFirst: boolean;
+  duplexOnTop: boolean;
 }
 
-export const emptyStructure: StructureState = { buildingName: "", floorFrom: "1", floorTo: "4", aptsPerFloor: "4", firstApt: "1" };
+export const emptyStructure: StructureState = {
+  buildingName: "",
+  floorFrom: "1",
+  floorTo: "4",
+  aptsPerFloor: "4",
+  firstApt: "1",
+  buildingFeatures: ["elevator"],
+  gardenOnFirst: false,
+  duplexOnTop: false,
+};
 
 export function toStructureInput(s: StructureState) {
   return {
@@ -20,6 +34,9 @@ export function toStructureInput(s: StructureState) {
     floorTo: Number(s.floorTo),
     aptsPerFloor: Number(s.aptsPerFloor),
     firstApt: Number(s.firstApt),
+    buildingFeatures: s.buildingFeatures,
+    gardenOnFirst: s.gardenOnFirst,
+    duplexOnTop: s.duplexOnTop,
   };
 }
 
@@ -49,6 +66,35 @@ export function StructureFields({ value, onChange }: { value: StructureState; on
         <Field label={t.setup.firstApt} htmlFor="st-first">
           <Input id="st-first" type="number" min={0} value={value.firstApt} onChange={set("firstApt")} />
         </Field>
+      </div>
+      <div className="flex flex-col gap-2 text-sm">
+        <span className="font-medium">{t.setup.buildingHas}</span>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {Object.entries(FEATURES)
+            .filter(([, v]) => v.of === "building")
+            .map(([k, v]) => (
+              <label key={k} className="flex items-center gap-2">
+                <Checkbox
+                  id={`st-f-${k}`}
+                  checked={value.buildingFeatures.includes(k)}
+                  onCheckedChange={(on) =>
+                    onChange({ ...value, buildingFeatures: on ? [...value.buildingFeatures, k] : value.buildingFeatures.filter((x) => x !== k) })
+                  }
+                />
+                {v.name}
+              </label>
+            ))}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <label className="flex items-center gap-2">
+            <Checkbox id="st-garden" checked={value.gardenOnFirst} onCheckedChange={(on) => onChange({ ...value, gardenOnFirst: !!on })} />
+            {t.setup.gardenOnFirst}
+          </label>
+          <label className="flex items-center gap-2">
+            <Checkbox id="st-duplex" checked={value.duplexOnTop} onCheckedChange={(on) => onChange({ ...value, duplexOnTop: !!on })} />
+            {t.setup.duplexOnTop}
+          </label>
+        </div>
       </div>
       <p className="text-xs text-muted-foreground">
         {t.setup.structurePreview(floors, apts)} · {t.setup.structureHint}

@@ -12,6 +12,7 @@ type Listener = (e: ChangeEvent) => void;
 
 /** Column defaults — mirror the SQL defaults so both stores behave the same. */
 const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
+  projects: () => ({ setup_mode: false, address: null, start_date: null, target_date: null }),
   tasks: () => ({
     status: "planned",
     is_critical: false,
@@ -91,7 +92,7 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
   conversation_participants: () => ({ last_read_at: null }),
   conversations: () => ({ title: null, last_message_at: null }),
   profiles: () => ({ auth_user_id: null, organization_id: null, phone: null, email: null }),
-  areas: () => ({ parent_id: null, sort_order: 0 }),
+  areas: () => ({ parent_id: null, sort_order: 0, features: [] }),
   contractors: () => ({ profile_id: null, phone: null, trade_id: null, company: null }),
   plan_files: () => ({ floor_area_id: null, created_by: null }),
   plan_pins: () => ({ page: 1, area_id: null, label: null }),

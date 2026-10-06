@@ -1,24 +1,30 @@
 "use server";
-import type { FlowStage } from "@/lib/flow/process";
-import { applyFlow, assignByTrade, captureExisting, toggleCaptured } from "@/lib/services/flow";
+import type { FlowKind, FlowStage } from "@/lib/flow/process";
+import { applyFlow, assignByTrade, captureExisting, setFeatures, toggleCaptured } from "@/lib/services/flow";
 import { resetFlow, saveFlow } from "@/lib/services/flow-template";
 import { run } from "./_run";
 
-export async function applyFlowAction(input: { areaIds: string[]; startDate: string; staggerDays?: number; contractorByTrade?: Record<string, string | null> }) {
+export async function applyFlowAction(input: {
+  kind?: FlowKind;
+  areaIds: string[];
+  startDate: string;
+  staggerDays?: number;
+  contractorByTrade?: Record<string, string | null>;
+}) {
   return run((ctx) => applyFlow(ctx, input));
 }
 
-export async function saveFlowAction(stages: FlowStage[]) {
-  return run(async (ctx) => (await saveFlow(ctx, stages)).length);
+export async function saveFlowAction(stages: FlowStage[], kind: FlowKind = "apartment") {
+  return run(async (ctx) => (await saveFlow(ctx, stages, kind)).length);
 }
 
-export async function resetFlowAction() {
+export async function resetFlowAction(kind: FlowKind = "apartment") {
   return run(async (ctx) => {
-    await resetFlow(ctx);
+    await resetFlow(ctx, kind);
   });
 }
 
-export async function captureExistingAction(input: { areaIds: string[]; doneUpTo: string | null; rescheduleFrom?: string | null }) {
+export async function captureExistingAction(input: { kind?: FlowKind; areaIds: string[]; doneUpTo: string | null; rescheduleFrom?: string | null }) {
   return run((ctx) => captureExisting(ctx, input));
 }
 
@@ -28,4 +34,8 @@ export async function toggleCapturedAction(taskId: string) {
 
 export async function assignByTradeAction(input: { areaIds: string[] | null; byTrade: Record<string, string | null> }) {
   return run((ctx) => assignByTrade(ctx, input));
+}
+
+export async function setFeaturesAction(input: { areaIds: string[]; add: string[]; remove: string[] }) {
+  return run((ctx) => setFeatures(ctx, input));
 }

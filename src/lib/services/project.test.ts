@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { APARTMENT_FLOW } from "@/lib/flow/process";
+import { APARTMENT_FLOW, stagesFor } from "@/lib/flow/process";
 import { sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore, NOW, sessionFor } from "@/test/fixtures";
 import { assignByTrade, captureExisting, flowStatus, toggleCaptured } from "./flow";
@@ -44,7 +44,7 @@ describe("setup mode and capturing an existing site", () => {
     const [apt] = await createAreas(pm, { parentId: sid("area:floor4"), type: "apartment", names: ["דירה 90"] });
     const msgsBefore = store.data.messages.length;
     const res = await captureExisting(pm, { areaIds: [apt.id], doneUpTo: "plaster", rescheduleFrom: "2026-10-12" });
-    expect(res.created).toBe(APARTMENT_FLOW.length);
+    expect(res.created).toBe(stagesFor(APARTMENT_FLOW, ["elevator", "parking"]).length);
     expect(res.marked).toBe(10); // plaster + everything it requires
     expect(store.data.messages.length).toBe(msgsBefore); // quiet: no assignment / release messages
 

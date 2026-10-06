@@ -150,7 +150,7 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
   const cid = contractorId;
 
   // ── areas ────────────────────────────────────────────────────
-  const area = (key: string, parent: string | null, type: Area["type"], name: string, sort: number) => {
+  const area = (key: string, parent: string | null, type: Area["type"], name: string, sort: number, features: string[] = []) => {
     db.areas.push({
       id: sid(`area:${key}`),
       project_id: DEMO_IDS.project,
@@ -158,26 +158,27 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
       type,
       name,
       sort_order: sort,
+      features,
       created_at: created,
     });
     return sid(`area:${key}`);
   };
   const A = (key: string) => sid(`area:${key}`);
-  area("building", null, "building", "בניין A", 0);
+  area("building", null, "building", "בניין A", 0, ["elevator", "parking"]);
   for (let f = 1; f <= 4; f++) {
     area(`floor${f}`, "building", "floor", `קומה ${f}`, f);
     for (let k = 1; k <= 5; k++) {
       const n = (f - 1) * 5 + k;
-      area(`apt${n}`, `floor${f}`, "apartment", `דירה ${n}`, n);
+      area(`apt${n}`, `floor${f}`, "apartment", `דירה ${n}`, n, f === 1 && k <= 2 ? ["garden"] : f === 4 && k === 5 ? ["duplex"] : []);
     }
   }
   ["סלון", "מטבח", "חדר רחצה", "מרפסת"].forEach((r, i) => area(`apt17:room${i}`, "apt17", "room", r, i));
   ["סלון", "חדר רחצה"].forEach((r, i) => area(`apt9:room${i}`, "apt9", "room", r, i));
-  area("roof", "building", "common", "גג", 10);
-  area("stairs", "building", "common", "חדר מדרגות", 11);
+  area("roof", "building", "common", "גג", 10, ["roof"]);
+  area("stairs", "building", "common", "חדר מדרגות", 11, ["stairwell"]);
   area("balconies", "building", "common", "מרפסות – חזית", 12);
-  area("lobby", "building", "common", "לובי כניסה", 13);
-  area("site", "building", "common", "פיתוח שטח", 14);
+  area("lobby", "building", "common", "לובי כניסה", 13, ["lobby"]);
+  area("site", "building", "common", "פיתוח שטח", 14, ["site"]);
 
   // ── external blockers ────────────────────────────────────────
   const fireId = sid("blocker:fire");

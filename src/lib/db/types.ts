@@ -74,6 +74,8 @@ export interface Area {
   type: AreaType;
   name: string;
   sort_order: number;
+  /** apartment: "garden" | "duplex"; building: "parking" | "elevator" | "sprinklers"; common: its part ("roof", "lobby", …) */
+  features: string[];
   created_at: ISODateTime;
 }
 
@@ -352,6 +354,7 @@ export interface AuditEntry {
 
 export interface FlowTemplate {
   organization_id: UUID;
+  kind: import("../flow/process").FlowKind;
   /** FlowStage[] — see src/lib/flow/process.ts */
   stages: import("../flow/process").FlowStage[];
   updated_by: UUID | null;
