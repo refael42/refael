@@ -6,7 +6,8 @@
 import type { BlockingItem, Bottleneck, EffectiveState, RootBlocker } from "../engine";
 import { fmtDateTime, t } from "../i18n";
 import type { ProjectSnapshot } from "./snapshot";
-import { areaLabel, snapshotRecommendation, snapshotUnlockImpact } from "./snapshot";
+import { analyze, newlyReady, withCompleted } from "../engine";
+import { areaLabel, snapshotRecommendation, snapshotUnlockImpact, toEngineInput } from "./snapshot";
 
 export interface TaskCardVM {
   id: string;
@@ -282,4 +283,10 @@ export function findArea(tree: AreaProgressVM[], id: string): AreaProgressVM | n
     if (f) return f;
   }
   return null;
+}
+
+/** Tasks that would become ready if `taskId` were completed now (approval preview). */
+export function releaseIfDone(s: ProjectSnapshot, taskId: string): string[] {
+  const input = toEngineInput(s.tasks, s.dependencies, s.blockers, s.now);
+  return newlyReady(s.analysis, analyze(withCompleted(input, [taskId])));
 }

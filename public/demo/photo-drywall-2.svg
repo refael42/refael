@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfc8ba"/><stop offset="1" stop-color="#8a8070"/></linearGradient></defs>
+<rect width="640" height="480" fill="url(#g)"/>
+<rect x="0" y="380" width="640" height="100" fill="#6b5f50"/>
+<rect x="40" y="60" width="180" height="320" fill="#e9e7e2" stroke="#c9c5bc" stroke-width="3"/><rect x="230" y="60" width="180" height="320" fill="#e9e7e2" stroke="#c9c5bc" stroke-width="3"/><rect x="420" y="60" width="180" height="320" fill="#e9e7e2" stroke="#c9c5bc" stroke-width="3"/><polygon points="0,0 640,0 560,120 80,120" fill="#efede8" stroke="#c9c5bc" stroke-width="3"/><rect x="250" y="40" width="140" height="50" fill="#fff" stroke="#9a968e" stroke-width="3"/>
+
+<rect x="16" y="16" rx="8" width="210" height="34" fill="rgba(0,0,0,.45)"/>
+<text x="30" y="40" font-family="Arial" font-size="18" fill="#fff">Ceiling access panel</text>
+</svg>

@@ -6,6 +6,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { analyzeMessageAction } from "@/app/actions/ai";
 import { markReadAction, sendMessageAction } from "@/app/actions/chat";
+import { uploadFile } from "@/components/common/upload";
 import { ReportDoneButton } from "@/components/completion/report-done-button";
 import type { TaskFormOptions } from "@/components/tasks/task-form-dialog";
 import { Button } from "@/components/ui/button";
@@ -16,14 +17,6 @@ import { mediaSrc } from "@/lib/media";
 import type { ConversationVM, MessageVM } from "@/lib/services/chat";
 import { cn } from "@/lib/utils";
 import { AiCard } from "./ai-card";
-
-export async function uploadFile(file: File): Promise<string> {
-  const body = new FormData();
-  body.append("file", file);
-  const res = await fetch("/api/upload", { method: "POST", body });
-  if (!res.ok) throw new Error(t.chat.uploadFailed);
-  return ((await res.json()) as { key: string }).key;
-}
 
 export function ChatRoom({
   conversation,
