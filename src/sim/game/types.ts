@@ -110,6 +110,8 @@ export type Command =
   | { type: 'hurry'; work: number }
   /** Build mode: carry a placed decor piece to another free tile. */
   | { type: 'move'; from: Point; to: Point }
+  /** Hand this restaurant over and open a branch in the next city (prestige). */
+  | { type: 'branch' }
   | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }
@@ -316,6 +318,9 @@ export interface GameState {
   /** Big upgrades a crew is working on (they count when done). */
   works: Work[];
   nextWorkId: number;
+  /** Branches (prestige): the city this restaurant is in (0 = the first one), chef trophies won. */
+  city: number;
+  trophies: number;
 }
 
 /** A big upgrade in progress (src/data/works.ts). */

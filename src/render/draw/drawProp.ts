@@ -22,6 +22,8 @@ export interface PropLooks {
   selected: number[];
   /** Full detail (glows, sparkles on every table and chair), false when zoomed far out. */
   detail: boolean;
+  /** The branch's city (its trees). */
+  city: number;
 }
 
 /** Past the last baked look, stations keep a golden aura that grows with every milestone. */
@@ -302,7 +304,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     c.restore();
   } else if (kind === PropKind.Fridge) spr(c, A, look(A.L.look.fridge, tier), 0, 0, plain);
   else if (kind === PropKind.Plant) sprXf(c, A, look(variant === 1 ? A.L.look.plantBush : A.L.look.plantPalm, tier), 0, 0, Math.sin(t * 1.1 + seed) * 1.4, 1, 1, plain);
-  else if (kind === PropKind.Tree) sprXf(c, A, variant === 1 ? S.treeRound : S.treePalm, 0, 0, Math.sin(t * 0.8 + seed) * 1.2, 1, 1, plain);
+  else if (kind === PropKind.Tree) sprXf(c, A, A.L.trees[looks.city * 2 + (variant === 1 ? 1 : 0)] ?? S.treePalm, 0, 0, Math.sin(t * 0.8 + seed) * 1.2, 1, 1, plain);
   else if (kind === PropKind.Lamp) {
     spr(c, A, S.lamp, 0, 0, plain);
     sprFade(c, A, S.glowHalo, 0, oy(0, 0, 76), 1, 0.75 + Math.sin(t * 2 + seed) * 0.2);

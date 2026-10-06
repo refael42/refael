@@ -19,8 +19,9 @@
 | M9 | Owner requests: big upgrades take time (crews, timers, tap to hurry, gems to finish), bulk x1/x10/x100/max, restaurant level caps every 100 levels, deeper buildings with a bigger kitchen, rugs, moving decor | ✅ Done |
 | M10 | Owner fixes (shop scrolls, only the tapped piece glows, late-game lag pass 2), second sink, weather | ✅ Done |
 | M11 | Sound effects, music loop and vibration (owner approved), switches in the settings | ✅ Done |
-| M7b | Full polish: audio, haptics, weather, settings | — |
-| M8 | Prestige, perf pass, store readiness, IAP/ads plan | — |
+| M7b | Full polish: audio, haptics, weather, settings | ✅ Done (M10, M11) |
+| M12 | Prestige: a branch in a new city (chef trophies, city looks) | ✅ Done |
+| M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
 
@@ -57,6 +58,12 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M12 (the next roadmap stage, prestige): **a branch in a new city** from the grand
+  restaurant on. Trophies = 2 per power of ten earned past 3e7 (grand ~3-4, palace ~6-7), each
+  +25% to all prices forever; kept: gems, forever perks, crews, names; reset: building,
+  upgrades, coins, team, stages. Cities: Tel Aviv, Jerusalem, Haifa, Eilat (ground, sidewalk and
+  trees). Bot: a second run with 3 trophies reaches the grand restaurant at ~31 min (first run
+  ~56) and the palace at ~52 (~87). Save v7 (city, trophies).
 - Done in M11 (owner approved downloads and two packages): **sound and vibration**.
   kenney.nl is blocked by this environment's network policy, so every sound is synthesized
   by `node scripts/make-sounds.mjs` (oscillators, noise, envelopes; 13 effects and an 18 s cafe

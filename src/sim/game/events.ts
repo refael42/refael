@@ -53,6 +53,8 @@ export const Ev = {
   WorkTap: 26,
   /** A big upgrade is done. a = the level it brought */
   WorkDone: 27,
+  /** A branch opened in a new city; (x,y) = its door. a = trophies won, b = the city's number */
+  Branch: 28,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

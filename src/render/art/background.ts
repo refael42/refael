@@ -7,6 +7,7 @@ import { darken, lighten } from './color';
 import { box, onFaceX, onFaceY, onTop, rectIn } from './iso3d';
 import { fill, path, stroke } from './kit';
 import { propSprites } from './propArt';
+import { cityOf, type CityDef } from '../../data/franchise';
 
 // The static world: floors, back walls and outdoor ground, recorded once as a vector picture
 // (crisp at every zoom). Everything standing on the floor is a sorted prop instead.
@@ -25,6 +26,8 @@ export interface BackgroundDef {
   doorX?: number;
   /** Rugs under the groups of tables (owner request: a room with areas, not one long grid). */
   rugs?: readonly Rug[];
+  /** The branch's city: the ground, the sidewalk and the trees outside. */
+  city?: number;
 }
 
 export interface Rug {
@@ -63,10 +66,12 @@ function rugsOf(map: MapDef): Rug[] {
 }
 
 /** What the game map looks like as a background. */
-export function mapBackground(map: MapDef): BackgroundDef {
+export function mapBackground(map: MapDef, city = 0): BackgroundDef {
   const { width, height, areas, building, wallHeight, backdrop } = map;
-  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, rugs: rugsOf(map) };
+  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, rugs: rugsOf(map), city };
 }
+
+const TREE_ART = { palm: propSprites.treePalm, round: propSprites.treeRound, olive: propSprites.treeOlive, cypress: propSprites.treeCypress } as const;
 
 const GOLD = '#E2B13C';
 const WALL = '#4A1F4E';
@@ -164,21 +169,24 @@ function rug(c: SkCanvas, r: Rug) {
   }
 }
 
-function floor(c: SkCanvas, a: Area, doorX: number) {
+function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
   const painters: Record<FloorStyle, () => void> = {
+    // The outdoors take the city's colors (Jerusalem stone, Eilat sand...).
     grass: () => {
-      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? '#3E9150' : '#43994F'));
+      const [g0, g1, speck] = city.ground;
+      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? g0 : g1));
       for (let ty = a.y0; ty < a.y1; ty++) {
         for (let tx = a.x0; tx < a.x1; tx++) {
-          if (hash(tx, ty) > 0.7) c.drawCircle(tx + hash(ty, tx), ty + hash(tx + 1, ty), 0.06, fill('#2F7A3E'));
+          if (hash(tx, ty) > 0.7) c.drawCircle(tx + hash(ty, tx), ty + hash(tx + 1, ty), 0.06, fill(speck));
         }
       }
     },
     sidewalk: () => {
-      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? '#D8D2CA' : '#CBC4BB'));
-      for (let tx = a.x0; tx <= a.x1; tx++) c.drawRect(Skia.XYWHRect(tx - 0.01, a.y0, 0.02, h), fill('#B2AAA0'));
+      const [s0, s1, joint] = city.sidewalk;
+      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? s0 : s1));
+      for (let tx = a.x0; tx <= a.x1; tx++) c.drawRect(Skia.XYWHRect(tx - 0.01, a.y0, 0.02, h), fill(joint));
     },
     road: () => {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#3A3E4B'));
@@ -289,11 +297,12 @@ function walls(c: SkCanvas, b: NonNullable<BackgroundDef['building']>, H: number
 }
 
 export function recordBackground(def: BackgroundDef): SkPicture {
+  const city = cityOf(def.city ?? 0);
   const bounds = isoBounds(def.width, def.height, 140);
   const rec = Skia.PictureRecorder();
   const c = rec.beginRecording(Skia.XYWHRect(bounds.minX - 20, bounds.minY - 20, bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40));
   onTop(c, 0, () => {
-    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5);
+    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city);
     for (const r of def.rugs ?? []) rug(c, r);
   });
   for (const a of def.areas) if (a.floor === 'lot') lotFence(c, a);
@@ -302,7 +311,7 @@ export function recordBackground(def: BackgroundDef): SkPicture {
     if (f.kind !== PropKind.Tree) continue;
     c.save();
     c.translate(isoX(f.x, f.y), isoY(f.x, f.y, 0));
-    (f.variant === 1 ? propSprites.treeRound : propSprites.treePalm).draw(c);
+    TREE_ART[city.trees[f.variant === 1 ? 1 : 0]].draw(c);
     c.restore();
   }
   if (def.building) walls(c, def.building, def.wallHeight ?? 64, def.wall ?? WALL);

@@ -2,6 +2,7 @@ import { TIERS } from '../../data/buildings';
 import { DISHES } from '../../data/dishes';
 import type { MapDef } from '../../data/maps';
 import { SHOP } from '../../data/shop';
+import { FRANCHISE } from '../../data/franchise';
 import { COUNT_STATS, MILESTONES, RANK, UPGRADE_BY_ID, UPGRADES, type Stat, type UpgradeDef } from '../../data/upgrades';
 import { big, type Big } from '../big';
 
@@ -141,8 +142,11 @@ type ScalarStat = Exclude<Stat, 'price'>;
 /** Shop perks owned: id -> 1 (permanent multipliers bought with gems). */
 export type Perks = Readonly<Record<string, number>>;
 
-/** Levels add up within a stat; milestones multiply on top; shop perks multiply last. */
-export function computeMods(levels: Levels, perks: Perks = {}): Mods {
+/** All prices are multiplied by this for the chef trophies won in earlier branches. */
+export const trophyBonus = (trophies: number): number => 1 + FRANCHISE.pricePerTrophy * Math.max(0, trophies);
+
+/** Levels add up within a stat; milestones multiply on top; shop perks and trophies multiply last. */
+export function computeMods(levels: Levels, perks: Perks = {}, trophies = 0): Mods {
   const m = emptyMods();
   const add: Partial<Record<ScalarStat, number>> = {};
   const priceAdd = DISHES.map(() => 0);
@@ -174,6 +178,7 @@ export function computeMods(levels: Levels, perks: Perks = {}): Mods {
     if (item.stat === 'price') m.price = m.price.map((p) => p * item.mult);
     else m[item.stat] *= item.mult;
   }
+  if (trophies > 0) m.price = m.price.map((p) => p * trophyBonus(trophies));
   return m;
 }
 

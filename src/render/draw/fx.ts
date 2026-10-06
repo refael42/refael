@@ -202,6 +202,11 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       s.shakeAt = t;
       for (let k = 0; k < 40; k++) spawnFx(s, FxKind.Confetti, t + k * 0.01, 1.8, wx + Math.sin(k * 1.3) * 120, wy - 80, (k / 40) * Math.PI * 2, 0, k);
       for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Burst, t + k * 0.08, 0.8, wx + Math.sin(k * 2.4) * 140, wy - 60 + Math.cos(k * 1.9) * 40);
+    } else if (type === Ev.Branch) {
+      // A new branch opens: the biggest celebration there is.
+      s.shakeAt = t;
+      for (let k = 0; k < 60; k++) spawnFx(s, FxKind.Confetti, t + k * 0.008, 2.2, wx + Math.sin(k * 1.3) * 160, wy - 90, (k / 60) * Math.PI * 2, 0, k);
+      for (let k = 0; k < 8; k++) spawnFx(s, FxKind.Burst, t + k * 0.07, 0.9, wx + Math.sin(k * 2.4) * 170, wy - 60 + Math.cos(k * 1.9) * 50);
     } else if (type === Ev.WorkStart) {
       // A crew gets to work: a little cloud of dust.
       for (let k = 0; k < 4; k++) spawnFx(s, FxKind.Dust, t + k * 0.06, 1.1, wx + Math.sin(k * 2.1) * 22, wy - 8 - (k % 2) * 14, 0, 0, 0.8);

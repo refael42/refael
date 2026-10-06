@@ -37,6 +37,7 @@ function soundOf(type: number, a: number, b: number): [SoundId | null, boolean] 
     case Ev.WorkDone:
       return ['done', true];
     case Ev.Built:
+    case Ev.Branch:
     case Ev.LevelUpRestaurant:
       return ['fanfare', true];
     case Ev.Review:

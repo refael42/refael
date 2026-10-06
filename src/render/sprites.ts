@@ -1,4 +1,5 @@
 import { Accessory, Hair, Hat, Outfit } from '../data/looks';
+import { CITIES } from '../data/franchise';
 import { Bubble, Emote, Expression, Held } from '../sim/types';
 import { characterSprites } from './art/charArt';
 import { decorSprites } from './art/decorArt';
@@ -96,6 +97,8 @@ const looks = (base: string): number[] => {
   return out;
 };
 
+const TREE_SPRITE = { palm: 'treePalm', round: 'treeRound', olive: 'treeOlive', cypress: 'treeCypress' } as const;
+
 /** Order icon and plated look per dish id (src/data/dishes.ts order). */
 const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream'] as const;
 const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma', 'plateHummus', 'plateSchnitzel', 'plateShakshuka', 'plateIceCream'] as const;
@@ -119,6 +122,8 @@ export const LAYERS = {
   ]),
   /** Dish icon per dish id (tickets, bubbles). */
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
+  /** Tree sprites per city: [city * 2 + map variant] (src/data/franchise.ts). */
+  trees: CITIES.flatMap((city) => city.trees.map((k) => INDEX[TREE_SPRITE[k]]!)),
   /** Station looks by milestone tier. */
   look: {
     stove: looks('stove'),

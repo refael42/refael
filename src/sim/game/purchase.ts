@@ -95,7 +95,7 @@ function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean)
   const level = levelOf(s.levels, id);
   const before = s.mods;
   s.levels = { ...s.levels, [id]: level + 1 };
-  s.mods = computeMods(s.levels, s.perks);
+  s.mods = computeMods(s.levels, s.perks, s.trophies);
   // Bought plates go straight onto the clean stack.
   s.cleanPlates += s.mods.plates - before.plates;
   // A new building is a show of its own (and rebuilds the whole place when it is done).

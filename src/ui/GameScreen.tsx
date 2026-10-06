@@ -47,6 +47,8 @@ import { Welcome } from './Welcome';
 import { canBuyNow, UpgradePanel } from './UpgradePanel';
 import { WelcomeBack } from './WelcomeBack';
 import { WorksTray } from './WorksTray';
+import { BranchConfirm, CityChip, readBranch } from './Branch';
+import { cityOf } from '../data/franchise';
 import { useGameSounds } from '../audio/useGameSounds';
 import { buzz } from '../audio/sound';
 
@@ -119,7 +121,9 @@ const readWallet = (s: GameState) => ({
   waiting: s.applicants.filter((a) => a.state === 'waiting').length,
   gems: s.gems,
   crews: { works: s.works.map((w) => ({ id: w.id, item: w.item, total: w.total, left: w.left })), crews: crewCount(s.perks) },
+  branch: readBranch(s),
 });
+const readCity = (s: GameState) => s.city;
 
 /** The live restaurant: scene, upgrade and staff panels, decisions, welcome-back screen. */
 function GameRunner({ boot }: { boot: GameBoot }) {
@@ -218,7 +222,17 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // scaffolding is up), and a celebration when the bigger place opens.
   const tier = usePoll(gameRef, readTier, 4) ?? (boot.save ? levelOf(boot.save.levels, 'building') : 0);
   const building = usePoll(gameRef, readConstruction, 4) ?? -1;
-  const background = useMemo(() => mapBackground(mapForTier(tier)), [tier]);
+  const city = usePoll(gameRef, readCity, 2) ?? boot.save?.city ?? 0;
+  const background = useMemo(() => mapBackground(mapForTier(tier), city), [tier, city]);
+  // A new branch opened: its own banner (the city and the trophies).
+  const [branchBanner, setBranchBanner] = useState<number | null>(null);
+  const [branchAsk, setBranchAsk] = useState(false);
+  const shownCity = useRef(city);
+  useEffect(() => {
+    if (city > shownCity.current) setBranchBanner(city);
+    shownCity.current = city;
+  }, [city]);
+  const endBranchBanner = useCallback(() => setBranchBanner(null), []);
   const focus = useMemo(() => {
     if (building < 0) return TIERS[tier]!.focus;
     const from = mapForTier(tier).building.x1;
@@ -344,6 +358,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       <Hud gameRef={gameRef} feed={hudFeed} layout={hud} />
       {!onboarding && <GemPill gameRef={gameRef} onPress={() => setShop(true)} style={{ left: hud.left + 6, top: hud.top + HUD.height + 8 }} />}
       {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
+      {!onboarding && <CityChip gameRef={gameRef} style={{ left: hud.right - HUD.ratingWidth, top: hud.top + HUD.height + 6 }} />}
       <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
@@ -369,6 +384,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           station={panel.station}
           onBuy={(item, step) => command({ type: 'buy', item, step })}
           onFinish={(work) => command({ type: 'finish', work })}
+          onBranch={() => {
+            close();
+            setBranchAsk(true);
+          }}
           onShowAll={() => open(null)}
           onClose={close}
         />
@@ -390,7 +409,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         <Tutorial gameRef={gameRef} camera={camera} buttons={tutorialButtons} layout={hud} menuOpen={panel !== null || staff !== null || build !== null} />
       )}
       {building >= 0 && <ConstructionNote />}
-      {levelBanner !== null && <LevelBanner level={levelBanner} onDone={endLevelBanner} />}
+      {branchAsk && <BranchConfirm gameRef={gameRef} onCommand={command} onClose={() => setBranchAsk(false)} />}
+      {branchBanner !== null && <LevelBanner level={0} branch={{ city: t(`city.${cityOf(branchBanner).id}`), trophies: gameRef.current?.trophies ?? 0 }} onDone={endBranchBanner} />}
+      {levelBanner !== null && branchBanner === null && <LevelBanner level={levelBanner} onDone={endLevelBanner} />}
       {rankBanner !== null && levelBanner === null && <LevelBanner level={rankBanner} rank={{ opens: rankBanner * RANK.levels }} onDone={endRankBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}

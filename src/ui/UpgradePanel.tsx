@@ -17,6 +17,7 @@ import type { PropKind } from '../sim/types';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
 import { BulkToggle } from './Bulk';
+import { BranchCard, type BranchView } from './Branch';
 import type { BulkStep } from '../data/works';
 import { buzz } from '../audio/sound';
 
@@ -28,6 +29,8 @@ export interface Wallet {
   /** Big upgrades in progress and how many crews there are; gems to finish them now. */
   crews: Crews;
   gems: number;
+  /** The next branch in a new city (prestige). */
+  branch: BranchView;
 }
 
 /** Can one level of this be bought right now (the crews and the building allowing)? */
@@ -40,6 +43,8 @@ interface Props {
   onBuy: (id: string, step: BulkStep) => void;
   /** Finish a big upgrade now with gems. */
   onFinish: (work: number) => void;
+  /** Ask about opening a branch in the next city. */
+  onBranch: () => void;
   onShowAll: () => void;
   onClose: () => void;
 }
@@ -232,7 +237,7 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
 /** The catalog's tabs: "best value" across everything, then the categories. */
 type Tab = Category | 'best';
 
-export function UpgradePanel({ wallet, station, onBuy, onFinish, onShowAll, onClose }: Props) {
+export function UpgradePanel({ wallet, station, onBuy, onFinish, onBranch, onShowAll, onClose }: Props) {
   const t = useT();
   const rtl = isRTL(useSettings((s) => s.lang));
   const [category, setCategory] = useState<Tab>('best');
@@ -306,6 +311,8 @@ export function UpgradePanel({ wallet, station, onBuy, onFinish, onShowAll, onCl
         </ScrollView>
       )}
       <ScrollView style={styles.list} contentContainerStyle={styles.listInner}>
+        {/* The building tab ends the run here: the next branch, in a new city. */}
+        {station === null && !q && category === 'building' && <BranchCard view={wallet.branch} onOpen={onBranch} />}
         {items.map((def) => (
           <Row key={def.id} def={def} wallet={wallet} onBuy={onBuy} onFinish={onFinish} best={def.id === bestId} />
         ))}

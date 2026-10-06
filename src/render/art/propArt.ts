@@ -118,6 +118,21 @@ const treeRound = sprite([-46, -120, 46, 14], (c) => {
   box(c, { x: 0, y: 0, z: 34, w: 0.8, d: 0.8, h: 34, color: '#2E8B47' });
   box(c, { x: 0, y: 0, z: 68, w: 0.55, d: 0.55, h: 18, color: '#3FA65A' });
 });
+/** Jerusalem: a gnarled olive tree, silver-green and wide. */
+const treeOlive = sprite([-50, -110, 50, 14], (c) => {
+  floorShadow(c, 0, 0, 0.55, 0.25);
+  for (let i = 0; i < 4; i++) box(c, { x: 0.03 * Math.sin(i * 1.7), y: 0.03 * Math.cos(i * 1.3), z: i * 9, w: 0.16 - i * 0.015, d: 0.16 - i * 0.015, h: 9, color: i % 2 ? '#7A6A52' : '#6A5A44' });
+  for (const [x, y, z, w, h, color] of [[0, 0, 32, 0.95, 18, '#7E9A6A'], [-0.18, 0.12, 44, 0.6, 16, '#93AE7E'], [0.2, -0.1, 46, 0.55, 14, '#8AA676'], [0, 0, 58, 0.45, 10, '#A4BD8E']] as const) {
+    box(c, { x, y, z, w, d: w, h, color });
+  }
+});
+/** Haifa and Jerusalem: a tall, slim cypress. */
+const treeCypress = sprite([-26, -150, 26, 12], (c) => {
+  floorShadow(c, 0, 0, 0.3, 0.25);
+  box(c, { x: 0, y: 0, w: 0.08, d: 0.08, h: 14, color: '#6A4A2A' });
+  const tiers: [number, number, number][] = [[10, 0.38, 34], [42, 0.32, 34], [74, 0.24, 30], [102, 0.14, 26]];
+  tiers.forEach(([z, w, h], i) => box(c, { x: 0, y: 0, z, w, d: w, h, color: i % 2 ? '#2F6B3E' : '#285E36' }));
+});
 const lamp = sprite([-20, -110, 20, 8], (c) => {
   floorShadow(c, 0, 0, 0.2, 0.25);
   box(c, { x: 0, y: 0, w: 0.1, d: 0.1, h: 4, color: '#22202A' });
@@ -156,6 +171,6 @@ const scaffoldY = sprite([-26, -100, 26, 18], (c) => scaffold(c, false));
 
 export const propSprites = {
   ovenGlow, pan, patty, pot, flame, pass, passLong, washPlate, plateDirty, glass, glassEmpty, stain,
-  ticket, plateSingleDirty, treePalm, treeRound, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
+  ticket, plateSingleDirty, treePalm, treeRound, treeOlive, treeCypress, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
 };
 

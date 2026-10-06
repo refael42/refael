@@ -16,7 +16,7 @@ import { GEMS, SHOP_BY_ID } from '../data/shop';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -48,6 +48,9 @@ export interface SaveData {
   boost: { mult: number; seconds: number };
   /** Big upgrades in progress (seconds left when saved; the time away counts too). */
   works: SavedWork[];
+  /** Branches: the city this one is in, chef trophies won in the branches before. */
+  city: number;
+  trophies: number;
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -84,6 +87,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v5 (M8) had no build times (nothing in progress) and no restaurant level capping the
   // tracks: the restaurant starts at the level its highest track already needs.
   5: (old) => ({ ...old, works: [], levels: withRankFor(old.levels) }),
+  // v6 (M11) had no branches: the first city, no trophies yet.
+  6: (old) => ({ ...old, city: 0, trophies: 0 }),
 };
 
 /** Old levels plus the restaurant level that keeps every one of them (nothing is taken away). */
@@ -125,6 +130,8 @@ export function makeSave(s: GameState, now: number): SaveData {
     perks: { ...s.perks },
     boost: { mult: s.boost.mult, seconds: Math.max(0, s.boost.until - s.time) },
     works: s.works.map((w) => ({ item: w.item, level: w.level, total: w.total, left: Math.max(0, w.left), at: w.at ? { ...w.at } : null })),
+    city: s.city,
+    trophies: s.trophies,
   };
 }
 
@@ -222,6 +229,8 @@ function validate(o: Record<string, unknown>): SaveData | null {
     // Only perks the shop still sells.
     perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk' || SHOP_BY_ID[id]?.kind === 'crew').map((id) => [id, 1])),
     works: cleanWorks(o.works, levels),
+    city: count(o.city),
+    trophies: count(o.trophies),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -294,5 +303,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     perks: save.perks,
     boost: save.boost,
     works: save.works.map((w) => ({ ...w, left: Math.max(0, w.left - away) })),
+    city: save.city,
+    trophies: save.trophies,
   });
 }

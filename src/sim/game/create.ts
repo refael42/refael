@@ -98,7 +98,7 @@ function restoreDecor(s: GameState, placed: readonly PlacedDecor[]): void {
       changed = true;
     }
   }
-  if (changed) s.mods = computeMods(s.levels, s.perks);
+  if (changed) s.mods = computeMods(s.levels, s.perks, s.trophies);
 }
 
 /**
@@ -223,6 +223,9 @@ export interface GameSetup {
   bestCombo?: number;
   /** Big upgrades a crew was working on. */
   works?: readonly SavedWork[];
+  /** Branches: which city this one is in (0 = the first), and chef trophies won so far. */
+  city?: number;
+  trophies?: number;
 }
 
 /** A job in progress as the save keeps it. */
@@ -237,7 +240,8 @@ export interface SavedWork {
 export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): GameState {
   const levels = { ...(setup.levels ?? {}) };
   const perks = { ...(setup.perks ?? {}) };
-  const mods = computeMods(levels, perks);
+  const trophies = setup.trophies ?? 0;
+  const mods = computeMods(levels, perks, trophies);
   let nextId = 1;
   const props: PropView[] = [map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor].map((f) => propFrom(nextId++, f));
   const s: GameState = {
@@ -296,6 +300,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     placed: [],
     works: (setup.works ?? []).map((w, i) => ({ ...w, at: w.at ? { ...w.at } : null, id: i + 1, lastTap: -Infinity })),
     nextWorkId: (setup.works?.length ?? 0) + 1,
+    city: setup.city ?? 0,
+    trophies,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);

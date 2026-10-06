@@ -64,6 +64,8 @@ export interface Snapshot {
   works: number[];
   /** Today's weather (src/data/weather.ts). */
   weather: number;
+  /** Which city the branch is in (its trees). */
+  city: number;
 }
 
 /** Packed work sites: floor position, progress 0..1, seconds left, the station's prop kind. */
@@ -80,9 +82,10 @@ export interface SnapshotExtra {
   bestBadge?: number[];
   works?: number[];
   weather?: number;
+  city?: number;
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [], weather: 0 };
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [], weather: 0, city: 0 };
 
 interface SortItem {
   depth: number;
@@ -168,5 +171,6 @@ export function packSnapshot(
     bestBadge: extra.bestBadge ?? [],
     works: extra.works ?? [],
     weather: extra.weather ?? 0,
+    city: extra.city ?? 0,
   };
 }

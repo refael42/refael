@@ -168,7 +168,7 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
  * A card that pops and fades (confetti comes from the canvas): the next stage, or (`rank`) the
  * next restaurant level and how far the upgrades go now.
  */
-export function LevelBanner({ level, onDone, rank }: { level: number; onDone: () => void; rank?: { opens: number } }) {
+export function LevelBanner({ level, onDone, rank, branch }: { level: number; onDone: () => void; rank?: { opens: number }; branch?: { city: string; trophies: number } }) {
   const t = useT();
   const restaurant = useSettings((s) => s.profile?.restaurant);
   const pop = useSharedValue(0);
@@ -181,12 +181,18 @@ export function LevelBanner({ level, onDone, rank }: { level: number; onDone: ()
   return (
     <View style={styles.bannerWrap} pointerEvents="none">
       <Animated.View style={[styles.banner, popStyle]}>
-        <Text style={styles.bannerTop}>{t(rank ? 'ui.rankUp' : 'quest.levelUp')}</Text>
-        {restaurant && <Text style={styles.bannerName}>{restaurant}</Text>}
-        <View style={styles.bannerLine}>
-          <Text style={styles.bannerSmall}>{t(rank ? 'ui.rankNow' : 'quest.title')}</Text>
-          <Text style={styles.bannerBig}>{level}</Text>
-        </View>
+        <Text style={styles.bannerTop}>{t(branch ? 'branch.opened' : rank ? 'ui.rankUp' : 'quest.levelUp')}</Text>
+        {restaurant && <Text style={styles.bannerName}>{branch ? `${restaurant} · ${branch.city}` : restaurant}</Text>}
+        {branch ? (
+          <View style={styles.bannerLine}>
+            <Text style={styles.bannerBig}>{`🏆 ${branch.trophies}`}</Text>
+          </View>
+        ) : (
+          <View style={styles.bannerLine}>
+            <Text style={styles.bannerSmall}>{t(rank ? 'ui.rankNow' : 'quest.title')}</Text>
+            <Text style={styles.bannerBig}>{level}</Text>
+          </View>
+        )}
         {rank && (
           <View style={styles.bannerLine}>
             <Text style={styles.bannerSmall}>{t('ui.rankUpOpens')}</Text>

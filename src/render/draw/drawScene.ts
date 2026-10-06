@@ -104,7 +104,7 @@ export function drawScene(
   const night = nightOf(phase);
   // Zoomed far out the many small tables and chairs skip their glow and sparkles (a lot of
   // see-through pixels on top of each other for something too small to see).
-  const looks: PropLooks = { tiers: snap.tiers, dishTiers: snap.dishTiers, bumps: snap.bumps, selected, detail: cam.zoom >= DETAIL_ZOOM };
+  const looks: PropLooks = { tiers: snap.tiers, dishTiers: snap.dishTiers, bumps: snap.bumps, selected, detail: cam.zoom >= DETAIL_ZOOM, city: snap.city };
   // Big moments (milestones) give the camera a short, decaying shake.
   const shake = t - fx.shakeAt;
   const amp = shake >= 0 && shake < 0.35 ? (1 - shake / 0.35) * 4 : 0;

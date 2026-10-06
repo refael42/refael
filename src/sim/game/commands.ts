@@ -6,6 +6,7 @@ import { seatCustomer } from './customers';
 import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf } from './purchase';
 import { moveDecor } from './create';
+import { openBranch } from '../franchise';
 import { canPlaceAt } from './build';
 import { finishWorkNow, hurryWork } from './works';
 import type { BulkStep } from '../../data/works';
@@ -140,6 +141,8 @@ function apply(s: GameState, cmd: Command): void {
     if (w) hurryWork(s, w.id, siteOf(s, w));
   } else if (cmd.type === 'finish') {
     finishWorkNow(s, cmd.work);
+  } else if (cmd.type === 'branch') {
+    openBranch(s);
   } else if (cmd.type === 'move') {
     if (moveDecor(s, cmd.from, cmd.to, canPlaceAt)) {
       rerouteWalkers(s);

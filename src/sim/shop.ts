@@ -92,7 +92,7 @@ export function buyShopItem(s: GameState, id: string): boolean {
       break;
     case 'perk':
       s.perks = { ...s.perks, [item.id]: 1 };
-      s.mods = computeMods(s.levels, s.perks);
+      s.mods = computeMods(s.levels, s.perks, s.trophies);
       break;
   }
   return true;

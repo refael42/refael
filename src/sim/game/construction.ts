@@ -61,6 +61,8 @@ function finishConstruction(s: GameState): void {
     team: s.staff.filter((st) => !st.leaving).map(workerOf),
     placed: s.placed,
     perks: s.perks,
+    trophies: s.trophies,
+    city: s.city,
   });
   const keep = {
     rng: s.rng,
@@ -82,6 +84,8 @@ function finishConstruction(s: GameState): void {
     earnLog: s.earnLog,
     works: s.works,
     nextWorkId: s.nextWorkId,
+    city: s.city,
+    trophies: s.trophies,
     // Ids keep counting up, so nothing new is mistaken for something that was there before.
     nextId: Math.max(s.nextId, fresh.nextId),
   };

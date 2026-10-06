@@ -5,7 +5,7 @@ import { STAND_MAP } from '../src/data/maps';
 import { runBalance, type BalanceReport } from '../src/sim/balance';
 import { formatBig } from '../src/sim/format';
 
-// `npm run balance [-- --minutes 60 --seed 1 --reaction 1.2]`: prints the progression timeline
+// `npm run balance [-- --minutes 60 --seed 1 --reaction 1.2 --trophies 3]`: prints the progression timeline
 // of a greedy bot and flags dead zones / inflation.
 
 const clock = (t: number) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
@@ -71,6 +71,7 @@ export function main(args: string[]): void {
     seconds: minutes * 60,
     seed: option(args, 'seed', 1),
     reaction: option(args, 'reaction', BALANCE.reactionSeconds),
+    trophies: option(args, 'trophies', 0),
   });
   print(report);
   console.log(`\n(ran in ${((Date.now() - started) / 1000).toFixed(1)}s)`);

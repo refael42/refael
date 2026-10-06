@@ -49,12 +49,14 @@ export interface BalanceOptions {
   seconds: number;
   seed: number;
   reaction?: number;
+  /** Chef trophies from earlier branches (a second or later run). */
+  trophies?: number;
 }
 
 const firstTime = (purchases: Purchase[], test: (p: Purchase) => boolean): number | null => purchases.find(test)?.time ?? null;
 
 export function runBalance(o: BalanceOptions): BalanceReport {
-  const s = createGame(o.map, o.seed);
+  const s = createGame(o.map, o.seed, { trophies: o.trophies ?? 0 });
   const bot = createBot({ reaction: o.reaction ?? BALANCE.reactionSeconds, helpStaff: true, buy: true });
   const samples: Sample[] = [];
   const steps = Math.round(o.seconds / STEP_SEC);
