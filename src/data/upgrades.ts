@@ -40,6 +40,8 @@ export interface UpgradeDef {
   /** Coins for the first level; each level costs `growth` times the previous one. */
   baseCost: number;
   growth: number;
+  /** Set prices for the first levels instead of the curve (the curve goes on after the list). */
+  costs?: readonly number[];
   effect: Effect;
   milestone: MilestoneBonus | null;
   /** Capacity tracks stop here; endless tracks leave it out. */
@@ -156,8 +158,11 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'tips', per: 0.05 }, milestone: { stat: 'tips', factor: 1.15 } },
 
   // The building itself: buy the lot next door (the "for sale" sign) and grow into it.
+  // The first four follow the curve; the resort and the galaxy are priced by hand: late in the
+  // game income grows more slowly, and at 30x each they came hours apart (balance bot: the
+  // resort at 295 min, the galaxy not within 5 hours).
   { id: 'building', category: 'building', anchor: K.SaleSign, restyle: null, baseCost: 3.6e6, growth: 30, max: TIERS.length - 1,
-    effect: { stat: 'building', per: 1 }, milestone: null },
+    costs: [3.6e6, 1.08e8, 3.24e9, 9.72e10, 8e11, 9e12], effect: { stat: 'building', per: 1 }, milestone: null },
   // The restaurant level (owner request): opens the next hundred levels of everything, and every
   // dish sells for a bit more. A crew builds it; it shows up once enough tracks hit the cap.
   { id: 'rank', category: 'building', anchor: K.Neon, restyle: null, baseCost: 2e6, growth: 50,

@@ -5,10 +5,10 @@ import type { Role } from './staff';
 // more customers and charges more. Buying the next tier closes the place for a short
 // construction show and reopens it on the bigger map with everything you had.
 
-export type DiningFloor = 'dining' | 'emerald' | 'royal' | 'marble' | 'velvet';
+export type DiningFloor = 'dining' | 'emerald' | 'royal' | 'marble' | 'velvet' | 'ocean' | 'starlight';
 
 export interface TierDef {
-  id: 'diner' | 'bistro' | 'grand' | 'palace' | 'empire';
+  id: 'diner' | 'bistro' | 'grand' | 'palace' | 'empire' | 'resort' | 'galaxy';
   /** The building's right edge (tiles): it reaches this far into the old lot. */
   width: number;
   /** Its front wall (tiles): from the grand restaurant on it also grows toward the street. */
@@ -31,6 +31,10 @@ export const TIERS: readonly TierDef[] = [
   // Late-game areas (owner request: "more places on the map"): two more lots down the street.
   { id: 'palace', width: 32, depth: 16, dining: 'marble', wall: '#3B2A14', arrivals: 3, price: 4, staff: { waiter: 6, cleaner: 3 }, focus: { x: 17.6, y: 8.8, zoom: 0.62 } },
   { id: 'empire', width: 38, depth: 18, dining: 'velvet', wall: '#2B0F2E', arrivals: 4, price: 6.5, staff: { waiter: 8, cleaner: 4 }, focus: { x: 20.6, y: 9.6, zoom: 0.54 } },
+  // Owner request: "keep growing the map". A seaside resort with a mosaic floor, then a hall
+  // under a starry ceiling. Both are deeper again: more tables, stoves and a third sink.
+  { id: 'resort', width: 44, depth: 20, dining: 'ocean', wall: '#0E3B4C', arrivals: 5.2, price: 10, staff: { waiter: 10, cleaner: 5 }, focus: { x: 23.6, y: 10.6, zoom: 0.48 } },
+  { id: 'galaxy', width: 50, depth: 22, dining: 'starlight', wall: '#15123A', arrivals: 6.5, price: 15, staff: { waiter: 12, cleaner: 6 }, focus: { x: 26.6, y: 11.6, zoom: 0.45 } },
 ];
 
 export const CONSTRUCTION = {

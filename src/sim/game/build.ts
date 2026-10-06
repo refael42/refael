@@ -1,6 +1,6 @@
 import { TIERS } from '../../data/buildings';
 import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, type MapDef, type Point } from '../../data/maps';
-import { buildGrid, canReach, reachableFrom, type Grid } from '../grid';
+import { buildGrid, canReach, cutTree, reachableFrom, type CutTree, type Grid } from '../grid';
 import type { GameState } from './types';
 import { reservedBy } from './works';
 
@@ -10,7 +10,7 @@ import { reservedBy } from './works';
 // with every table and every second chair in place: the room can never get blocked.
 
 const key = (x: number, y: number) => Math.floor(y) * 1000 + Math.floor(x);
-const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet'];
+const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight'];
 
 /** Spots one building needs free: tables and their chairs and serving spots, staff spots, the line. */
 function spotsOf(map: MapDef): Point[] {
@@ -60,7 +60,66 @@ function worstCase(s: GameState): Grid {
   return buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, ...pending]);
 }
 
-/** With tile (tx, ty) taken too, can everything still be reached from the door? */
+const SIDES: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * The room in the worst case, read once for all its tiles: the cut tree, and for each spot
+ * that must stay reachable the tiles it is reached through (its own, or for a seat, its open
+ * sides). Then "does closing this tile cut anything off?" is a quick look-up per tile.
+ */
+interface RoomCuts {
+  g: Grid;
+  cuts: CutTree;
+  access: number[][];
+  /** Everything is reachable with nothing more taken (if not, no tile is). */
+  ok: boolean;
+}
+
+function roomCuts(g: Grid, map: MapDef): RoomCuts {
+  const cuts = cutTree(g, map.doors[0]!.inside);
+  const access = mustReach(map).map((p) => {
+    const tx = Math.floor(p.x);
+    const ty = Math.floor(p.y);
+    if (tx < 0 || ty < 0 || tx >= g.w || ty >= g.h) return [];
+    const i = ty * g.w + tx;
+    if (cuts.order[i]! >= 0) return [i];
+    // Like canReach: an open spot that cannot be reached is lost; a seat is reached from beside it.
+    if (g.walk[i]) return [];
+    return SIDES.flatMap(([dx, dy]) => {
+      const x = tx + dx;
+      const y = ty + dy;
+      const j = y * g.w + x;
+      return x >= 0 && y >= 0 && x < g.w && y < g.h && cuts.order[j]! >= 0 ? [j] : [];
+    });
+  });
+  return { g, cuts, access, ok: access.every((a) => a.length > 0) };
+}
+
+/** With tile (tx, ty) taken too, can everything still be reached? (One look-up in the cut tree.) */
+function staysOpen(r: RoomCuts, tx: number, ty: number): boolean {
+  if (!r.ok) return false;
+  const { g, cuts } = r;
+  const t = ty * g.w + tx;
+  if (cuts.order[t]! < 0) return true;
+  // The parts closing it cuts off: each subtree below it that links back no higher than it.
+  const spans: [number, number][] = [];
+  for (const [dx, dy] of SIDES) {
+    const x = tx + dx;
+    const y = ty + dy;
+    if (x < 0 || y < 0 || x >= g.w || y >= g.h) continue;
+    const c = y * g.w + x;
+    if (cuts.parent[c] === t && cuts.low[c]! >= cuts.order[t]!) spans.push([cuts.order[c]!, cuts.done[c]!]);
+  }
+  const lost = (i: number) => i === t || spans.some(([a, b]) => cuts.order[i]! >= a && cuts.order[i]! <= b);
+  return r.access.every((a) => a.some((i) => !lost(i)));
+}
+
+/** With tile (tx, ty) taken too, can everything still be reached from the door? The plain full
+ * search: the cut tree answers the same much faster, and the tests check that they agree. */
+export function keepsRoomOpenSlowly(s: GameState, x: number, y: number): boolean {
+  return looksFree(s, Math.floor(x), Math.floor(y)) && keepsRoomOpen(worstCase(s), s.map, Math.floor(x), Math.floor(y));
+}
+
 function keepsRoomOpen(g: Grid, map: MapDef, tx: number, ty: number): boolean {
   const i = ty * g.w + tx;
   const was = g.walk[i]!;
@@ -75,19 +134,19 @@ function keepsRoomOpen(g: Grid, map: MapDef, tx: number, ty: number): boolean {
 export function canPlaceAt(s: GameState, x: number, y: number): boolean {
   const tx = Math.floor(x);
   const ty = Math.floor(y);
-  return looksFree(s, tx, ty) && keepsRoomOpen(worstCase(s), s.map, tx, ty);
+  return looksFree(s, tx, ty) && staysOpen(roomCuts(worstCase(s), s.map), tx, ty);
 }
 
-/** Every tile decor can go on now (tile centers), back rows first. One worst-case grid for all of them. */
+/** Every tile decor can go on now (tile centers), back rows first. One worst-case room for all of them. */
 export function buildableTiles(s: GameState): Point[] {
   const out: Point[] = [];
   const b = s.map.building;
-  let g: Grid | null = null;
+  let room: RoomCuts | null = null;
   for (let y = b.y0; y < b.y1; y++) {
     for (let x = b.x0; x < b.x1; x++) {
       if (!looksFree(s, x, y)) continue;
-      g ??= worstCase(s);
-      if (keepsRoomOpen(g, s.map, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
+      room ??= roomCuts(worstCase(s), s.map);
+      if (staysOpen(room, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
     }
   }
   return out;

@@ -62,7 +62,7 @@ export const QUESTS = {
     earn: { base: 2e6, growth: 6 },
     reviews: { base: 10, perLevel: 3 },
     reward: { base: 150000, growth: 3 },
-    /** Endless level -> the building tier it asks for (grand restaurant, palace, empire). */
-    buildingAt: { 5: 2, 9: 3, 13: 4 } as Readonly<Record<number, number>>,
+    /** Endless level -> the building tier it asks for (grand restaurant, palace, empire, resort, galaxy). */
+    buildingAt: { 5: 2, 9: 3, 13: 4, 17: 5, 21: 6 } as Readonly<Record<number, number>>,
   },
 } as const;

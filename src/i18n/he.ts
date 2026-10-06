@@ -125,6 +125,8 @@ export const he: Record<TKey, string> = {
   'tier.grand': 'מסעדת יוקרה',
   'tier.palace': 'ארמון קולינרי',
   'tier.empire': 'אימפריית אוכל',
+  'tier.resort': 'ריזורט קולינרי',
+  'tier.galaxy': 'גלקסיית טעמים',
   'ui.nextTier': 'הבא:',
   'ui.perkTables': 'מקומות לשולחנות',
   'ui.perkStaff': 'מקומות לעובדים',

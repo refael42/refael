@@ -6,7 +6,7 @@ import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, STAND_MAP } from '../src/data/m
 import { STEP_SEC } from '../src/data/sim';
 import { big } from '../src/sim/big';
 import { canBuy, upgradeDef } from '../src/sim/economy/upgrades';
-import { autoTile, buildableTiles, canPlaceAt } from '../src/sim/game/build';
+import { autoTile, buildableTiles, canPlaceAt, keepsRoomOpenSlowly } from '../src/sim/game/build';
 import { createGame } from '../src/sim/game/create';
 import { queueCommand } from '../src/sim/game/commands';
 import { buyUpgrade } from '../src/sim/game/purchase';
@@ -42,6 +42,25 @@ describe('build mode', () => {
       for (const t of tiles) {
         expect(banned.has(key(t))).toBe(false);
         expect(t.x).toBeGreaterThanOrEqual(6);
+      }
+    });
+  });
+
+  it('the quick cut-tree answer agrees with a full search on every tile of every building', () => {
+    TIERS.forEach((_, tier) => {
+      const s = rich(createGame(mapForTier(tier), 7, { levels: { building: tier } }));
+      // An empty room, then one half full of decor (a room of narrow ways is where they could differ).
+      for (const round of [0, 1]) {
+        const b = s.map.building;
+        for (let y = b.y0; y < b.y1; y++) {
+          for (let x = b.x0; x < b.x1; x++) expect(canPlaceAt(s, x + 0.5, y + 0.5), `tier ${tier} round ${round} tile ${x},${y}`).toBe(keepsRoomOpenSlowly(s, x + 0.5, y + 0.5));
+        }
+        for (let i = 0; i < 40 && round === 0; i++) {
+          const at = autoTile(s);
+          if (!at) break;
+          s.levels = { ...s.levels, place_flowers: 0 };
+          buyUpgrade(s, 'place_flowers', at);
+        }
       }
     });
   });

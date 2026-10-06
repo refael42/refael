@@ -130,9 +130,11 @@ const BLOCK = 6;
 /** Opening order inside a block: spread out first, so a few tables already fill the room. */
 const BLOCK_ORDER: readonly [number, number][] = [[0, 4.5], [1, 4.5], [0, 8.5], [1, 8.5], [0, 6.5], [1, 6.5], [0, 10.5]];
 /** Trees behind the building line, left to right; those behind a wall go into the backdrop. */
-const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0]];
+const BACK_TREES: readonly [number, number, number][] = [[1, 1, 0], [6, 0.9, 1], [11.5, 0.8, 0], [16, 1.2, 1], [21.5, 1, 0], [26.5, 1.1, 1], [31, 0.9, 0], [35.5, 1.2, 1], [39.5, 1, 0], [43.5, 0.9, 1], [47.5, 1.1, 0], [51, 1, 1]];
 /** Stove rows on the kitchen's back wall in a deep building (the sink keeps y 8). */
-const DEEP_STOVES: readonly number[] = [4, 6, 10, 12, 14, 16];
+const DEEP_STOVES: readonly number[] = [4, 6, 10, 12, 14, 16, 18];
+/** A third dishwashing line once the kitchen is this deep (the second one is at y 11). */
+const THIRD_SINK_DEPTH = 20;
 
 /** Every table spot of a room this size, block by block. */
 function roomSpots(width: number, depth: number): Point[] {
@@ -241,7 +243,10 @@ function buildMap(tier: number): MapDef {
     sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
     washerSpot: { x: 3.55, y: 8 },
     // Facing the stoves across the walkway, below the pass.
-    extraSinks: deep ? [{ sink: { kind: K.Sink, x: 4.5, y: 11, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 11 } }] : [],
+    extraSinks: [
+      ...(deep ? [{ sink: { kind: K.Sink, x: 4.5, y: 11, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 11 } }] : []),
+      ...(y1 >= THIRD_SINK_DEPTH ? [{ sink: { kind: K.Sink, x: 4.5, y: 14, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 14 } }] : []),
+    ],
     dirtyDrop: { x: 3.75, y: 7.25 },
     cleanStack: { x: 2.5, y: 8.5 },
     dirtyStack: { x: 2.5, y: 7.5 },
@@ -264,6 +269,7 @@ function buildMap(tier: number): MapDef {
       { kind: K.Tree, x: 0.8, y: 9, w: 1, d: 1, blocks: false, variant: 1 },
       ...(deep ? [{ kind: K.Tree, x: 0.8, y: 12.5, w: 1, d: 1, blocks: false }] : []),
       ...(y1 >= 16 ? [{ kind: K.Tree, x: 0.8, y: 15.5, w: 1, d: 1, blocks: false, variant: 1 }] : []),
+      ...(y1 >= 20 ? [{ kind: K.Tree, x: 0.8, y: 19, w: 1, d: 1, blocks: false }] : []),
     ],
   };
 }

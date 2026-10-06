@@ -123,6 +123,8 @@ export const en = {
   'tier.grand': 'Grand restaurant',
   'tier.palace': 'Food palace',
   'tier.empire': 'Food empire',
+  'tier.resort': 'Culinary resort',
+  'tier.galaxy': 'Taste galaxy',
   'ui.nextTier': 'Next:',
   'ui.perkTables': 'table spots',
   'ui.perkStaff': 'staff places',

@@ -80,6 +80,58 @@ const DIRS: readonly [number, number, number][] = [
   [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
 ];
 
+/**
+ * What closing one tile would cut off, for every tile at once (build mode asks this of hundreds
+ * of tiles; a full search for each took seconds in the big buildings). One depth-first search
+ * from `from` over straight steps only: a diagonal step needs both straight steps beside it
+ * open and never crosses a wall, so straight steps connect exactly the tiles paths do.
+ * `order` = when a tile was reached (-1 = never), `done` = the last order inside its subtree,
+ * `low` = the earliest tile its subtree links back to, `parent` = where it was reached from.
+ */
+export interface CutTree {
+  order: Int32Array;
+  done: Int32Array;
+  low: Int32Array;
+  parent: Int32Array;
+}
+
+export function cutTree(g: Grid, from: Point): CutTree {
+  const n = g.w * g.h;
+  const order = new Int32Array(n).fill(-1);
+  const done = new Int32Array(n);
+  const low = new Int32Array(n);
+  const parent = new Int32Array(n).fill(-1);
+  const next = new Uint8Array(n);
+  const root = tileIndex(g, Math.floor(from.x), Math.floor(from.y));
+  let t = 0;
+  order[root] = low[root] = t++;
+  const stack = [root];
+  while (stack.length > 0) {
+    const cur = stack[stack.length - 1]!;
+    const k = next[cur]!;
+    if (k < 4) {
+      next[cur] = k + 1;
+      const [dx, dy] = DIRS[k]!;
+      const nx = (cur % g.w) + dx;
+      const ny = Math.floor(cur / g.w) + dy;
+      if (!inBounds(g, nx, ny)) continue;
+      const nb = tileIndex(g, nx, ny);
+      if (!canStep(g, cur, nb, -1)) continue;
+      if (order[nb]! < 0) {
+        parent[nb] = cur;
+        order[nb] = low[nb] = t++;
+        stack.push(nb);
+      } else if (nb !== parent[cur]) low[cur] = Math.min(low[cur]!, order[nb]!);
+    } else {
+      stack.pop();
+      done[cur] = t - 1;
+      const p = parent[cur]!;
+      if (p >= 0) low[p] = Math.min(low[p]!, low[cur]!);
+    }
+  }
+  return { order, done, low, parent };
+}
+
 /** Every tile a walker can get to from `from` (1 = reachable), with the same rules as paths. */
 export function reachableFrom(g: Grid, from: Point): Uint8Array {
   const seen = new Uint8Array(g.w * g.h);

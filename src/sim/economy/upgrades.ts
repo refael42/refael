@@ -63,7 +63,8 @@ export const tierOf = (level: number): number => Math.min(MILESTONES.visualTiers
 
 /** Price of the next level (from `level` to `level + 1`), whole coins. */
 export function costOf(def: UpgradeDef, level: number): Big {
-  return big(def.growth).pow(level).mul(def.baseCost).ceil();
+  const set = def.costs?.[level];
+  return set !== undefined ? big(set) : big(def.growth).pow(level).mul(def.baseCost).ceil();
 }
 
 /** The restaurant level (1 = the start); it caps every endless track. */

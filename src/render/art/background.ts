@@ -86,6 +86,8 @@ const CARPETS: Record<DiningFloor, [string, string, string]> = {
   royal: ['#22408F', '#2F56B5', '#132657'],
   marble: ['#EDE6D8', '#D9CDB5', '#8A6A2E'],
   velvet: ['#4A1450', '#601B68', '#250828'],
+  ocean: ['#0F7C8C', '#2BB3C0', '#0A4452'],
+  starlight: ['#191750', '#26246E', '#0B0A2A'],
 };
 
 /** Cheap deterministic per-tile noise for natural variation. */
@@ -134,6 +136,63 @@ function marble(c: SkCanvas, a: Area) {
   c.drawRect(Skia.XYWHRect(a.x0 + 0.3, a.y0 + 0.3, w - 0.6, h - 0.6), stroke(GOLD, 0.05));
 }
 
+/** The border band and gold line every dining floor ends with. */
+function floorBorder(c: SkCanvas, a: Area, border: string) {
+  const w = a.x1 - a.x0;
+  const h = a.y1 - a.y0;
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.25, a.y0 + 0.25, w - 0.5, h - 0.5), stroke(border, 0.5));
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.3, a.y0 + 0.3, w - 0.6, h - 0.6), stroke(GOLD, 0.05));
+}
+
+/** Sea glass blues for the resort's mosaic, now and then a white or a gold piece. */
+const MOSAIC = ['#0F7C8C', '#168B9B', '#1F9DAC', '#2BB3C0', '#46C2CB'];
+
+/** The resort floor: a mosaic of small glazed squares, and a white wave running round the edge. */
+function ocean(c: SkCanvas, a: Area) {
+  const [, , border] = CARPETS.ocean;
+  c.drawRect(Skia.XYWHRect(a.x0, a.y0, a.x1 - a.x0, a.y1 - a.y0), fill('#0B5E6C'));
+  for (let ty = a.y0; ty < a.y1; ty++) {
+    for (let tx = a.x0; tx < a.x1; tx++) {
+      for (let k = 0; k < 4; k++) {
+        const x = tx + (k % 2) * 0.5;
+        const y = ty + Math.floor(k / 2) * 0.5;
+        const h = hash(x * 2, y * 2);
+        const color = h > 0.97 ? '#F2E6CC' : h > 0.95 ? GOLD : MOSAIC[Math.floor(h * MOSAIC.length * 0.999)]!;
+        c.drawRect(Skia.XYWHRect(x + 0.03, y + 0.03, 0.44, 0.44), fill(color));
+      }
+    }
+  }
+  floorBorder(c, a, border);
+  // The wave: a white line swinging in and out along the inside of the band.
+  const wave = (from: number, to: number, at: (t: number, off: number) => [number, number]) => {
+    const pts: [number, number][] = [];
+    for (let t = from; t <= to; t += 0.25) pts.push(at(t, Math.sin(t * 2.4) * 0.12));
+    c.drawPath(path.polyline(pts), stroke('#F2FBFA', 0.06, 0.85));
+  };
+  wave(a.x0 + 0.8, a.x1 - 0.8, (t, o) => [t, a.y0 + 0.75 + o]);
+  wave(a.y0 + 0.8, a.y1 - 0.8, (t, o) => [a.x0 + 0.75 + o, t]);
+}
+
+/** The galaxy floor: a night-blue carpet with a faint lattice and golden stars of every size. */
+function starlight(c: SkCanvas, a: Area) {
+  const [base, line, border] = CARPETS.starlight;
+  c.drawRect(Skia.XYWHRect(a.x0, a.y0, a.x1 - a.x0, a.y1 - a.y0), fill(base));
+  for (let x = a.x0 + 1; x < a.x1; x++) c.drawLine(x, a.y0, x, a.y1, stroke(line, 0.04));
+  for (let y = a.y0 + 1; y < a.y1; y++) c.drawLine(a.x0, y, a.x1, y, stroke(line, 0.04));
+  for (let ty = a.y0; ty < a.y1; ty++) {
+    for (let tx = a.x0; tx < a.x1; tx++) {
+      const h = hash(tx, ty);
+      const cx = tx + 0.2 + hash(ty, tx) * 0.6;
+      const cy = ty + 0.2 + hash(tx + 3, ty) * 0.6;
+      if (h > 0.62) {
+        const r = 0.08 + (h - 0.62) * 0.45;
+        c.drawPath(path.poly([[cx, cy - r], [cx + r * 0.28, cy - r * 0.28], [cx + r, cy], [cx + r * 0.28, cy + r * 0.28], [cx, cy + r], [cx - r * 0.28, cy + r * 0.28], [cx - r, cy], [cx - r * 0.28, cy - r * 0.28]]), fill(h > 0.9 ? '#FFF2B8' : GOLD, 0.9));
+      } else if (h > 0.4) c.drawCircle(cx, cy, 0.03, fill('#C9D4FF', 0.7));
+    }
+  }
+  floorBorder(c, a, border);
+}
+
 /** Rug colors per dining floor, two styles each: base, border band, pattern. */
 const RUGS: Record<DiningFloor, readonly [string, string, string][]> = {
   dining: [['#EAD9B2', '#7E1E2A', '#C9A35A'], ['#2E3A6E', '#EAD9B2', '#E2B13C']],
@@ -141,6 +200,8 @@ const RUGS: Record<DiningFloor, readonly [string, string, string][]> = {
   royal: [['#EFE6D0', '#1A2D66', '#C9A35A'], ['#7A1F2E', '#EFE6D0', '#E2B13C']],
   marble: [['#7A1F2E', '#E2B13C', '#F2D48A'], ['#1A2D66', '#E2B13C', '#9FB4E8']],
   velvet: [['#1E1440', '#E2B13C', '#8E7BD6'], ['#0E3A3A', '#E2B13C', '#7FD6C2']],
+  ocean: [['#F2E6CC', '#0A5A6A', '#E2B13C'], ['#E8714E', '#F6E9D2', '#FFFFFF']],
+  starlight: [['#2C1F66', '#E2B13C', '#9FB4E8'], ['#0C0B2E', '#C9A35A', '#FFE27A']],
 };
 
 /** A rug on the floor plane: a soft edge, a border band, a diamond or dotted field, fringes. */
@@ -202,6 +263,8 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
     royal: () => carpet(c, a, CARPETS.royal),
     marble: () => marble(c, a),
     velvet: () => carpet(c, a, CARPETS.velvet),
+    ocean: () => ocean(c, a),
+    starlight: () => starlight(c, a),
     lot: () => {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#C9A36B'));
       for (let ty = a.y0; ty < a.y1; ty++) {
