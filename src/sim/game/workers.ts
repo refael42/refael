@@ -26,7 +26,10 @@ export function notify(s: GameState, notice: NewNotice): void {
 
 /** How many people this job can take right now (cooks need a stove each). */
 export function capacity(s: GameState, role: Role): number {
-  return role === 'cook' ? s.stoves.length : ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0);
+  if (role === 'cook') return s.stoves.length;
+  // One dishwasher per sink.
+  if (role === 'washer') return ROLES.washer.cap + s.map.extraSinks.length;
+  return ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0);
 }
 
 export function headcount(s: GameState, role: Role): number {

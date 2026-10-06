@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buyNow } from './helpers';
-import { STAND_MAP } from '../src/data/maps';
+import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { APPLICANTS, DAY, ROLES, STAFF } from '../src/data/staff';
 import { TRAITS } from '../src/data/traits';
@@ -262,5 +262,25 @@ describe('applicant shortlist', () => {
       checked++;
     }
     expect(checked).toBeGreaterThan(0);
+  });
+});
+
+describe('second sink', () => {
+  it('the bigger kitchens have room for a second dishwasher, at a sink of their own', () => {
+    expect(capacity(createGame(STAND_MAP, 40), 'washer')).toBe(1);
+    const map = mapForTier(2);
+    const washed = (roster: ('cook' | 'washer')[]) => {
+      const s = createGame(map, 41, { levels: { building: 2 }, roster });
+      s.dirtyPlates = 40;
+      s.cleanPlates = 0;
+      run(s, 8);
+      return { s, clean: s.cleanPlates };
+    };
+    const one = washed(['cook', 'washer']);
+    const two = washed(['cook', 'washer', 'washer']);
+    expect(capacity(two.s, 'washer')).toBe(2);
+    const spots = two.s.staff.filter((st) => st.role === 'washer').map((st) => `${st.x.toFixed(1)},${st.y.toFixed(1)}`);
+    expect(new Set(spots).size).toBe(2);
+    expect(two.clean).toBeGreaterThan(one.clean * 1.5);
   });
 });

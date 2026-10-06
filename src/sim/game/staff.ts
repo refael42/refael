@@ -25,7 +25,7 @@ export function homeOf(s: GameState, st: Staff): Point {
     case 'waiter':
       return s.map.waiterIdle[st.slot % s.map.waiterIdle.length]!;
     case 'washer':
-      return s.map.washerSpot;
+      return st.slot > 0 ? (s.map.extraSinks[st.slot - 1]?.washer ?? s.map.washerSpot) : s.map.washerSpot;
     case 'host':
       return s.map.hostSpot;
     case 'cleaner':
@@ -495,7 +495,7 @@ function betweenJobs(st: Staff): boolean {
 
 export function updateStaff(s: GameState, dt: number): void {
   const cooking = new Set<number>();
-  let washing = false;
+  const washing = new Set<number>();
   for (const st of s.staff) {
     if (st.leaving && betweenJobs(st)) {
       walkOut(s, st, dt);
@@ -509,7 +509,7 @@ export function updateStaff(s: GameState, dt: number): void {
       else if (!st.job) goHome(s, st, dt);
     } else if (st.role === 'washer') {
       busy = updateWasher(s, st, dt);
-      washing = washing || busy;
+      if (busy) washing.add(Math.min(st.slot, s.map.extraSinks.length));
     } else if (st.role === 'host') busy = updateHost(s, st, dt);
     else if (st.role === 'manager') busy = updateManager(s, st, dt);
     else busy = updateRunner(s, st, dt);
@@ -518,7 +518,7 @@ export function updateStaff(s: GameState, dt: number): void {
   }
   for (const p of s.props) {
     if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
-    else if (p.kind === PropKind.Sink) p.active = washing;
+    else if (p.kind === PropKind.Sink) p.active = washing.has(p.variant === 1 ? 1 + s.map.extraSinks.findIndex((e) => e.sink.x === p.x && e.sink.y === p.y) : 0);
   }
 }
 

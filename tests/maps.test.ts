@@ -82,6 +82,7 @@ const HAND_MADE: MapDef = {
   ],
   sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
   washerSpot: { x: 3.55, y: 8 },
+  extraSinks: [],
   dirtyDrop: { x: 3.75, y: 7.25 },
   cleanStack: { x: 2.5, y: 8.5 },
   dirtyStack: { x: 2.5, y: 7.5 },
@@ -171,11 +172,13 @@ describe('map generator', () => {
     expect(empire.building.y1).toBeGreaterThan(STAND_MAP.building.y1);
     expect(empire.stoves.length).toBeGreaterThan(STAND_MAP.stoves.length + 2);
     expect(empire.passSlots.length).toBeGreaterThan(STAND_MAP.passSlots.length);
+    expect(empire.extraSinks.length).toBeGreaterThan(0);
     // Every cook can get to their stove.
     TIERS.forEach((_, t) => {
       const map = mapForTier(t);
       const grid = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length);
       for (const st of map.stoves) expect(findPath(grid, map.doors[0]!.inside, st.cook), `tier ${t} cook ${st.cook.y}`).not.toBeNull();
+      for (const e of map.extraSinks) expect(findPath(grid, map.doors[0]!.inside, e.washer), `tier ${t} washer ${e.washer.y}`).not.toBeNull();
     });
   });
 });

@@ -54,7 +54,7 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
     for (let tx = b.x0; tx < b.x1; tx++) g.inside[tileIndex(g, tx, ty)] = 1;
   }
   const stoves = map.stoves.slice(0, stoveCount).map((s) => s.stove);
-  for (const f of [...stoves, map.pass, map.sink, ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
+  for (const f of [...stoves, map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
   map.tables.slice(0, tableCount).forEach((t, i) => {
     markFootprint(g, t.x, t.y, 1, 1);
     for (const seat of SEAT_OFFSETS.slice(0, i < pairTables ? 2 : 1)) markFootprint(g, t.x + seat.x, t.y + seat.y, 1, 1);

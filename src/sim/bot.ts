@@ -78,7 +78,8 @@ function wanted(s: GameState, role: string): number {
     case 'waiter':
       return 1 + Math.floor(tables / 4);
     case 'washer':
-      return 1;
+      // A second dishwasher once the big kitchen has a second sink and the room is busy.
+      return tables >= 16 ? 1 + s.map.extraSinks.length : 1;
     case 'host':
       return tables >= 4 ? 1 : 0;
     default:

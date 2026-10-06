@@ -80,6 +80,8 @@ export interface MapDef {
   applicantSpots: Point[];
   sink: Furniture;
   washerSpot: Point;
+  /** More dishwashing lines in the bigger kitchens: a sink and where its washer stands. All wash the same pile. */
+  extraSinks: { sink: Furniture; washer: Point }[];
   /** Where dirty plates are dropped for the dishwasher. */
   dirtyDrop: Point;
   /** Plate stacks on the sink counter (tile centers) and the counter height. */
@@ -238,6 +240,8 @@ function buildMap(tier: number): MapDef {
     ],
     sink: { kind: K.Sink, x: 2.5, y: 8, w: 1, d: 2, blocks: true },
     washerSpot: { x: 3.55, y: 8 },
+    // Facing the stoves across the walkway, below the pass.
+    extraSinks: deep ? [{ sink: { kind: K.Sink, x: 4.5, y: 11, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: 5.55, y: 11 } }] : [],
     dirtyDrop: { x: 3.75, y: 7.25 },
     cleanStack: { x: 2.5, y: 8.5 },
     dirtyStack: { x: 2.5, y: 7.5 },

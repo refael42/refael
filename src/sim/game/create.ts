@@ -239,7 +239,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   const perks = { ...(setup.perks ?? {}) };
   const mods = computeMods(levels, perks);
   let nextId = 1;
-  const props: PropView[] = [map.pass, map.sink, ...map.decor].map((f) => propFrom(nextId++, f));
+  const props: PropView[] = [map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor].map((f) => propFrom(nextId++, f));
   const s: GameState = {
     map,
     grid: buildGrid(map, 0, 0),
