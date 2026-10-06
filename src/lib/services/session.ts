@@ -3,24 +3,14 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
 import { getStore } from "../db";
-import type { MemberRole, Profile, Project, ProjectMember } from "../db/types";
 import { isSupabaseMode } from "../env";
 import { createSupabaseServerClient } from "../supabase/server";
+import { AccessError, type ProjectSession, type Session } from "./auth-types";
+
+export { AccessError, type ProjectSession, type Session } from "./auth-types";
 
 export const DEMO_COOKIE = "sf_demo_profile";
 export const PROJECT_COOKIE = "sf_project";
-
-export interface Session {
-  profile: Profile;
-  memberships: ProjectMember[];
-  project: Project | null;
-  role: MemberRole | null;
-  /** Contractor rows linked to this person (normally 0 or 1). */
-  contractorIds: string[];
-  isDemo: boolean;
-}
-
-export type ProjectSession = Session & { project: Project; role: MemberRole };
 
 async function currentProfileId(): Promise<string | null> {
   if (!isSupabaseMode()) return cookies().get(DEMO_COOKIE)?.value ?? null;
@@ -59,15 +49,6 @@ export async function requireProjectSession(): Promise<ProjectSession> {
   if (!s) redirect("/login");
   if (!s.project || !s.role) redirect("/login?noaccess=1");
   return s as ProjectSession;
-}
-
-export class AccessError extends Error {
-  constructor(
-    message: string,
-    public status: 401 | 403 | 404 = 403,
-  ) {
-    super(message);
-  }
 }
 
 /** For actions / route handlers: throw instead of redirecting. */

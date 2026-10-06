@@ -5,7 +5,7 @@
  */
 import type { Conversation, ConversationParticipant, Task } from "../db/types";
 import { he } from "../i18n/he";
-import { AccessError, type ProjectSession } from "./session";
+import { AccessError, type ProjectSession } from "./auth-types";
 
 export function isPM(s: Pick<ProjectSession, "role">) {
   return s.role === "pm";

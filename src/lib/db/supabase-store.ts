@@ -4,7 +4,6 @@ import type { TableName } from "./types";
 
 const PAGE = 1000;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Builder = any;
 
 function applyWhere(q: Builder, where?: Where<unknown>): Builder | null {

@@ -211,3 +211,75 @@ export function homeView(s: ProjectSnapshot): HomeVM {
     projectEnd: end.toISOString(),
   };
 }
+
+/** Select options shared by forms and filters. */
+export function formOptions(s: ProjectSnapshot) {
+  const areas = s.areas
+    .filter((a) => a.type !== "building")
+    .map((a) => ({ value: a.id, label: areaLabel(s.areaById, a.id) }))
+    .sort((a, b) => a.label.localeCompare(b.label, "he", { numeric: true }));
+  const trades = s.trades.map((tr) => ({ value: tr.id, label: tr.name }));
+  const contractors = s.contractors.map((c) => ({
+    value: c.id,
+    label: c.name,
+    hint: c.trade_id ? s.tradeById.get(c.trade_id)?.name : undefined,
+  }));
+  const contractorTrade = Object.fromEntries(s.contractors.map((c) => [c.id, c.trade_id]));
+  return { areas, trades, contractors, contractorTrade };
+}
+
+export interface AreaProgressVM {
+  id: string;
+  name: string;
+  type: string;
+  total: number;
+  done: number;
+  ready: number;
+  blocked: number;
+  inProgress: number;
+  awaiting: number;
+  /** worst state among open tasks — colours plan pins and tiles */
+  worst: EffectiveState | null;
+  children: AreaProgressVM[];
+}
+
+const SEVERITY: EffectiveState[] = ["blocked", "awaiting_approval", "in_progress", "ready", "done"];
+
+/** Progress tree (tasks counted in their area and every ancestor). */
+export function areaProgress(s: ProjectSnapshot): AreaProgressVM[] {
+  const nodes = new Map<string, AreaProgressVM>();
+  for (const a of s.areas)
+    nodes.set(a.id, { id: a.id, name: a.name, type: a.type, total: 0, done: 0, ready: 0, blocked: 0, inProgress: 0, awaiting: 0, worst: null, children: [] });
+  for (const task of s.tasks) {
+    const st = s.analysis.byTask[task.id].effective;
+    for (let cur = task.area_id ? s.areaById.get(task.area_id) : undefined; cur; cur = cur.parent_id ? s.areaById.get(cur.parent_id) : undefined) {
+      const n = nodes.get(cur.id)!;
+      n.total++;
+      if (st === "done") n.done++;
+      else if (st === "ready") n.ready++;
+      else if (st === "blocked") n.blocked++;
+      else if (st === "in_progress") n.inProgress++;
+      else n.awaiting++;
+      if (st !== "done" && (n.worst === null || SEVERITY.indexOf(st) < SEVERITY.indexOf(n.worst))) n.worst = st;
+      if (n.worst === null && st === "done") n.worst = null;
+    }
+  }
+  for (const n of nodes.values()) if (n.total > 0 && n.done === n.total) n.worst = "done";
+  const roots: AreaProgressVM[] = [];
+  const sorted = [...s.areas].sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name, "he", { numeric: true }));
+  for (const a of sorted) {
+    const n = nodes.get(a.id)!;
+    if (a.parent_id && nodes.has(a.parent_id)) nodes.get(a.parent_id)!.children.push(n);
+    else roots.push(n);
+  }
+  return roots;
+}
+
+export function findArea(tree: AreaProgressVM[], id: string): AreaProgressVM | null {
+  for (const n of tree) {
+    if (n.id === id) return n;
+    const f = findArea(n.children, id);
+    if (f) return f;
+  }
+  return null;
+}
