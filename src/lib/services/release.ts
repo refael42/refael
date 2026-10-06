@@ -51,15 +51,17 @@ export async function releaseReady(
 ): Promise<string[]> {
   const after = await loadGraph(store, projectId);
   const afterAnalysis = analyze(toEngineInput(after.tasks, after.dependencies, after.blockers, opts.now));
-  const ids = opts.beforeAnalysis
-    ? newlyReady(opts.beforeAnalysis, afterAnalysis)
-    : afterAnalysis.readyIds.filter((id) => after.tasks.find((t) => t.id === id)?.status === "planned");
+  const byId = new Map(after.tasks.map((t) => [t.id, t]));
+  // Only tasks still stored as "planned" are released (and announced) — this
+  // makes repeated ticks and overlapping changes idempotent.
+  const ids = (opts.beforeAnalysis ? newlyReady(opts.beforeAnalysis, afterAnalysis) : afterAnalysis.readyIds).filter(
+    (id) => byId.get(id)?.status === "planned",
+  );
   if (!ids.length) return [];
 
-  const byId = new Map(after.tasks.map((t) => [t.id, t]));
   for (const id of ids) {
     const task = byId.get(id)!;
-    if (task.status === "planned") {
+    {
       await store.update("tasks", { id }, { status: "ready" });
       await audit(store, {
         projectId,

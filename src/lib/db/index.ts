@@ -1,11 +1,13 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { isSupabaseMode, serverEnv, SUPABASE_URL } from "../env";
+import { registerDefaultChannels } from "../services/channels";
 import { getDemoStore } from "./demo-store";
 import type { Store } from "./store";
 import { SupabaseStore } from "./supabase-store";
 
 let admin: SupabaseStore | null = null;
+registerDefaultChannels();
 
 /**
  * The privileged server store. In Supabase mode it uses the service role,

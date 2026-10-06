@@ -45,6 +45,7 @@ export function getDemoStore(): MemoryStore {
     const store = new MemoryStore(load());
     store.onChange = () => persist(store);
     g.__siteflowDemo = store;
+    startDemoScheduler(store);
   }
   return g.__siteflowDemo;
 }
@@ -57,3 +58,19 @@ export function resetDemoStore() {
 }
 
 export const DEMO_UPLOAD_DIR = join(DATA_DIR, "uploads");
+
+/**
+ * Demo mode has no external cron: run the reminders tick in-process once a
+ * minute (first run shortly after start so seeded reminders appear).
+ */
+function startDemoScheduler(store: MemoryStore) {
+  const flag = globalThis as unknown as { __siteflowTick?: boolean };
+  if (flag.__siteflowTick || process.env.NODE_ENV === "test" || process.env.SITEFLOW_DEMO_TICK === "0") return;
+  flag.__siteflowTick = true;
+  const tick = () =>
+    import("../services/reminders")
+      .then((m) => m.runTick(store, new Date(), { windowMinutes: 2 }))
+      .catch((e) => console.warn("[demo tick]", e));
+  setTimeout(tick, 3_000).unref?.();
+  setInterval(tick, 60_000).unref?.();
+}
