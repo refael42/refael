@@ -67,6 +67,8 @@ export async function messageContractor(
 ): Promise<{ profileId: string; conversationId: string } | null> {
   const profileId = await contractorProfile(store, contractorId);
   if (!profileId) return null;
+  // setup mode: the PM is still entering the project — don't message contractors yet
+  if ((await store.byId("projects", projectId))?.setup_mode) return null;
   const [pm] = await projectPMs(store, projectId);
   if (!pm) return null;
   const conversationId = await directConversation(store, projectId, pm, profileId);

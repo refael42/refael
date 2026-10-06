@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft, CheckCheck, Flame, Hourglass, Lightbulb, Sparkles, Unlock, UserRound } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { SetupChecklist } from "@/components/setup/setup-checklist";
 import { TaskRow } from "@/components/tasks/task-row";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ export default async function HomePage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 lg:p-6">
+      {s.project.setup_mode && s.role === "pm" && <SetupChecklist snap={snap} />}
       {/* Hero: what can be executed right now */}
       <section className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <Card className="overflow-hidden">

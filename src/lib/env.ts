@@ -38,6 +38,13 @@ export const serverEnv = {
   get digestHour() {
     return Number(process.env.DIGEST_HOUR ?? 7);
   },
+  /** Emails / phones (comma separated) allowed to open a company + first project without an invite. */
+  get admins() {
+    return (process.env.SITEFLOW_ADMINS ?? "")
+      .split(",")
+      .map((x) => x.trim().toLowerCase())
+      .filter(Boolean);
+  },
   /** Hours without a reply before a "no response" reminder fires. */
   get noResponseHours() {
     return Number(process.env.NO_RESPONSE_HOURS ?? 6);

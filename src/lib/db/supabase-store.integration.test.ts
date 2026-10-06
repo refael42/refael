@@ -157,6 +157,30 @@ describe.skipIf(!ENABLED)("SupabaseStore against Postgres + PostgREST", () => {
     expect((await loadFlow(store, project.organization_id)).custom).toBe(false);
   });
 
+  it("opens a project in setup mode and captures apartments already under way", async () => {
+    const { createProject } = await import("../services/project");
+    const { captureExisting, flowStatus } = await import("../services/flow");
+    const { loadSnapshot } = await import("../services/snapshot");
+    const pm = (await store.byId("profiles", DEMO_IDS.pm))!;
+    const memberships = await store.select("project_members", { where: { profile_id: pm.id } });
+    const s = { profile: pm, memberships, project: null, role: null, contractorIds: [], isDemo: false };
+    const project = await createProject(store, s, {
+      name: "פיילוט",
+      structure: { buildingName: "בניין C", floorFrom: 1, floorTo: 1, aptsPerFloor: 2, firstApt: 1 },
+    });
+    expect(project.setup_mode).toBe(true);
+    const apts = await store.select("areas", { where: { project_id: project.id, type: "apartment" } });
+    expect(apts).toHaveLength(2);
+    const ctx = { store, now: NOW, s: { ...s, project, role: "pm" as const } };
+    const res = await captureExisting(ctx, { areaIds: apts.map((a) => a.id), doneUpTo: "plaster", rescheduleFrom: "2026-10-12" });
+    expect(res.marked).toBe(20);
+    const snap = await loadSnapshot(store, project.id, NOW);
+    const { APARTMENT_FLOW } = await import("../flow/process");
+    expect(flowStatus(snap, apts[0].id, APARTMENT_FLOW).waterproofing.state).toBe("ready");
+    const audits = await store.select("audit_log", { where: { project_id: project.id, entity_type: "project" } });
+    expect(audits.length).toBeGreaterThan(0);
+  });
+
   it("runs the reminders tick (checks, overdue, no-response, digest) idempotently", async () => {
     const { runTick } = await import("../services/reminders");
     const first = await runTick(store, NOW);

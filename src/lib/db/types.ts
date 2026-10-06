@@ -55,6 +55,8 @@ export interface Project {
   address: string | null;
   start_date: ISODate | null;
   target_date: ISODate | null;
+  /** while true contractors get no automatic messages and reminders are paused */
+  setup_mode: boolean;
   created_at: ISODateTime;
 }
 
@@ -337,7 +339,7 @@ export interface PushSubscriptionRow {
 export interface AuditEntry {
   id: UUID;
   project_id: UUID | null;
-  entity_type: "task" | "dependency" | "blocker" | "report" | "message" | "rule" | "plan";
+  entity_type: "task" | "dependency" | "blocker" | "report" | "message" | "rule" | "plan" | "project";
   entity_id: UUID;
   action: string;
   from_value: string | null;

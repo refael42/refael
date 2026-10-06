@@ -67,6 +67,13 @@ async function tickProject(store: Store, projectId: string, now: Date, windowMin
   const snap = await loadSnapshot(store, projectId, now);
   const pms = await projectPMs(store, projectId);
   if (!pms.length) return { reminders: 0, released: 0 };
+  if (snap.project.setup_mode) {
+    // no reminders while setting up; drying lags still release (quietly)
+    const since = new Date(now.getTime() - windowMinutes * 60_000);
+    const beforeAnalysis = analyze(toEngineInput(snap.tasks, snap.dependencies, snap.blockers, since));
+    const released = await releaseReady(store, projectId, { actor: null, source: "system", now, beforeAnalysis });
+    return { reminders: 0, released: released.length };
+  }
   const today = localDate(now);
   let count = 0;
   const contractorProfile = (t: Task) => (t.contractor_id ? snap.contractorById.get(t.contractor_id)?.profile_id ?? null : null);

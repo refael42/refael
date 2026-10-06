@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getStore } from "@/lib/db";
 import { isSupabaseMode } from "@/lib/env";
 import { t } from "@/lib/i18n";
+import { canCreateProject } from "@/lib/services/project";
 import { getSession } from "@/lib/services/session";
 import { initials } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({ searchParams }: { searchParams: { noaccess?: string; reset?: string } }) {
   const session = await getSession();
   if (session?.project && !searchParams.noaccess) redirect(session.role === "contractor" ? "/my" : "/");
+  // signed in without a project: PMs and listed admins open one right away
+  if (session && !session.project && canCreateProject(session)) redirect("/setup");
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 p-4">

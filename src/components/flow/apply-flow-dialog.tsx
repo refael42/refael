@@ -1,6 +1,6 @@
 "use client";
 import { Workflow } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { applyFlowAction } from "@/app/actions/flow";
 import { Field, OptionSelect, type Option } from "@/components/common/field";
 import { useAction } from "@/components/common/use-action";
@@ -8,8 +8,8 @@ import type { AreaGroup } from "@/components/tasks/bulk-task-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/misc";
 import { t } from "@/lib/i18n";
+import { AreaPicker } from "./area-picker";
 
 const AUTO = "__auto__";
 
@@ -25,13 +25,11 @@ export function ApplyFlowDialog({
   defaultStart: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [group, setGroup] = useState<string | null>(groups[0]?.id ?? null);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [start, setStart] = useState(defaultStart);
   const [stagger, setStagger] = useState("0");
   const [who, setWho] = useState<Record<string, string>>({});
   const { call, pending } = useAction();
-  const children = useMemo(() => groups.find((g) => g.id === group)?.children ?? [], [groups, group]);
 
   return (
     <>
@@ -45,34 +43,7 @@ export function ApplyFlowDialog({
             <DialogTitle>{t.flow.applyTitle}</DialogTitle>
             <DialogDescription>{t.flow.applyHint}</DialogDescription>
           </DialogHeader>
-          <Field label={t.bulk.where}>
-            <OptionSelect
-              value={group}
-              onChange={(v) => {
-                setGroup(v);
-                setPicked(new Set());
-              }}
-              options={groups.map((g) => ({ value: g.id, label: g.label }))}
-            />
-          </Field>
-          <div className="grid max-h-36 grid-cols-2 gap-1 overflow-y-auto rounded-md border p-2 sm:grid-cols-3">
-            {children.map((c) => (
-              <label key={c.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={picked.has(c.id)}
-                  onCheckedChange={(v) =>
-                    setPicked((p) => {
-                      const n = new Set(p);
-                      if (v) n.add(c.id);
-                      else n.delete(c.id);
-                      return n;
-                    })
-                  }
-                />
-                {c.label}
-              </label>
-            ))}
-          </div>
+          <AreaPicker groups={groups} picked={picked} onChange={setPicked} />
           <div className="grid grid-cols-2 gap-3">
             <Field label={t.flow.startDate}>
               <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />

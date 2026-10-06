@@ -21,11 +21,11 @@ function colorOf(s: FlowStageVM) {
   return s.live.state === "missing" ? "#cbd5e1" : STATE_HEX[s.live.state];
 }
 
-export function FlowViews({ stages, board, editor }: { stages: FlowStageVM[]; board?: React.ReactNode; editor?: React.ReactNode }) {
+export function FlowViews({ stages, board, editor, tab }: { stages: FlowStageVM[]; board?: React.ReactNode; editor?: React.ReactNode; tab?: string }) {
   const [selected, setSelected] = useState<string | null>(null);
   const sel = stages.find((s) => s.key === selected) ?? null;
   return (
-    <Tabs defaultValue="steps">
+    <Tabs defaultValue={tab && ["steps", "chart", "board", "edit"].includes(tab) ? tab : "steps"}>
       <TabsList className="flex w-full overflow-x-auto sm:w-auto sm:self-start">
         <TabsTrigger value="steps">{t.flow.tabSteps}</TabsTrigger>
         <TabsTrigger value="chart">{t.flow.tabChart}</TabsTrigger>

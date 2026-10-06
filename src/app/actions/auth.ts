@@ -43,3 +43,7 @@ export async function switchProject(projectId: string) {
   cookies().set(PROJECT_COOKIE, projectId, { sameSite: "lax", path: "/", maxAge: YEAR });
   redirect("/");
 }
+
+export async function switchProjectForm(form: FormData) {
+  await switchProject(String(form.get("projectId") ?? ""));
+}

@@ -37,3 +37,7 @@ export async function removeMemberAction(profileId: string) {
     await svc.removeMember(ctx, profileId);
   });
 }
+
+export async function importContractorsAction(text: string) {
+  return run((ctx) => svc.importContractors(ctx, text));
+}

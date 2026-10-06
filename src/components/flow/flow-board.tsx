@@ -1,4 +1,9 @@
-import { Check } from "lucide-react";
+"use client";
+import { Check, MousePointerClick } from "lucide-react";
+import { useState } from "react";
+import { toggleCapturedAction } from "@/app/actions/flow";
+import { useAction } from "@/components/common/use-action";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { STATE_HEX } from "@/components/tasks/state-badge";
 import type { EffectiveState } from "@/lib/engine/types";
@@ -15,11 +20,41 @@ export interface BoardRow {
 }
 
 /** Apartments × process stages: where every apartment stands at a glance. */
-export function FlowBoard({ stages, rows }: { stages: Array<{ key: string; name: string; color: string }>; rows: BoardRow[] }) {
-  if (!rows.length) return <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{t.flow.boardEmpty}</p>;
+export function FlowBoard({
+  stages,
+  rows,
+  editable = false,
+  actions,
+}: {
+  stages: Array<{ key: string; name: string; color: string }>;
+  rows: BoardRow[];
+  /** PM: quick-mark mode (tap a cell = done / not done, no messages) */
+  editable?: boolean;
+  actions?: React.ReactNode;
+}) {
+  const [marking, setMarking] = useState(false);
+  const { call, pending } = useAction();
+  if (!rows.length)
+    return (
+      <div className="flex flex-col items-start gap-3">
+        {actions}
+        <p className="w-full rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">{t.flow.boardEmpty}</p>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-muted-foreground">{t.flow.boardHint}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {actions}
+        {editable && (
+          <Button size="sm" variant={marking ? "default" : "outline"} onClick={() => setMarking((m) => !m)}>
+            <MousePointerClick />
+            {t.setup.markMode}
+          </Button>
+        )}
+      </div>
+      <p className={marking ? "rounded-md bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100" : "text-sm text-muted-foreground"}>
+        {marking ? t.setup.markModeHint : t.flow.boardHint}
+      </p>
       <div className="flex flex-wrap gap-3 text-xs">
         {(["ready", "in_progress", "awaiting_approval", "done", "blocked"] as const).map((st) => (
           <span key={st} className="flex items-center gap-1">
@@ -70,7 +105,11 @@ export function FlowBoard({ stages, rows }: { stages: Array<{ key: string; name:
                   );
                   return (
                     <td key={r.areaId} className="p-0.5 text-center" title={title}>
-                      {c.taskId ? (
+                      {c.taskId && marking ? (
+                        <button type="button" disabled={pending} aria-label={title} className="block w-full disabled:opacity-60" onClick={() => call(() => toggleCapturedAction(c.taskId!))}>
+                          {box}
+                        </button>
+                      ) : c.taskId ? (
                         <Link href={`/tasks/${c.taskId}`} aria-label={title}>
                           {box}
                         </Link>

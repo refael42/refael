@@ -1,6 +1,7 @@
 "use client";
 import {
   Bell,
+  Building2,
   CalendarRange,
   CheckCheck,
   ClipboardList,
@@ -14,6 +15,7 @@ import {
   Menu,
   MessageCircle,
   Network,
+  Plus,
   Settings,
   Workflow,
   Settings2,
@@ -22,7 +24,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { logout } from "@/app/actions/auth";
+import { logout, switchProjectForm } from "@/app/actions/auth";
+import { SetupBanner } from "./setup-banner";
 import { InstallButton } from "@/components/common/install-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -62,6 +65,10 @@ export interface ShellProps {
   projectName: string;
   isDemo: boolean;
   counts: Partial<Record<NavKey, number>>;
+  projects: Array<{ id: string; name: string }>;
+  projectId: string;
+  canCreateProject: boolean;
+  setupMode: boolean;
   children: React.ReactNode;
 }
 
@@ -83,7 +90,7 @@ function CountBadge({ n, className }: { n?: number; className?: string }) {
   );
 }
 
-export function AppShell({ role, userName, projectName, isDemo, counts, children }: ShellProps) {
+export function AppShell({ role, userName, projectName, isDemo, counts, projects, projectId, canCreateProject, setupMode, children }: ShellProps) {
   const pathname = usePathname();
   const { primary, rest } = navFor(role);
   const all = [...primary, ...rest];
@@ -161,6 +168,31 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
                 <span className="text-xs font-normal text-muted-foreground">{t.roles[role]}</span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {projects.length > 1 && (
+                <>
+                  <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t.setup.switchProject}</DropdownMenuLabel>
+                  {projects.map((p) => (
+                    <DropdownMenuItem key={p.id} asChild disabled={p.id === projectId}>
+                      <form action={switchProjectForm} className="w-full">
+                        <input type="hidden" name="projectId" value={p.id} />
+                        <button type="submit" className={cn("flex w-full items-center gap-2 text-start", p.id === projectId && "font-semibold")}>
+                          <Building2 />
+                          <span className="truncate">{p.name}</span>
+                        </button>
+                      </form>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {canCreateProject && (
+                <DropdownMenuItem asChild>
+                  <Link href="/setup">
+                    <Plus />
+                    {t.setup.newProject}
+                  </Link>
+                </DropdownMenuItem>
+              )}
               {rest.map((item) => {
                 const Icon = ICONS[item.key];
                 return (
@@ -185,6 +217,7 @@ export function AppShell({ role, userName, projectName, isDemo, counts, children
           </DropdownMenu>
         </header>
 
+        {setupMode && <SetupBanner isPM={role === "pm"} />}
         <main className="flex-1 pb-20 lg:pb-6">{children}</main>
 
         {/* Mobile bottom bar */}

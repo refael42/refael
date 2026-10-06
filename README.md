@@ -40,6 +40,17 @@ Suggested walkthrough:
 
 Reset the demo from the login screen (**אפס נתוני הדגמה**).
 
+## Starting a real project (pilot)
+
+Hebrew step-by-step guide: [`docs/PILOT.he.md`](docs/PILOT.he.md). In short:
+
+- **New project wizard** (`/setup`, or the user menu → פרויקט חדש): company, project, dates, and the building structure (floors × apartments, numbered continuously). Allowed for PMs and for emails/phones listed in `SITEFLOW_ADMINS`.
+- **Setup mode**: a new project starts with contractor messages and reminders off, so a site can be entered without notifying anyone. The PM turns them on from the banner or the Home checklist.
+- **Capture a site already under way**: Flowchart → apartments board → *קליטת מצב קיים*: pick apartments and "done up to stage X". That stage and everything it requires are marked done quietly, and what's left is re-dated from a chosen day. *סימון מהיר* toggles single cells.
+- **Assign contractors by trade** across apartments (apartments board → *שיוך קבלנים*).
+- **Paste a contractor list** (`name, trade, phone` per line) in Settings → Contractors.
+- **Move a laptop project to the cloud**: `npm run push-project -- --project "<name>" --pm-email <email>` copies a project entered in demo mode into Supabase with fresh ids.
+
 ## Running on Supabase
 
 1. Create a Supabase project, or run `supabase start` for a local stack.
@@ -67,6 +78,7 @@ When a new auth user signs up, a trigger links them to an existing profile by ph
 | `npm run test:supabase` | Integration test against real Postgres + PostgREST (Supabase's REST layer): store operators, paging, error mapping, completion→release through the services, RLS with a contractor JWT. Needs a local Postgres superuser `psql` (`PSQL=...`) and a `postgrest` binary (`POSTGREST=...`) |
 | `npm run typecheck` / `lint` | TypeScript / ESLint |
 | `npm run seed` | Seed the demo project into Supabase (idempotent, stable ids) |
+| `npm run push-project` | Copy a project entered in demo mode (`.data/demo-db.json`) into Supabase |
 | `npm run gen:plan` | Regenerate the demo floor-plan PDF |
 | `npm run gen:vapid` | Generate web-push keys |
 

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { AreasPanel, type AreaNode } from "@/components/settings/areas-panel";
 import { ContractorsPanel, MembersPanel, type ContractorRow, type MemberRow } from "@/components/settings/people-panels";
+import { ImportContractorsDialog } from "@/components/settings/import-contractors";
+import { ProjectPanel } from "@/components/settings/project-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStore } from "@/lib/db";
 import { t } from "@/lib/i18n";
@@ -46,15 +48,22 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
     <div className="mx-auto flex max-w-4xl flex-col gap-4 p-4 lg:p-6">
       <h1 className="text-xl font-bold">{t.settings.title}</h1>
       <Tabs defaultValue={searchParams.tab ?? "areas"}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="project">{t.settings.project}</TabsTrigger>
           <TabsTrigger value="areas">{t.settings.areas}</TabsTrigger>
           <TabsTrigger value="contractors">{t.settings.contractors}</TabsTrigger>
           <TabsTrigger value="members">{t.settings.members}</TabsTrigger>
         </TabsList>
+        <TabsContent value="project">
+          <ProjectPanel project={s.project} />
+        </TabsContent>
         <TabsContent value="areas">
           <AreasPanel tree={areaProgress(snap).map(toNode)} />
         </TabsContent>
-        <TabsContent value="contractors">
+        <TabsContent value="contractors" className="flex flex-col gap-3">
+          <div className="flex justify-end">
+            <ImportContractorsDialog />
+          </div>
           <ContractorsPanel rows={contractors} trades={snap.trades.map((x) => ({ value: x.id, label: x.name }))} />
         </TabsContent>
         <TabsContent value="members">

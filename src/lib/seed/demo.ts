@@ -103,6 +103,7 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
     address: "רח׳ הזית 12, כרמיאל",
     start_date: day(-120),
     target_date: day(150),
+    setup_mode: false,
     created_at: created,
   });
 

@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { ApplyFlowDialog } from "@/components/flow/apply-flow-dialog";
 import { FlowAreaSelect } from "@/components/flow/area-select";
 import { FlowBoard, type BoardRow } from "@/components/flow/flow-board";
+import { AssignDialog, type TradeRow } from "@/components/flow/assign-dialog";
+import { CaptureDialog } from "@/components/flow/capture-dialog";
 import { FlowEditor } from "@/components/flow/flow-editor";
 import { FlowViews } from "@/components/flow/flow-views";
 import type { FlowStageVM } from "@/components/flow/types";
@@ -17,7 +19,7 @@ import { areaLabel, loadSnapshot } from "@/lib/services/snapshot";
 
 export const metadata = { title: t.flow.title };
 
-export default async function FlowPage({ searchParams }: { searchParams: { area?: string } }) {
+export default async function FlowPage({ searchParams }: { searchParams: { area?: string; tab?: string } }) {
   const s = await requireProjectSession();
   if (!isStaff(s)) redirect("/my");
   const store = getStore();
@@ -76,6 +78,23 @@ export default async function FlowPage({ searchParams }: { searchParams: { area?
       };
     })
     .filter((r) => r.cells.some((c) => c.taskId));
+  // trades of the process tasks, for "assign contractors"
+  const flowOpen = snap.tasks.filter((x) => x.flow_stage && x.status !== "done" && x.trade_id);
+  const assignRows: TradeRow[] = [...new Set(flowOpen.map((x) => x.trade_id!))]
+    .map((tid) => {
+      const tr = snap.tradeById.get(tid);
+      const list = flowOpen.filter((x) => x.trade_id === tid);
+      const sameTrade = snap.contractors.filter((c) => c.trade_id === tid);
+      const others = snap.contractors.filter((c) => c.trade_id !== tid);
+      return {
+        tradeId: tid,
+        name: tr?.name ?? "",
+        open: list.length,
+        unassigned: list.filter((x) => !x.contractor_id).length,
+        options: [...sameTrade, ...others].map((c) => ({ value: c.id, label: c.name, hint: c.trade_id ? snap.tradeById.get(c.trade_id)?.name : undefined })),
+      };
+    })
+    .sort((a, b) => b.unassigned - a.unassigned || a.name.localeCompare(b.name, "he"));
   const allTradeKeys = [...new Set([...FLOW_TRADES.map((x) => x.key), ...snap.trades.map((x) => x.key)])];
 
   return (
@@ -107,8 +126,23 @@ export default async function FlowPage({ searchParams }: { searchParams: { area?
         </div>
       </div>
       <FlowViews
+        tab={searchParams.tab}
         stages={stages}
-        board={<FlowBoard stages={ordered.map((x) => ({ key: x.key, name: x.name, color: x.phaseColor }))} rows={boardRows} />}
+        board={
+          <FlowBoard
+            stages={ordered.map((x) => ({ key: x.key, name: x.name, color: x.phaseColor }))}
+            rows={boardRows}
+            editable={isPM(s)}
+            actions={
+              isPM(s) ? (
+                <>
+                  <CaptureDialog groups={groups} stages={ordered.map((x) => ({ key: x.key, name: x.name, step: x.level }))} today={localDate(snap.now)} />
+                  {assignRows.length > 0 && <AssignDialog trades={assignRows} groups={groups} />}
+                </>
+              ) : undefined
+            }
+          />
+        }
         editor={isPM(s) ? <FlowEditor key={`${custom}-${FLOW.map((x) => x.key).join()}`} initial={FLOW} custom={custom} trades={allTradeKeys.map((k) => ({ value: k, label: tradeName(k) }))} /> : undefined}
       />
     </div>

@@ -10,6 +10,9 @@ import { AccessError } from "./auth-types";
 import { directConversation } from "./messaging";
 import { areaSubtree } from "./snapshot";
 import { ServiceError, type Ctx } from "./tasks";
+import { normalizePhone, parseContractorLines } from "../phone";
+
+export { normalizePhone, parseContractorLines, type ParsedContractor } from "../phone";
 
 const CHILD_TYPES: Record<AreaType | "root", AreaType[]> = {
   root: ["building", "common"],
@@ -19,16 +22,6 @@ const CHILD_TYPES: Record<AreaType | "root", AreaType[]> = {
   common: ["room"],
   room: [],
 };
-
-/** Israeli local format → E.164 (050-1234567 → +972501234567). Null for empty/invalid. */
-export function normalizePhone(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const digits = raw.replace(/\D/g, "");
-  if (digits.length < 9) return null;
-  if (digits.startsWith("972")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+972${digits.slice(1)}`;
-  return `+${digits}`;
-}
 
 function cleanEmail(raw: string | null | undefined): string | null {
   const e = raw?.trim().toLowerCase();
@@ -221,4 +214,58 @@ export async function removeMember(ctx: Ctx, profileId: string) {
   assertPM(ctx.s);
   if (profileId === ctx.s.profile.id) throw new ServiceError(he.settings.cantChangeSelf);
   await ctx.store.remove("project_members", { project_id: ctx.s.project.id, profile_id: profileId });
+}
+
+// ───────────────────────── contractors import ─────────────────────────
+
+const PALETTE = ["#0ea5e9", "#f97316", "#84cc16", "#a855f7", "#14b8a6", "#e11d48", "#eab308", "#64748b"];
+
+export async function importContractors(ctx: Ctx, text: string): Promise<{ added: number; existing: number; failed: string[] }> {
+  assertPM(ctx.s);
+  const rows = parseContractorLines(text);
+  if (!rows.length || rows.length > 200) throw new ServiceError(he.errors.invalid);
+  const trades = await ctx.store.select("trades");
+  const norm = (x: string) => x.replace(/["'׳״]/g, "").trim();
+  const tradeFor = async (name: string | null): Promise<string | null> => {
+    if (!name) return null;
+    const n = norm(name);
+    const hit = trades.find((t) => norm(t.name) === n) ?? trades.find((t) => n.length >= 2 && (norm(t.name).includes(n) || n.includes(norm(t.name))));
+    if (hit) return hit.id;
+    const [created] = await ctx.store.insert("trades", {
+      key: `t_${Date.now().toString(36)}${trades.length}`,
+      name: name.trim(),
+      color: PALETTE[trades.length % PALETTE.length],
+      sort_order: trades.reduce((m, t) => Math.max(m, t.sort_order), 0) + 1,
+    });
+    trades.push(created);
+    return created.id;
+  };
+
+  const orgContractors = await ctx.store.select("contractors", { where: { organization_id: ctx.s.project.organization_id } });
+  const res = { added: 0, existing: 0, failed: [] as string[] };
+  for (const r of rows) {
+    const known = r.phone ? orgContractors.find((c) => c.phone === r.phone) : orgContractors.find((c) => c.name === r.name);
+    if (known) {
+      // already in the company (e.g. from another project) → just add to this project
+      if (known.profile_id) {
+        await ensureMember(ctx, known.profile_id, "contractor");
+        await directConversation(ctx.store, ctx.s.project.id, ctx.s.profile.id, known.profile_id);
+      }
+      res.existing++;
+      continue;
+    }
+    if (!r.phone) {
+      res.failed.push(r.name);
+      continue;
+    }
+    try {
+      const c = await createContractor(ctx, { name: r.name, phone: r.phone, trade_id: await tradeFor(r.trade) });
+      orgContractors.push(c);
+      res.added++;
+    } catch (e) {
+      if (!(e instanceof ServiceError)) throw e;
+      res.failed.push(r.name);
+    }
+  }
+  return res;
 }

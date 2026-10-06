@@ -19,7 +19,7 @@ export interface ReleaseResult {
 export async function withRelease<T>(
   store: Store,
   projectId: string,
-  opts: { actor: string | null; source: ChangeSource; now?: Date; cause?: string },
+  opts: { actor: string | null; source: ChangeSource; now?: Date; cause?: string; quiet?: boolean },
   mutate: () => Promise<T>,
 ): Promise<T & ReleaseResult> {
   const now = opts.now ?? new Date();
@@ -47,6 +47,8 @@ export async function releaseReady(
     now: Date;
     cause?: string;
     beforeAnalysis?: ReturnType<typeof analyze>;
+    /** update statuses only — no messages (capturing an existing site) */
+    quiet?: boolean;
   },
 ): Promise<string[]> {
   const after = await loadGraph(store, projectId);
@@ -75,6 +77,7 @@ export async function releaseReady(
         meta: { reason: "auto_release", cause: opts.cause ?? null },
       });
     }
+    if (opts.quiet) continue;
     const text = opts.cause ? he.sys.releasedBy(task.title, opts.cause) : he.sys.released(task.title);
     const sent = await messageContractor(store, projectId, task.contractor_id, text, { action: "task_released", task_id: id });
     if (sent) {
