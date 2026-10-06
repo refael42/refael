@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHAIR_OFFSET, STAND_MAP } from '../src/data/maps';
+import { CHAIR_OFFSET, mapForTier, STAND_MAP } from '../src/data/maps';
 import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 const grid = buildGrid(STAND_MAP);
@@ -58,5 +58,21 @@ describe('A* pathfinding', () => {
 
   it('returns null when the goal is unreachable', () => {
     expect(findPath(grid, { x: 8.5, y: 12.5 }, { x: 8.5, y: 15.5 })).toBeNull();
+  });
+});
+
+describe('path cache', () => {
+  it('hands each caller its own copy (walking eats the path) and the same way every time', () => {
+    const map = mapForTier(4);
+    const grid = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length);
+    const from = map.doors[0]!.inside;
+    const to = map.stoves[0]!.cook;
+    const a = findPath(grid, from, to)!;
+    const copy = a.map((p) => ({ ...p }));
+    a.length = 0;
+    const b = findPath(grid, from, to)!;
+    expect(b).toEqual(copy);
+    b[0]!.x = -99;
+    expect(findPath(grid, from, to)).toEqual(copy);
   });
 });

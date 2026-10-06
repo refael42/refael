@@ -41,7 +41,8 @@ export function propFrom(id: number, f: Furniture): PropView {
   };
 }
 
-const rebuildGrid = (s: GameState) => {
+/** The walkable grid from the furniture standing now (a batch of new furniture rebuilds it once, at the end). */
+export const rebuildGrid = (s: GameState) => {
   s.grid = buildGrid(s.map, s.tables.length, s.stoves.length, s.tables.filter((t) => t.seats > 1).length, s.placed);
 };
 
@@ -118,7 +119,7 @@ function addChair(s: GameState, t: { x: number; y: number }, seat: number): void
 }
 
 /** Opens the next table spot: the table, its chairs, and the tiles they now block. */
-export function addTable(s: GameState): Table | null {
+export function addTable(s: GameState, rebuild = true): Table | null {
   const spot = s.map.tables[s.tables.length];
   if (!spot) return null;
   const index = s.tables.length;
@@ -140,31 +141,31 @@ export function addTable(s: GameState): Table | null {
     since: s.time,
   };
   s.tables.push(table);
-  rebuildGrid(s);
+  if (rebuild) rebuildGrid(s);
   return table;
 }
 
 /** "More chairs": the next single table gets a chair opposite the first one. */
-export function addSeat(s: GameState): Table | null {
+export function addSeat(s: GameState, rebuild = true): Table | null {
   const t = s.tables.find((x) => x.seats < SEAT_OFFSETS.length);
   if (!t) return null;
   addChair(s, t, t.seats);
   t.seats += 1;
   t.party.push(-1);
   t.dishes.push(-1);
-  rebuildGrid(s);
+  if (rebuild) rebuildGrid(s);
   return t;
 }
 
 /** Installs the next stove spot (room for one more cook). */
-export function addStove(s: GameState): GameState['stoves'][number] | null {
+export function addStove(s: GameState, rebuild = true): GameState['stoves'][number] | null {
   const spot = s.map.stoves[s.stoves.length];
   if (!spot) return null;
   const prop = propFrom(s.nextId++, spot.stove);
   s.props.push(prop);
   const stove = { propId: prop.id, x: spot.stove.x, y: spot.stove.y, cook: spot.cook };
   s.stoves.push(stove);
-  rebuildGrid(s);
+  if (rebuild) rebuildGrid(s);
   return stove;
 }
 
@@ -316,9 +317,11 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     wheel: setup.wheel ? { ...setup.wheel } : { nextFree: 0, tokens: 0, spins: 0, prize: -1 },
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
-  while (s.tables.length < tableCount) addTable(s);
+  // Built in one go: rebuilding the grid for each of eighty tables made a big save slow to load.
+  while (s.tables.length < tableCount) addTable(s, false);
   const stoveCount = Math.min(map.stoves.length, map.startStoves + mods.stoves);
-  while (s.stoves.length < stoveCount) addStove(s);
+  while (s.stoves.length < stoveCount) addStove(s, false);
+  rebuildGrid(s);
   restoreDecor(s, setup.placed ?? []);
   if (setup.team) {
     for (const w of setup.team) {

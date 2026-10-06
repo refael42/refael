@@ -1,5 +1,5 @@
 import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
-import { F, P as PF, W, WORK_STRIDE } from '../../sim/snapshot';
+import { F, P as PF, W, WORK_STRIDE, type Packed } from '../../sim/snapshot';
 import { drawText } from './text';
 import { PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
@@ -15,9 +15,9 @@ const EXPAND_TIER = EXPAND.tier;
 
 /** Upgrade state the renderer needs per frame (from the snapshot, plus the UI's selection). */
 export interface PropLooks {
-  tiers: number[];
-  dishTiers: number[];
-  bumps: number[];
+  tiers: Packed;
+  dishTiers: Packed;
+  bumps: Packed;
   /** The prop the player tapped (its upgrades are open): [kind, x, y], or empty. Only that one is outlined. */
   selected: number[];
   /** Full detail (glows, sparkles on every table and chair), false when zoomed far out. */
@@ -161,7 +161,7 @@ function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier
  * A table and what is on it. `level` packs it (see the sim's table snapshot): while eating,
  * each chair's dish + 1 in base 8 (chair 0 first); when dirty, the number of plates left.
  */
-function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: number[]): void {
+function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: Packed): void {
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
@@ -186,7 +186,7 @@ function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number,
   }
 }
 
-export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t: number, looks: PropLooks): void {
+export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: number, looks: PropLooks): void {
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
@@ -344,7 +344,7 @@ const BADGE_HEIGHT: Record<number, number> = {
 };
 
 /** Green arrows over stations with an affordable upgrade (drawn above everything in the world). */
-export function drawBadges(c: SkCanvas, A: RenderAssets, badges: number[], best: number[], t: number): void {
+export function drawBadges(c: SkCanvas, A: RenderAssets, badges: Packed, best: Packed, t: number): void {
   'worklet';
   if (best.length === 3) {
     // The best buy right now: a big spinning gold star with a glow, bouncing higher.
@@ -378,7 +378,7 @@ function timeText(left: number): string {
 }
 
 /** Over each big upgrade in progress: a swinging hammer, the time left and a progress bar. */
-export function drawWorks(c: SkCanvas, A: RenderAssets, works: number[], t: number): void {
+export function drawWorks(c: SkCanvas, A: RenderAssets, works: Packed, t: number): void {
   'worklet';
   const P = A.paints;
   for (let i = 0; i < works.length; i += WORK_STRIDE) {

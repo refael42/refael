@@ -170,3 +170,15 @@ describe('buying in the sim', () => {
     }
   });
 });
+
+describe('bulk buying furniture', () => {
+  it('ten tables at once end up exactly like ten bought one by one (one grid rebuild at the end)', () => {
+    const one = createGame(mapForTier(3), 41, { coins: big(1e30), levels: { building: 3 } });
+    const ten = createGame(mapForTier(3), 41, { coins: big(1e30), levels: { building: 3 } });
+    for (let i = 0; i < 10; i++) buyUpgrade(one, 'tables');
+    buyUpgrade(ten, 'tables', undefined, 10);
+    expect(ten.tables.map((t) => [t.x, t.y, t.seats])).toEqual(one.tables.map((t) => [t.x, t.y, t.seats]));
+    expect(Array.from(ten.grid.walk)).toEqual(Array.from(one.grid.walk));
+    expect(ten.mods).toEqual(one.mods);
+  });
+});

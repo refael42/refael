@@ -71,6 +71,9 @@ interface RoomCuts {
   g: Grid;
   cuts: CutTree;
   access: number[][];
+  /** Spots by the search order of their first way in (sorted), for looking up only those a cut can reach. */
+  byFirst: number[];
+  firstOrder: number[];
   /** Everything is reachable with nothing more taken (if not, no tile is). */
   ok: boolean;
 }
@@ -92,7 +95,22 @@ function roomCuts(g: Grid, map: MapDef): RoomCuts {
       return x >= 0 && y >= 0 && x < g.w && y < g.h && cuts.order[j]! >= 0 ? [j] : [];
     });
   });
-  return { g, cuts, access, ok: access.every((a) => a.length > 0) };
+  const ok = access.every((a) => a.length > 0);
+  const byFirst = ok ? access.map((_, i) => i).sort((a, b) => cuts.order[access[a]![0]!]! - cuts.order[access[b]![0]!]!) : [];
+  const firstOrder = byFirst.map((i) => cuts.order[access[i]![0]!]!);
+  return { g, cuts, access, byFirst, firstOrder, ok };
+}
+
+/** The first index in a sorted list whose value is at least `v`. */
+function lowerBound(list: readonly number[], v: number): number {
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (list[mid]! < v) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 /** With tile (tx, ty) taken too, can everything still be reached? (One look-up in the cut tree.) */
@@ -111,7 +129,15 @@ function staysOpen(r: RoomCuts, tx: number, ty: number): boolean {
     if (cuts.parent[c] === t && cuts.low[c]! >= cuts.order[t]!) spans.push([cuts.order[c]!, cuts.done[c]!]);
   }
   const lost = (i: number) => i === t || spans.some(([a, b]) => cuts.order[i]! >= a && cuts.order[i]! <= b);
-  return r.access.every((a) => a.some((i) => !lost(i)));
+  // A spot can only be cut off if its first way in is: look at just those (the tile itself, and
+  // each part cut off), stopping at the first one with no other way in.
+  const order = cuts.order[t]!;
+  for (const [lo, hi] of [[order, order], ...spans] as const) {
+    for (let k = lowerBound(r.firstOrder, lo); k < r.byFirst.length && r.firstOrder[k]! <= hi; k++) {
+      if (!r.access[r.byFirst[k]!]!.some((i) => !lost(i))) return false;
+    }
+  }
+  return true;
 }
 
 /** With tile (tx, ty) taken too, can everything still be reached from the door? The plain full

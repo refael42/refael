@@ -79,6 +79,9 @@ const DIRS: readonly [number, number, number][] = [
   [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
   [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2],
 ];
+const DIR_X = Int8Array.from(DIRS, (d) => d[0]);
+const DIR_Y = Int8Array.from(DIRS, (d) => d[1]);
+const DIR_COST = Float64Array.from(DIRS, (d) => d[2]);
 
 /**
  * What closing one tile would cut off, for every tile at once (build mode asks this of hundreds
@@ -171,11 +174,74 @@ export function canReach(g: Grid, reach: Uint8Array, p: Point): boolean {
 }
 
 /** 8-way A* over tiles. The goal tile may be a blocked one (a chair is walked *onto*). */
+/**
+ * The open list of the search: a binary heap on (cost estimate, then the order tiles were first
+ * found), so it picks exactly what a plain scan for the lowest estimate picked (the same paths
+ * as before) without scanning every open tile each step: the late-game buildings have well over
+ * a thousand tiles, and that scan made one long walk cost milliseconds.
+ */
+class OpenHeap {
+  node: number[] = [];
+  f: number[] = [];
+  seq: number[] = [];
+  get size(): number {
+    return this.node.length;
+  }
+  private less(a: number, b: number): boolean {
+    return this.f[a]! < this.f[b]! || (this.f[a] === this.f[b] && this.seq[a]! < this.seq[b]!);
+  }
+  private swap(a: number, b: number): void {
+    const n = this.node[a]!;
+    this.node[a] = this.node[b]!;
+    this.node[b] = n;
+    const f = this.f[a]!;
+    this.f[a] = this.f[b]!;
+    this.f[b] = f;
+    const q = this.seq[a]!;
+    this.seq[a] = this.seq[b]!;
+    this.seq[b] = q;
+  }
+  push(node: number, f: number, seq: number): void {
+    this.node.push(node);
+    this.f.push(f);
+    this.seq.push(seq);
+    let i = this.node.length - 1;
+    while (i > 0) {
+      const up = (i - 1) >> 1;
+      if (!this.less(i, up)) break;
+      this.swap(i, up);
+      i = up;
+    }
+  }
+  pop(): number {
+    const top = this.node[0]!;
+    const last = this.node.length - 1;
+    this.swap(0, last);
+    this.node.pop();
+    this.f.pop();
+    this.seq.pop();
+    let i = 0;
+    for (;;) {
+      const l = i * 2 + 1;
+      const r = l + 1;
+      let m = i;
+      if (l < this.node.length && this.less(l, m)) m = l;
+      if (r < this.node.length && this.less(r, m)) m = r;
+      if (m === i) break;
+      this.swap(i, m);
+      i = m;
+    }
+    return top;
+  }
+}
+
 function aStar(g: Grid, start: number, goal: number): number[] | null {
   const n = g.w * g.h;
   const gScore = new Float64Array(n).fill(Infinity);
   const came = new Int32Array(n).fill(-1);
   const closed = new Uint8Array(n);
+  /** When each tile first joined the open list (the tie-break); -1 = not yet. */
+  const firstSeen = new Int32Array(n).fill(-1);
   const gx = goal % g.w;
   const gy = Math.floor(goal / g.w);
   const h = (i: number) => {
@@ -183,15 +249,15 @@ function aStar(g: Grid, start: number, goal: number): number[] | null {
     const dy = Math.abs(Math.floor(i / g.w) - gy);
     return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy);
   };
-  // The grids are tiny (hundreds of tiles), so a linear-scan open list is plenty fast.
-  const open: number[] = [start];
-  const fScore = new Float64Array(n).fill(Infinity);
+  const open = new OpenHeap();
+  let seq = 0;
   gScore[start] = 0;
-  fScore[start] = h(start);
-  while (open.length > 0) {
-    let best = 0;
-    for (let i = 1; i < open.length; i++) if (fScore[open[i]!]! < fScore[open[best]!]!) best = i;
-    const cur = open[best]!;
+  firstSeen[start] = seq++;
+  open.push(start, h(start), firstSeen[start]!);
+  while (open.size > 0) {
+    const cur = open.pop();
+    // A tile improved after it was queued sits in the heap twice; the older entry is stale.
+    if (closed[cur]) continue;
     if (cur === goal) {
       const out = [cur];
       let c = cur;
@@ -201,11 +267,15 @@ function aStar(g: Grid, start: number, goal: number): number[] | null {
       }
       return out.reverse();
     }
-    open.splice(best, 1);
     closed[cur] = 1;
     const cx = cur % g.w;
     const cy = Math.floor(cur / g.w);
-    for (const [dx, dy, cost] of DIRS) {
+    // Indexed, not for-of with destructuring: this is the hottest loop of the game, and the
+    // phone's engine (Hermes) pays for every iterator.
+    for (let k = 0; k < 8; k++) {
+      const dx = DIR_X[k]!;
+      const dy = DIR_Y[k]!;
+      const cost = DIR_COST[k]!;
       const nx = cx + dx;
       const ny = cy + dy;
       if (!inBounds(g, nx, ny)) continue;
@@ -221,13 +291,19 @@ function aStar(g: Grid, start: number, goal: number): number[] | null {
       if (tentative < gScore[nb]!) {
         came[nb] = cur;
         gScore[nb] = tentative;
-        fScore[nb] = tentative + h(nb);
-        if (!open.includes(nb)) open.push(nb);
+        if (firstSeen[nb]! < 0) firstSeen[nb] = seq++;
+        open.push(nb, tentative + h(nb), firstSeen[nb]!);
       }
     }
   }
   return null;
 }
+
+/** Path smoothing looks this many waypoints ahead at most. */
+const SMOOTH_AHEAD = 16;
+
+/** Where a straight line is sampled across its width: the middle and a walker's shoulders. */
+const LINE_SAMPLES: readonly (readonly [number, number])[] = [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]];
 
 /** Straight line between two points stays on walkable tiles without crossing walls? */
 function clearLine(g: Grid, a: Point, b: Point, goal: number): boolean {
@@ -235,7 +311,7 @@ function clearLine(g: Grid, a: Point, b: Point, goal: number): boolean {
   let prev = tileIndex(g, Math.floor(a.x), Math.floor(a.y));
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
-    for (const [ox, oy] of [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]] as const) {
+    for (const [ox, oy] of LINE_SAMPLES) {
       const px = a.x + (b.x - a.x) * t + ox;
       const py = a.y + (b.y - a.y) * t + oy;
       const tx = Math.floor(px);
@@ -256,10 +332,56 @@ function clearLine(g: Grid, a: Point, b: Point, goal: number): boolean {
  * Waypoints from `from` to `to` (tile coordinates), smoothed so walkers cut across open floor
  * instead of zig-zagging tile by tile. Returns null when unreachable.
  */
+/**
+ * Searches already done on this grid, by start and goal tile. The same walks come up again and
+ * again (a waiter's spot to a table, the door to the line), and a grid never changes once
+ * built (new furniture builds a new one), so the answer can be kept. Bounded: cleared when full.
+ */
+const SEARCHES = new WeakMap<Grid, Map<number, number[] | null>>();
+const SEARCH_CACHE_MAX = 4000;
+
+function searchTiles(g: Grid, start: number, goal: number): number[] | null {
+  let cache = SEARCHES.get(g);
+  if (!cache) {
+    cache = new Map();
+    SEARCHES.set(g, cache);
+  }
+  const k = start * g.w * g.h + goal;
+  const hit = cache.get(k);
+  if (hit !== undefined) return hit;
+  if (cache.size >= SEARCH_CACHE_MAX) cache.clear();
+  const tiles = aStar(g, start, goal);
+  cache.set(k, tiles);
+  return tiles;
+}
+
+/**
+ * Finished (smoothed) paths on this grid, by the exact start and end points: people mostly walk
+ * between the same spots (their post, the side of a table), and smoothing a long path costs more
+ * than the search. Each caller gets its own copy (walking eats the path as it goes).
+ */
+const PATHS = new WeakMap<Grid, Map<string, Point[] | null>>();
+
 export function findPath(g: Grid, from: Point, to: Point): Point[] | null {
+  let cache = PATHS.get(g);
+  if (!cache) {
+    cache = new Map();
+    PATHS.set(g, cache);
+  }
+  const k = `${from.x},${from.y},${to.x},${to.y}`;
+  let path = cache.get(k);
+  if (path === undefined) {
+    if (cache.size >= SEARCH_CACHE_MAX) cache.clear();
+    path = smoothPath(g, from, to);
+    cache.set(k, path);
+  }
+  return path ? path.map((p) => ({ x: p.x, y: p.y })) : null;
+}
+
+function smoothPath(g: Grid, from: Point, to: Point): Point[] | null {
   const start = tileIndex(g, Math.floor(from.x), Math.floor(from.y));
   const goal = tileIndex(g, Math.floor(to.x), Math.floor(to.y));
-  const tiles = aStar(g, start, goal);
+  const tiles = searchTiles(g, start, goal);
   if (!tiles) return null;
   const raw: Point[] = tiles.slice(1, -1).map((i) => ({ x: (i % g.w) + 0.5, y: Math.floor(i / g.w) + 0.5 }));
   raw.push({ x: to.x, y: to.y });
@@ -267,13 +389,33 @@ export function findPath(g: Grid, from: Point, to: Point): Point[] | null {
   let anchor: Point = from;
   let i = 0;
   while (i < raw.length) {
+    // Straight to the end if nothing is in the way (open floor: one check instead of dozens).
+    if (raw.length - i > 2 && clearLine(g, anchor, raw[raw.length - 1]!, goal)) {
+      out.push(raw[raw.length - 1]!);
+      break;
+    }
+    // Otherwise as far as the line stays clear, looking a limited way ahead: each check is a
+    // whole line from the anchor, so an unlimited look-ahead cost the square of the path.
     let far = i;
-    while (far + 1 < raw.length && clearLine(g, anchor, raw[far + 1]!, goal)) far++;
+    while (far + 1 < raw.length && far + 1 - i <= SMOOTH_AHEAD && clearLine(g, anchor, raw[far + 1]!, goal)) far++;
     out.push(raw[far]!);
     anchor = raw[far]!;
     i = far + 1;
   }
   return out;
+}
+
+/** Can someone at `from` still walk this path straight from point to point (nothing new in the way)? */
+export function pathStillClear(g: Grid, from: Point, path: readonly Point[]): boolean {
+  if (path.length === 0) return true;
+  const last = path[path.length - 1]!;
+  const goal = tileIndex(g, Math.floor(last.x), Math.floor(last.y));
+  let a = from;
+  for (const b of path) {
+    if (!clearLine(g, a, b, goal)) return false;
+    a = b;
+  }
+  return true;
 }
 
 export function isWalkable(g: Grid, p: Point): boolean {

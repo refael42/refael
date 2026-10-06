@@ -1,7 +1,7 @@
 import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import { Accessory, Outfit } from '../../data/looks';
 import { EMOTE_SECONDS, STEP_SEC } from '../../data/sim';
-import { C, F } from '../../sim/snapshot';
+import { C, F, type Packed } from '../../sim/snapshot';
 import { Expression, Held, Pose } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
@@ -23,7 +23,7 @@ function ly(viewB: boolean, f: number, r: number, z: number): number {
 /** The `rank` a VIP customer carries (staff ranks are 1 and 2). */
 const VIP_RANK = 3;
 
-export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number, selectedId: number): void {
+export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number, selectedId: number): void {
   'worklet';
   const S = A.S;
   const L = A.L;
@@ -189,7 +189,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: number[], o: numb
 }
 
 /** Bubbles and bars go in a second pass so nothing in front ever hides them. */
-export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: number[], o: number, alpha: number, t: number): void {
+export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number): void {
   'worklet';
   const emote = d[o + C.emote]!;
   const patience = d[o + C.patience]!;

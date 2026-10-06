@@ -1,5 +1,6 @@
 import type { Point } from '../../data/maps';
 import { computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
+import { COUNT_STATS } from '../../data/upgrades';
 import { planBuy, workSeconds } from '../economy/works';
 import type { BulkStep } from '../../data/works';
 import { crewsOf, startWork } from './works';
@@ -7,8 +8,9 @@ import { PropKind } from '../types';
 import { startConstruction } from './construction';
 import { DECOR } from '../../data/decor';
 import { autoTile, canPlaceAt } from './build';
-import { addSeat, addStove, addTable, placeDecor } from './create';
+import { addSeat, addStove, addTable, placeDecor, rebuildGrid } from './create';
 import { chairOf, route } from './customers';
+import { pathStillClear } from '../grid';
 import { emit, Ev } from './events';
 import type { GameState, Work } from './types';
 
@@ -32,11 +34,14 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   return s.props.filter((p) => p.kind === kind).map((p) => ({ x: p.x, y: p.y }));
 }
 
-/** New furniture blocks tiles: everyone already walking re-plans around it. */
+/**
+ * New furniture blocks tiles: whoever's way now runs into it re-plans. Only those: a new search
+ * for every walker after each table was a big part of the late-game hitches.
+ */
 export function rerouteWalkers(s: GameState): void {
   for (const c of [...s.customers, ...s.staff]) {
     const goal = c.path[c.path.length - 1];
-    if (goal) c.path = route(s, c, goal);
+    if (goal && !pathStillClear(s.grid, c, c.path)) c.path = route(s, c, goal);
   }
 }
 
@@ -59,6 +64,9 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
   const decor = def.build ? DECOR.find((d) => d.kind === def.anchor) : undefined;
   const tile = decor ? (at ? (canPlaceAt(s, at.x, at.y) ? at : null) : autoTile(s)) : null;
   if (decor && !tile) return false;
+  // A batch (ten tables at once...) builds the walkable grid and re-plans the walkers once, at the end.
+  const batch = plan.count > 1;
+  let moved = false;
   for (let i = 0; i < plan.count; i++) {
     const level = levelOf(s.levels, id);
     s.coins = s.coins.sub(costOf(def, level));
@@ -68,7 +76,11 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
       s.bumpAt[def.anchor] = s.time;
       break;
     }
-    applyLevel(s, id, tile, i === plan.count - 1);
+    moved = applyLevel(s, id, tile, i === plan.count - 1, batch) || moved;
+  }
+  if (batch && moved) {
+    rebuildGrid(s);
+    rerouteWalkers(s);
   }
   return true;
 }
@@ -88,46 +100,56 @@ export function finishWork(s: GameState, w: Work): void {
   emit(s, Ev.WorkDone, site.x, site.y, w.level);
 }
 
-/** One more level of `id` counts now: effects, new furniture, the level-up show (`show`: on the last of a batch). */
-function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean): void {
+/**
+ * One more level of `id` counts now: effects, new furniture, the level-up show (`show`: on the
+ * last of a batch). `batch`: leave the grid and the walkers to the caller (done once for all).
+ * Returns whether furniture was added.
+ */
+function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean, batch = false): boolean {
   const def = upgradeDef(id);
   const decor = def.build ? DECOR.find((d) => d.kind === def.anchor) : undefined;
   const level = levelOf(s.levels, id);
-  const before = s.mods;
   s.levels = { ...s.levels, [id]: level + 1 };
+  // Inside a batch, a level that adds nothing countable needs no new effects yet: the last one
+  // works them all out (an x100 buy computed them a hundred times).
+  if (batch && !show && !COUNT_STATS.includes(def.effect.stat)) return false;
+  const before = s.mods;
   s.mods = computeMods(s.levels, s.perks, s.trophies);
   // Bought plates go straight onto the clean stack.
   s.cleanPlates += s.mods.plates - before.plates;
   // A new building is a show of its own (and rebuilds the whole place when it is done).
   if (s.mods.building > before.building) {
     startConstruction(s);
-    return;
+    return false;
   }
 
   let fx = anchorPoints(s, def.anchor);
+  let moved = false;
   if (decor && tile) {
     fx = [placeDecor(s, decor.id, tile)];
-    rerouteWalkers(s);
+    moved = true;
   }
   if (s.mods.tables > before.tables) {
-    const table = addTable(s);
-    rerouteWalkers(s);
+    const table = addTable(s, !batch);
+    moved = true;
     fx = table ? [table] : [];
   }
   if (s.mods.stoves > before.stoves) {
-    const stove = addStove(s);
-    rerouteWalkers(s);
+    const stove = addStove(s, !batch);
+    moved = true;
     fx = stove ? [stove] : [];
   }
   if (s.mods.seats > before.seats) {
-    const table = addSeat(s);
-    rerouteWalkers(s);
+    const table = addSeat(s, !batch);
+    moved = true;
     fx = table ? [chairOf(table, 1)] : [];
   }
+  if (moved && !batch) rerouteWalkers(s);
   s.bumpAt[def.anchor] = s.time;
-  if (!show) return;
+  if (!show) return moved;
   const milestone = milestonesReached(level + 1) > milestonesReached(level) ? 1 : 0;
   // Dozens of tables or chairs: the effect plays on a few of them, the level shows on one.
   const shown = fx.length <= UPGRADE_FX_SPOTS ? fx : Array.from({ length: UPGRADE_FX_SPOTS }, (_, i) => fx[Math.floor((i * fx.length) / UPGRADE_FX_SPOTS)]!);
   shown.forEach((p, i) => emit(s, Ev.Upgrade, p.x, p.y, level + 1, milestone + (i > 0 ? UPGRADE_QUIET : 0), def.anchor));
+  return moved;
 }

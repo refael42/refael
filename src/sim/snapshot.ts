@@ -40,28 +40,35 @@ export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11
 export const EVENT_STRIDE = 8;
 export const E = { id: 0, time: 1, type: 2, x: 3, y: 4, a: 5, b: 6, c: 7 } as const;
 
+/**
+ * Every list in a snapshot is a typed array: the snapshot crosses to the UI thread every frame,
+ * and the worklets library copies a plain array one number at a time (a native call each:
+ * ten thousand a frame in a big restaurant) but a typed array in one block.
+ */
+export type Packed = Float64Array;
+
 export interface Snapshot {
   /** Increments on every publish so the renderer can detect a new tick. */
   seq: number;
   /** Sim time (seconds) of the current state; "px/py" belong to one step earlier. */
   time: number;
   count: number;
-  data: number[];
+  data: Packed;
   /** Recent events (a sliding window, so a skipped UI frame never loses one). */
-  events: number[];
+  events: Packed;
   /** How far into the day we are (0..1): the evening and night light. */
   dayPhase: number;
   /** Look tier per prop kind and per dish (milestones change how things look). */
-  tiers: number[];
-  dishTiers: number[];
+  tiers: Packed;
+  dishTiers: Packed;
   /** Sim time of the last upgrade per prop kind (that station bounces). */
-  bumps: number[];
+  bumps: Packed;
   /** "Upgrade available" arrows: packed (x, y, prop kind) triples. */
-  badges: number[];
+  badges: Packed;
   /** The best buy right now: (x, y, prop kind), or empty. A gold star instead of the arrow. */
-  bestBadge: number[];
+  bestBadge: Packed;
   /** Big upgrades in progress, WORK_STRIDE numbers each (see W). */
-  works: number[];
+  works: Packed;
   /** Today's weather (src/data/weather.ts). */
   weather: number;
   /** Which city the branch is in (its trees). */
@@ -73,7 +80,7 @@ export const WORK_STRIDE = 5;
 export const W = { x: 0, y: 1, progress: 2, left: 3, kind: 4 } as const;
 
 export interface SnapshotExtra {
-  events?: number[];
+  events?: number[] | Packed;
   dayPhase?: number;
   tiers?: number[];
   dishTiers?: number[];
@@ -85,7 +92,8 @@ export interface SnapshotExtra {
   city?: number;
 }
 
-export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: [], events: [], dayPhase: 0, tiers: [], dishTiers: [], bumps: [], badges: [], bestBadge: [], works: [], weather: 0, city: 0 };
+const NONE: Packed = new Float64Array(0);
+export const EMPTY_SNAPSHOT: Snapshot = { seq: 0, time: 0, count: 0, data: NONE, events: NONE, dayPhase: 0, tiers: NONE, dishTiers: NONE, bumps: NONE, badges: NONE, bestBadge: NONE, works: NONE, weather: 0, city: 0 };
 
 interface SortItem {
   depth: number;
@@ -94,7 +102,7 @@ interface SortItem {
   prop?: PropView;
 }
 
-function writeCharacter(d: number[], o: number, c: CharacterView): void {
+function writeCharacter(d: Packed, o: number, c: CharacterView): void {
   d[o + F.type] = EntityType.Character;
   d[o + F.x] = c.x;
   d[o + F.y] = c.y;
@@ -122,7 +130,7 @@ function writeCharacter(d: number[], o: number, c: CharacterView): void {
   d[o + C.patienceKind] = c.patienceKind ?? 0;
 }
 
-function writeProp(d: number[], o: number, p: PropView): void {
+function writeProp(d: Packed, o: number, p: PropView): void {
   d[o + F.type] = EntityType.Prop;
   d[o + F.x] = p.x;
   d[o + F.y] = p.y;
@@ -139,6 +147,8 @@ function writeProp(d: number[], o: number, p: PropView): void {
   d[o + P.bubble] = p.bubble;
 }
 
+const packed = (v: readonly number[] | Packed | undefined): Packed => (v instanceof Float64Array ? v : v && v.length > 0 ? Float64Array.from(v) : NONE);
+
 export function packSnapshot(
   characters: readonly CharacterView[],
   props: readonly PropView[],
@@ -152,7 +162,7 @@ export function packSnapshot(
   for (const c of characters) items.push({ depth: c.x + c.y + 0.05, id: c.id, character: c });
   for (const p of props) items.push({ depth: p.x + p.y + p.depthBias, id: p.id, prop: p });
   items.sort((a, b) => a.depth - b.depth || a.id - b.id);
-  const data = new Array<number>(items.length * STRIDE).fill(0);
+  const data: Packed = new Float64Array(items.length * STRIDE);
   items.forEach((item, i) => {
     if (item.character) writeCharacter(data, i * STRIDE, item.character);
     else writeProp(data, i * STRIDE, item.prop!);
@@ -162,14 +172,14 @@ export function packSnapshot(
     time,
     count: items.length,
     data,
-    events: extra.events ?? [],
+    events: packed(extra.events),
     dayPhase: extra.dayPhase ?? 0,
-    tiers: extra.tiers ?? [],
-    dishTiers: extra.dishTiers ?? [],
-    bumps: extra.bumps ?? [],
-    badges: extra.badges ?? [],
-    bestBadge: extra.bestBadge ?? [],
-    works: extra.works ?? [],
+    tiers: packed(extra.tiers),
+    dishTiers: packed(extra.dishTiers),
+    bumps: packed(extra.bumps),
+    badges: packed(extra.badges),
+    bestBadge: packed(extra.bestBadge),
+    works: packed(extra.works),
     weather: extra.weather ?? 0,
     city: extra.city ?? 0,
   };

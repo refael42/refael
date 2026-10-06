@@ -87,8 +87,8 @@ export function pruneEvents(s: GameState): void {
   if (drop > 0) s.events.splice(0, drop);
 }
 
-export function packEvents(s: GameState): number[] {
-  const out = new Array<number>(s.events.length * EVENT_STRIDE);
+export function packEvents(s: GameState): Float64Array {
+  const out = new Float64Array(s.events.length * EVENT_STRIDE);
   s.events.forEach((e, i) => {
     const o = i * EVENT_STRIDE;
     out[o] = e.id;

@@ -24,7 +24,10 @@ function pickRole(s: GameState): Role | null {
   if (open.length === 0) return null;
   const missing = (r: Role) => !s.staff.some((st) => st.role === r && !st.leaving);
   if (missing('cook') && open.includes('cook')) return 'cook';
-  const weight = (r: Role) => ROLES[r].weight * (missing(r) ? 3 : 1);
+  // A stove standing cold counts as a missing job too: without it, a second stove waited a
+  // long time for its cook behind all the jobs nobody had yet.
+  const wanted = (r: Role) => missing(r) || (r === 'cook' && count(s, 'cook') < s.stoves.length);
+  const weight = (r: Role) => ROLES[r].weight * (wanted(r) ? 3 : 1);
   let roll = next(s.rng) * open.reduce((sum, r) => sum + weight(r), 0);
   for (const r of open) {
     roll -= weight(r);
