@@ -10,6 +10,7 @@ import { formatBig, formatNumber } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { progressOf, questLevel } from '../sim/quests';
 import { useSettings } from '../store/settings';
+import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
 
 // Quests (owner request): the restaurant's level and its list of goals. A goal that is done
@@ -115,8 +116,7 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
   if (!q) return null;
   const done = q.goals.filter((g) => g.claimed).length;
   return (
-    <Pressable style={styles.backdrop} onPress={onClose}>
-      <Pressable style={styles.card} onPress={() => undefined}>
+    <Overlay onClose={onClose} card={styles.card} dim="rgba(14,6,18,0.55)">
         <View style={styles.header}>
           <Text style={styles.title}>{t('quest.title')}</Text>
           <Text style={styles.level}>{q.level}</Text>
@@ -128,7 +128,7 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
         <View style={styles.levelBar}>
           <View style={[styles.levelFill, { width: `${(done / q.goals.length) * 100}%` }]} />
         </View>
-        <ScrollView contentContainerStyle={styles.list}>
+        <ScrollView style={scrollFill} contentContainerStyle={styles.list}>
           {q.goals.map((g, i) => {
             const ready = !g.claimed && g.have >= g.need;
             const share = Math.max(0, Math.min(1, g.have / g.need));
@@ -156,8 +156,7 @@ export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; 
           })}
           <Text style={styles.note}>{t('quest.levelBonus')}</Text>
         </ScrollView>
-      </Pressable>
-    </Pressable>
+    </Overlay>
   );
 }
 
@@ -225,7 +224,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#FFFFFF', fontWeight: '900', fontSize: 11 },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14,6,18,0.55)', alignItems: 'center', justifyContent: 'center' },
   card: {
     width: 440,
     maxWidth: '92%',

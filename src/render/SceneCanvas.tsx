@@ -15,6 +15,8 @@ import { isoX, isoY } from './iso';
 import { touchEnd, touchMove, touchStart, type Finger, type TouchTracker } from './touches';
 
 const DISPOSE_PICTURES = Platform.OS === 'web';
+/** Nothing selected (no prop outlined). */
+const NO_SELECTION: number[] = [];
 /** Pictures kept alive after they leave the screen (web only). */
 const KEEP_PICTURES = 3;
 /** Touches logged to the dev terminal (enough to see where a phone-only crash happens). */
@@ -83,8 +85,8 @@ interface Props {
   onTap?: (x: number, y: number, cam: Camera) => void;
   /** Called when the camera settles (labels overlay). */
   onCamera?: (cam: Camera) => void;
-  /** Prop kind to outline (the station whose upgrades are open), -1 for none. */
-  selected?: SharedValue<number>;
+  /** The prop to outline (the station whose upgrades are open): [kind, x, y], or empty. */
+  selected?: SharedValue<number[]>;
   /** Character id to ring (the worker or applicant whose card is open), -1 for none. */
   selectedId?: SharedValue<number>;
   /** Build mode marks (free tiles, the picked one), or null outside build mode. */
@@ -311,7 +313,7 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
       const started = performance.now();
       if (!recorder.value) recorder.value = Skia.PictureRecorder();
       const c = recorder.value.beginRecording(Skia.XYWHRect(0, 0, W, H));
-      drawScene(c, assets, snap, alpha, t, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : -1, selectedId ? selectedId.value : -1, build ? build.value : null);
+      drawScene(c, assets, snap, alpha, t, camera.value, s, hud ?? null, vignette, W, H, selected ? selected.value : NO_SELECTION, selectedId ? selectedId.value : -1, build ? build.value : null);
       const next = recorder.value.finishRecordingAsPicture();
       // Tell the HUD overlay about coins still flying and coins/stars that just landed.
       if (hudFeed) {

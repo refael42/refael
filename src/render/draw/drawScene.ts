@@ -25,6 +25,16 @@ function eveningOf(phase: number): number {
 }
 
 /** Build mode on screen: free tiles (x, y pairs) and the picked one with the piece previewed there. */
+/**
+ * Off-screen culling margins (world px). Sprites stand up from their floor anchor: one anchored
+ * well below the view's bottom edge can still show its top, one above the top edge hardly at all.
+ */
+const CULL_SIDE = 140;
+const CULL_UNDER = 170;
+const CULL_OVER = 60;
+/** Below this zoom the crowd of small furniture is drawn without glows and sparkles. */
+const DETAIL_ZOOM = 0.62;
+
 export interface BuildOverlay {
   tiles: number[];
   /** [x, y, prop kind] of the picked tile, or empty. */
@@ -68,7 +78,7 @@ function drawLights(c: SkCanvas, A: RenderAssets, snap: Snapshot, night: number,
  */
 export function drawScene(
   c: SkCanvas, A: RenderAssets, snap: Snapshot, alpha: number, t: number,
-  cam: Camera, fx: FxState, hud: HudLayout | null, vignette: SkPaint | null, W: number, H: number, selected: number, selectedId: number,
+  cam: Camera, fx: FxState, hud: HudLayout | null, vignette: SkPaint | null, W: number, H: number, selected: number[], selectedId: number,
   build: BuildOverlay | null,
 ): void {
   'worklet';
@@ -77,7 +87,9 @@ export function drawScene(
   const d = snap.data;
   const phase = snap.dayPhase;
   const night = nightOf(phase);
-  const looks: PropLooks = { tiers: snap.tiers, dishTiers: snap.dishTiers, bumps: snap.bumps, selected };
+  // Zoomed far out the many small tables and chairs skip their glow and sparkles (a lot of
+  // see-through pixels on top of each other for something too small to see).
+  const looks: PropLooks = { tiers: snap.tiers, dishTiers: snap.dishTiers, bumps: snap.bumps, selected, detail: cam.zoom >= DETAIL_ZOOM };
   // Big moments (milestones) give the camera a short, decaying shake.
   const shake = t - fx.shakeAt;
   const amp = shake >= 0 && shake < 0.35 ? (1 - shake / 0.35) * 4 : 0;
@@ -100,8 +112,13 @@ export function drawScene(
     for (let i = 0; i < build.tiles.length; i += 2) sprFade(c, A, A.S.tileFree, isoX(build.tiles[i]!, build.tiles[i + 1]!), isoY(build.tiles[i]!, build.tiles[i + 1]!), 1, glow);
     if (build.from.length === 2) sprFade(c, A, A.S.tilePicked, isoX(build.from[0]!, build.from[1]!), isoY(build.from[0]!, build.from[1]!), 1.05 + Math.sin(t * 6) * 0.05, 0.95);
   }
+  // Only what is on screen (a big restaurant zoomed in has most of itself off to the sides).
+  // Sprites stand up from their floor anchor, so the margin is bigger above than below.
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;
+    const px = isoX(d[o + F.x]!, d[o + F.y]!);
+    const py = isoY(d[o + F.x]!, d[o + F.y]!);
+    if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
     if (d[o + F.type] === EntityType.Character) drawCharacter(c, A, d, o, alpha, t, selectedId);
     else drawProp(c, A, d, o, t, looks);
   }
@@ -115,7 +132,11 @@ export function drawScene(
   }
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;
-    if (d[o + F.type] === EntityType.Character) drawCharacterOverlay(c, A, d, o, alpha, t);
+    if (d[o + F.type] !== EntityType.Character) continue;
+    const px = isoX(d[o + F.x]!, d[o + F.y]!);
+    const py = isoY(d[o + F.x]!, d[o + F.y]!);
+    if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
+    drawCharacterOverlay(c, A, d, o, alpha, t);
   }
   drawBadges(c, A, snap.badges, snap.bestBadge, t);
   drawWorks(c, A, snap.works, t);

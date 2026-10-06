@@ -5,6 +5,7 @@ import { useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { eraseSave } from '../store/persistence';
 import { useSettings } from '../store/settings';
+import { scrollFill } from './Overlay';
 import { gold, panel } from './theme';
 
 const GEAR_PX = 30;
@@ -56,17 +57,17 @@ export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => vo
   const enterStyle = useAnimatedStyle(() => ({ opacity: enter.value, transform: [{ scale: 0.9 + enter.value * 0.1 }] }));
 
   return (
-    <Pressable style={styles.backdrop} onPress={onClose}>
+    <View style={styles.wrap}>
+      <Pressable accessibilityLabel="close" style={styles.backdrop} onPress={onClose} />
       <Animated.View style={[styles.card, enterStyle]}>
-        {/* Taps inside the card must not close it. */}
-        <Pressable style={styles.inner} onPress={() => undefined}>
+        <View style={styles.inner}>
           <View style={styles.header}>
             <Text style={styles.title}>{t('ui.settings')}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
               <Text style={styles.closeText}>{'✕'}</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.body}>
+          <ScrollView style={scrollFill} contentContainerStyle={styles.body}>
             <View style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.language')}</Text>
               <View style={styles.chips}>
@@ -108,9 +109,9 @@ export function SettingsPanel({ onClose, onHowTo, onNames }: { onClose: () => vo
               <Text style={styles.resetText}>{armed ? t('set.resetConfirm') : t('set.reset')}</Text>
             </Pressable>
           </ScrollView>
-        </Pressable>
+        </View>
       </Animated.View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -127,7 +128,8 @@ const styles = StyleSheet.create({
     boxShadow: '0px 3px 0px #120818',
   },
   gear: { width: GEAR_PX, height: GEAR_PX },
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14,6,18,0.55)', alignItems: 'center', justifyContent: 'center' },
+  wrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14,6,18,0.55)' },
   card: {
     width: 400,
     maxWidth: '92%',

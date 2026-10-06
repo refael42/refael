@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Image, PixelRatio, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useT } from '../i18n';
 import { hudIcon, spriteIcon } from '../render/icons';
+import { Overlay } from './Overlay';
 import { gold, panel } from './theme';
 
 // Three cards on how the game works: seat, serve, grow. Part of the first run, and in the
@@ -50,11 +51,9 @@ export function HowToPlayCards({ doneLabel, onDone }: { doneLabel: string; onDon
 export function HowToPlay({ onClose }: { onClose: () => void }) {
   const t = useT();
   return (
-    <Pressable style={styles.backdrop} onPress={onClose}>
-      <Pressable style={styles.card} onPress={() => undefined}>
-        <HowToPlayCards doneLabel={t('ui.done')} onDone={onClose} />
-      </Pressable>
-    </Pressable>
+    <Overlay onClose={onClose} card={styles.card} dim="rgba(14,6,18,0.62)">
+      <HowToPlayCards doneLabel={t('ui.done')} onDone={onClose} />
+    </Overlay>
   );
 }
 

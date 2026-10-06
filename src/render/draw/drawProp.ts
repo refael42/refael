@@ -18,8 +18,10 @@ export interface PropLooks {
   tiers: number[];
   dishTiers: number[];
   bumps: number[];
-  /** Prop kind the player tapped (its upgrades are open), or -1. */
-  selected: number;
+  /** The prop the player tapped (its upgrades are open): [kind, x, y], or empty. Only that one is outlined. */
+  selected: number[];
+  /** Full detail (glows, sparkles on every table and chair), false when zoomed far out. */
+  detail: boolean;
 }
 
 /** Past the last baked look, stations keep a golden aura that grows with every milestone. */
@@ -35,8 +37,7 @@ function look(L: number[], tier: number): number {
 /** A sprite drawn 8 times around itself as a flat silhouette: an outline or a glow. */
 function silhouette(c: SkCanvas, A: RenderAssets, i: number, paint: SkPaint, w: number): void {
   'worklet';
-  // Six copies read as an outline; every copy is a full sprite draw (and a selected kind can be
-  // dozens of chairs).
+  // Six copies read as an outline; every copy is a full sprite draw (so only the tapped piece gets one).
   for (let k = 0; k < 6; k++) {
     const a = (k / 6) * Math.PI * 2;
     spr(c, A, i, Math.cos(a) * w, Math.sin(a) * w * 0.8, paint);
@@ -203,12 +204,15 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     c.scale(1 - k, 1 + k);
   }
   const base = baseSprite(A, kind, variant, tier);
-  if (base >= 0 && tier >= AURA_TIER) {
+  // Chairs come by the dozen right next to their glowing table: they keep no aura of their own.
+  const crowd = kind === PropKind.Chair || kind === PropKind.Table;
+  if (base >= 0 && tier >= AURA_TIER && kind !== PropKind.Chair && (looks.detail || !crowd)) {
     // The baked glow (one draw), breathing; the pass and slots have none.
     const glow = A.L.glow[base] ?? -1;
     if (glow >= 0) sprFade(c, A, glow, 0, 0, 1, 0.4 + Math.sin(t * 2.4 + seed) * 0.15 + Math.min(0.25, (tier - AURA_TIER) * 0.06));
   }
-  if (base >= 0 && looks.selected === kind) {
+  const sel = looks.selected;
+  if (base >= 0 && sel.length === 3 && sel[0] === kind && Math.abs(d[o + F.x]! - sel[1]!) < 0.05 && Math.abs(d[o + F.y]! - sel[2]!) < 0.05) {
     // Selected: a soft white outline that breathes, so the player sees what the menu is about.
     A.paints.outline.setAlphaf(0.65 + Math.sin(t * 6) * 0.25);
     silhouette(c, A, base, A.paints.outline, 1.8);
@@ -317,7 +321,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: number[], o: number, t
     sprFade(c, A, look(A.L.look.neonLit, tier), 0, 0, 1, stutter ? 0.25 : 0.92 + Math.sin(t * 9) * 0.08);
   }
   // Top-tier stations twinkle (not every chair: there are dozens of them).
-  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot && kind !== PropKind.Chair) sparkles(c, A, 0, -28, t, 14, seed, kind === PropKind.Table ? 1 : 2);
+  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot && kind !== PropKind.Chair && (looks.detail || !crowd)) sparkles(c, A, 0, -28, t, 14, seed, kind === PropKind.Table ? 1 : 2);
   c.restore();
 }
 

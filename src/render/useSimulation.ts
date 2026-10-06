@@ -96,7 +96,7 @@ export interface GameBoot {
 }
 
 /** What a tap hit: an action (already queued), a person, a station with upgrades, or nothing. */
-export type TapHit = 'action' | { station: PropKind } | { person: number } | null;
+export type TapHit = 'action' | { station: PropKind; x: number; y: number } | { person: number } | null;
 
 /** Nearest projected target to a screen point. */
 function nearest<T extends { x: number; y: number; height: number }>(targets: T[], x: number, y: number, cam: Camera) {
@@ -169,7 +169,7 @@ export function useGame(map: MapDef, seed: number, stress: number, boot: GameBoo
     }
     // People are small: they win over the station they stand at when the tap is on them.
     if (person && person.dist <= TAP_RADIUS * scale && (!station || person.dist <= station.dist + ACTION_BIAS)) return { person: person.target.id };
-    return station && station.dist <= STATION_RADIUS * scale ? { station: station.target.kind } : null;
+    return station && station.dist <= STATION_RADIUS * scale ? { station: station.target.kind, x: station.target.x, y: station.target.y } : null;
   }, []);
 
   const command = useCallback((cmd: Command) => {
@@ -180,13 +180,29 @@ export function useGame(map: MapDef, seed: number, stress: number, boot: GameBoo
 }
 
 /** Reads something from the live game a few times per second (menus only, never per frame). */
+/** Equal at the top level: the same primitives, or objects/arrays whose entries are the same. */
+function sameShallow(a: unknown, b: unknown): boolean {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => Object.is((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+}
+
 export function usePoll<T>(gameRef: { current: GameState | null }, read: (s: GameState) => T, hz: number): T | null {
   const [value, setValue] = useState<T | null>(() => (gameRef.current ? read(gameRef.current) : null));
   const readRef = useRef(read);
   readRef.current = read;
   useEffect(() => {
     const tick = () => {
-      if (gameRef.current) setValue(readRef.current(gameRef.current));
+      // Same as last time (field by field): no new render. Late in the game a render of a big
+      // screen twice a second for nothing was felt as a hitch.
+      if (gameRef.current) {
+        const next = readRef.current(gameRef.current);
+        setValue((prev) => (prev !== null && sameShallow(prev, next) ? prev : next));
+      }
     };
     tick();
     const timer = setInterval(tick, 1000 / hz);

@@ -99,7 +99,17 @@ const readRank = (s: GameState) => restaurantLevel(s.levels);
 const readTier = (s: GameState) => s.map.tier;
 const readConstruction = (s: GameState) => s.construction?.tier ?? -1;
 
-/** What the corner buttons need, read twice a second. */
+/** What the corner buttons show: counts only, so the screen re-renders when one changes. */
+const readCorner = (s: GameState) => {
+  const w = readWallet(s);
+  return {
+    affordable: UPGRADES.filter((u) => !u.build && canBuyNow(u, w)).length,
+    buildable: BUILD_ITEMS.filter((id) => canBuyNow(upgradeDef(id), w)).length,
+    waiting: w.waiting,
+  };
+};
+
+/** What the upgrade and build panels need (read only while one is open). */
 const readWallet = (s: GameState) => ({
   coins: s.coins,
   levels: s.levels,
@@ -124,14 +134,14 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const { snapshot, stats, tap, command, gameRef } = useGame(STAND_MAP, GAME_SEED, stress, boot, paused);
   const uiFps = useSharedValue(0);
   const buildMs = useSharedValue(0);
-  const selected = useSharedValue(-1);
+  const selected = useSharedValue<number[]>([]);
   const selectedId = useSharedValue(-1);
   const hudFeed = useSharedValue<HudFeed>({ pending: 0, coinLands: 0, starLands: 0 });
   const [panel, setPanel] = useState<{ station: PropKind | null } | null>(null);
   const [staff, setStaff] = useState<StaffView | null>(null);
-  const wallet = usePoll(gameRef, readWallet, panel ? 6 : 2);
-  const affordable = wallet ? UPGRADES.filter((u) => !u.build && canBuyNow(u, wallet)).length : 0;
-  const buildable = wallet ? BUILD_ITEMS.filter((id) => canBuyNow(upgradeDef(id), wallet)).length : 0;
+  const corner = usePoll(gameRef, readCorner, 2);
+  const affordable = corner?.affordable ?? 0;
+  const buildable = corner?.buildable ?? 0;
   const bulk = useSettings((s) => s.bulk);
   const t = useT();
   // Everything handed to the canvas stays referentially stable: a new prop would rebuild its
@@ -160,6 +170,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Build mode: what is picked, which tile, and the free tiles shown on the floor.
   // `moving`: a placed piece picked up to go on another tile.
   const [build, setBuild] = useState<{ item: string | null; tile: Point | null; moving?: Point } | null>(null);
+  // Coins change all the time: the full wallet is read often only while a panel shows it.
+  const wallet = usePoll(gameRef, readWallet, panel || build ? 6 : 0.1);
   const buildRef = useRef(build);
   buildRef.current = build;
   const overlay = useSharedValue<BuildOverlay | null>(null);
@@ -171,10 +183,16 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       return;
     }
     const decor = DECOR.find((d) => build.item === `place_${d.id}`);
-    // Free tiles only change when something is built, so a slow refresh is plenty.
+    // Free tiles only change when something is built: they are worked out again only then
+    // (on a big map that takes a moment, felt as a hitch if done every second).
+    let seen = '';
     const refresh = () => {
       const game = gameRef.current;
-      freeTiles.current = game ? buildableTiles(game) : [];
+      const now = game ? `${game.map.tier}:${game.placed.length}:${game.tables.length}:${game.works.length}:${game.placed.map((p) => p.x * 100 + p.y).join(',')}` : '';
+      if (now !== seen || !game) {
+        seen = now;
+        freeTiles.current = game ? buildableTiles(game) : [];
+      }
       setFreeCount(freeTiles.current.length);
       overlay.value = {
         tiles: decor || build.moving ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
@@ -232,8 +250,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const endBanner = useCallback(() => setBanner(null), []);
 
   const open = useCallback(
-    (station: PropKind | null) => {
-      selected.value = station ?? -1;
+    (station: PropKind | null, at?: { x: number; y: number }) => {
+      // Only the piece that was tapped glows (opened from the button: none).
+      selected.value = station !== null && at ? [station, at.x, at.y] : [];
       selectedId.value = -1;
       setStaff(null);
       setPanel({ station });
@@ -242,7 +261,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   );
   const showStaff = useCallback(
     (view: StaffView) => {
-      selected.value = -1;
+      selected.value = [];
       selectedId.value = 'person' in view ? view.person : -1;
       setPanel(null);
       setStaff(view);
@@ -250,7 +269,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     [selected, selectedId],
   );
   const close = useCallback(() => {
-    selected.value = -1;
+    selected.value = [];
     selectedId.value = -1;
     setPanel(null);
     setStaff(null);
@@ -303,7 +322,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       const hit = tap(x, y, cam);
       trace(`hit ${hit === null ? 'nothing' : typeof hit === 'string' ? hit : JSON.stringify(hit)}`);
       if (hit && hit !== 'action') {
-        if ('station' in hit) open(hit.station);
+        if ('station' in hit) open(hit.station, hit);
         else showStaff({ person: hit.person });
       } else if (!hit && panelOpen.current) close();
     },
@@ -326,7 +345,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
           <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
-          <CornerButton ref={staffButton} label={t('ui.staff')} count={wallet?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (wallet?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
+          <CornerButton ref={staffButton} label={t('ui.staff')} count={corner?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (corner?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
           <CornerButton ref={upgradesButton} label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
       )}

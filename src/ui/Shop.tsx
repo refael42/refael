@@ -7,6 +7,7 @@ import { usePoll } from '../render/useSimulation';
 import type { Command, GameState } from '../sim/game/types';
 import { canShop } from '../sim/shop';
 import { gold, panel, textShadow } from './theme';
+import { Overlay, scrollFill } from './Overlay';
 
 // The item shop (owner request: pay-to-win): gem packs (a demo, nothing is charged), income
 // boosts and time warps, star workers, and permanent perks, all bought with gems.
@@ -106,8 +107,7 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
   if (!data) return null;
   const items = SHOP.filter((i) => TAB_OF[i.kind] === tab);
   return (
-    <Pressable style={styles.backdrop} onPress={onClose}>
-      <Pressable style={styles.card} onPress={() => undefined}>
+    <Overlay onClose={onClose} card={styles.card}>
         <View style={styles.header}>
           <Text style={styles.title}>{t('shop.title')}</Text>
           <View style={styles.wallet}>
@@ -127,7 +127,7 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
           ))}
         </View>
         {tab === 'gems' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
-        <ScrollView contentContainerStyle={styles.grid}>
+        <ScrollView style={scrollFill} contentContainerStyle={styles.grid}>
           {items.map((item) => {
             const can = data.can[item.id] ?? false;
             const owned = (item.kind === 'perk' || item.kind === 'crew') && data.owned[item.id] === 1;
@@ -189,8 +189,7 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
             </View>
           </View>
         )}
-      </Pressable>
-    </Pressable>
+    </Overlay>
   );
 }
 
@@ -218,7 +217,6 @@ export function GemPill({ gameRef, onPress, style }: { gameRef: { current: GameS
 }
 
 const styles = StyleSheet.create({
-  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(14,6,18,0.6)', alignItems: 'center', justifyContent: 'center' },
   card: {
     width: 620,
     maxWidth: '96%',
@@ -231,6 +229,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     boxShadow: '0px 6px 0px #120818',
+    overflow: 'hidden',
   },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { color: '#FFE9A8', fontSize: 20, fontWeight: '900' },
