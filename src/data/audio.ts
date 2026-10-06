@@ -2,7 +2,7 @@
 // scripts/make-sounds.mjs; this is how loud each one plays and how often at most (a busy
 // restaurant pays dozens of bills a minute: one coin sound per payment would be a din).
 
-export type SoundId = 'tap' | 'coin' | 'serve' | 'upgrade' | 'fanfare' | 'levelup' | 'hire' | 'cash' | 'hammer' | 'done' | 'sparkle' | 'rush' | 'crash';
+export type SoundId = 'tap' | 'coin' | 'serve' | 'upgrade' | 'fanfare' | 'levelup' | 'hire' | 'cash' | 'hammer' | 'done' | 'sparkle' | 'rush' | 'crash' | 'tick' | 'jackpot';
 
 export const MIX: Readonly<Record<SoundId, { volume: number; gapMs: number }>> = {
   tap: { volume: 0.45, gapMs: 40 },
@@ -18,6 +18,9 @@ export const MIX: Readonly<Record<SoundId, { volume: number; gapMs: number }>> =
   sparkle: { volume: 0.5, gapMs: 400 },
   rush: { volume: 0.5, gapMs: 1500 },
   crash: { volume: 0.5, gapMs: 400 },
+  // The wheel's pegs pass the pointer up to ~25 times a second at the start of a spin.
+  tick: { volume: 0.35, gapMs: 25 },
+  jackpot: { volume: 0.7, gapMs: 1500 },
 };
 
 /** Background music volume, and voices per effect (the same sound can overlap itself this often). */

@@ -4,6 +4,7 @@ import { big } from './big';
 import { levelOf } from './economy/upgrades';
 import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
+import { addWheelToken } from './wheel';
 
 // Quests: pure rules over the game state. A goal's progress is read straight from the state
 // (all-time counters, levels, the team), so a goal already met when its level opens is simply
@@ -80,6 +81,7 @@ export function claimQuest(s: GameState, index: number): void {
     reward = reward.mul(1 + QUESTS.levelBonus);
     s.quests = { level: s.quests.level + 1, claimed: [] };
     s.gems += GEMS.perLevelUp;
+    addWheelToken(s);
   }
   s.coins = s.coins.add(reward);
   emit(s, Ev.Bonus, 0, 0, reward.toNumber());

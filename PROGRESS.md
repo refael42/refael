@@ -23,6 +23,7 @@
 | M12 | Prestige: a branch in a new city (chef trophies, city looks) | ✅ Done |
 | M13 | Hooks that bring players back: daily gift streak, VIP guests, presents on the sidewalk (owner: "more professional and addictive") | ✅ Done |
 | M14 | Professional app icon: store icon, Android adaptive layers (+ themed), splash image, favicon | ✅ Done |
+| M15 | Lucky wheel (owner request): free spin every 4 h, a spin per cleared stage, extra spins for gems | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
 
 ## Owner decisions
@@ -60,6 +61,18 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M15 (owner: "a cool wheel of fortune"): **the lucky wheel** (🎡 by the stage button,
+  with a FREE tag or the time left). 8 prizes: 5/15/30/60 minutes of income in coins, 5 or 15
+  gems, x2 income for 10 minutes, and a jackpot (2 hours of income + 25 gems, 3%). A free spin
+  every 4 real hours (the phone's clock; a clock set back never locks it longer than one wait),
+  one stored spin per cleared quest stage (up to 5), more for 20 gems. The first spin always
+  gives 15 gems. The sim picks the segment when the spin starts and pays when the player takes
+  it, so the coin counter never spoils the result; the screen spins 5 turns with an ease-out,
+  a click and a pointer flick at every peg (times from the easing curve), chasing bulbs and
+  confetti for the jackpot. Save: an optional `wheel` in v7. **Bug fixed on the way:** prizes,
+  presents, the daily gift, time warps and offline earnings counted as income, so each one
+  inflated the next (a 1-hour time warp made the 4-hour one right after pay ~30x). Handed-out
+  coins are now kept apart (`stats.granted`) and the income rate leaves them out.
 - Done in M14 (owner: "more professional"): **the game's own icon** instead of Expo's default:
   a white chef hat with a gold band on a plate, a gold star coin, on a plum glow with sparkles.
   `node scripts/make-icons.mjs` draws every size with CanvasKit (the game's Skia): the 1024

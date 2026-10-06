@@ -21,6 +21,8 @@ const SOURCES: Readonly<Record<SoundId | 'music', number>> = {
   sparkle: require('../../assets/sounds/sparkle.wav'),
   rush: require('../../assets/sounds/rush.wav'),
   crash: require('../../assets/sounds/crash.wav'),
+  tick: require('../../assets/sounds/tick.wav'),
+  jackpot: require('../../assets/sounds/jackpot.wav'),
   music: require('../../assets/sounds/music.wav'),
 };
 

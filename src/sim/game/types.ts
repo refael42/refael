@@ -118,6 +118,9 @@ export type Command =
   | { type: 'gift' }
   /** Take today's daily gift; the dates come from the device clock (the sim has none). */
   | { type: 'daily'; today: string; yesterday: string }
+  /** Spin the lucky wheel (`now` = the phone's clock in ms, for the free spin), then take its prize. */
+  | { type: 'spin'; now: number; paid: boolean }
+  | { type: 'wheel' }
   | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
   | { type: 'negotiate'; applicant: number }
@@ -250,6 +253,12 @@ export interface GameStats {
   served: number;
   walkouts: number;
   earned: Big;
+  /**
+   * The part of `earned` that was handed out (prizes, presents, time warps, offline earnings)
+   * rather than earned by serving. The income rate leaves it out: otherwise every prize sized
+   * by the income rate would make the next one bigger. Not saved (the rate starts over on load).
+   */
+  granted: Big;
   hires: number;
   /** All-time counters the quests ask for. */
   fiveStars: number;
@@ -334,6 +343,11 @@ export interface GameState {
   nextGift: number;
   /** The daily gift: the last day claimed (local date, "YYYY-MM-DD") and the streak so far (1..7). */
   daily: { last: string | null; streak: number };
+  /**
+   * The lucky wheel: when the next free spin comes (phone clock, ms), spins stored from cleared
+   * stages, spins so far, and the segment waiting to be taken (-1 = none).
+   */
+  wheel: { nextFree: number; tokens: number; spins: number; prize: number };
 }
 
 /** A big upgrade in progress (src/data/works.ts). */

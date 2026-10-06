@@ -8,6 +8,7 @@ import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf } from './purchase';
 import { moveDecor } from './create';
 import { openBranch } from '../franchise';
 import { claimDaily, openGift } from '../retention';
+import { collectWheel, spinWheel } from '../wheel';
 import { canPlaceAt } from './build';
 import { finishWorkNow, hurryWork } from './works';
 import type { BulkStep } from '../../data/works';
@@ -15,7 +16,7 @@ import { handWash, serveOrder } from './staff';
 import { hire, negotiate, reject } from './applicants';
 import { CustomerState, OrderState, TableState, type Command, type GameState, type PersonTarget, type StationTarget, type TapTarget } from './types';
 import { claimQuest } from '../quests';
-import { addGems, buyShopItem } from '../shop';
+import { addGems, buyShopItem, grantCoins } from '../shop';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
@@ -150,6 +151,10 @@ function apply(s: GameState, cmd: Command): void {
     openGift(s);
   } else if (cmd.type === 'daily') {
     claimDaily(s, cmd.today, cmd.yesterday);
+  } else if (cmd.type === 'spin') {
+    spinWheel(s, cmd.now, cmd.paid);
+  } else if (cmd.type === 'wheel') {
+    collectWheel(s);
   } else if (cmd.type === 'move') {
     if (moveDecor(s, cmd.from, cmd.to, canPlaceAt)) {
       rerouteWalkers(s);
@@ -158,8 +163,7 @@ function apply(s: GameState, cmd: Command): void {
     }
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
-    s.coins = s.coins.add(coins);
-    s.stats.earned = s.stats.earned.add(coins);
+    grantCoins(s, coins);
     emit(s, Ev.Bonus, 0, 0, coins.toNumber());
   } else {
     const t = s.tables[cmd.table];

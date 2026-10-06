@@ -2,14 +2,14 @@ import { DAILY, GIFT, VIP } from '../data/retention';
 import { big, type Big } from './big';
 import { emit, Ev } from './game/events';
 import type { Customer, GameState } from './game/types';
-import { incomeRate } from './shop';
+import { grantCoins, incomeRate } from './shop';
 
 // The daily gift, the VIP guests and the presents on the sidewalk (src/data/retention.ts). Pure
 // and deterministic: the chances come from a hash of ids, not from the game's dice, so adding
 // them did not change anything else the simulation does.
 
 /** A number in [0, 1) from an integer: the same input always gives the same answer. */
-function hash01(n: number): number {
+export function hash01(n: number): number {
   const h = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
   return h - Math.floor(h);
 }
@@ -35,8 +35,7 @@ export function vipBonus(s: GameState, c: Customer, stars: number): void {
   if (!c.vip) return;
   const coins = incomeFor(s, (VIP.bonusSeconds * stars) / 5).max(10);
   const gems = hash01(c.id * 3.77 + 1) < VIP.gemChance ? VIP.gems : 0;
-  s.coins = s.coins.add(coins);
-  s.stats.earned = s.stats.earned.add(coins);
+  grantCoins(s, coins);
   s.gems += gems;
   emit(s, Ev.Vip, c.x, c.y, coins.toNumber(), gems);
 }
@@ -60,8 +59,7 @@ export function openGift(s: GameState): void {
   s.gift = null;
   const gems = hash01(s.tick * 1.13 + 5) < GIFT.gemChance ? GIFT.gems : 0;
   const coins = gems > 0 ? big(0) : incomeFor(s, GIFT.coinSeconds).max(25);
-  s.coins = s.coins.add(coins);
-  s.stats.earned = s.stats.earned.add(coins);
+  grantCoins(s, coins);
   s.gems += gems;
   emit(s, Ev.Gift, g.x, g.y, coins.toNumber(), gems);
 }
@@ -80,8 +78,7 @@ export function claimDaily(s: GameState, today: string, yesterday: string): bool
   if (!ready) return false;
   const r = DAILY.rewards[day - 1]!;
   const coins = r.minutes > 0 ? incomeFor(s, r.minutes * 60).max(50 * day) : big(0);
-  s.coins = s.coins.add(coins);
-  s.stats.earned = s.stats.earned.add(coins);
+  grantCoins(s, coins);
   s.gems += r.gems;
   if (r.boostMult && r.boostMinutes) {
     const left = s.time < s.boost.until && s.boost.mult === r.boostMult ? s.boost.until - s.time : 0;

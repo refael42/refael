@@ -214,7 +214,8 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
         for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Coin, t + k * 0.05, 0.8, wx + Math.sin(k * 2.1) * 14, wy - 30, hud.coinX, hud.coinY, a / 10);
         s.pending += a;
       }
-    } else if (type === Ev.Daily) {
+    } else if (type === Ev.Daily || type === Ev.Wheel) {
+      // The daily gift or a wheel prize: coins rain from the middle of the screen into the counter.
       const n = 30;
       for (let k = 0; k < n; k++) {
         const jx = hud.centerX + Math.sin(k * 2.4) * 80;

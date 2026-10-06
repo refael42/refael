@@ -11,6 +11,8 @@ import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/c
 import type { GameState, PlacedDecor, QuestState } from './game/types';
 import { questLevel } from './quests';
 import { GEMS, SHOP_BY_ID } from '../data/shop';
+import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
+import { newWheel } from './wheel';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
@@ -53,6 +55,8 @@ export interface SaveData {
   trophies: number;
   /** The daily gift streak (older v7 saves have none: a fresh streak). */
   daily: { last: string | null; streak: number };
+  /** The lucky wheel (older v7 saves have none: a new wheel, its free spin ready). */
+  wheel: { nextFree: number; tokens: number; spins: number; prize: number };
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -135,6 +139,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     city: s.city,
     trophies: s.trophies,
     daily: { ...s.daily },
+    wheel: { ...s.wheel },
   };
 }
 
@@ -237,8 +242,17 @@ function validate(o: Record<string, unknown>): SaveData | null {
     daily: isRecord(o.daily) && (typeof o.daily.last === 'string' || o.daily.last === null) && finite(o.daily.streak)
       ? { last: o.daily.last as string | null, streak: Math.max(0, Math.min(7, Math.floor(o.daily.streak))) }
       : { last: null, streak: 0 },
+    wheel: cleanWheel(o.wheel),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
+}
+
+/** The lucky wheel, or a new one (a prize waiting on a segment that no longer exists is dropped). */
+function cleanWheel(raw: unknown): SaveData['wheel'] {
+  if (!isRecord(raw) || !finite(raw.nextFree)) return newWheel();
+  const count = (v: unknown) => (finite(v) && v >= 0 ? Math.floor(v) : 0);
+  const prize = finite(raw.prize) && Number.isInteger(raw.prize) && raw.prize >= 0 && raw.prize < WHEEL_SEGMENTS.length ? raw.prize : -1;
+  return { nextFree: raw.nextFree, tokens: Math.min(WHEEL.maxTokens, count(raw.tokens)), spins: count(raw.spins), prize };
 }
 
 /** Jobs on upgrades that still exist, one per item, each bringing the next level. */
@@ -312,5 +326,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     city: save.city,
     trophies: save.trophies,
     daily: save.daily,
+    wheel: save.wheel,
   });
 }

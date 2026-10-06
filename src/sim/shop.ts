@@ -1,7 +1,7 @@
 import { NAMES } from '../data/names';
 import { GEMS, SHOP_BY_ID, STAR, WARP_MIN_PER_SECOND, type ShopItem } from '../data/shop';
 import { ROLES, STAT_IDS, type StatId } from '../data/staff';
-import { big } from './big';
+import { big, type Big } from './big';
 import { computeMods } from './economy/upgrades';
 import { emote } from './game/customers';
 import { emit, Ev } from './game/events';
@@ -19,11 +19,21 @@ import { Emote } from './types';
 const RATE_WINDOW = 120;
 const RATE_EVERY = 5;
 
+/** Coins earned by serving so far (everything earned but what was handed out). */
+const servedEarnings = (s: GameState) => s.stats.earned.sub(s.stats.granted);
+
+/** Coins handed out (a prize, a present, a time warp...): spendable and earned, but not income. */
+export function grantCoins(s: GameState, coins: Big): void {
+  s.coins = s.coins.add(coins);
+  s.stats.earned = s.stats.earned.add(coins);
+  s.stats.granted = s.stats.granted.add(coins);
+}
+
 /** Samples coins earned now and then (time warps pay by the recent rate). */
 export function logEarnings(s: GameState): void {
   const last = s.earnLog[s.earnLog.length - 1];
   if (last && s.time - last.time < RATE_EVERY) return;
-  s.earnLog.push({ time: s.time, earned: s.stats.earned });
+  s.earnLog.push({ time: s.time, earned: servedEarnings(s) });
   while (s.earnLog.length > 2 && s.earnLog[0]!.time < s.time - RATE_WINDOW) s.earnLog.shift();
 }
 
@@ -31,7 +41,7 @@ export function logEarnings(s: GameState): void {
 export function incomeRate(s: GameState) {
   const first = s.earnLog[0];
   const span = first ? s.time - first.time : 0;
-  const rate = first && span > 0 ? s.stats.earned.sub(first.earned).div(span) : big(0);
+  const rate = first && span > 0 ? servedEarnings(s).sub(first.earned).div(span) : big(0);
   return rate.max(WARP_MIN_PER_SECOND);
 }
 
@@ -77,8 +87,7 @@ export function buyShopItem(s: GameState, id: string): boolean {
     }
     case 'warp': {
       const coins = incomeRate(s).mul(item.hours * 3600).floor();
-      s.coins = s.coins.add(coins);
-      s.stats.earned = s.stats.earned.add(coins);
+      grantCoins(s, coins);
       emit(s, Ev.Bonus, 0, 0, coins.toNumber());
       // The skipped time passes for the crews too.
       advanceWorks(s, item.hours * 3600);

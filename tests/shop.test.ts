@@ -71,6 +71,16 @@ describe('item shop', () => {
     expect(s.coins.sub(coins).toNumber()).toBeCloseTo(rate.mul(3600).floor().toNumber(), -1);
   });
 
+  it('a second time warp right after the first pays the same rate (the first one is not income)', () => {
+    const s = createGame(STAND_MAP, 85, { roster: [...team], gems: 500 });
+    play(s, 180);
+    const rate = incomeRate(s).toNumber();
+    buyShopItem(s, 'warp1');
+    stepGame(s, STEP_SEC);
+    // Before the fix, an hour of income inside the two-minute window made the rate ~30x.
+    expect(incomeRate(s).toNumber()).toBeLessThan(rate * 1.2);
+  });
+
   it('a restaurant level-up gives gems', () => {
     const s = createGame(STAND_MAP, 86, { roster: ['cook', 'waiter'], coins: big(1000) });
     queueCommand(s, { type: 'buy', item: 'fries' });

@@ -229,6 +229,8 @@ export interface GameSetup {
   trophies?: number;
   /** The daily gift streak. */
   daily?: { last: string | null; streak: number };
+  /** The lucky wheel. */
+  wheel?: { nextFree: number; tokens: number; spins: number; prize: number };
 }
 
 /** A job in progress as the save keeps it. */
@@ -279,6 +281,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
       served: setup.served ?? 0,
       walkouts: 0,
       earned: setup.earned ?? ZERO,
+      granted: ZERO,
       hires: setup.hires ?? 0,
       fiveStars: setup.fiveStars ?? 0,
       rushes: setup.rushes ?? 0,
@@ -309,6 +312,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     gift: null,
     nextGift: GIFT.firstSeconds,
     daily: setup.daily ? { ...setup.daily } : { last: null, streak: 0 },
+    wheel: setup.wheel ? { ...setup.wheel } : { nextFree: 0, tokens: 0, spins: 0, prize: -1 },
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   while (s.tables.length < tableCount) addTable(s);

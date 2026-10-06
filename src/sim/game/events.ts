@@ -64,6 +64,10 @@ export const Ev = {
   Gift: 32,
   /** The daily gift was taken. a = coins, b = gems, c = the streak day */
   Daily: 33,
+  /** The lucky wheel was spun. a = the segment it will stop on */
+  WheelSpin: 34,
+  /** The wheel's prize was taken. a = coins, b = gems, c = the segment */
+  Wheel: 35,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

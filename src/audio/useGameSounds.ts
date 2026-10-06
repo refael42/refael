@@ -53,6 +53,8 @@ function soundOf(type: number, a: number, b: number): [SoundId | null, boolean] 
       return ['tap', false];
     case Ev.Daily:
       return ['fanfare', true];
+    case Ev.Wheel:
+      return ['cash', true];
     case Ev.Crash:
       return ['crash', false];
     default:

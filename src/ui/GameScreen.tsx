@@ -49,6 +49,7 @@ import { WelcomeBack } from './WelcomeBack';
 import { WorksTray } from './WorksTray';
 import { EventToast } from './EventToast';
 import { DailyButton, DailyPanel, dailyReady } from './Daily';
+import { WheelButton, WheelPanel } from './Wheel';
 import { BranchConfirm, CityChip, readBranch } from './Branch';
 import { cityOf } from '../data/franchise';
 import { useGameSounds } from '../audio/useGameSounds';
@@ -243,6 +244,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [quests, setQuests] = useState(false);
   const [shop, setShop] = useState(false);
   const [daily, setDaily] = useState(false);
+  const [wheel, setWheel] = useState(false);
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
   const dailyShown = useRef(false);
   useEffect(() => {
@@ -390,12 +392,14 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         <>
           <QuestButton gameRef={gameRef} onPress={() => setQuests(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 68 }} />
           <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
-          <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
+          <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
+          <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
       {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} />}
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
+      {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel

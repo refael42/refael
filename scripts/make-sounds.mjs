@@ -200,6 +200,23 @@ const SOUNDS = {
     for (const f of [2300, 3100, 1700]) bell(b, 0.01 + (noise() + 1) * 0.025, f, 0.1, 18);
     return wav(b, 0.5);
   },
+  // The two below use no noise, so adding them left every other file exactly as it was.
+  /** The lucky wheel's peg flicking the pointer: a tiny wooden click. */
+  tick() {
+    const b = buffer(0.05);
+    tone(b, { dur: 0.035, freq: [2400, 1500], wave: 'square', vol: 0.3, decay: 90 });
+    tone(b, { dur: 0.03, freq: 900, wave: 'sine', vol: 0.5, decay: 120 });
+    return wav(b, 0.5);
+  },
+  /** The wheel's jackpot: a slot machine's ringing run, then a bright chord. */
+  jackpot() {
+    const b = buffer(1.8);
+    const run = ['C6', 'E6', 'G6', 'E6'];
+    for (let k = 0; k < 12; k++) tone(b, { at: k * 0.065, dur: 0.07, freq: hz(run[k % 4]), wave: 'square', vol: 0.2, decay: 14 });
+    for (const n of ['C5', 'E5', 'G5', 'C6']) tone(b, { at: 0.8, dur: 0.95, freq: hz(n), wave: 'tri', vol: 0.22, decay: 2.2, vibrato: 3 });
+    for (let k = 0; k < 8; k++) bell(b, 0.85 + k * 0.06, 2400 + ((k * 410) % 1600), 0.09, 7);
+    return wav(b, 0.7);
+  },
 };
 
 // ---------- the music: a relaxed cafe loop ----------

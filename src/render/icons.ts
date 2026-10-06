@@ -1,6 +1,7 @@
 import { Skia } from '@shopify/react-native-skia';
 import { hudIcons, type HudIcon } from './art/hudArt';
 import { splashIcons, type SplashIcon } from './art/splashArt';
+import { wheelIcons, type WheelIcon } from './art/wheelArt';
 import type { SpriteDef } from './sprite';
 import { spriteDef, type SpriteName } from './sprites';
 
@@ -16,6 +17,9 @@ export function spriteIcon(name: SpriteName, px: number): string {
 
 /** The HUD's big icons (not in the world atlas), the same way. */
 export const hudIcon = (name: HudIcon, px: number): string => defIcon(name, hudIcons[name], px);
+
+/** The lucky wheel's pieces (all the same size, so they stack). */
+export const wheelIcon = (name: WheelIcon, px: number): string => defIcon(name, wheelIcons[name], px);
 
 /** The opening screen's food and sunburst. */
 export const splashIcon = (name: SplashIcon, px: number): string => defIcon(name, splashIcons[name], px);
