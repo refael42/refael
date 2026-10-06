@@ -33,7 +33,8 @@ const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60, gift: 16
 export function tapTargets(s: GameState): TapTarget[] {
   const out: TapTarget[] = [];
   for (const o of s.orders) {
-    if (o.state !== OrderState.Ready) continue;
+    // A delivery bag waits for its courier (there is no table to toss it to).
+    if (o.state !== OrderState.Ready || o.delivery) continue;
     const p = s.map.passSlots[o.slot]!;
     out.push({ x: p.x, y: p.y, height: HEIGHT.dish, command: { type: 'serve', order: o.id } });
   }
@@ -97,7 +98,7 @@ export function stationTargets(s: GameState): StationTarget[] {
 /** People the manager can tap to open their card: the team and waiting applicants. */
 export function peopleTargets(s: GameState): PersonTarget[] {
   const out: PersonTarget[] = [];
-  for (const st of s.staff) if (!st.leaving) out.push({ x: st.x, y: st.y, height: HEIGHT.customer, id: st.id, applicant: false });
+  for (const st of s.staff) if (!st.leaving && !st.away) out.push({ x: st.x, y: st.y, height: HEIGHT.customer, id: st.id, applicant: false });
   for (const a of s.applicants) if (a.state === 'waiting') out.push({ x: a.x, y: a.y, height: HEIGHT.customer, id: a.id, applicant: true });
   return out;
 }

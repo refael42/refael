@@ -13,7 +13,7 @@ import { FESTIVAL_THEMES } from '../data/events';
 // bus. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel];
 
 interface Toast {
   id: number;
@@ -33,6 +33,8 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
       for (const e of s.events) {
         if (e.id <= last.current) continue;
         last.current = e.id;
+        // Only the first delivery order gets a note (they come all the time after that).
+        if (e.type === Ev.DeliveryOrder && e.c !== 1) continue;
         if (TYPES.includes(e.type)) setToast({ id: e.id, type: e.type, coins: e.a, gems: e.b });
       }
     }, 200);
@@ -44,7 +46,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel;
   const reward = festive ? '' : [toast.coins > 0 ? `+${formatNumber(toast.coins)} 🪙` : '', toast.gems > 0 ? `+${toast.gems} 💎` : ''].filter(Boolean).join('  ');
   const text = textOf(toast, reward, t);
   return (
@@ -73,6 +75,10 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t('toast.festivalStep');
     case Ev.Bus:
       return t('toast.bus');
+    case Ev.DeliveryOrder:
+      return t('toast.firstDelivery');
+    case Ev.DeliveryCancel:
+      return t('toast.deliveryCancel');
     case Ev.Weekend:
       return t('toast.weekend').replace('{n}', String(toast.coins));
     default:

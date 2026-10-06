@@ -46,6 +46,8 @@ export interface SaveData {
   fiveStars: number;
   rushes: number;
   bestCombo: number;
+  /** Deliveries brought out (saves from before deliveries have none: 0). */
+  delivered: number;
   /** Item shop: gems, perks owned, an income boost still running (seconds left). */
   gems: number;
   perks: Record<string, number>;
@@ -147,6 +149,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     fiveStars: s.stats.fiveStars,
     rushes: s.stats.rushes,
     bestCombo: s.stats.bestCombo,
+    delivered: s.stats.delivered,
     gems: s.gems,
     perks: { ...s.perks },
     boost: { mult: s.boost.mult, seconds: Math.max(0, s.boost.until - s.time) },
@@ -250,6 +253,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     fiveStars: count(o.fiveStars),
     rushes: count(o.rushes),
     bestCombo: count(o.bestCombo),
+    delivered: count(o.delivered),
     gems: count(o.gems),
     // Only perks the shop still sells.
     perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk' || SHOP_BY_ID[id]?.kind === 'crew').map((id) => [id, 1])),
@@ -346,6 +350,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     fiveStars: save.fiveStars,
     rushes: save.rushes,
     bestCombo: save.bestCombo,
+    delivered: save.delivered,
     gems: save.gems,
     perks: save.perks,
     boost: save.boost,

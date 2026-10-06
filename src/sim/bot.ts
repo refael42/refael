@@ -83,6 +83,9 @@ function wanted(s: GameState, role: string): number {
     case 'host':
       // One once there are a few tables, then one more for every 16 (the buildings cap them).
       return tables >= 4 ? 1 + Math.floor(tables / 16) : 0;
+    case 'courier':
+      // Deliveries once the kitchen keeps up with the room (the buildings cap them).
+      return s.stoves.length >= 2 ? Math.min(s.stoves.length - 1, 1 + Math.floor(tables / 12)) : 0;
     case 'promoter':
       // One once the room is busy, then another for every 20 more tables (the buildings cap them).
       return tables >= 6 ? 1 + Math.floor((tables - 6) / 20) : 0;

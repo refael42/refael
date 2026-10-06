@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M22 | Owner: deliveries (couriers, takeaway bags, scooters) | ✅ Done |
 | M21 | Owner: weekdays with a busier weekend, livelier characters, keep improving (kids, stats, what's new, weekend flags) | ✅ Done |
 | M20 | Owner: events and FOMO: a 3-day food festival (points, 8 prizes, a trophy only that festival gives), a flash deal, the tourist bus | ✅ Done |
 | M8 | Store readiness, IAP/ads plan | — |
@@ -67,6 +68,17 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M22 (owner: "deliveries are strong, add them", `src/data/delivery.ts`): a new job,
+  the **courier** (1 at the diner, +1..+5 in the bigger buildings, a star courier in the shop).
+  With a courier on the team, delivery orders come in (1.6 a minute per courier at 3 stars,
+  +0.15 per star; at most 2 waiting per courier). The cook cooks them like any order but packs a
+  paper bag (no plate); the bag waits on the pass (waiters and the player's toss leave it alone);
+  the courier walks in, packs, walks to their scooter by the curb and rides off (off the map;
+  the scooter drives up the road and fades out, then comes back the same way). Back after 16 s
+  (shorter for a fast courier): the bill x1.35 (delivery fee) + a tip, festival points, a coin
+  burst. From level 3 a courier carries two bags. An order nobody takes for 2 minutes is
+  cancelled (rating -0.02). Saves keep the delivery count (older saves: 0). Balance bot: hires a
+  courier from the second stove; bistro at ~31 min. Tests: tests/delivery.test.ts.
 - Done in M21 (owner: "weekdays normal, the weekend usually busier; animations for the
   characters; keep improving everything"):
   - **The week** (`src/data/calendar.ts`): day 1 is a Sunday; Friday and Saturday bring 30-60%

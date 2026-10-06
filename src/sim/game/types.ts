@@ -94,6 +94,8 @@ export interface Order {
   waiter: number;
   /** Price multiplier from the cook who made it. */
   quality: number;
+  /** A delivery (src/data/delivery.ts): no guest, a takeaway bag, the courier takes it out. */
+  delivery: boolean;
 }
 
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
@@ -182,6 +184,8 @@ export type Job =
   | { kind: 'calm'; customer: number; phase: 'walk' | 'talk' }
   /** The host welcomes the first in line, walks the party to their table and hands out the menus. */
   | { kind: 'escort'; customer: number; table: number; party: number[]; phase: 'greet' | 'lead' | 'hand' }
+  /** A courier takes bags from the pass to the scooter and rides off (`left`/`back`: sim times they rode off and return). */
+  | { kind: 'deliver'; orders: number[]; phase: 'toPass' | 'pack' | 'toScooter' | 'away'; left: number; back: number }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */
@@ -221,6 +225,8 @@ export interface Staff extends CharacterView, Person {
   pendingRole: Role | null;
   /** Busy this step (drains energy). */
   busy: boolean;
+  /** Out on a delivery: not on the map (the scooter is). */
+  away: boolean;
 }
 
 export interface Applicant extends CharacterView, Person {
@@ -280,6 +286,8 @@ export interface GameStats {
   fiveStars: number;
   rushes: number;
   bestCombo: number;
+  /** Deliveries brought out (all time). */
+  delivered: number;
 }
 
 /** Restaurant level (1-based) and which of its goals were claimed. */
@@ -373,6 +381,8 @@ export interface GameState {
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
+  /** When the next delivery order comes in (sim time). */
+  nextDelivery: number;
   /** The tourist bus outside (null = none), and when the next one comes. */
   bus: Bus | null;
   nextBus: number;

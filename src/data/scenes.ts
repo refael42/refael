@@ -50,6 +50,8 @@ export const LOOKS = {
   // The shift manager stands out on the floor: a red suit (and a clipboard in hand).
   manager: { outfit: Outfit.Suit, hair: Hair.Short, hairColor: 1, skin: 1, shirt: SHIRT.tomato, pants: PANTS.black, hat: Hat.None, accessory: Accessory.None },
   // The promoter is out on the street: a bright yellow tee, a cap and sunglasses.
+  // The courier: a red delivery jacket (a hoodie), a cap and the insulated delivery backpack.
+  courier: { outfit: Outfit.Hoodie, hair: Hair.Short, hairColor: 1, skin: 2, shirt: SHIRT.tomato, pants: PANTS.denim, hat: Hat.Cap, accessory: Accessory.Backpack },
   promoter: { outfit: Outfit.Tee, hair: Hair.Curly, hairColor: 2, skin: 3, shirt: SHIRT.mustard, pants: PANTS.denim, hat: Hat.Cap, accessory: Accessory.Sunglasses },
 } satisfies Record<string, Look>;
 

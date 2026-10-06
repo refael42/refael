@@ -11,6 +11,7 @@ import { emit, Ev } from './events';
 import { has, managerOnShift, statFactor, workRate } from './people';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
+import { updateCourier } from './delivery';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => ({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
@@ -34,6 +35,8 @@ export function homeOf(s: GameState, st: Staff): Point {
       return s.map.managerSpot;
     case 'promoter':
       return s.map.promoterSpots[st.slot % s.map.promoterSpots.length]!;
+    case 'courier':
+      return s.map.courierSpots[st.slot % s.map.courierSpots.length]!;
   }
 }
 
@@ -47,6 +50,8 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
   manager: Facing.FrontRight,
   // Facing the street.
   promoter: Facing.FrontLeft,
+  // Beside the scooter, looking up the road for the next ride.
+  courier: Facing.BackLeft,
 };
 
 /** What each job carries when not carrying food or plates. */
@@ -96,6 +101,7 @@ export function createStaff(s: GameState, role: Role, person: Person, look: Staf
     leaving: false,
     pendingRole: null,
     busy: false,
+    away: false,
   };
   st.slot = freeSlot(s, role, st);
   const p = at ?? homeOf(s, st);
@@ -165,15 +171,15 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
       st.facing = Facing.BackLeft;
       return true;
     }
-    // Done cooking: it needs a clean plate and a free spot on the pass.
+    // Done cooking: it needs a clean plate (a delivery goes in a bag) and a free spot on the pass.
     const slot = freePassSlot(s);
-    st.stalled = s.cleanPlates <= 0 ? 'plates' : slot < 0 ? 'pass' : null;
+    st.stalled = s.cleanPlates <= 0 && !order.delivery ? 'plates' : slot < 0 ? 'pass' : null;
     if (st.stalled) {
       setPose(st, Pose.Idle);
       if (st.emote === 0) emote(st, Emote.Exclaim);
       return false;
     }
-    s.cleanPlates -= 1;
+    if (!order.delivery) s.cleanPlates -= 1;
     order.state = OrderState.Plating;
     order.slot = slot;
     st.facing = Facing.FrontRight;
@@ -205,7 +211,7 @@ function patienceOf(s: GameState, o: Order): number {
 function findJob(s: GameState, st: Staff): void {
   if (st.role === 'waiter') {
     const manager = managerOnShift(s);
-    const ready = s.orders.filter((o) => o.state === OrderState.Ready && o.waiter < 0);
+    const ready = s.orders.filter((o) => o.state === OrderState.Ready && o.waiter < 0 && !o.delivery);
     // A shift manager sends the dish whose guest is closest to losing patience; otherwise the oldest goes first.
     ready.sort(manager ? (a, b) => patienceOf(s, a) - patienceOf(s, b) : (a, b) => a.since - b.since);
     const order = ready[0];
@@ -644,6 +650,7 @@ export function updateStaff(s: GameState, dt: number): void {
     } else if (st.role === 'host') busy = updateHost(s, st, dt);
     else if (st.role === 'manager') busy = updateManager(s, st, dt);
     else if (st.role === 'promoter') busy = updatePromoter(s, st, dt);
+    else if (st.role === 'courier') busy = updateCourier(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
     else busy = updateRunner(s, st, dt);
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;

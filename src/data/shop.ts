@@ -46,6 +46,7 @@ export const SHOP: readonly ShopItem[] = [
   { id: 'starHost', kind: 'star', cost: 150, role: 'host' },
   { id: 'starCleaner', kind: 'star', cost: 120, role: 'cleaner' },
   { id: 'starManager', kind: 'star', cost: 300, role: 'manager' },
+  { id: 'starCourier', kind: 'star', cost: 150, role: 'courier' },
 
   { id: 'goldenMenu', kind: 'perk', cost: 600, stat: 'price', mult: 1.5 },
   { id: 'vipSign', kind: 'perk', cost: 400, stat: 'arrivals', mult: 1.25 },

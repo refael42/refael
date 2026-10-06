@@ -8,9 +8,11 @@ import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
 import { EXPAND } from '../../data/upgrades';
 import { LOOKS } from '../art/stationArt';
 import { BUS } from '../../data/events';
+import { DELIVERY } from '../../data/delivery';
 
 const EXPAND_TIER = EXPAND.tier;
 const BUS_DRIVE = BUS.driveSeconds;
+const SCOOTER_DRIVE = DELIVERY.driveSeconds;
 /** The bus comes from this many tiles up the road and drives this far on. */
 const BUS_FROM = 14;
 const BUS_TO = 18;
@@ -274,7 +276,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const age = t - d[o + PF.since]!;
     const pop = age < 0.35 ? easeOutBack(clamp01(age / 0.35)) : 1;
     const bobY = -Math.abs(Math.sin(t * 3 + seed)) * 2.5;
-    sprXf(c, A, look(A.L.plate[variant]!, looks.dishTiers[variant] ?? 0), 0, bobY, 0, pop, pop, plain);
+    // A delivery waits in its takeaway bag for the courier.
+    if (d[o + PF.level]! === 1) sprXf(c, A, S.bag, 0, bobY, 0, pop * 1.15, pop * 1.15, plain);
+    else sprXf(c, A, look(A.L.plate[variant]!, looks.dishTiers[variant] ?? 0), 0, bobY, 0, pop, pop, plain);
     if (age > 0.2) {
       const ring = 1 + fract(t * 0.9 + seed) * 0.8;
       A.paints.fade.setAlphaf(0.9 - fract(t * 0.9 + seed) * 0.9);
@@ -333,6 +337,23 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const moving = k < 1 || m > 0;
     const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.35;
     spr(c, A, S.bus, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+  } else if (kind === PropKind.Scooter) {
+    const slot = variant % A.L.scooter.length;
+    if (!active) spr(c, A, A.L.scooter[slot]!, 0, 0, plain);
+    else {
+      // Rides off the curb and up the road, fading out; comes back the same way when the trip ends.
+      const left = t - d[o + PF.since]!;
+      const back = d[o + PF.progress]! - t;
+      const k = left < SCOOTER_DRIVE ? left / SCOOTER_DRIVE : back < SCOOTER_DRIVE && back > 0 ? 1 - back / SCOOTER_DRIVE : -1;
+      if (k >= 0) {
+        // 0 = at the curb, 1 = gone (leaving: k grows; coming back: it shrinks).
+        const away = left < SCOOTER_DRIVE ? k : 1 - k;
+        const dx = -away * away * 7;
+        const dy = Math.min(1, away * 2.5) * 0.9;
+        const fade = 1 - clamp01((away - 0.6) / 0.4);
+        sprFade(c, A, A.L.scooterRide[slot]!, ox(dx, dy), oy(dx, dy, Math.abs(Math.sin(t * 22)) * 0.8), 1, fade);
+      }
+    }
   } else if (kind === PropKind.Bunting) {
     // Flapping a little in the breeze.
     sprXf(c, A, variant === 1 ? S.bunting1 : S.bunting0, 0, Math.sin(t * 2.2 + seed) * 0.8, Math.sin(t * 1.7 + seed) * 1.2, 1, 1, plain);

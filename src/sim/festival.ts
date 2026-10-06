@@ -58,6 +58,16 @@ export function festivalPoints(s: GameState, c: Customer, stars: number): void {
   if (after > before) emit(s, Ev.FestivalStep, c.x, c.y, after);
 }
 
+/** A delivery brought out: points like a guest (the festival dish counts too). */
+export function festivalDelivery(s: GameState, dish: number): void {
+  if (s.festival.id < 0) return;
+  const p = FESTIVAL.points;
+  const before = stepsReached(s.festival);
+  s.festival.points += p.guest + (dish === themeOf(s.festival.id).dish ? p.dish : 0);
+  const after = stepsReached(s.festival);
+  if (after > before) emit(s, Ev.FestivalStep, 0, 0, after);
+}
+
 /** Coins a coin reward is worth right now (also shown on the track before it is taken). */
 export function rewardCoins(s: GameState, r: FestivalReward): Big {
   if (r.kind !== 'coins') return big(0);

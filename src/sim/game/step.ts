@@ -23,6 +23,7 @@ import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
 import { updateBus } from './bus';
+import { updateDeliveries } from './delivery';
 import { isWeekend } from '../calendar';
 import { CITIES } from '../../data/franchise';
 
@@ -48,6 +49,7 @@ export function stepGame(s: GameState, dt: number): void {
   // Crews down tools during the building show (the room is being rebuilt under them).
   if (!s.construction) updateWorks(s, dt, (w) => finishWork(s, w));
   updateArrivals(s);
+  updateDeliveries(s);
   updateCustomers(s, dt);
   updateStaff(s, dt);
   updateWorkers(s, dt);
@@ -90,7 +92,8 @@ function dynamicProps(s: GameState): PropView[] {
   for (const o of s.orders) {
     if (o.state === OrderState.Ready) {
       const p = s.map.passSlots[o.slot]!;
-      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
+      // level 1: a delivery, packed in a takeaway bag.
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: o.delivery ? 1 : 0, active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
     } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
       // Order tickets hang on the rail above the pass, oldest first.
       out.push(
@@ -134,6 +137,14 @@ function dynamicProps(s: GameState): PropView[] {
   // off toward the stop, `progress` = when it pulls away, 0 = not yet). Nothing walks on the road,
   // so it is drawn over the sidewalk behind it.
   if (s.bus) out.push(prop(SYNTH - 51, PropKind.Bus, s.bus.x, s.bus.y, { since: s.bus.arrive, progress: s.bus.leave < Infinity ? s.bus.leave : 0, active: s.bus.aboard > 0, depthBias: 2 }));
+  // Each courier's scooter by the curb; while they are out it rides off and back (the renderer
+  // drives it: `since` = left, `progress` = back).
+  for (const st of s.staff) {
+    if (st.role !== 'courier' || st.leaving) continue;
+    const p = s.map.scooterSpots[st.slot % s.map.scooterSpots.length]!;
+    const job = st.job?.kind === 'deliver' && st.job.phase === 'away' ? st.job : null;
+    out.push(prop(SYNTH - 400 - st.slot, PropKind.Scooter, p.x, p.y, { variant: st.slot, active: job !== null, since: job?.left ?? 0, progress: job?.back ?? 0 }));
+  }
   // The weekend: flags along the front of the restaurant.
   if (isWeekend(s.day)) {
     const b = s.map.building;
@@ -192,7 +203,8 @@ function upgradeViews(s: GameState) {
 export function gameSnapshot(s: GameState, seq: number): Snapshot {
   // The "for sale" sign comes down while the lot is being built on.
   const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
-  return packSnapshot([...s.staff, ...s.customers, ...s.walkers, ...s.applicants], [...props, ...dynamicProps(s)], seq, s.time, {
+  // A courier out on a ride is on the scooter, not on the map.
+  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants], [...props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.

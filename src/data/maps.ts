@@ -92,6 +92,9 @@ export interface MapDef {
   /** The tourist bus stops here on the road (its middle), and tourists step off at `busDoor`. */
   busStop: Point;
   busDoor: Point;
+  /** Couriers' scooters park here (the sidewalk's curb side), each courier waits beside theirs. */
+  scooterSpots: Point[];
+  courierSpots: Point[];
   /** Festival trophies won stand here, at the back of the sidewalk past the applicants. */
   trophySpots: Point[];
   sink: Furniture;
@@ -339,6 +342,10 @@ function buildMap(tier: number): MapDef {
     // Past the applicants, in the lane by the sidewalk; the bus door is at its back end.
     busStop: { x: Math.min(width - 3, door + 5.5), y: STREET_Y + 2.75 },
     busDoor: { x: Math.min(width - 3, door + 5.5) - 1.1, y: STREET_Y + 1.7 },
+    // Left of the door, by the curb: out of the way of the line, the applicants and the bus; the
+    // courier waits just behind their scooter (beside it, not on it).
+    scooterSpots: Array.from({ length: 8 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6), y: STREET_Y + 1.72 })),
+    courierSpots: Array.from({ length: 8 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6) + 0.75, y: STREET_Y + 1.62 })),
     trophySpots: Array.from({ length: 6 }, (_, i) => ({ x: Math.min(width - 6, door + 3.4) + i * 0.8, y: STREET_Y + 0.22 })),
     // On the sidewalk's back half (people walk past in front), away from the door and the line.
     promoterSpots: [

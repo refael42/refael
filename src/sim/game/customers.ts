@@ -437,7 +437,7 @@ export function updateCustomers(s: GameState, dt: number): void {
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
           c.dish = chooseDish(s, CUSTOMER_TYPES[c.type]);
           const id = s.nextId++;
-          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1 });
+          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
           c.order = id;
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;

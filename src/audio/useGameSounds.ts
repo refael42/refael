@@ -61,6 +61,13 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['fanfare', true];
     case Ev.Weekend:
       return ['sparkle', false];
+    case Ev.DeliveryOrder:
+      // The order "rings in".
+      return ['tick', false];
+    case Ev.ScooterOff:
+      return ['rush', false];
+    case Ev.DeliveryCancel:
+      return ['crash', false];
     case Ev.FestivalStep:
       return ['sparkle', true];
     case Ev.Bus:

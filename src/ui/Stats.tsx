@@ -27,6 +27,7 @@ const readStats = (s: GameState) => {
     city: CITIES[s.city % CITIES.length]!.id,
     level: s.quests.level,
     served,
+    delivered: s.stats.delivered,
     happy: served + walkouts > 0 ? Math.round((served / (served + walkouts)) * 100) : 100,
     earned: formatBig(s.stats.earned),
     perMinute: formatBig(incomeRate(s).mul(60).floor()),
@@ -71,6 +72,7 @@ export function StatsPanel({ onClose }: { onClose: () => void }) {
           <Row icon="📅" label={t('stats.days')} value={`${d.day} · ${t(`week.${WEEKDAY_IDS[d.weekday]}`)}`} />
           <Row icon="🏅" label={t('stats.level')} value={d.level} />
           <Row icon="🍽️" label={t('stats.served')} value={d.served.toLocaleString()} />
+          <Row icon="🛵" label={t('stats.delivered')} value={d.delivered.toLocaleString()} />
           <Row icon="😊" label={t('stats.happy')} value={`${d.happy}%`} />
           <Row icon="🪙" label={t('stats.earned')} value={d.earned} />
           <Row icon="📈" label={t('stats.perMinute')} value={d.perMinute} />

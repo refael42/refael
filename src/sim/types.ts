@@ -20,7 +20,7 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8 } as const;
+export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9 } as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -82,6 +82,8 @@ export const PropKind = {
   Trophy: 29,
   /** Weekend flags along the front of the building; variant = the color order. */
   Bunting: 30,
+  /** A courier's scooter by the curb; variant = its slot (color), active = out on a ride. */
+  Scooter: 31,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

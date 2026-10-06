@@ -84,6 +84,14 @@ export const Ev = {
   Deal: 42,
   /** The weekend started. a = % more walk-ins today */
   Weekend: 43,
+  /** A delivery order came in; (x,y) = the ticket rail. a = the dish */
+  DeliveryOrder: 44,
+  /** A courier rode off from (x,y). a = their scooter's slot */
+  ScooterOff: 45,
+  /** A courier is back from (a) deliveries; (x,y) = by the scooter. */
+  Delivered: 46,
+  /** A delivery waited too long for a courier and was cancelled; (x,y) = where it was. */
+  DeliveryCancel: 47,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

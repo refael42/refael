@@ -4,8 +4,8 @@ import { LOOKS } from './scenes';
 // Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
 // everyone else is hired from applicants who show up at the door.
 
-export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter';
-export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter'];
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier'];
 
 export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
 export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
@@ -39,6 +39,8 @@ export const ROLES: Record<Role, RoleDef> = {
   manager: { role: 'manager', walkSpeed: 1.7, look: LOOKS.manager, wageDishes: 5, cap: 1, weight: 2, minTeam: 5, needs: { waiter: 2 }, primary: ['charm', 'stamina'] },
   // No place for one at the first diner: the bigger buildings each add some (src/data/buildings.ts).
   promoter: { role: 'promoter', walkSpeed: 1.6, look: LOOKS.promoter, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 4, primary: ['charm', 'speed'] },
+  // Deliveries (src/data/delivery.ts): one scooter at the diner, more in every bigger building.
+  courier: { role: 'courier', walkSpeed: 1.8, look: LOOKS.courier, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 3, primary: ['speed', 'charm'] },
 };
 
 /**

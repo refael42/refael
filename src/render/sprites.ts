@@ -6,6 +6,7 @@ import { decorSprites } from './art/decorArt';
 import { dishSprites } from './art/dishArt';
 import { workSprites } from './art/workArt';
 import { eventSprites } from './art/eventArt';
+import { deliverySprites, SCOOTER_COLORS } from './art/deliveryArt';
 import { FESTIVAL_THEMES } from '../data/events';
 import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
@@ -14,7 +15,7 @@ import { LOOKS, stationSprites } from './art/stationArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...workSprites, ...eventSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -53,7 +54,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -113,7 +114,7 @@ export const LAYERS = {
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
-  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers']]),
+  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag']]),
   bubble: byEnum(Bubble.DishBase + DISH_ICONS.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
@@ -126,6 +127,9 @@ export const LAYERS = {
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
   /** The padlock sign on later land, by that building's tier. */
   lockSign: LOCK_BOARDS.map((_, tier) => INDEX[`lockSign${tier}`]!),
+  /** Couriers' scooters by slot: parked, and with the courier riding it. */
+  scooter: SCOOTER_COLORS.map((_, i) => INDEX[`scooter${i}`]!),
+  scooterRide: SCOOTER_COLORS.map((_, i) => INDEX[`scooterRide${i}`]!),
   /** Festival trophies by theme (src/data/events.ts). */
   trophy: FESTIVAL_THEMES.map((_, i) => INDEX[`trophy${i}`]!),
   /** Tree sprites per city: [city * 2 + map variant] (src/data/franchise.ts). */

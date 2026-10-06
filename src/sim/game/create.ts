@@ -224,6 +224,8 @@ export interface GameSetup {
   fiveStars?: number;
   rushes?: number;
   bestCombo?: number;
+  /** Deliveries brought out so far. */
+  delivered?: number;
   /** Big upgrades a crew was working on. */
   works?: readonly SavedWork[];
   /** Branches: which city this one is in (0 = the first), and chef trophies won so far. */
@@ -291,6 +293,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
       fiveStars: setup.fiveStars ?? 0,
       rushes: setup.rushes ?? 0,
       bestCombo: setup.bestCombo ?? 0,
+      delivered: setup.delivered ?? 0,
     },
     quests: setup.quests ? { level: setup.quests.level, claimed: [...setup.quests.claimed] } : { level: 1, claimed: [] },
     gems: setup.gems ?? GEMS.start,
@@ -323,6 +326,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
     bus: null,
     nextBus: 0,
+    nextDelivery: 0,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
   // Built in one go: rebuilding the grid for each of eighty tables made a big save slow to load.
