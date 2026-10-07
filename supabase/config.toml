@@ -1,0 +1,41 @@
+# Minimal Supabase CLI config — `supabase start` for a local stack,
+# then `supabase db reset` applies migrations/ in order.
+project_id = "siteflow"
+
+[api]
+port = 54321
+schemas = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+port = 54323
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+# Configure a provider (Twilio / MessageBird / Vonage) for real OTP SMS.
+# For local testing you can use fixed OTPs:
+[auth.sms.test_otp]
+972500000001 = "123456"
+972501110001 = "123456"
+972501110002 = "123456"
+
+[realtime]
+enabled = true
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"

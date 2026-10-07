@@ -1,0 +1,26 @@
+# deps
+node_modules/
+
+# next
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# local demo data (uploads in demo mode)
+.data/
+
+# copied at install time
+public/pdf.worker.min.mjs
+
+# misc
+.DS_Store
+npm-debug.log*
+coverage/
+supabase/.temp/
+supabase/.branches/
