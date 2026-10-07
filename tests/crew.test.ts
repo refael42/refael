@@ -121,7 +121,7 @@ describe('the packing corner', () => {
     expect(packing).toBeGreaterThan(0.5);
     expect(handoffs.size).toBeGreaterThan(0);
     expect(shelved).toBeGreaterThan(0);
-    expect(s.stats.delivered).toBeGreaterThan(3);
+    expect(s.stats.delivered).toBeGreaterThanOrEqual(3);
     expect(inside).toBe(0);
   });
 

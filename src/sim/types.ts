@@ -20,7 +20,7 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10 } as const;
+export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11 } as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -94,6 +94,9 @@ export const PropKind = {
   Slide: 37,
   /** The packing counter with the takeaway window; level = bags on the shelf, active = someone packing. */
   PackTable: 38,
+  /** The deliveries' own pass (along x, two tiles) and their drinks fridge (active = door open). */
+  DeliveryPass: 39,
+  DrinksFridge: 40,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

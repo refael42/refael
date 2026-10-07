@@ -88,7 +88,22 @@ export interface MapDef {
    * the kitchen's front wall with the takeaway window, where the packers stand, and the spot
    * outside the window where couriers take the bags (a path leads there from the sidewalk).
    */
-  packing: { table: Furniture; spots: Point[]; window: Point; scooters: Point[]; couriers: Point[] } | null;
+  packing: {
+    table: Furniture;
+    spots: Point[];
+    window: Point;
+    scooters: Point[];
+    couriers: Point[];
+    /** The deliveries' own pass (owner: "their own pass and fridge"): the cooks put delivery
+     * food on it while packers work, the packers take it from behind (`pickups`, same index). */
+    pass: Furniture;
+    slots: Point[];
+    pickups: Point[];
+    passTop: number;
+    /** The drinks fridge: a can goes into every bag; the packer stands at `fridgeSpot`. */
+    fridge: Furniture;
+    fridgeSpot: Point;
+  } | null;
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
   hostSpot: Point;
@@ -223,9 +238,12 @@ export const WORLD_SHIFT: Point = { x: DINER_X0 - 2, y: DINER_Y0 - 2 };
  * (more land round the site, and the crown's growth left and back).
  */
 const V9_DINER: Point = { x: OLD_MARGIN + 4, y: OLD_MARGIN + 8 };
+/** Where it was in v10 saves, before the buildings grew north (more land behind the site). */
+const V10_DINER: Point = { x: MARGIN_SIDE + 6, y: MARGIN_BACK + 10 };
 export const SAVE_SHIFT = {
   v8: { x: V9_DINER.x - 2, y: V9_DINER.y - 2 },
-  v10: { x: DINER_X0 - V9_DINER.x, y: DINER_Y0 - V9_DINER.y },
+  v10: { x: V10_DINER.x - V9_DINER.x, y: V10_DINER.y - V9_DINER.y },
+  v11: { x: DINER_X0 - V10_DINER.x, y: DINER_Y0 - V10_DINER.y },
 } as const;
 
 /** `outer` minus `inner` (inside it), as up to four rectangles: behind, in front, left, right. */
@@ -378,25 +396,49 @@ function buildMap(tier: number): MapDef {
     const u = tier + 1 + k;
     return ring(tierRect(u), tierRect(u - 1)).map((piece) => ({ piece, tier: u }));
   });
-  const nextRight = future.find((f) => f.tier === tier + 1 && f.piece.x0 >= x1);
+  // One sign per building to come, on the side of its land the camera sees best: beside the
+  // dining room (right), toward the street (front), behind the back wall at its far end (it is
+  // clear of the wall there), or past the kitchen at its front end.
+  const signFor = (u: number): Point | null => {
+    const pieces = future.filter((f) => f.tier === u).map((f) => f.piece);
+    const right = pieces.find((p) => p.x0 >= x1);
+    if (right) return { x: (right.x0 + right.x1) / 2 + 0.5, y: u === tier + 1 ? y1 - 1.4 : (right.y0 + right.y1) / 2 };
+    const front = pieces.find((p) => p.y0 >= y1 && (p.x1 - p.x0) * (p.y1 - p.y0) >= 6);
+    if (front) return { x: (front.x0 + front.x1) / 2, y: (front.y0 + front.y1) / 2 };
+    const back = pieces.find((p) => p.y1 <= r.y0);
+    if (back) return { x: back.x1 - 1, y: (back.y0 + back.y1) / 2 };
+    const left = pieces.find((p) => p.x1 <= r.x0);
+    return left ? { x: (left.x0 + left.x1) / 2, y: left.y1 - 1 } : null;
+  };
+  const saleAt = tier + 1 < TIERS.length ? signFor(tier + 1) : null;
   // From the sidewalk to the door, while there is a front yard.
   const path: Area[] = y1 < STREET_Y ? [{ x0: Math.floor(door), y0: y1, x1: Math.floor(door) + 1, y1: STREET_Y, floor: 'path', walkable: true }] : [];
   // The packing corner: its counter in the kitchen's front row, next to the dining room (clear
   // of the stoves, the sinks and the fridge in every kitchen), the packers behind and beside it,
   // and outside the takeaway window a path of its own out to the sidewalk.
+  // The kitchen's front row, from the dining room in: the packing counter, the deliveries' own
+  // pass (two tiles), the drinks fridge; the packers work in the row behind them.
+  const windowScooterX = (i: number) => (i < 4 ? KX + 0.4 + i * 1.6 : KX - 3 - (i - 4) * 1.6);
   const packing: MapDef['packing'] =
     tier >= UNLOCK_TIER.packer
       ? {
           table: { kind: K.PackTable, x: KX - 1.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
           spots: [
             { x: KX - 1.5, y: y1 - 1.45 },
-            { x: KX - 2.55, y: y1 - 0.62 },
-            { x: KX - 2.55, y: y1 - 1.55 },
+            { x: KX - 2.6, y: y1 - 1.6 },
+            { x: KX - 3.6, y: y1 - 1.6 },
           ],
           window: { x: KX - 1.5, y: y1 + 0.55 },
-          // While packers work here the scooters park by the window (the bags come out there).
-          scooters: Array.from({ length: 8 }, (_, i) => ({ x: KX + 0.4 + i * 1.6, y: STREET_Y + 1.72 })),
-          couriers: Array.from({ length: 8 }, (_, i) => ({ x: KX + 1.15 + i * 1.6, y: STREET_Y + 1.62 })),
+          // While packers work here the scooters park by the window (the bags come out there),
+          // on both sides of its path.
+          scooters: Array.from({ length: 14 }, (_, i) => ({ x: windowScooterX(i), y: STREET_Y + 1.72 })),
+          couriers: Array.from({ length: 14 }, (_, i) => ({ x: windowScooterX(i) + 0.75, y: STREET_Y + 1.62 })),
+          pass: { kind: K.DeliveryPass, x: KX - 3, y: y1 - 0.5, w: 2, d: 1, blocks: true },
+          slots: [KX - 3.62, KX - 3, KX - 2.38].map((x) => ({ x, y: y1 - 0.5 })),
+          pickups: [KX - 3.62, KX - 3, KX - 2.38].map((x) => ({ x, y: y1 - 1.42 })),
+          passTop: 22,
+          fridge: { kind: K.DrinksFridge, x: KX - 4.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
+          fridgeSpot: { x: KX - 4.5, y: y1 - 1.45 },
         }
       : null;
   if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
@@ -475,6 +517,8 @@ function buildMap(tier: number): MapDef {
       { x: KX + 4.3, y: y1 - 0.7 },
       ...Array.from({ length: blocks }, (_, b) => ({ x: KX + 10.3 + b * BLOCK, y: y1 - 0.7 })),
       ...(tier > 1 ? [{ x: KX + 7.3, y: y1 - 0.7 }] : []),
+      // A deep room employs more of them than its width has posts: more along the front aisle.
+      ...(deep ? Array.from({ length: blocks + 1 }, (_, b) => ({ x: KX + 13.3 + b * BLOCK, y: y1 - 0.7 })).filter((p) => p.x < x1 - 4) : []),
     ],
     // On the sidewalk beside the way in.
     applicantSpots: [
@@ -486,8 +530,8 @@ function buildMap(tier: number): MapDef {
     busDoor: { x: Math.min(width - 3, door + 5.5) - 1.1, y: STREET_Y + 1.7 },
     // Left of the door, by the curb: out of the way of the line, the applicants and the bus; the
     // courier waits just behind their scooter (beside it, not on it).
-    scooterSpots: Array.from({ length: 8 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6), y: STREET_Y + 1.72 })),
-    courierSpots: Array.from({ length: 8 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6) + 0.75, y: STREET_Y + 1.62 })),
+    scooterSpots: Array.from({ length: 14 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6), y: STREET_Y + 1.72 })),
+    courierSpots: Array.from({ length: 14 }, (_, i) => ({ x: Math.max(1.2, door - 3.2 - i * 1.6) + 0.75, y: STREET_Y + 1.62 })),
     trophySpots: Array.from({ length: 6 }, (_, i) => ({ x: Math.min(width - 6, door + 3.4) + i * 0.8, y: STREET_Y + 0.22 })),
     // On the sidewalk's back half (people walk past in front), away from the door and the line.
     promoterSpots: [
@@ -509,7 +553,7 @@ function buildMap(tier: number): MapDef {
     ticketRail: { x: KX - 1.9, y0: r.y0 + 1.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
     decor: [
       { kind: K.Fridge, x: r.x0 + 0.5, y: fridgeY, w: 1, d: 1, blocks: true },
-      ...(packing ? [packing.table] : []),
+      ...(packing ? [packing.table, packing.pass, packing.fridge] : []),
       { kind: K.Plant, x: KX + 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true },
       { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
       { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
@@ -517,10 +561,13 @@ function buildMap(tier: number): MapDef {
       ...ACROSS.decor,
       ...Array.from({ length: Math.ceil((width - 7) / 10) }, (_, i) => ({ kind: K.Lamp, x: 7 + i * 10, y: STREET_Y + 1.8, w: 0, d: 0, blocks: false })),
       // The next building's land is for sale (tap the sign); the land after it is locked.
-      ...(nextRight ? [{ kind: K.SaleSign, x: (nextRight.piece.x0 + nextRight.piece.x1) / 2 + 0.5, y: y1 - 1.4, w: 0, d: 0, blocks: false }] : []),
-      ...future
-        .filter(({ tier: u, piece }) => u > tier + 1 && (piece.x0 >= x1 || piece.y0 >= y1) && (piece.x1 - piece.x0) * (piece.y1 - piece.y0) >= 6)
-        .map(({ tier: u, piece }) => ({ kind: K.LockSign, x: (piece.x0 + piece.x1) / 2, y: (piece.y0 + piece.y1) / 2, w: 0, d: 0, blocks: false, variant: u })),
+      ...(saleAt ? [{ kind: K.SaleSign, ...saleAt, w: 0, d: 0, blocks: false }] : []),
+      ...TIERS.map((_, u) => u)
+        .filter((u) => u > tier + 1)
+        .flatMap((u) => {
+          const at = signFor(u);
+          return at ? [{ kind: K.LockSign, ...at, w: 0, d: 0, blocks: false, variant: u }] : [];
+        }),
       { kind: K.StreetSign, x: door - 1.6, y: STREET_Y + 0.25, w: 0, d: 0, blocks: false },
     ],
     // Trees all round the site, baked into the background (nobody walks among them).

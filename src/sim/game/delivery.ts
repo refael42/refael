@@ -12,7 +12,7 @@ import { emit, Ev } from './events';
 import { statFactor, workRate } from './people';
 import { OrderState, type GameState, type Order, type Staff } from './types';
 import { gainXp } from './workers';
-import { onShelf, packersOn } from './packing';
+import { onShelf, packersOn, pickupPoint, slotPoint } from './packing';
 
 // Deliveries (src/data/delivery.ts): orders without a guest. They come in only while a courier
 // is on the team, go through the kitchen like any other order (in a bag, no plate), and pay when
@@ -34,7 +34,7 @@ export function updateDeliveries(s: GameState): void {
   for (const o of waitingOrders(s)) {
     const claimed = o.waiter >= 0 && s.staff.some((st) => st.id === o.waiter);
     if (s.time - o.since < DELIVERY.cancelSeconds || claimed || o.state === OrderState.Cooking || o.state === OrderState.Plating) continue;
-    const p = o.slot >= 0 ? s.map.passSlots[o.slot]! : o.packed && s.map.packing ? s.map.packing.table : { x: s.map.ticketRail.x, y: s.map.ticketRail.y0 };
+    const p = o.slot >= 0 ? slotPoint(s, o) : o.packed && s.map.packing ? s.map.packing.table : { x: s.map.ticketRail.x, y: s.map.ticketRail.y0 };
     s.orders.splice(s.orders.indexOf(o), 1);
     const r = ECONOMY.rating;
     s.rating = Math.max(r.min, Math.min(r.max, s.rating + DELIVERY.cancelRating));
@@ -60,10 +60,10 @@ export function updateDeliveries(s: GameState): void {
 }
 
 /** What one delivery brings in: the bill with the delivery fee, and the tip. */
-function deliveryPay(s: GameState, st: Staff, o: Order) {
+export function deliveryPay(s: GameState, st: Staff, o: Order) {
   // Packed by a packer: sealed and neat, worth a little more.
   const packed = o.packed === false ? PACKING.priceMult : 1;
-  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * packed * boostNow(s) * festivalBonus(s)).floor();
+  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * s.mods.deliveryPrice * packed * boostNow(s) * festivalBonus(s)).floor();
   const tip = price.mul(DELIVERY.tip * statFactor(st.stats.charm) * s.mods.tips).floor();
   return price.add(tip);
 }
@@ -130,7 +130,7 @@ export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: 
     const ready = orders.filter((o) => o.state === OrderState.Ready);
     if (ready.length === 0) return drop(st, orders);
     if (job.phase === 'toPass') {
-      if (walkTo(s.map.pickupSpots[ready[0]!.slot] ?? s.map.pickupSpots[0]!)) {
+      if (walkTo(pickupPoint(s, ready[0]!))) {
         setPose(st, Pose.Idle);
         st.facing = Facing.BackLeft;
         setPhase(st, job, 'pack');
@@ -156,7 +156,7 @@ export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: 
     // On the scooter and away: off the map until the ride is done (faster for a quick courier).
     st.away = true;
     st.held = Held.None;
-    const trip = DELIVERY.tripSeconds / (statFactor(st.stats.speed) * workRate(s, st));
+    const trip = DELIVERY.tripSeconds / (statFactor(st.stats.speed) * workRate(s, st) * s.mods.tripSpeed);
     st.job = { ...job, phase: 'away', left: s.time, back: s.time + trip };
     emit(s, Ev.ScooterOff, home.x, home.y, st.slot);
     return true;

@@ -263,6 +263,9 @@ export interface GameSetup {
   /** The food festival on (and trophies won), and the flash deal last bought. */
   festival?: GameState['festival'];
   flash?: GameState['flash'];
+  /** The reviews page, and the next review's id. */
+  reviews?: GameState['reviews'];
+  reviewSeq?: number;
 }
 
 /** A job in progress as the save keeps it. */
@@ -292,8 +295,10 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     rating: setup.rating ?? ECONOMY.rating.start,
     combo: 0,
     lastPayTime: -Infinity,
-    reviews: [],
+    reviews: (setup.reviews ?? []).map((r) => ({ ...r })),
+    reviewSeq: setup.reviewSeq ?? 1,
     lastReviewTime: -Infinity,
+    lastWalkoutReview: -Infinity,
     buzzUntil: -Infinity,
     rush: { on: false, charge: 1 },
     nextArrival: FIRST_ARRIVAL_SECONDS,

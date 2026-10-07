@@ -1,4 +1,5 @@
 import type { CustomerTypeId } from '../../data/customers';
+import type { ReviewKind } from '../../data/reviews';
 import type { Role, StatId } from '../../data/staff';
 import type { TraitId } from '../../data/traits';
 import type { MapDef, Point } from '../../data/maps';
@@ -99,6 +100,8 @@ export interface Order {
   delivery: boolean;
   /** The checker looked it over (it sells for more). */
   checked?: boolean;
+  /** On the deliveries' own pass (src/data/maps.ts packing): `slot` indexes its slots. */
+  lane?: 1;
   /**
    * Packed by a packer: true while it waits on the takeaway window's shelf, false once a
    * courier took it (it still pays as a packed order); unset if nobody packed it.
@@ -113,6 +116,8 @@ export type Command =
   | { type: 'rush'; on: boolean }
   /** Take a finished quest's reward (index in the current level). */
   | { type: 'claim'; quest: number }
+  /** Take a review's bonus on the reviews page (-1: every waiting one). */
+  | { type: 'review'; id: number }
   /** Spend gems in the item shop. */
   | { type: 'shop'; item: string }
   /** Gems from a (demo) gem pack purchase. */
@@ -197,7 +202,7 @@ export type Job =
   /** The checker looks over a dish on the pass. */
   | { kind: 'check'; order: number }
   /** A packer takes a delivery off the pass, packs it at the counter, leaves it on the window shelf. */
-  | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toTable' | 'packing' }
+  | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toFridge' | 'fridge' | 'toTable' | 'packing' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */
@@ -271,19 +276,23 @@ export interface Walker extends CharacterView {
   flyer?: boolean;
 }
 
-/** A review a customer wrote about the restaurant (newest last). */
+/** A review a customer wrote about the restaurant (newest last), on the reviews page. */
 export interface Review {
+  /** Its own counter (saved), so ids stay unique across sessions. */
   id: number;
-  time: number;
+  /** The game day it was written. */
+  day: number;
   /** 1..5: the service they got. */
   stars: number;
-  /** Which written line of that grade (strings review.<stars>.<line>). */
+  /** What it is about, and which written line of that (strings review.<kind>.<line>). */
+  kind: ReviewKind;
   line: number;
   /** The reviewer's first name: an index into NAMES. */
   name: number;
   dish: number;
-  /** Bonus coins it brought in (zero below four stars). */
+  /** Bonus coins it brings (zero below four stars), taken on the reviews page. */
   bonus: Big;
+  claimed: boolean;
 }
 
 export interface GameStats {
@@ -323,7 +332,11 @@ export interface GameState {
   combo: number;
   lastPayTime: number;
   reviews: Review[];
+  /** The next review's id. */
+  reviewSeq: number;
   lastReviewTime: number;
+  /** The last angry review from someone who walked out. */
+  lastWalkoutReview: number;
   /** A five-star review has people talking until then: more arrivals. */
   buzzUntil: number;
   /** Rush hour: running now, and the meter (0..1). */

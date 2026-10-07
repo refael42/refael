@@ -23,7 +23,7 @@ import type { OfflineEarnings } from '../sim/offline';
 import type { GameState, PlacedDecor } from '../sim/game/types';
 import { PropKind } from '../sim/types';
 import { bootGame } from '../store/boot';
-import { markReady } from '../store/launch';
+import { markReady, useLaunch } from '../store/launch';
 import { useSettings } from '../store/settings';
 import { trace } from '../trace';
 import { JuicyButton } from './JuicyButton';
@@ -36,7 +36,7 @@ import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
-import { ReviewToast } from './ReviewToast';
+import { ReviewsChip, ReviewsPanel } from './Reviews';
 import { RushButton } from './RushButton';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { DealChip, GemPill, Shop } from './Shop';
@@ -138,6 +138,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const { width } = useWindowDimensions();
   const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial, moneyTaps, busTaps } = useSettings();
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
+  // The welcome-back card waits for the opening animation to be gone: it used to pop and count
+  // underneath it while the art was still being made, and reached the player in jerks.
+  const splashGone = useLaunch((s) => s.done);
   // First run: welcome, names and how to play come before anything happens.
   const onboarding = !loaded || profile === null;
   // What's new since the last update: once, for players who already know the game (a new
@@ -266,6 +269,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [shop, setShop] = useState(false);
   const [daily, setDaily] = useState(false);
   const [wheel, setWheel] = useState(false);
+  const [reviews, setReviews] = useState(false);
   const [festival, setFestival] = useState(false);
   useFestivalClock(command, true);
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
@@ -407,9 +411,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <CityChip gameRef={gameRef} style={styles.inColumn} />
           {tutorial >= TUTORIAL_STEPS.length && <FestivalChip gameRef={gameRef} onPress={() => setFestival(true)} style={styles.inColumn} />}
           {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
+          {/* Reviews live on their own page now (owner request), not on the screen. */}
+          <ReviewsChip gameRef={gameRef} onPress={() => setReviews(true)} style={styles.inColumn} />
         </View>
       )}
-      <ReviewToast gameRef={gameRef} layout={hud} lowered={!onboarding && tutorial < TUTORIAL_STEPS.length} />
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && !build && (
@@ -432,6 +437,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -470,7 +476,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {rankBanner !== null && levelBanner === null && <LevelBanner level={rankBanner} rank={{ opens: rankBanner * RANK.levels }} onDone={endRankBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {newsDue && !welcome && <NewsCard onClose={() => setSeenNews(NEWS.version)} />}
-      {welcome && !onboarding && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
+      {welcome && !onboarding && splashGone && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
       {loaded && !profile && (
         <Welcome
           // A player who already has a restaurant only picks names: no lessons, no tutorial.

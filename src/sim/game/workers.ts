@@ -31,7 +31,9 @@ export function capacity(s: GameState, role: Role): number {
   if (role === 'cook') return s.stoves.length;
   // One dishwasher per sink.
   if (role === 'washer') return ROLES.washer.cap + s.map.extraSinks.length;
-  return ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0);
+  // "More couriers" (the fleet upgrade) adds places on top of the building's.
+  const bought = role === 'courier' ? s.mods.couriers : 0;
+  return ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0) + bought;
 }
 
 export function headcount(s: GameState, role: Role): number {

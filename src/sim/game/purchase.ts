@@ -1,4 +1,5 @@
 import type { Point } from '../../data/maps';
+import { parking } from './packing';
 import { computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { COUNT_STATS } from '../../data/upgrades';
 import { planBuy, workSeconds } from '../economy/works';
@@ -31,6 +32,8 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
     return next ? [next.stove] : [];
   }
   if (kind === PropKind.PlatesClean) return [s.map.cleanStack];
+  // The couriers' scooters by the curb (none to tap before there is a courier).
+  if (kind === PropKind.Scooter) return s.staff.filter((st) => st.role === 'courier' && !st.leaving).map((st) => parking(s, st.slot, false));
   return s.props.filter((p) => p.kind === kind).map((p) => ({ x: p.x, y: p.y }));
 }
 

@@ -27,6 +27,11 @@ function amounts(m: Mods, map: MapDef): Record<Weighted, number> {
     stoves: map.startStoves + m.stoves,
     seats: tables + m.seats,
     family: tables + m.seats + 2 * m.family,
+    // Places for couriers the building has, plus the ones bought (counted from 1: one courier).
+    couriers: 1 + m.couriers,
+    tripSpeed: m.tripSpeed,
+    deliveryPrice: m.deliveryPrice,
+    packSpeed: m.packSpeed,
   };
 }
 

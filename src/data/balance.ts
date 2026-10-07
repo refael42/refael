@@ -32,6 +32,11 @@ export const VALUE = {
   stoves: 0.5,
   seats: 0.3,
   family: 0.3,
+  /** Deliveries: a smaller share of the income than the dining room. */
+  couriers: 0.25,
+  tripSpeed: 0.15,
+  deliveryPrice: 0.2,
+  packSpeed: 0.1,
   /** A new dish on the menu (more choice, a pricier plate). */
   newDish: 0.4,
   /** How many to show in the "best value" list. */

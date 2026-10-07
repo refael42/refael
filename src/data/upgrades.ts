@@ -6,15 +6,17 @@ import { Dish } from './dishes';
 // The upgrade catalog. Adding an upgrade = adding a row here (plus its strings in i18n).
 // Every row is an endless level track, except capacity rows (new tables) that floor space caps.
 
-export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'decor' | 'marketing' | 'building';
-export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'decor', 'marketing', 'building'];
+export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'delivery' | 'decor' | 'marketing' | 'building';
+export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'delivery', 'decor', 'marketing', 'building'];
 
 /**
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
  * `plates` and `tables` are counts. `price` is per dish.
  */
-export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building'];
+export type Stat =
+  | 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price'
+  | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers'];
 
 export interface Effect {
   stat: Stat;
@@ -142,6 +144,18 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
   { id: 'chairs', category: 'front', anchor: K.Chair, restyle: 'anchor', baseCost: 20, growth: 1.15,
     effect: { stat: 'patience', per: 0.06 }, milestone: { stat: 'tips', factor: 1.1 } },
+
+  // Deliveries (owner: "the delivery station can be upgraded, and the couriers, and more of
+  // them"): room for more couriers, faster scooters (a new look at the milestones), the delivery
+  // app (each delivery pays more), and the packing station (packers work faster).
+  { id: 'fleet', category: 'delivery', anchor: K.Scooter, restyle: null, baseCost: 60000, growth: 6, max: 6,
+    requires: { item: 'building', level: UNLOCK_TIER.courier }, effect: { stat: 'couriers', per: 1 }, milestone: null },
+  { id: 'scooters', category: 'delivery', anchor: K.Scooter, restyle: 'anchor', baseCost: 15000, growth: 1.17,
+    requires: { item: 'building', level: UNLOCK_TIER.courier }, effect: { stat: 'tripSpeed', per: 0.05 }, milestone: { stat: 'tripSpeed', factor: 1.4 } },
+  { id: 'deliveryApp', category: 'delivery', anchor: K.Scooter, restyle: null, baseCost: 20000, growth: 1.17,
+    requires: { item: 'building', level: UNLOCK_TIER.courier }, effect: { stat: 'deliveryPrice', per: 0.1 }, milestone: { stat: 'deliveryPrice', factor: 1.5 } },
+  { id: 'packStation', category: 'delivery', anchor: K.PackTable, restyle: 'anchor', baseCost: 2e8, growth: 1.18,
+    requires: { item: 'building', level: UNLOCK_TIER.packer }, effect: { stat: 'packSpeed', per: 0.06 }, milestone: { stat: 'packSpeed', factor: 1.5 } },
 
   // Decor & marketing: more people walk in (until the tables are the limit).
   { id: 'plants', category: 'decor', anchor: K.Plant, restyle: 'anchor', baseCost: 30, growth: 1.16,

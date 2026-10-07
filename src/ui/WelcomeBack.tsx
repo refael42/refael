@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { OFFLINE } from '../data/economy';
@@ -15,27 +15,50 @@ interface Props {
   onCollect: (multiplier: number) => void;
 }
 
-const ROLL_MS = 1400;
+const ROLL_MS = 1100;
+/** The count starts once the card has popped in (it used to run during the pop, and jerk). */
+const ROLL_DELAY_MS = 380;
+/** At most this many number updates a second: the text re-renders only when it changes. */
+const ROLL_FPS = 24;
 const FAKE_AD_SECONDS = 3;
 
 /**
- * Counts up from 0 with an ease-out. A modal shown once per session, so a short burst of
- * React updates is fine here (the game itself never re-renders per frame).
+ * Counts up from 0 with an ease-out, after a short wait. A modal shown once per session; the
+ * updates are capped and skipped when the shown text does not change.
  */
 function useRollingNumber(target: Big): string {
   const [text, setText] = useState(formatBig(0));
+  // The amount is a new object on every render: the count follows its value, not the object
+  // (following the object restarted it from 0 on every frame: the owner's "it jerks").
+  const key = target.toString();
+  const latest = useRef(target);
+  latest.current = target;
   useEffect(() => {
-    const start = Date.now();
+    const target = latest.current;
+    let start = 0;
+    let shown = '';
     let raf = 0;
-    const tick = () => {
-      const p = Math.min(1, (Date.now() - start) / ROLL_MS);
-      const e = 1 - (1 - p) ** 3;
-      setText(formatBig(p >= 1 ? target : target.mul(e).floor()));
+    let last = 0;
+    const tick = (now: number) => {
+      if (!start) start = now;
+      const p = Math.min(1, (now - start) / ROLL_MS);
+      if (p >= 1 || now - last >= 1000 / ROLL_FPS) {
+        last = now;
+        const e = 1 - (1 - p) ** 3;
+        const next = formatBig(p >= 1 ? target : target.mul(e).floor());
+        if (next !== shown) {
+          shown = next;
+          setText(next);
+        }
+      }
       if (p < 1) raf = requestAnimationFrame(tick);
     };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [target]);
+    const wait = setTimeout(() => (raf = requestAnimationFrame(tick)), ROLL_DELAY_MS);
+    return () => {
+      clearTimeout(wait);
+      cancelAnimationFrame(raf);
+    };
+  }, [key]);
   return text;
 }
 
@@ -141,7 +164,8 @@ const styles = StyleSheet.create({
   durationUnit: { color: gold, fontSize: 13, fontWeight: '800', marginEnd: 4 },
   amountRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 4 },
   coin: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#FFC21A', borderWidth: 3, borderColor: '#9A6A00' },
-  amount: { color: '#FFFFFF', fontSize: 38, fontWeight: '900' },
+  // Same-width digits and a fixed box: the coin and the card stay still while it counts.
+  amount: { color: '#FFFFFF', fontSize: 38, fontWeight: '900', minWidth: 150, textAlign: 'center', fontVariant: ['tabular-nums'] },
   buttons: { flexDirection: 'row', gap: 10, marginTop: 6 },
   button: { height: 48, paddingHorizontal: 18, borderRadius: 16, justifyContent: 'center', borderWidth: 2 },
   adButton: { backgroundColor: '#6A2C8F', borderColor: '#C9A0FF', boxShadow: '0px 3px 0px #2E1240' },

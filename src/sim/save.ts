@@ -1,4 +1,6 @@
 import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/looks';
+import { REVIEW, REVIEW_LINES, type ReviewKind } from '../data/reviews';
+import { DISHES } from '../data/dishes';
 import { mapForTier, SAVE_SHIFT, STAND_MAP, type MapDef } from '../data/maps';
 import { NAMES } from '../data/names';
 import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
@@ -8,7 +10,7 @@ import { RANK, UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave } from './big';
 import { capOf, isCappedTrack, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
-import type { GameState, PlacedDecor, QuestState } from './game/types';
+import type { GameState, PlacedDecor, QuestState, Review } from './game/types';
 import { questLevel } from './quests';
 import { GEMS, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
@@ -21,7 +23,7 @@ import { newFestival } from './festival';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -65,6 +67,14 @@ export interface SaveData {
   /** The food festival on, its points and rewards taken, trophies won; the flash deal last bought. */
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   flash: { slot: number; bought: boolean };
+  /** The reviews page (bonuses not taken yet wait there), and the next review's id. */
+  reviews: SavedReview[];
+  reviewSeq: number;
+}
+
+/** A review as saved: its bonus as text. */
+export interface SavedReview extends Omit<Review, 'bonus'> {
+  bonus: string;
 }
 
 /** Upgrades an object from version `n` to `n + 1`. */
@@ -113,6 +123,9 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   8: (old) => ({ ...old, festival: newFestival(), flash: { slot: -1, bought: false } }),
   // v9 (M22) had less land round the site and no crown: the whole site moved right and back.
   9: (old) => shiftPlaces(old, SAVE_SHIFT.v10),
+  // v10 (M24): the buildings grew mostly to one side; now they grow north too (owner request),
+  // so there is more land behind the site and everything moves back with it.
+  10: (old) => shiftPlaces(old, SAVE_SHIFT.v11),
 };
 
 /** Placed decor and work sites, moved with the site by `d` tiles. */
@@ -170,6 +183,8 @@ export function makeSave(s: GameState, now: number): SaveData {
     wheel: { ...s.wheel },
     festival: { ...s.festival, trophies: [...s.festival.trophies] },
     flash: { ...s.flash },
+    reviews: s.reviews.map((r) => ({ ...r, bonus: toSave(r.bonus) })),
+    reviewSeq: s.reviewSeq,
   };
 }
 
@@ -278,8 +293,33 @@ function validate(o: Record<string, unknown>): SaveData | null {
     wheel: cleanWheel(o.wheel),
     festival: cleanFestival(o.festival),
     flash: isRecord(o.flash) && finite(o.flash.slot) ? { slot: Math.floor(o.flash.slot), bought: o.flash.bought === true } : { slot: -1, bought: false },
+    ...cleanReviews(o.reviews, o.reviewSeq),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
+}
+
+/** Reviews of known kinds and lines (saves before the reviews page have none). */
+function cleanReviews(raw: unknown, seq: unknown): { reviews: SavedReview[]; reviewSeq: number } {
+  const list = Array.isArray(raw) ? raw : [];
+  const reviews: SavedReview[] = [];
+  for (const r of list) {
+    if (!isRecord(r) || !finite(r.id) || !finite(r.stars) || typeof r.kind !== 'string' || !(r.kind in REVIEW_LINES) || !finite(r.line) || !bigText(r.bonus)) continue;
+    const kind = r.kind as ReviewKind;
+    reviews.push({
+      id: Math.floor(r.id),
+      day: finite(r.day) ? Math.max(1, Math.floor(r.day)) : 1,
+      stars: Math.max(1, Math.min(5, Math.round(r.stars))),
+      kind,
+      line: Math.max(0, Math.min(REVIEW_LINES[kind] - 1, Math.floor(r.line))),
+      name: finite(r.name) ? Math.max(0, Math.min(NAMES.length - 1, Math.floor(r.name))) : 0,
+      dish: finite(r.dish) && r.dish >= 0 && r.dish < DISHES.length ? Math.floor(r.dish) : 0,
+      bonus: r.bonus,
+      claimed: r.claimed === true,
+    });
+  }
+  const kept = reviews.slice(-REVIEW.keep);
+  const top = kept.reduce((m, r) => Math.max(m, r.id), 0);
+  return { reviews: kept, reviewSeq: Math.max(top + 1, finite(seq) ? Math.floor(seq) : 1) };
 }
 
 /** The lucky wheel, or a new one (a prize waiting on a segment that no longer exists is dropped). */
@@ -373,5 +413,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     wheel: save.wheel,
     festival: save.festival,
     flash: save.flash,
+    reviews: save.reviews.map((r) => ({ ...r, bonus: fromSave(r.bonus) })),
+    reviewSeq: save.reviewSeq,
   });
 }

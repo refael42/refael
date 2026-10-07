@@ -38,6 +38,8 @@ export const PACKING = {
   seconds: 2.2,
   /** Lifting the food box off the pass. */
   takeSeconds: 0.4,
+  /** A cold drink out of the drinks fridge for the bag. */
+  fridgeSeconds: 0.5,
   /** The bag handed out through the window into the courier's hands (its flight on screen). */
   windowSeconds: 0.6,
   /** Packed orders sell for a little more (sealed, neat, still hot). */

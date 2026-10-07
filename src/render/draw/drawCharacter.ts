@@ -27,7 +27,12 @@ const KID_RANK = 4;
 const KID_SCALE = 0.74;
 const KID_SEAT_LIFT = 4;
 
-export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number, selectedId: number): void {
+/**
+ * `detail` = false when zoomed far out (a late-game restaurant on screen at once): the pieces
+ * too small to see there (shoes, hands, the far arm, the face, little accessories, the
+ * legendary sparkle) are skipped, about 40% fewer draws per person (owner: "still laggy late").
+ */
+export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number, selectedId: number, detail = true): void {
   'worklet';
   const S = A.S;
   const L = A.L;
@@ -91,7 +96,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     farArm = s * 0.045;
     bob = Math.abs(Math.cos(t * 9 + phase)) * 1.3;
     // Leaning into the walk and rocking from foot to foot; carefully upright with a full tray.
-    const careful = held === Held.TrayFull || held === Held.DirtyPlates || held === Held.FoodBox;
+    const careful = held === Held.TrayFull || held === Held.DirtyPlates || held === Held.FoodBox || held === Held.FoodDrink;
     lean = (careful ? 1 : 3) + s * (careful ? 0.5 : 1.4);
     // Setting off: a little push forward.
     if (poseTime < 0.2) lean += Math.sin((poseTime / 0.2) * Math.PI) * 3;
@@ -213,7 +218,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     c.scale(1, 0.5);
     c.drawCircle(0, 0, 12 + rarity, ring);
     c.restore();
-    if (rarity === 3) {
+    if (rarity === 3 && detail) {
       sprFade(c, A, S.glowHalo, 0, -14, 0.9, 0.35 + Math.sin(t * 3.4 + phase) * 0.15);
       const sp = fract(t * 0.8 + phase);
       sprFade(c, A, S.sparkle, Math.sin(phase * 7 + Math.floor(t * 0.8 + phase)) * 12, -12 - sp * 34, 0.5 + sp * 0.3, 1 - sp);
@@ -235,46 +240,48 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     const dx = lx(viewB, shift, 0);
     const dy = ly(viewB, shift, 0, lift);
     spr(c, A, near ? pick(S.legNearF, S.legNearB) : pick(S.legFarF, S.legFarB), dx, dy, pants);
-    spr(c, A, near ? pick(S.shoeNearF, S.shoeNearB) : pick(S.shoeFarF, S.shoeFarB), dx, dy, P.plain);
+    if (detail) spr(c, A, near ? pick(S.shoeNearF, S.shoeNearB) : pick(S.shoeFarF, S.shoeFarB), dx, dy, P.plain);
   };
 
   if (showLegs) leg(false, farLeg, farLift);
-  const fax = lx(viewB, farArm, 0);
-  const fay = ly(viewB, farArm, 0, 0) + up;
-  spr(c, A, pick(S.armFarF, S.armFarB), fax, fay, shirt);
-  spr(c, A, pick(S.handFarF, S.handFarB), fax, fay, handPaint);
-  if (!viewB && accessory === Accessory.Backpack) spr(c, A, S.backpackF, 0, up, P.plain);
+  if (detail) {
+    const fax = lx(viewB, farArm, 0);
+    const fay = ly(viewB, farArm, 0, 0) + up;
+    spr(c, A, pick(S.armFarF, S.armFarB), fax, fay, shirt);
+    spr(c, A, pick(S.handFarF, S.handFarB), fax, fay, handPaint);
+    if (!viewB && accessory === Accessory.Backpack) spr(c, A, S.backpackF, 0, up, P.plain);
+  }
   if (showLegs) leg(true, nearLeg, nearLift);
 
   spr(c, A, pick(S.torsoF, S.torsoB), 0, up, shirt);
-  if (outfit === Outfit.Hoodie) spr(c, A, pick(S.hoodF, S.hoodB), 0, up, shirt);
+  if (outfit === Outfit.Hoodie && detail) spr(c, A, pick(S.hoodF, S.hoodB), 0, up, shirt);
   spr(c, A, viewB ? L.outfit.B[outfit]! : L.outfit.F[outfit]!, 0, up, P.plain);
-  if (accessory === Accessory.Camera) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
-  if (rank > 0 && rank < VIP_RANK && !viewB) {
+  if (accessory === Accessory.Camera && detail) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
+  if (rank > 0 && rank < VIP_RANK && !viewB && detail) {
     // Senior staff wear a badge: silver, then gold.
     sprXf(c, A, S.rankStar, lx(false, 0.16, -0.12), ly(false, 0.16, -0.12, 19) + up, 0, 0.75, 0.75, rank >= 2 ? P.gold : P.white);
   }
-  if (accessory === Accessory.Backpack) spr(c, A, pick(S.backpackStrapsF, S.backpackB), 0, up, P.plain);
+  if (accessory === Accessory.Backpack && detail) spr(c, A, pick(S.backpackStrapsF, S.backpackB), 0, up, P.plain);
 
   let hx: number;
   let hy: number;
   if (armUp) {
     spr(c, A, pick(S.armUpF, S.armUpB), 0, up - armUpLift, shirt);
-    spr(c, A, pick(S.handUpF, S.handUpB), 0, up - armUpLift, handPaint);
+    if (detail) spr(c, A, pick(S.handUpF, S.handUpB), 0, up - armUpLift, handPaint);
     hx = lx(viewB, 0.15, -ARM_R);
     hy = ly(viewB, 0.15, -ARM_R, 24) + up - armUpLift;
   } else {
     const nax = lx(viewB, nearArm, 0);
     const nay = ly(viewB, nearArm, 0, 0) + up;
     spr(c, A, pick(S.armNearF, S.armNearB), nax, nay, shirt);
-    spr(c, A, pick(S.handNearF, S.handNearB), nax, nay, handPaint);
+    if (detail) spr(c, A, pick(S.handNearF, S.handNearB), nax, nay, handPaint);
     hx = lx(viewB, nearArm, -ARM_R);
     hy = ly(viewB, nearArm, -ARM_R, 10) + up;
   }
 
   const headUp = up + headY;
   spr(c, A, pick(S.headF, S.headB), headX, headUp, skin);
-  if (!viewB) {
+  if (!viewB && detail) {
     let face = L.face[expression]!;
     if (expression === Expression.Eating) face = biting ? S.faceEating : S.faceChew;
     else if ((expression === Expression.Happy || expression === Expression.Neutral) && (t + phase) % 3.7 < 0.13) face = S.faceBlink;
@@ -293,7 +300,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
       const sx = lx(viewB, 0.04, -ARM_R);
       const sy = ly(viewB, 0.04, -ARM_R, 10) + up - Math.max(0, Math.sin(t * 7 + phase)) * 4;
       spr(c, A, L.held[held]!, sx, sy, P.plain);
-    } else if (held === Held.Clipboard || held === Held.Flyers || held === Held.Bag || held === Held.FoodBox) {
+    } else if (held === Held.Clipboard || held === Held.Flyers || held === Held.Bag || held === Held.FoodBox || held === Held.FoodDrink) {
       // Held low against the chest, not in front of the face like a phone.
       spr(c, A, L.held[held]!, hx, hy + 9, P.plain);
     } else {

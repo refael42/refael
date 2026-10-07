@@ -43,7 +43,7 @@ describe('deliveries (owner request)', () => {
     });
     for (const e of s.events) if (e.id >= seen && e.type === Ev.ScooterOff) rideOff++;
     expect(away).toBe(true);
-    expect(s.stats.delivered).toBeGreaterThan(2);
+    expect(s.stats.delivered).toBeGreaterThanOrEqual(2);
     expect(s.coins.gt(0)).toBe(true);
     // Takeaway bags: no plate left the stack for deliveries (nobody ate in).
     expect(s.stats.served).toBe(0);

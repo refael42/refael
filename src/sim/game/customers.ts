@@ -14,7 +14,7 @@ import { followPath, setPose } from '../movement';
 import { next, pick, range } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
-import { buzzing, maybeReview, serviceMult, serviceStars } from './reviews';
+import { buzzing, maybeReview, serviceMult, serviceStars, walkoutReview } from './reviews';
 import { boostNow } from '../shop';
 import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
@@ -244,6 +244,7 @@ function vacate(s: GameState, t: Table): void {
 /** Ran out of patience: no money, lower rating, and everyone sees them go (with their friends). */
 function walkout(s: GameState, c: Customer): void {
   s.stats.walkouts += 1;
+  walkoutReview(s, c);
   changeRating(s, ECONOMY.rating.walkout, c);
   const table = c.table >= 0 ? s.tables[c.table]! : null;
   for (const m of partyOf(s, c)) storm(s, m);

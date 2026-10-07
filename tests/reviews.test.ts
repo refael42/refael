@@ -5,7 +5,8 @@ import { STEP_SEC } from '../src/data/sim';
 import { big } from '../src/sim/big';
 import { queueCommand } from '../src/sim/game/commands';
 import { createGame } from '../src/sim/game/create';
-import { buzzing, maybeReview, serviceMult, serviceStars } from '../src/sim/game/reviews';
+import { buzzing, claimReviews, maybeReview, serviceMult, serviceStars, unclaimedBonus } from '../src/sim/game/reviews';
+import { makeSave, parseSave, restoreGame } from '../src/sim/save';
 import { stepGame } from '../src/sim/game/step';
 import { CustomerState, type GameState } from '../src/sim/game/types';
 
@@ -53,7 +54,7 @@ describe('reviews', () => {
     return { s, guest };
   }
 
-  it('five stars pay a bonus and get people talking; never two reviews too close together', () => {
+  it('five stars bring a bonus to take on the reviews page and get people talking; never two too close together', () => {
     const { s, guest } = withGuest(31);
     const before = s.coins;
     const count = s.reviews.length;
@@ -62,11 +63,76 @@ describe('reviews', () => {
     expect(s.reviews.length).toBe(count + 1);
     const r = s.reviews.at(-1)!;
     expect(r.stars).toBe(5);
+    expect(['great', 'dish', 'kids', 'tourist']).toContain(r.kind);
     expect(r.bonus.toNumber()).toBe(100 * REVIEW.bonusMeals[5]!);
-    expect(s.coins.sub(before).toNumber()).toBe(r.bonus.toNumber());
+    // Not paid until taken on the page.
+    expect(r.claimed).toBe(false);
+    expect(s.coins.eq(before)).toBe(true);
+    expect(unclaimedBonus(s).toNumber()).toBe(r.bonus.toNumber());
+    queueCommand(s, { type: 'review', id: r.id });
+    stepGame(s, STEP_SEC);
+    expect(r.claimed).toBe(true);
+    expect(s.coins.gte(before.add(r.bonus))).toBe(true);
+    // Taking it again does nothing.
+    const after = s.coins;
+    claimReviews(s, r.id);
+    expect(s.coins.eq(after)).toBe(true);
     expect(buzzing(s)).toBe(true);
     for (let i = 0; i < 200; i++) maybeReview(s, guest, 5, big(100));
     expect(s.reviews.length).toBe(count + 1);
+  });
+
+  it('bad service gets bad reviews that say what went wrong; walking out gets an angry one', () => {
+    const { s, guest } = withGuest(34);
+    for (let i = 0; i < 200 && s.reviews.length === 0; i++) maybeReview(s, guest, 1, big(100));
+    const bad = s.reviews.at(-1)!;
+    expect(bad.stars).toBe(1);
+    expect(['awful', 'slowFood', 'slowLine']).toContain(bad.kind);
+    expect(bad.bonus.toNumber()).toBe(0);
+    expect(bad.claimed).toBe(true);
+    // Nobody seats anyone: people give up in line and some write about it.
+    const t = createGame(STAND_MAP, 35, { roster: [...team] });
+    t.stats.served = REVIEW.afterServed;
+    for (let i = Math.round(600 / STEP_SEC); i > 0; i--) stepGame(t, STEP_SEC);
+    expect(t.stats.walkouts).toBeGreaterThan(3);
+    expect(t.reviews.some((r) => r.kind === 'walkout' && r.stars === 1)).toBe(true);
+  });
+
+  it('a full page drops the oldest review, paying its bonus if it was never taken', () => {
+    const s = createGame(STAND_MAP, 36);
+    for (let i = 0; i < REVIEW.keep; i++) s.reviews.push({ id: s.reviewSeq++, day: 1, stars: 5, kind: 'great', line: 0, name: 0, dish: 0, bonus: big(10), claimed: false });
+    const before = s.coins;
+    s.stats.served = REVIEW.afterServed;
+    const guest = { ...s.customers[0], id: 999, party: 999, dish: 0, type: 'regular', foodWaited: 0, tourist: false } as unknown as GameState['customers'][number];
+    const seq = s.reviewSeq;
+    for (let i = 0; i < 200 && s.reviewSeq === seq; i++) {
+      s.lastReviewTime = -Infinity;
+      maybeReview(s, guest, 4, big(100));
+    }
+    expect(s.reviews.length).toBe(REVIEW.keep);
+    expect(s.coins.sub(before).toNumber()).toBe(10);
+    // Taking everything at once pays the rest in one go.
+    const waiting = unclaimedBonus(s);
+    claimReviews(s, -1);
+    expect(s.coins.sub(before).toNumber()).toBe(10 + waiting.toNumber());
+    expect(s.reviews.every((r) => r.claimed)).toBe(true);
+  });
+
+  it('the page is saved, bonuses not taken yet included', () => {
+    const s = createGame(STAND_MAP, 37);
+    s.reviews.push({ id: s.reviewSeq++, day: 3, stars: 5, kind: 'dish', line: 2, name: 4, dish: 1, bonus: big(50), claimed: false });
+    s.reviews.push({ id: s.reviewSeq++, day: 3, stars: 1, kind: 'walkout', line: 1, name: 2, dish: 0, bonus: big(0), claimed: true });
+    const load = parseSave(JSON.stringify(makeSave(s, 0)));
+    expect(load.ok).toBe(true);
+    if (!load.ok) return;
+    const back = restoreGame(load.save, 1, 0);
+    expect(back.reviews.map((r) => [r.kind, r.stars, r.claimed, r.bonus.toNumber()])).toEqual([['dish', 5, false, 50], ['walkout', 1, true, 0]]);
+    expect(back.reviewSeq).toBeGreaterThan(Math.max(...back.reviews.map((r) => r.id)));
+    // A save from before the page: none, and broken entries dropped.
+    const old = JSON.parse(JSON.stringify(makeSave(s, 0))) as Record<string, unknown>;
+    old.reviews = [{ id: 1, stars: 9, kind: 'nonsense', line: 0, bonus: '5' }];
+    const fixed = parseSave(JSON.stringify(old));
+    expect(fixed.ok && fixed.save.reviews).toEqual([]);
   });
 
   it('a poor review brings no bonus and no crowd', () => {
@@ -84,7 +150,7 @@ describe('reviews', () => {
     play(s, 600, 0);
     expect(s.reviews.length).toBeGreaterThan(2);
     expect(s.reviews.length).toBeLessThanOrEqual(REVIEW.keep);
-    const times = s.reviews.map((r) => r.time);
-    for (let i = 1; i < times.length; i++) expect(times[i]! - times[i - 1]!).toBeGreaterThanOrEqual(REVIEW.minGapSeconds);
+    const ids = s.reviews.map((r) => r.id);
+    for (let i = 1; i < ids.length; i++) expect(ids[i]!).toBeGreaterThan(ids[i - 1]!);
   });
 });

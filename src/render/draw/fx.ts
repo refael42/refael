@@ -43,7 +43,7 @@ const FROM_SCREEN = 1;
 const FX_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 60, [PropKind.Sink]: 44, [PropKind.Fridge]: 80, [PropKind.Pass]: 40, [PropKind.PlatesClean]: 44,
   [PropKind.Table]: 34, [PropKind.Chair]: 34, [PropKind.TableSlot]: 30, [PropKind.Plant]: 60, [PropKind.Neon]: 100, [PropKind.StreetSign]: 70,
-  [PropKind.Flowers]: 50, [PropKind.FloorLamp]: 80, [PropKind.Aquarium]: 56, [PropKind.Statue]: 76, [PropKind.Fountain]: 70, [PropKind.Piano]: 66,
+  [PropKind.Flowers]: 50, [PropKind.Scooter]: 30, [PropKind.PackTable]: 40, [PropKind.FloorLamp]: 80, [PropKind.Aquarium]: 56, [PropKind.Statue]: 76, [PropKind.Fountain]: 70, [PropKind.Piano]: 66,
 };
 
 export interface Camera {
@@ -128,9 +128,6 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
     } else if (type === Ev.Service) {
       // The grade of the service, as a row of stars over the customer's head.
       spawnFx(s, FxKind.Grade, t + 0.1, 1.5, wx, wy - 94, 0, 0, a);
-    } else if (type === Ev.Review) {
-      spawnFx(s, FxKind.LevelUp, t + 0.3, 0.9, wx, wy - 94, 0, 0, 0, a === 5 ? 1 : 0);
-      spawnFx(s, FxKind.Burst, t + 0.3, 0.7, wx, wy - 94);
     } else if (type === Ev.LevelUpRestaurant) {
       // The restaurant levels up: confetti over the dining room.
       for (let k = 0; k < 30; k++) spawnFx(s, FxKind.Confetti, t + k * 0.012, 1.6, wx + Math.sin(k * 1.7) * 90, wy - 70, (k / 30) * Math.PI * 2, 0, k);

@@ -1,4 +1,5 @@
 import { ECONOMY } from '../../data/economy';
+import { claimReviews } from './reviews';
 import { UPGRADES } from '../../data/upgrades';
 import { fromSave } from '../big';
 import { emit, Ev } from './events';
@@ -80,6 +81,8 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Fountain]: 36,
   [PropKind.Piano]: 36,
   [PropKind.SaleSign]: 40,
+  [PropKind.Scooter]: 20,
+  [PropKind.PackTable]: 30,
   [PropKind.LockSign]: 40,
 };
 
@@ -142,6 +145,8 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'testBus':
       return startBus(s);
+    case 'review':
+      return claimReviews(s, cmd.id);
     default:
       break;
   }

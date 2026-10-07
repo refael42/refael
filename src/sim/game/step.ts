@@ -20,7 +20,7 @@ import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
 import { syncFamilyTables } from './create';
-import { parking } from './packing';
+import { parking, slotPoint } from './packing';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
@@ -97,9 +97,10 @@ function dynamicProps(s: GameState): PropView[] {
   let ticket = 0;
   for (const o of s.orders) {
     if (o.state === OrderState.Ready) {
-      const p = s.map.passSlots[o.slot]!;
-      // level 1: a delivery, packed in a takeaway bag.
-      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
+      const p = slotPoint(s, o);
+      // level 1: a delivery, in its takeaway box (on the deliveries' own pass while packers work).
+      const lift = o.lane && s.map.packing ? s.map.packing.passTop : s.map.passTop;
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift, since: o.since, depthBias: 1 }));
     } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
       // Order tickets hang on the rail above the pass, oldest first.
       out.push(

@@ -28,6 +28,11 @@ export interface Mods {
   /** Tables made into square family tables for four. */
   family: number;
   building: number;
+  /** Deliveries: extra couriers' places, scooter speed, the delivery app's price, packing speed. */
+  couriers: number;
+  tripSpeed: number;
+  deliveryPrice: number;
+  packSpeed: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -138,6 +143,10 @@ function emptyMods(): Mods {
     seats: 0,
     family: 0,
     building: 0,
+    couriers: 0,
+    tripSpeed: 1,
+    deliveryPrice: 1,
+    packSpeed: 1,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };

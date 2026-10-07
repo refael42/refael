@@ -21,7 +21,7 @@ import { sprite, type SpriteDef } from './sprite';
 const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
-const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
+const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
 const GLOW_PAD = 4;
 
 /**
@@ -117,7 +117,7 @@ export const LAYERS = {
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
-  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox']]),
+  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink']]),
   bubble: byEnum(Bubble.DishBase + DISH_ICONS.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
@@ -147,6 +147,7 @@ export const LAYERS = {
     fridge: looks('fridge'),
     table: looks('table'),
     tableSquare: looks('tableSquare'),
+    packTable: looks('packTable'),
     chair: looks('chair'),
     chairSeat: looks('chairSeat'),
     chairRest: looks('chairRest'),

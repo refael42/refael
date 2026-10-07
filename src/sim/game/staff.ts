@@ -13,7 +13,7 @@ import { CustomerState, OrderState, TableState, type Customer, type GameState, t
 import { gainXp, walkOut } from './workers';
 import { updateCourier } from './delivery';
 import { updateChecker } from './checker';
-import { packingProgress, parking, updatePacker } from './packing';
+import { freeDeliverySlot, packersOn, packingProgress, parking, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
@@ -124,7 +124,7 @@ export function createStaff(s: GameState, role: Role, person: Person, look: Staf
 
 function freePassSlot(s: GameState): number {
   for (let i = 0; i < s.map.passSlots.length; i++) {
-    if (!s.orders.some((o) => (o.state === OrderState.Ready || o.state === OrderState.Plating) && o.slot === i)) return i;
+    if (!s.orders.some((o) => (o.state === OrderState.Ready || o.state === OrderState.Plating) && o.slot === i && !o.lane)) return i;
   }
   return -1;
 }
@@ -183,8 +183,10 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
       st.facing = Facing.BackLeft;
       return true;
     }
-    // Done cooking: it needs a clean plate (a delivery goes in a bag) and a free spot on the pass.
-    const slot = freePassSlot(s);
+    // Done cooking: it needs a clean plate (a delivery goes in a bag) and a free spot on the pass
+    // (with packers at work, a delivery goes on the deliveries' own pass).
+    const lane = order.delivery && packersOn(s) ? 1 : 0;
+    const slot = lane ? freeDeliverySlot(s) : freePassSlot(s);
     st.stalled = s.cleanPlates <= 0 && !order.delivery ? 'plates' : slot < 0 ? 'pass' : null;
     if (st.stalled) {
       setPose(st, Pose.Idle);
@@ -194,6 +196,8 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     if (!order.delivery) s.cleanPlates -= 1;
     order.state = OrderState.Plating;
     order.slot = slot;
+    if (lane) order.lane = 1;
+    else delete order.lane;
     st.facing = Facing.FrontRight;
     setPose(st, Pose.Idle);
     setJob(st, { kind: 'cook', order: order.id, phase: 'plating' });
@@ -202,7 +206,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
   if (st.jobTime >= KITCHEN.plateSeconds) {
     order.state = OrderState.Ready;
     order.since = s.time;
-    const p = s.map.passSlots[order.slot]!;
+    const p = slotPoint(s, order);
     emit(s, Ev.Ding, p.x, p.y);
     emote(st, Emote.Star);
     st.facing = Facing.BackLeft;
@@ -673,6 +677,7 @@ export function updateStaff(s: GameState, dt: number): void {
   for (const p of s.props) {
     if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
     else if (p.kind === PropKind.Sink) p.active = washing.has(p.variant === 1 ? 1 + s.map.extraSinks.findIndex((e) => e.sink.x === p.x && e.sink.y === p.y) : 0);
+    else if (p.kind === PropKind.DrinksFridge) p.active = s.staff.some((st) => st.job?.kind === 'pack' && st.job.phase === 'fridge');
     else if (p.kind === PropKind.PackTable) {
       // The bags waiting on the window shelf, and whether someone is packing right now.
       p.level = Math.min(PACKING.shelfShown, s.orders.filter((o) => o.delivery && o.packed).length);

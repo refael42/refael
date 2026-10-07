@@ -134,7 +134,7 @@ export function drawScene(
     const px = isoX(d[o + F.x]!, d[o + F.y]!);
     const py = isoY(d[o + F.x]!, d[o + F.y]!);
     if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
-    if (d[o + F.type] === EntityType.Character) drawCharacter(c, A, d, o, alpha, t, selectedId);
+    if (d[o + F.type] === EntityType.Character) drawCharacter(c, A, d, o, alpha, t, selectedId, looks.detail);
     else drawProp(c, A, d, o, t, looks);
   }
   // ...and the picked tile with a see-through preview of the piece, bobbing a little.

@@ -6,9 +6,31 @@ import { statFactor, workRate } from './people';
 import { OrderState, type GameState, type Order, type Staff } from './types';
 import { gainXp } from './workers';
 
-// The packers (src/data/delivery.ts PACKING): they take the delivery bags off the pass, pack
-// them at the counter by the kitchen's front wall, and leave them on the takeaway window's
-// shelf, where the couriers take them from outside.
+// The packers (src/data/delivery.ts PACKING): they take the delivery food off the deliveries'
+// own pass, a cold drink from their fridge, pack both into a bag at the counter by the
+// kitchen's front wall, and leave it on the takeaway window's shelf, where the couriers take
+// it from outside.
+
+/** Where an order waits: on the deliveries' own pass (lane 1) or the main one. */
+export function slotPoint(s: GameState, o: Order): { x: number; y: number } {
+  const lane = o.lane && s.map.packing ? s.map.packing.slots : s.map.passSlots;
+  return lane[o.slot] ?? lane[0]!;
+}
+
+/** Where someone stands to take it: behind the deliveries' pass, or at the main one. */
+export function pickupPoint(s: GameState, o: Order): { x: number; y: number } {
+  const lane = o.lane && s.map.packing ? s.map.packing.pickups : s.map.pickupSpots;
+  return lane[o.slot] ?? lane[0]!;
+}
+
+/** A free place on the deliveries' own pass (-1: full, or none here). */
+export function freeDeliverySlot(s: GameState): number {
+  const slots = s.map.packing?.slots ?? [];
+  for (let i = 0; i < slots.length; i++) {
+    if (!s.orders.some((o) => o.lane && o.slot === i && (o.state === OrderState.Ready || o.state === OrderState.Plating))) return i;
+  }
+  return -1;
+}
 
 /** Packed orders on the window shelf that no courier has taken yet. */
 export const onShelf = (s: GameState): Order[] => s.orders.filter((o) => o.delivery && o.packed && o.waiter < 0);
@@ -65,9 +87,9 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
       st.job = null;
       return false;
     }
-    if (!walkTo(s.map.pickupSpots[order.slot] ?? s.map.pickupSpots[0]!)) return true;
-    // At the pass: reach over for the food box.
-    st.facing = Facing.BackLeft;
+    if (!walkTo(pickupPoint(s, order))) return true;
+    // At the pass: reach over for the food box (the deliveries' own pass is in front of them).
+    st.facing = order.lane ? Facing.FrontLeft : Facing.BackLeft;
     st.job = { ...job, phase: 'take' };
     st.jobTime = 0;
     return true;
@@ -87,6 +109,24 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
     st.held = Held.FoodBox;
     setPose(st, Pose.Idle);
     st.path = [];
+    st.job = { ...job, phase: 'toFridge' };
+    return true;
+  }
+  // A cold drink from the drinks fridge goes into every bag.
+  if (job.phase === 'toFridge') {
+    if (!walkTo(corner.fridgeSpot)) return true;
+    st.facing = Facing.FrontLeft;
+    st.job = { ...job, phase: 'fridge' };
+    st.jobTime = 0;
+    return true;
+  }
+  if (job.phase === 'fridge') {
+    setPose(st, Pose.Cook);
+    st.jobTime += dt * workRate(s, st);
+    if (st.jobTime < PACKING.fridgeSeconds) return true;
+    st.held = Held.FoodDrink;
+    setPose(st, Pose.Idle);
+    st.path = [];
     st.job = { ...job, phase: 'toTable' };
     return true;
   }
@@ -100,7 +140,8 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
     return true;
   }
   setPose(st, Pose.Cook);
-  st.jobTime += dt * workRate(s, st) * statFactor(st.stats.speed);
+  // The packing station's upgrades make it quicker.
+  st.jobTime += dt * workRate(s, st) * statFactor(st.stats.speed) * s.mods.packSpeed;
   if (st.jobTime < PACKING.seconds) return true;
   // Sealed and on the shelf by the window, for the next courier.
   order.packed = true;

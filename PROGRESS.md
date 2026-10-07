@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
 | M24 | Owner: things open as the restaurant grows (wheel, deliveries, family tables, dishes...), worker rarities, square family tables for 4, 5 new dishes, the checker, the packing corner with packers and a takeaway window | ✅ Done |
 | M23 | Owner: the map past the road (far sidewalk, park, plaza, cars) and bigger all round; an eighth building | ✅ Done |
 | M22 | Owner: deliveries (couriers, takeaway bags, scooters) | ✅ Done |
@@ -70,6 +71,39 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M25 (owner: "the delivery station and the couriers can be upgraded, more couriers;
+  deliveries have their own fridge and pass the packers take food from and pack (all animated);
+  the welcome-back money popup is buggy and stutters; the late game still lags; reviews no longer
+  pop up on screen, they get their own page where you claim the money and read them, varied,
+  bad ones too, by the service; stop growing the restaurant only one way, grow it north too"):
+  - **Reviews page** (`src/ui/Reviews.tsx`, chip 💬 under the stars): every review is kept
+    (last 40) with its stars, guest name, the dish and a written line. 10 kinds (great, good, a
+    dish, kids, tourist, ok, slow food, slow line, awful, walked out) with 4–10 lines each in
+    both languages; which kind comes from the stars and what went wrong (a long wait for the
+    food, a long line). Guests who walk out write an angry one sometimes (45%, at most one per
+    30 s, by hash so the dice the game rolls did not change). The bonus is no longer paid on the
+    spot: "take" on a row, or "take all"; when the 41st comes, the oldest unclaimed bonus is paid
+    so nothing is lost. Tabs all / good / bad. The chip shows the coins waiting, else the
+    average. The balance bot claims them. Save v11 keeps them. Tests: tests/reviews.test.ts.
+  - **Delivery upgrades** (a new "delivery" tab): fleet (+1 courier slot a level, up to 6),
+    scooters (trips 5% faster a level, new scooter boxes at the milestones), delivery app
+    (+10% a delivery), packing station (packers 6% faster, a new counter look at the
+    milestones). Tap a scooter or the packing counter to open them.
+  - **The delivery station's own pass and drinks fridge** (from the palace): with packers on
+    the team, the cooks put delivery orders on a small delivery pass next to the packing
+    counter (the main pass stays for the dining room). The packer takes the food box from it,
+    walks to the red drinks fridge (the door opens, they come out with a can), then to the
+    counter and bags both. Couriers park 14 scooters along the front by the window.
+  - **North growth** (`src/data/buildings.ts`): the bistro, grand, empire and galaxy also grow
+    back, the palace, resort and crown grow back and left, so the dining room gets squarer
+    instead of a long strip. Sale and padlock signs face whichever side the next piece grows on.
+    Save v11 moves placed decor with the site.
+  - **Welcome-back popup**: the count-up restarted from 0 on every render (the target was a new
+    number object each time), so it jumped and stuttered. It now runs once, after the opening
+    splash is gone, at 24 updates a second, with fixed-width digits so the text does not wobble.
+  - **Lighter late game**: zoomed out (below 0.62), small details are skipped: chair backs,
+    glasses on the tables, faces and hands on the characters. Crown save (798 entities): draw
+    5.6 → 4.3 ms, 6.6 → 7.9 fps in the software-GL browser.
 - Done in M24 (owner: "as the restaurant grows things open up: couriers, the wheel, new tables
   for more people in a different (square) design, dishes; rarities for workers (common, rare,
   epic, legendary) with levels to match; a checker for the dishes; a packing place connected
@@ -576,6 +610,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M5b busy diner, new RN HUD overlay | ~45 | — | 12.3 |
 | M5b new game during the tutorial (glove + message) | 27 | 0.7 ms | 16–18 |
 | M19/M20 busy bistro (hosts, the tourist bus), production build | ~50 | — | 10.7–12 (zoomed in: ~4.5) |
+| M25 crown, full late-game save, zoomed out, before / after the detail cut | 798 | 5.6 / 4.3 ms draw | 6.6 / 7.9 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -583,7 +618,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 234 unit tests.
+- `npm run check` — typecheck + 367 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
