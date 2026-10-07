@@ -1,6 +1,7 @@
 import { Dish } from '../../data/dishes';
 import type { Look } from '../../data/looks';
 import { NAMES } from '../../data/names';
+import { COMMON_FIRST_HIRES, RARITIES, RARITY, type Rarity } from '../../data/rarity';
 import { APPLICANTS, DAY, ROLES, RUSH, SHIFT, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
 import { TRAIT_FX, TRAIT_LIST, TRAITS, type TraitId } from '../../data/traits';
 import type { Big } from '../big';
@@ -29,23 +30,44 @@ function pickTrait(rng: Rng, taken: readonly TraitId[]): TraitId {
   return pool[0]!.id;
 }
 
-/** What a person asks per day: job x level x how good they are, in today's fries prices. */
-export function wageFor(s: GameState, role: Role, level: number, stats: Person['stats'], traits: readonly TraitId[]): Big {
+/** What a person asks per day: job x level x how good they are (and how rare), in today's fries prices. */
+export function wageFor(s: GameState, role: Role, level: number, stats: Person['stats'], traits: readonly TraitId[], rarity: Rarity = 'common'): Big {
   const avg = STAT_IDS.reduce((sum, k) => sum + stats[k], 0) / STAT_IDS.length;
   const traitMult = traits.reduce((m, t) => m * (TRAITS[t].wage ?? 1), 1);
-  const dishes = ROLES[role].wageDishes * (1 + STAFF.wagePerLevel * (level - 1)) * statFactor(avg) * traitMult;
+  const dishes = ROLES[role].wageDishes * (1 + STAFF.wagePerLevel * (level - 1)) * statFactor(avg) * traitMult * RARITY[rarity].wage;
   return dishPrice(s, Dish.Fries).mul(Math.max(0.5, dishes)).ceil();
 }
 
 /**
- * A new person for a job. Levels grow with the team: better people apply to a bigger place.
- * `average` gives a plain level-1 worker with no traits (the opening cook, old saves).
+ * Which rarity the next applicant has. From a hash, not the game's dice (rarity came later: the
+ * rest of an applicant rolls exactly as before). Bigger buildings tip the odds up.
+ */
+export function rollRarity(s: GameState): Rarity {
+  if (s.stats.hires < COMMON_FIRST_HIRES) return 'common';
+  const tier = s.map.tier;
+  const weights = RARITIES.map((r) => RARITY[r].weight + RARITY[r].perTier * tier);
+  const h = Math.sin((s.nextId + 1) * 12.9898 + s.stats.hires * 78.233 + s.day * 3.71) * 43758.5453;
+  let roll = (h - Math.floor(h)) * weights.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < RARITIES.length; i++) {
+    roll -= weights[i]!;
+    if (roll < 0) return RARITIES[i]!;
+  }
+  return 'common';
+}
+
+/**
+ * A new person for a job. Levels grow with the team: better people apply to a bigger place,
+ * and a rarer person comes in higher, with better stats (src/data/rarity.ts).
+ * `average` gives a plain level-1 common worker with no traits (the opening cook, old saves).
  */
 export function generatePerson(s: GameState, role: Role, average = false): Person {
   const rng = s.rng;
+  const rarity: Rarity = average ? 'common' : rollRarity(s);
+  const lift = RARITY[rarity];
   let level = 1;
   const maxLevel = 1 + Math.floor(Math.log2(1 + s.stats.hires));
   while (!average && level < maxLevel && chance(rng, APPLICANTS.levelUpChance)) level++;
+  level += lift.levels;
   const traits: TraitId[] = [];
   if (!average) {
     traits.push(pickTrait(rng, traits));
@@ -53,10 +75,11 @@ export function generatePerson(s: GameState, role: Role, average = false): Perso
   }
   const stats = {} as Record<StatId, number>;
   for (const k of STAT_IDS) {
-    const base = average ? STAFF.stat.average : typicalStat(level) + int(rng, -2, 3);
+    // The stats follow the level they would have had: the rarity's lift comes on top.
+    const base = average ? STAFF.stat.average : typicalStat(level - lift.levels) + int(rng, -2, 3) + lift.stats;
     stats[k] = clampStat(base + traits.reduce((sum, t) => sum + (TRAITS[t].stats?.[k] ?? 0), 0));
   }
-  return { name: int(rng, 0, NAMES.length), stats, traits, level, wage: wageFor(s, role, level, stats, traits) };
+  return { name: int(rng, 0, NAMES.length), stats, traits, level, rarity, wage: wageFor(s, role, level, stats, traits, rarity) };
 }
 
 /** An applicant's stats are spread around this for their level. */

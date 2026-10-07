@@ -4,6 +4,7 @@ import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
 import { hash01 } from './retention';
 import { boostNow, grantCoins, incomeRate } from './shop';
+import { isOpen } from './unlocks';
 
 // The lucky wheel (src/data/wheel.ts). Pure, like the rest of the sim: the free spin's clock is
 // the phone's (passed in with the command, in ms), and the landing spot comes from a hash, not
@@ -28,7 +29,7 @@ export const freeIn = (w: WheelState, now: number): number => (freeReady(w, now)
 
 /** What a spin would cost now: free (the timer or a stored spin), gems, or not possible. */
 export function spinCost(s: GameState, now: number): 'free' | 'token' | 'gems' | 'none' {
-  if (s.wheel.prize >= 0) return 'none';
+  if (s.wheel.prize >= 0 || !isOpen(s, 'wheel')) return 'none';
   if (freeReady(s.wheel, now)) return 'free';
   if (s.wheel.tokens > 0) return 'token';
   return s.gems >= WHEEL.gemCost ? 'gems' : 'none';
@@ -51,7 +52,8 @@ export function landing(s: GameState): number {
  * segment it lands on, or -1 if it could not spin (a prize still waiting, nothing to pay with).
  */
 export function spinWheel(s: GameState, now: number, paid: boolean): number {
-  if (s.wheel.prize >= 0) return -1;
+  // Opens with the bistro (src/data/unlocks.ts).
+  if (s.wheel.prize >= 0 || !isOpen(s, 'wheel')) return -1;
   if (paid) {
     if (s.gems < WHEEL.gemCost) return -1;
     s.gems -= WHEEL.gemCost;

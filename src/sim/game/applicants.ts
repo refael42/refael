@@ -72,6 +72,8 @@ function spawnApplicant(s: GameState): void {
   };
   a.path = route(s, a, s.map.applicantSpots[spot]!);
   s.applicants.push(a);
+  // An epic or legendary one is news (they do not wait forever either).
+  if (a.rarity === 'epic' || a.rarity === 'legendary') emit(s, Ev.RareApplicant, a.x, a.y, a.rarity === 'legendary' ? 3 : 2);
 }
 
 function send(s: GameState, a: Applicant): void {
@@ -146,7 +148,7 @@ export function hire(s: GameState, id: number, trial: boolean): void {
     if (s.coins.lt(fee)) return;
     s.coins = s.coins.sub(fee);
   }
-  const st = createStaff(s, a.role, { name: a.name, stats: a.stats, traits: a.traits, level: a.level, wage: a.wage }, uniformLook(a.role, a.look), a);
+  const st = createStaff(s, a.role, { name: a.name, stats: a.stats, traits: a.traits, level: a.level, wage: a.wage, rarity: a.rarity }, uniformLook(a.role, a.look), a);
   st.trial = trial;
   st.rank = 0;
   emote(st, Emote.Heart);

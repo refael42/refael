@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { NAMES } from '../data/names';
+import { RARITY, type Rarity } from '../data/rarity';
 import { ROLE_LIST, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { TRAITS, type TraitId } from '../data/traits';
 import { useT } from '../i18n';
@@ -29,7 +30,7 @@ interface Props {
   onClose: () => void;
 }
 
-const ROLE_ICON: Record<Role, SpriteName> = { cook: 'hatToqueF', waiter: 'trayFull', washer: 'plateStack', host: 'seat', cleaner: 'clean', manager: 'clipboard', promoter: 'flyers', courier: 'bag' };
+const ROLE_ICON: Record<Role, SpriteName> = { cook: 'hatToqueF', waiter: 'trayFull', washer: 'plateStack', host: 'seat', cleaner: 'clean', manager: 'clipboard', promoter: 'flyers', courier: 'bag', checker: 'checkBadge', packer: 'packBox' };
 const ICON_PX = 36;
 const roleIcon = (role: Role) => spriteIcon(ROLE_ICON[role], Math.round(ICON_PX * PixelRatio.get()));
 
@@ -141,11 +142,25 @@ function Button({ label, onPress, kind = 'plain', disabled = false }: { label: s
   );
 }
 
+/** Common, rare, epic or legendary: a colored chip (the card's frame takes the color too). */
+function RarityTag({ rarity }: { rarity: Rarity }) {
+  const t = useT();
+  return (
+    <View style={[styles.rarity, { backgroundColor: RARITY[rarity].color }]}>
+      <Text style={styles.rarityText}>{`${RARITY_ICON[rarity]} ${t(`rarity.${rarity}`)}`}</Text>
+    </View>
+  );
+}
+
+const RARITY_ICON: Record<Rarity, string> = { common: '●', rare: '◆', epic: '✦', legendary: '★' };
+/** A frame in the rarity's color (none for common). */
+const frame = (rarity: Rarity) => (rarity === 'common' ? null : { borderWidth: 2, borderColor: RARITY[rarity].color });
+
 function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
   const t = useT();
   const lang = useSettings((s) => s.lang);
   return (
-    <Pressable onPress={onPress} style={styles.row}>
+    <Pressable onPress={onPress} style={[styles.row, frame(p.rarity)]}>
       <Image source={{ uri: roleIcon(p.role) }} style={styles.icon} />
       <View style={styles.rowBody}>
         <View style={styles.line}>
@@ -153,6 +168,7 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
           <Text style={styles.role}>{t(`role.${p.role}`)}</Text>
           <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
           <Text style={styles.lv}>{p.level}</Text>
+          <RarityTag rarity={p.rarity} />
         </View>
         {p.applicant ? (
           <Bar value={p.patience} color="#F4C542" label={t('ui.patience')} />
@@ -184,7 +200,7 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
     return () => clearTimeout(id);
   }, [armed]);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, frame(p.rarity)]}>
       <View style={styles.line}>
         <Image source={{ uri: roleIcon(p.role) }} style={styles.iconBig} />
         <View style={styles.rowBody}>
@@ -193,7 +209,9 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
             <Text style={styles.role}>{t(`role.${p.role}`)}</Text>
             <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
             <Text style={styles.lv}>{p.level}</Text>
+            <RarityTag rarity={p.rarity} />
           </View>
+          {p.rarity !== 'common' && <Text style={styles.rarityPerk}>{t('rarity.perk').replace('{n}', String(Math.round((RARITY[p.rarity].xp - 1) * 100)))}</Text>}
         </View>
         <Money value={p.wage} suffix={t('ui.perDay')} />
       </View>
@@ -361,6 +379,9 @@ const styles = StyleSheet.create({
   coin: { width: 13, height: 13, borderRadius: 7, backgroundColor: '#FFC21A', borderWidth: 1.5, borderColor: '#9A6A00' },
   moneyText: { color: '#FFF4E3', fontWeight: '900', fontSize: 13 },
   moneySuffix: { color: '#C9B3D6', fontWeight: '700', fontSize: 11 },
+  rarity: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8 },
+  rarityText: { color: '#1A0E22', fontSize: 10.5, fontWeight: '900' },
+  rarityPerk: { color: '#C9B3D6', fontSize: 11, fontWeight: '700' },
   card: { backgroundColor: panel.row, borderRadius: 14, padding: 10, gap: 7 },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statLabel: { color: '#C9B3D6', fontSize: 12, fontWeight: '700', minWidth: 64 },

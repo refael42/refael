@@ -1,3 +1,4 @@
+import { RARITY } from '../data/rarity';
 import { BlendMode, Skia, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 import { HAIR_COLORS, PANTS_COLORS, SHIRT_COLORS, SKIN_TONES } from '../data/looks';
 import { Platform } from 'react-native';
@@ -35,6 +36,8 @@ export interface RenderAssets {
     barLow: SkPaint;
     ripple: SkPaint;
     ring: SkPaint;
+    /** Rarity rings at a worker's feet: rare, epic, legendary (src/data/rarity.ts). */
+    rarity: SkPaint[];
     /** Sprite silhouette: the selection outline (white). */
     outline: SkPaint;
     /** Full-screen evening and night light (alpha set per frame). */
@@ -179,6 +182,7 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
       barLow: solid('#F0443A'),
       ripple: strokePaint('#FFFFFF', 2.5),
       ring: strokePaint('#FFFFFF', 3),
+      rarity: [RARITY.rare.color, RARITY.epic.color, RARITY.legendary.color].map((hex) => strokePaint(hex, 2.4, 0.9)),
       outline: silhouette('#FFFFFF'),
       evening: solid('#FF7A2A', 0),
       night: solid('#12123F', 0),

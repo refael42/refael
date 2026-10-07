@@ -19,7 +19,8 @@ function spotsOf(map: MapDef): Point[] {
     out.push(t, { x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
     for (const seat of SEAT_OFFSETS) out.push({ x: t.x + seat.x, y: t.y + seat.y });
   }
-  out.push(...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop);
+  out.push(...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, map.checkerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop);
+  if (map.packing) out.push(map.packing.table, ...map.packing.spots, map.packing.window);
   for (const d of map.doors) out.push(d.inside, { x: d.inside.x - 1, y: d.inside.y }, { x: d.inside.x + 1, y: d.inside.y }, { x: d.inside.x, y: d.inside.y - 1 });
   return out;
 }

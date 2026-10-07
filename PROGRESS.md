@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M24 | Owner: things open as the restaurant grows (wheel, deliveries, family tables, dishes...), worker rarities, square family tables for 4, 5 new dishes, the checker, the packing corner with packers and a takeaway window | ✅ Done |
 | M23 | Owner: the map past the road (far sidewalk, park, plaza, cars) and bigger all round; an eighth building | ✅ Done |
 | M22 | Owner: deliveries (couriers, takeaway bags, scooters) | ✅ Done |
 | M21 | Owner: weekdays with a busier weekend, livelier characters, keep improving (kids, stats, what's new, weekend flags) | ✅ Done |
@@ -69,6 +70,43 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M24 (owner: "as the restaurant grows things open up: couriers, the wheel, new tables
+  for more people in a different (square) design, dishes; rarities for workers (common, rare,
+  epic, legendary) with levels to match; a checker for the dishes; a packing place connected
+  to the deliveries, where online orders come in, packers pack them and hand them to the courier
+  through a window"; mid-turn: "a real animation of the packer going to the pass, taking the
+  food to the packing station, packing it into a bag and giving it to the courier"):
+  - **Unlock ladder** (`src/data/unlocks.ts`, one list for the game and the screens): the bistro
+    opens the lucky wheel, deliveries and the promoter; the grand restaurant family tables, the
+    checker and pizza; the palace the packing corner and sushi; then steak, cake, lobster. The
+    courier's base cap is now 0 (couriers hired at the diner before stay). The wheel button is
+    grey with a padlock and the building's name until then (a tap says which building opens
+    it); in later branches it stays open. The building-up banner lists what just opened; the
+    next-building card lists what it will open.
+  - **Rarities** (`src/data/rarity.ts`): every applicant rolls common 64 / rare 25 / epic 9 /
+    legendary 2 (rarer odds in bigger buildings; the first 2 hires are always common, so the
+    opening pace is unchanged). Rarer = higher starting level, better stats, faster XP and a
+    higher wage. Colored frame and tag on the staff cards, a colored ring at the feet in the
+    world (a glow for legendary), a toast for an epic/legendary applicant. Star workers from
+    the shop are legendary; old saves load as common. Tests: tests/rarity.test.ts.
+  - **Square family tables** (upgrade "family", from the grand restaurant, one per table for
+    two): the table becomes a square table with 4 chairs on the same tiles (it waits until the
+    guests leave). Families of 3-4 (mostly with kids) come only once there are family tables
+    (by hash, so a game without them plays as before). Plates per chair now pack in base 16
+    (13 dishes; base 8 had already broken for ice cream). Tests: tests/family.test.ts.
+  - **5 new dishes** (pizza, sushi, steak, cake, lobster), each with 4 plated looks and an
+    order icon, opening with their building.
+  - **The checker** (from the grand restaurant): stands at the head of the pass and looks over
+    each dish there; a checked dish gets a green tick and sells for +12% (times their quality).
+    They never hold a dish back.
+  - **The packing corner** (from the food palace): a counter in the kitchen's front row with a
+    takeaway window in the front wall (striped awning, a sill for the bags) and a path out to
+    the sidewalk. Packers walk to the pass, lift the open food box, carry it to the counter,
+    put it into a bag (the counter shows each step with a progress ring), and set the bag on
+    the sill; the courier comes to the window and the bag flies through it into their hands.
+    With packers on the team, couriers never walk through the restaurant and their scooters
+    park by the window; packed orders pay +10%. Without packers it works as before. Tests:
+    tests/crew.test.ts.
 - Done in M23 (owner: "make the map bigger past the road, prettier; keep making it bigger"):
   - **Across the road** (the same for every building, `acrossTheStreet` in src/data/maps.ts): a
     far sidewalk (4 strollers of its own, with their own ids and dice so nothing else the game

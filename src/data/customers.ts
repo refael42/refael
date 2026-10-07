@@ -64,8 +64,14 @@ export const CUSTOMER_TYPES: Record<CustomerTypeId, CustomerType> = {
 export const PARTY = {
   /** Chance that a newcomer brings a friend, times the share of tables with two chairs. */
   pairChance: 0.4,
-  /** Where the friend stands next to them in line (tiles). */
-  queueOffset: { x: 0.3, y: 0.42 },
+  /** Where the others stand around them in line (tiles): the friend first. */
+  queueOffsets: [{ x: 0.3, y: 0.42 }, { x: -0.32, y: 0.38 }, { x: 0.02, y: 0.66 }] as readonly { x: number; y: number }[],
+  /** Where they show up next to the leader. */
+  spawnOffsets: [{ x: -0.4, y: 0.3 }, { x: 0.35, y: 0.32 }, { x: -0.1, y: 0.62 }] as readonly { x: number; y: number }[],
+  /** Of the pairs, the share that are families of 3-4, times the family tables per table for two. */
+  familyChance: 0.7,
+  /** A family's third and fourth: this often a child. */
+  familyKidChance: 0.75,
   /** Chance that the friend is a child (families: not with students), drawn smaller. Just the look. */
   kidChance: 0.3,
   kidTypes: ['regular', 'tourist', 'relaxed'] as readonly CustomerTypeId[],

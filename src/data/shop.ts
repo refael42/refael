@@ -60,6 +60,8 @@ export const SHOP_BY_ID: Readonly<Record<string, ShopItem>> = Object.fromEntries
 
 /** Star workers: a high level, top skills in the job's main stats, two good traits. */
 export const STAR = {
+  /** Star workers are legendary (src/data/rarity.ts). */
+  rarity: 'legendary' as const,
   level: 6,
   mainStat: 10,
   otherStat: 8,

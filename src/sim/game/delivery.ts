@@ -1,4 +1,4 @@
-import { DELIVERY } from '../../data/delivery';
+import { DELIVERY, PACKING } from '../../data/delivery';
 import { DISHES } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import { big } from '../big';
@@ -12,6 +12,7 @@ import { emit, Ev } from './events';
 import { statFactor, workRate } from './people';
 import { OrderState, type GameState, type Order, type Staff } from './types';
 import { gainXp } from './workers';
+import { onShelf, packersOn } from './packing';
 
 // Deliveries (src/data/delivery.ts): orders without a guest. They come in only while a courier
 // is on the team, go through the kitchen like any other order (in a bag, no plate), and pay when
@@ -21,8 +22,8 @@ type DeliverJob = Extract<Staff['job'], { kind: 'deliver' }>;
 
 const couriersOf = (s: GameState) => s.staff.filter((st) => st.role === 'courier' && !st.leaving);
 
-/** Delivery orders not out of the door yet. */
-const waitingOrders = (s: GameState) => s.orders.filter((o) => o.delivery && o.state !== OrderState.Carried);
+/** Delivery orders not out of the door yet (packed ones on the window shelf too). */
+const waitingOrders = (s: GameState) => s.orders.filter((o) => o.delivery && (o.state !== OrderState.Carried || o.packed));
 
 /** How many bags a courier takes at once: two from `bigBagLevel`. */
 export const bagSize = (st: Staff): number => (st.level >= DELIVERY.bigBagLevel ? 2 : 1);
@@ -33,7 +34,7 @@ export function updateDeliveries(s: GameState): void {
   for (const o of waitingOrders(s)) {
     const claimed = o.waiter >= 0 && s.staff.some((st) => st.id === o.waiter);
     if (s.time - o.since < DELIVERY.cancelSeconds || claimed || o.state === OrderState.Cooking || o.state === OrderState.Plating) continue;
-    const p = o.slot >= 0 ? s.map.passSlots[o.slot]! : s.map.ticketRail ? { x: s.map.ticketRail.x, y: s.map.ticketRail.y0 } : { x: 0, y: 0 };
+    const p = o.slot >= 0 ? s.map.passSlots[o.slot]! : o.packed && s.map.packing ? s.map.packing.table : { x: s.map.ticketRail.x, y: s.map.ticketRail.y0 };
     s.orders.splice(s.orders.indexOf(o), 1);
     const r = ECONOMY.rating;
     s.rating = Math.max(r.min, Math.min(r.max, s.rating + DELIVERY.cancelRating));
@@ -60,17 +61,32 @@ export function updateDeliveries(s: GameState): void {
 
 /** What one delivery brings in: the bill with the delivery fee, and the tip. */
 function deliveryPay(s: GameState, st: Staff, o: Order) {
-  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * boostNow(s) * festivalBonus(s)).floor();
+  // Packed by a packer: sealed and neat, worth a little more.
+  const packed = o.packed === false ? PACKING.priceMult : 1;
+  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * packed * boostNow(s) * festivalBonus(s)).floor();
   const tip = price.mul(DELIVERY.tip * statFactor(st.stats.charm) * s.mods.tips).floor();
   return price.add(tip);
 }
 
-/** The courier: wait by the scooter, fetch ready bags from the pass, ride off, come back paid. */
+/**
+ * The courier: wait by the scooter, fetch ready bags (from the takeaway window once packers
+ * work there, otherwise from the pass), ride off, come back paid.
+ */
 export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: { x: number; y: number }) => boolean, home: { x: number; y: number }): boolean {
   let job = st.job?.kind === 'deliver' ? st.job : null;
   if (!job) {
     if (st.leaving || st.pendingRole) return false;
-    const ready = s.orders.filter((o) => o.delivery && o.state === OrderState.Ready && o.waiter < 0).sort((a, b) => a.since - b.since);
+    const shelf = s.map.packing ? onShelf(s).sort((a, b) => a.since - b.since) : [];
+    if (shelf.length > 0) {
+      const take = shelf.slice(0, bagSize(st));
+      for (const o of take) o.waiter = st.id;
+      st.path = [];
+      st.job = { kind: 'deliver', orders: take.map((o) => o.id), phase: 'toWindow', left: 0, back: 0 };
+      st.jobTime = 0;
+      return true;
+    }
+    // With packers on the team the pass is theirs: the couriers wait for the window.
+    const ready = packersOn(s) ? [] : s.orders.filter((o) => o.delivery && o.state === OrderState.Ready && o.waiter < 0).sort((a, b) => a.since - b.since);
     if (ready.length === 0) {
       if (walkTo(home)) {
         setPose(st, Pose.Idle);
@@ -86,6 +102,30 @@ export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: 
     job = st.job;
   }
   const orders = job.orders.map((id) => s.orders.find((o) => o.id === id)).filter((o): o is Order => o !== undefined);
+  if (job.phase === 'toWindow') {
+    const bags = orders.filter((o) => o.packed);
+    const corner = s.map.packing;
+    if (bags.length === 0 || !corner) return drop(st, orders);
+    if (walkTo(corner.window)) {
+      setPose(st, Pose.Idle);
+      st.facing = Facing.BackRight;
+      // Handed out through the window: off the sill and into the courier's hands (packed =
+      // false: it was packed, and pays as such).
+      for (const o of bags) o.packed = false;
+      st.job = { ...job, orders: bags.map((o) => o.id) };
+      emit(s, Ev.BagHandoff, corner.table.x, corner.table.y + 0.5, st.x, st.y, bags.length);
+      setPhase(st, st.job, 'window');
+    }
+    return true;
+  }
+  if (job.phase === 'window') {
+    st.jobTime += dt * workRate(s, st);
+    if (st.jobTime < PACKING.windowSeconds) return true;
+    st.held = Held.Bag;
+    st.path = [];
+    setPhase(st, job, 'toScooter');
+    return true;
+  }
   if (job.phase === 'toPass' || job.phase === 'pack') {
     const ready = orders.filter((o) => o.state === OrderState.Ready);
     if (ready.length === 0) return drop(st, orders);
@@ -150,7 +190,7 @@ function setPhase(st: Staff, job: DeliverJob, phase: DeliverJob['phase']): void 
 
 /** Nothing left to take (a cancelled order): let go of the claim and stand down. */
 function drop(st: Staff, orders: Order[]): boolean {
-  for (const o of orders) if (o.state !== OrderState.Carried) o.waiter = -1;
+  for (const o of orders) if (o.state !== OrderState.Carried || o.packed) o.waiter = -1;
   st.job = null;
   st.jobTime = 0;
   st.path = [];

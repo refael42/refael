@@ -10,15 +10,17 @@ import { DAY } from '../../data/staff';
 import { updateApplicants } from './applicants';
 import { applyCommands } from './commands';
 import { updateConstruction } from './construction';
-import { finishWork } from './purchase';
+import { finishWork, UPGRADE_QUIET } from './purchase';
 import { updateWorks } from './works';
 import { updateArrivals, updateCustomers } from './customers';
-import { packEvents, pruneEvents } from './events';
+import { emit, Ev, packEvents, pruneEvents } from './events';
 import { anchorPoints, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
+import { syncFamilyTables } from './create';
+import { parking } from './packing';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
@@ -56,6 +58,8 @@ export function stepGame(s: GameState, dt: number): void {
   updateApplicants(s, dt);
   landFlyingDishes(s);
   updateTables(s, dt);
+  // A family table bought while its table for two was busy grows once the guests are gone.
+  if (s.mods.family > 0) for (const t of syncFamilyTables(s)) emit(s, Ev.Upgrade, t.x, t.y, 1, UPGRADE_QUIET, PropKind.Table);
   logEarnings(s);
   updateGift(s);
   updateBus(s);
@@ -75,12 +79,14 @@ function dynamicProps(s: GameState): PropView[] {
   const out: PropView[] = [];
   for (const t of s.tables) {
     const dirty = t.state === TableState.Dirty || t.state === TableState.Cleaning;
-    // level packs what is on it: the dirty plates, or each chair's dish (+1, 0 = none) in base 8.
-    const dishes = t.dishes.reduce((sum, d, seat) => sum + (d + 1) * 8 ** seat, 0);
+    // level packs what is on it: the dirty plates, or each chair's dish (+1, 0 = none) in base 16.
+    const dishes = t.dishes.reduce((sum, d, seat) => sum + (d + 1) * 16 ** seat, 0);
     out.push(
       prop(t.propId, PropKind.Table, t.x, t.y, {
         variant: dirty ? 2 : t.state === TableState.Occupied && dishes > 0 ? 1 : 0,
         level: dirty ? t.plates : dishes,
+        // A square family table for four.
+        active: t.seats > 2,
         since: t.since,
         progress: t.state === TableState.Cleaning ? t.progress : 0,
         bubble: t.state === TableState.Dirty && t.waiter < 0 ? Bubble.Clean : 0,
@@ -93,7 +99,7 @@ function dynamicProps(s: GameState): PropView[] {
     if (o.state === OrderState.Ready) {
       const p = s.map.passSlots[o.slot]!;
       // level 1: a delivery, packed in a takeaway bag.
-      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: o.delivery ? 1 : 0, active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift: s.map.passTop, since: o.since, depthBias: 1 }));
     } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
       // Order tickets hang on the rail above the pass, oldest first.
       out.push(
@@ -141,7 +147,7 @@ function dynamicProps(s: GameState): PropView[] {
   // drives it: `since` = left, `progress` = back).
   for (const st of s.staff) {
     if (st.role !== 'courier' || st.leaving) continue;
-    const p = s.map.scooterSpots[st.slot % s.map.scooterSpots.length]!;
+    const p = parking(s, st.slot, false);
     const job = st.job?.kind === 'deliver' && st.job.phase === 'away' ? st.job : null;
     out.push(prop(SYNTH - 400 - st.slot, PropKind.Scooter, p.x, p.y, { variant: st.slot, active: job !== null, since: job?.left ?? 0, progress: job?.back ?? 0 }));
   }

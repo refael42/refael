@@ -2,7 +2,7 @@ import { newFestival } from '../festival';
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
 import { DECOR, DECOR_BY_ID, placeRow, type DecorId } from '../../data/decor';
-import { BACKREST_SHIFT, SEAT_OFFSETS, type Furniture, type MapDef, type Point } from '../../data/maps';
+import { BACKREST_SHIFT, FAMILY_SEATS, SEAT_OFFSETS, seatOffsetsFor, type Furniture, type MapDef, type Point } from '../../data/maps';
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
 import { GEMS } from '../../data/shop';
@@ -105,13 +105,14 @@ function restoreDecor(s: GameState, placed: readonly PlacedDecor[]): void {
 }
 
 /**
- * Chair props for one seat. The first chair has its back to the wall side and is one piece;
- * the second one faces it, so its backrest is a separate prop drawn in front of the sitter.
+ * Chair props for one seat. A chair on the -x side has its back to the wall side and is one
+ * piece; one on the +x side faces it, so its backrest is a separate prop drawn in front of the
+ * sitter. `seats`: how many the table has (a family table sets them two by two).
  */
-function addChair(s: GameState, t: { x: number; y: number }, seat: number): void {
-  const o = SEAT_OFFSETS[seat]!;
+function addChair(s: GameState, t: { x: number; y: number }, seat: number, seats: number): void {
+  const o = seatOffsetsFor(seats)[seat]!;
   const at = { x: t.x + o.x, y: t.y + o.y, w: 1, d: 1, blocks: true };
-  if (seat === 0) {
+  if (o.x < 0) {
     s.props.push(propFrom(s.nextId++, { kind: PropKind.Chair, ...at }));
     return;
   }
@@ -124,9 +125,10 @@ export function addTable(s: GameState, rebuild = true): Table | null {
   const spot = s.map.tables[s.tables.length];
   if (!spot) return null;
   const index = s.tables.length;
-  // Tables are paired up in order: the first `seats` of them have their second chair.
-  const seats = index < s.mods.seats ? 2 : 1;
-  for (let seat = 0; seat < seats; seat++) addChair(s, spot, seat);
+  // Tables are paired up in order: the first `seats` of them have their second chair, and the
+  // first `family` of those are square tables for four.
+  const seats = index < s.mods.family ? FAMILY_SEATS.length : index < s.mods.seats ? 2 : 1;
+  for (let seat = 0; seat < seats; seat++) addChair(s, spot, seat, seats);
   const table: Table = {
     index,
     propId: s.nextId++,
@@ -150,12 +152,34 @@ export function addTable(s: GameState, rebuild = true): Table | null {
 export function addSeat(s: GameState, rebuild = true): Table | null {
   const t = s.tables.find((x) => x.seats < SEAT_OFFSETS.length);
   if (!t) return null;
-  addChair(s, t, t.seats);
+  addChair(s, t, t.seats, t.seats + 1);
   t.seats += 1;
   t.party.push(-1);
   t.dishes.push(-1);
   if (rebuild) rebuildGrid(s);
   return t;
+}
+
+/**
+ * Family tables bought: the first tables for two become square tables for four, each as soon as
+ * nobody sits there (the chairs move, so not under anyone). Same tiles, so the room is unchanged.
+ * Returns the tables changed now.
+ */
+export function syncFamilyTables(s: GameState): Table[] {
+  const out: Table[] = [];
+  const n = Math.min(s.mods.family, s.tables.length);
+  for (let i = 0; i < n; i++) {
+    const t = s.tables[i]!;
+    if (t.seats !== SEAT_OFFSETS.length || t.state !== TableState.Free || t.party.some((id) => id >= 0)) continue;
+    // Off with the two chairs (the backrest too): they stand within a tile of the table.
+    s.props = s.props.filter((p) => !(p.kind === PropKind.Chair && Math.abs(p.x - t.x) < 1 && Math.abs(p.y - t.y) < 0.5));
+    t.seats = FAMILY_SEATS.length;
+    for (let seat = 0; seat < t.seats; seat++) addChair(s, t, seat, t.seats);
+    t.party = new Array<number>(t.seats).fill(-1);
+    t.dishes = new Array<number>(t.seats).fill(-1);
+    out.push(t);
+  }
+  return out;
 }
 
 /** Installs the next stove spot (room for one more cook). */
@@ -191,6 +215,7 @@ export function workerOf(st: Staff): SavedWorker {
     traits: [...st.traits],
     level: st.level,
     wage: st.wage,
+    rarity: st.rarity,
     xp: st.xp,
     morale: st.morale,
     look: { ...st.look },

@@ -92,6 +92,12 @@ export const Ev = {
   Delivered: 46,
   /** A delivery waited too long for a courier and was cancelled; (x,y) = where it was. */
   DeliveryCancel: 47,
+  /** An epic (a = 2) or legendary (a = 3) applicant set off for the door. */
+  RareApplicant: 48,
+  /** A packer put a packed order on the takeaway window's shelf; (x,y) = the packing counter. */
+  Packed: 49,
+  /** Bags handed out through the takeaway window from (x,y) (the sill) to the courier at (a,b); c = how many. */
+  BagHandoff: 50,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

@@ -12,6 +12,9 @@ import { has, managerOnShift, statFactor, workRate } from './people';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
 import { updateCourier } from './delivery';
+import { updateChecker } from './checker';
+import { packingProgress, parking, updatePacker } from './packing';
+import { PACKING } from '../../data/delivery';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => ({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
@@ -36,7 +39,13 @@ export function homeOf(s: GameState, st: Staff): Point {
     case 'promoter':
       return s.map.promoterSpots[st.slot % s.map.promoterSpots.length]!;
     case 'courier':
-      return s.map.courierSpots[st.slot % s.map.courierSpots.length]!;
+      return parking(s, st.slot, true);
+    case 'checker':
+      return s.map.checkerSpot;
+    case 'packer': {
+      const spots = s.map.packing?.spots ?? [s.map.washerSpot];
+      return spots[st.slot % spots.length]!;
+    }
   }
 }
 
@@ -52,10 +61,13 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
   promoter: Facing.FrontLeft,
   // Beside the scooter, looking up the road for the next ride.
   courier: Facing.BackLeft,
+  // Down along the pass, over the dishes.
+  checker: Facing.FrontLeft,
+  packer: Facing.FrontLeft,
 };
 
 /** What each job carries when not carrying food or plates. */
-const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard, promoter: Held.Flyers, host: Held.Menu };
+const TOOL: Partial<Record<Role, Held>> = { cook: Held.Spatula, manager: Held.Clipboard, promoter: Held.Flyers, host: Held.Menu, checker: Held.Clipboard };
 
 /** The first free slot for a job (stoves for cooks, idle spots for the others). */
 export function freeSlot(s: GameState, role: Role, except?: Staff): number {
@@ -651,6 +663,8 @@ export function updateStaff(s: GameState, dt: number): void {
     else if (st.role === 'manager') busy = updateManager(s, st, dt);
     else if (st.role === 'promoter') busy = updatePromoter(s, st, dt);
     else if (st.role === 'courier') busy = updateCourier(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
+    else if (st.role === 'checker') busy = updateChecker(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
+    else if (st.role === 'packer') busy = updatePacker(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
     else busy = updateRunner(s, st, dt);
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;
@@ -659,6 +673,12 @@ export function updateStaff(s: GameState, dt: number): void {
   for (const p of s.props) {
     if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
     else if (p.kind === PropKind.Sink) p.active = washing.has(p.variant === 1 ? 1 + s.map.extraSinks.findIndex((e) => e.sink.x === p.x && e.sink.y === p.y) : 0);
+    else if (p.kind === PropKind.PackTable) {
+      // The bags waiting on the window shelf, and whether someone is packing right now.
+      p.level = Math.min(PACKING.shelfShown, s.orders.filter((o) => o.delivery && o.packed).length);
+      p.progress = packingProgress(s);
+      p.active = p.progress > 0;
+    }
   }
 }
 

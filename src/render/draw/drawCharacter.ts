@@ -5,7 +5,7 @@ import { C, F, type Packed } from '../../sim/snapshot';
 import { Emote, Expression, Held, Pose } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
-import { clamp01, easeOutBack, spr, sprFade, sprXf } from './primitives';
+import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
 
 const ARM_R = 0.165;
 
@@ -91,7 +91,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     farArm = s * 0.045;
     bob = Math.abs(Math.cos(t * 9 + phase)) * 1.3;
     // Leaning into the walk and rocking from foot to foot; carefully upright with a full tray.
-    const careful = held === Held.TrayFull || held === Held.DirtyPlates;
+    const careful = held === Held.TrayFull || held === Held.DirtyPlates || held === Held.FoodBox;
     lean = (careful ? 1 : 3) + s * (careful ? 0.5 : 1.4);
     // Setting off: a little push forward.
     if (poseTime < 0.2) lean += Math.sin((poseTime / 0.2) * Math.PI) * 3;
@@ -184,7 +184,11 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   const v = viewB ? 1 : 0;
   const pick = (front: number, back: number) => (v === 1 ? back : front);
 
-  const kid = d[o + C.rank] === KID_RANK;
+  // The rank field carries the badge (or VIP / child) in its ones and the rarity in its tens.
+  const rankRaw = d[o + C.rank]!;
+  const rank = rankRaw % 10;
+  const rarity = Math.floor(rankRaw / 10);
+  const kid = rank === KID_RANK;
   c.save();
   c.translate(isoX(wx, wy) + shake, isoY(wx, wy));
   if (kid) {
@@ -200,13 +204,28 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     c.restore();
     P.ring.setAlphaf(1);
   }
+  if (rarity > 0) {
+    // A rare, epic or legendary worker (or applicant): a colored ring at their feet; the
+    // legendary ones also glow and glitter.
+    const ring = P.rarity[rarity - 1]!;
+    ring.setAlphaf(0.55 + Math.sin(t * 3 + phase) * 0.25);
+    c.save();
+    c.scale(1, 0.5);
+    c.drawCircle(0, 0, 12 + rarity, ring);
+    c.restore();
+    if (rarity === 3) {
+      sprFade(c, A, S.glowHalo, 0, -14, 0.9, 0.35 + Math.sin(t * 3.4 + phase) * 0.15);
+      const sp = fract(t * 0.8 + phase);
+      sprFade(c, A, S.sparkle, Math.sin(phase * 7 + Math.floor(t * 0.8 + phase)) * 12, -12 - sp * 34, 0.5 + sp * 0.3, 1 - sp);
+    }
+  }
   if (showLegs) {
     // The shadow shrinks as they leave the floor.
     const k = 1 - Math.min(0.35, hop * 0.035);
     sprXf(c, A, S.charShadow, 0, 0, 0, k, k, P.plain);
   }
   // A VIP guest: a golden glow at their feet (the crown comes with the overlays).
-  if (d[o + C.rank] === VIP_RANK) sprFade(c, A, S.glowHalo, 0, -16, 1.15, 0.55 + Math.sin(t * 4) * 0.2);
+  if (rank === VIP_RANK) sprFade(c, A, S.glowHalo, 0, -16, 1.15, 0.55 + Math.sin(t * 4) * 0.2);
   if (hop > 0) c.translate(0, -hop);
   if (flip) c.scale(-1, 1);
   if (lean !== 0) c.rotate(lean, 0, 0);
@@ -231,7 +250,6 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   if (outfit === Outfit.Hoodie) spr(c, A, pick(S.hoodF, S.hoodB), 0, up, shirt);
   spr(c, A, viewB ? L.outfit.B[outfit]! : L.outfit.F[outfit]!, 0, up, P.plain);
   if (accessory === Accessory.Camera) spr(c, A, pick(S.cameraF, S.cameraB), 0, up, P.plain);
-  const rank = d[o + C.rank]!;
   if (rank > 0 && rank < VIP_RANK && !viewB) {
     // Senior staff wear a badge: silver, then gold.
     sprXf(c, A, S.rankStar, lx(false, 0.16, -0.12), ly(false, 0.16, -0.12, 19) + up, 0, 0.75, 0.75, rank >= 2 ? P.gold : P.white);
@@ -275,7 +293,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
       const sx = lx(viewB, 0.04, -ARM_R);
       const sy = ly(viewB, 0.04, -ARM_R, 10) + up - Math.max(0, Math.sin(t * 7 + phase)) * 4;
       spr(c, A, L.held[held]!, sx, sy, P.plain);
-    } else if (held === Held.Clipboard || held === Held.Flyers || held === Held.Bag) {
+    } else if (held === Held.Clipboard || held === Held.Flyers || held === Held.Bag || held === Held.FoodBox) {
       // Held low against the chest, not in front of the face like a phone.
       spr(c, A, L.held[held]!, hx, hy + 9, P.plain);
     } else {
@@ -291,13 +309,14 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
   const emote = d[o + C.emote]!;
   const patience = d[o + C.patience]!;
   const bubble = d[o + C.bubble]!;
-  if (emote === 0 && patience < 0 && bubble === 0 && d[o + C.rank] !== VIP_RANK) return;
+  const rank = d[o + C.rank]! % 10;
+  if (emote === 0 && patience < 0 && bubble === 0 && rank !== VIP_RANK) return;
   const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
   const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
   const x = isoX(wx, wy);
-  let top = isoY(wx, wy) - (d[o + C.rank] === KID_RANK ? 42 : 54);
+  let top = isoY(wx, wy) - (rank === KID_RANK ? 42 : 54);
   const P = A.paints;
-  if (d[o + C.rank] === VIP_RANK) {
+  if (rank === VIP_RANK) {
     // The VIP's crown, bobbing over everything else above their head.
     sprXf(c, A, A.S.crown, x, top - 26 - Math.abs(Math.sin(t * 3)) * 3, Math.sin(t * 2) * 8, 1.3, 1.3, P.plain);
   }

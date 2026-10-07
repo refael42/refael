@@ -31,6 +31,7 @@ export const VALUE = {
   tables: 0.6,
   stoves: 0.5,
   seats: 0.3,
+  family: 0.3,
   /** A new dish on the menu (more choice, a pricier plate). */
   newDish: 0.4,
   /** How many to show in the "best value" list. */

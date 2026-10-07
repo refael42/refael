@@ -13,7 +13,7 @@ import { FESTIVAL_THEMES } from '../data/events';
 // bus. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant];
 
 interface Toast {
   id: number;
@@ -46,7 +46,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant;
   const reward = festive ? '' : [toast.coins > 0 ? `+${formatNumber(toast.coins)} 🪙` : '', toast.gems > 0 ? `+${toast.gems} 💎` : ''].filter(Boolean).join('  ');
   const text = textOf(toast, reward, t);
   return (
@@ -79,6 +79,8 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t('toast.firstDelivery');
     case Ev.DeliveryCancel:
       return t('toast.deliveryCancel');
+    case Ev.RareApplicant:
+      return t(toast.coins === 3 ? 'toast.legendary' : 'toast.epic');
     case Ev.Weekend:
       return t('toast.weekend').replace('{n}', String(toast.coins));
     default:

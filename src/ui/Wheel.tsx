@@ -10,6 +10,9 @@ import { usePoll } from '../render/useSimulation';
 import { formatBig } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { freeIn, prizeCoins, spinCost } from '../sim/wheel';
+import { isOpen } from '../sim/unlocks';
+import { TIERS } from '../data/buildings';
+import { UNLOCK_TIER } from '../data/unlocks';
 import { Overlay } from './Overlay';
 import { gold, panel, textShadow } from './theme';
 
@@ -51,8 +54,11 @@ const readWheel = (s: GameState) => {
 /** Is there a spin to take (free, saved, or a prize waiting)? For the button's glow. */
 const readButton = (s: GameState) => {
   const r = readWheel(s);
-  return { ready: r.cost === 'free' || r.cost === 'token' || r.prize >= 0, secondsLeft: r.secondsLeft };
+  return { ready: r.cost === 'free' || r.cost === 'token' || r.prize >= 0, secondsLeft: r.secondsLeft, locked: !isOpen(s, 'wheel') };
 };
+
+/** How long the "opens with..." note stays up after tapping the locked wheel. */
+const LOCKED_NOTE_MS = 2600;
 
 /** The short label on a segment. */
 function shortLabel(prize: WheelPrize, coins: string, t: (k: string) => string): string {
@@ -80,18 +86,42 @@ export function WheelButton({ gameRef, onPress, style }: { gameRef: { current: G
     turn.value = ready ? withRepeat(withTiming(360, { duration: 5000, easing: Easing.linear }), -1, false) : 0;
   }, [turn, ready]);
   const turnStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${turn.value}deg` }] }));
+  const [note, setNote] = useState(false);
+  useEffect(() => {
+    if (!note) return;
+    const id = setTimeout(() => setNote(false), LOCKED_NOTE_MS);
+    return () => clearTimeout(id);
+  }, [note]);
   if (!d) return null;
   const px = Math.round(BUTTON_FACE * PixelRatio.get());
+  // Not open yet (src/data/unlocks.ts): grey, a padlock, and a tap says which building opens it.
+  const opensWith = t(`tier.${TIERS[UNLOCK_TIER.wheel]!.id}`);
   return (
     <View style={[styles.buttonWrap, style]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="lucky wheel" onPress={onPress} hitSlop={6} style={styles.button}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="lucky wheel"
+        onPress={() => {
+          if (!d.locked) return onPress();
+          tapFeedback();
+          setNote(true);
+        }}
+        hitSlop={6}
+        style={[styles.button, d.locked && styles.buttonLocked]}
+      >
         <Animated.Image source={{ uri: wheelIcon('wheelFace', px) }} style={[styles.buttonFace, turnStyle]} />
         <Image source={{ uri: wheelIcon('wheelHub', px) }} style={styles.buttonFace} />
       </Pressable>
-      {ready ? <View style={styles.dot} /> : null}
-      <View pointerEvents="none" style={[styles.buttonTag, ready && styles.buttonTagFree]}>
-        <Text style={styles.buttonTagText}>{ready ? t('wheel.free') : clock(d.secondsLeft)}</Text>
+      {ready && !d.locked ? <View style={styles.dot} /> : null}
+      {d.locked ? <Text style={styles.padlock}>🔒</Text> : null}
+      <View pointerEvents="none" style={[styles.buttonTag, ready && !d.locked && styles.buttonTagFree]}>
+        <Text style={styles.buttonTagText}>{d.locked ? opensWith : ready ? t('wheel.free') : clock(d.secondsLeft)}</Text>
       </View>
+      {note ? (
+        <View pointerEvents="none" style={styles.lockedNote}>
+          <Text style={styles.lockedNoteText}>{t('unlock.opensWith').replace('{tier}', opensWith)}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -355,6 +385,21 @@ const styles = StyleSheet.create({
   buttonTag: { position: 'absolute', bottom: -7, alignSelf: 'center', paddingHorizontal: 5, borderRadius: 7, backgroundColor: '#2A1530', borderWidth: 1.2, borderColor: gold },
   buttonTagFree: { backgroundColor: '#35B957', borderColor: '#B9F5A8' },
   buttonTagText: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '900' },
+  buttonLocked: { opacity: 0.45 },
+  padlock: { position: 'absolute', top: 12, alignSelf: 'center', fontSize: 20 },
+  lockedNote: {
+    position: 'absolute',
+    bottom: 62,
+    start: -30,
+    width: 160,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    backgroundColor: 'rgba(42,21,48,0.95)',
+    borderWidth: 1.5,
+    borderColor: gold,
+  },
+  lockedNoteText: { color: '#FFF4E3', fontSize: 12, fontWeight: '800', textAlign: 'center' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12, borderRadius: 20, borderWidth: 2.5, borderColor: gold, backgroundColor: panel.bg, overflow: 'hidden' },
   rays: { position: 'absolute' },
   label: { position: 'absolute', width: 64, textAlign: 'center', color: '#FFFFFF', fontSize: 13, fontWeight: '900', ...textShadow('#120818', 1.5, 2) },

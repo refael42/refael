@@ -64,7 +64,7 @@ function hireStar(s: GameState, role: ShopItem & { kind: 'star' }): void {
   const main = ROLES[role.role].primary;
   const stats = Object.fromEntries(STAT_IDS.map((k) => [k, main.includes(k) ? STAR.mainStat : STAR.otherStat])) as Record<StatId, number>;
   const traits = [...STAR.traits];
-  const person = { name: int(s.rng, 0, NAMES.length), stats, traits, level: STAR.level, wage: wageFor(s, role.role, STAR.level, stats, traits) };
+  const person = { name: int(s.rng, 0, NAMES.length), stats, traits, level: STAR.level, rarity: STAR.rarity, wage: wageFor(s, role.role, STAR.level, stats, traits, STAR.rarity) };
   const door = s.map.doors[0]!.inside;
   const st = createStaff(s, role.role, person, uniformLook(role.role, applicantLook(s.rng)), door);
   st.rank = 2;

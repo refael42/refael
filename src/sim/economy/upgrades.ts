@@ -25,6 +25,8 @@ export interface Mods {
   tables: number;
   stoves: number;
   seats: number;
+  /** Tables made into square family tables for four. */
+  family: number;
   building: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
@@ -90,6 +92,8 @@ export function capOf(def: UpgradeDef, map: MapDef, levels: Levels): number | un
   if (def.spots === 'tables') return map.tables.length - map.startTables;
   if (def.spots === 'stoves') return map.stoves.length - map.startStoves;
   if (def.spots === 'seats') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'));
+  // A family table is a table for two made bigger.
+  if (def.spots === 'family') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'), levelOf(levels, 'seats'));
   if (def.max !== undefined || def.id === RANK.id) return def.max;
   return levelCap(levels);
 }
@@ -132,6 +136,7 @@ function emptyMods(): Mods {
     tables: 0,
     stoves: 0,
     seats: 0,
+    family: 0,
     building: 0,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),

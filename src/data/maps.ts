@@ -1,5 +1,6 @@
 import { PropKind as K, type PropKind } from '../sim/types';
 import { TIERS, type DiningFloor, type Grow } from './buildings';
+import { UNLOCK_TIER } from './unlocks';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -80,6 +81,14 @@ export interface MapDef {
   pickupSpots: Point[];
   /** The shift manager's post: the end of the pass, where dishes are called out. */
   managerSpot: Point;
+  /** The checker's post: the head of the pass, by the back wall, looking down along the dishes. */
+  checkerSpot: Point;
+  /**
+   * The packing corner (from the building that opens it, src/data/unlocks.ts): the counter by
+   * the kitchen's front wall with the takeaway window, where the packers stand, and the spot
+   * outside the window where couriers take the bags (a path leads there from the sidewalk).
+   */
+  packing: { table: Furniture; spots: Point[]; window: Point; scooters: Point[]; couriers: Point[] } | null;
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
   hostSpot: Point;
@@ -122,7 +131,19 @@ export interface MapDef {
 export const CHAIR_OFFSET: Point = { x: -0.62, y: 0 };
 /** Seats around a table: the first chair, then the one opposite it (bought: "More chairs"). */
 export const SEAT_OFFSETS: readonly Point[] = [CHAIR_OFFSET, { x: 0.62, y: 0 }];
-export const MAX_SEATS = SEAT_OFFSETS.length;
+/**
+ * A square family table (owner request): two chairs on each side. The chairs stay in the same
+ * tiles as a couple's, so nothing about the room changes but how many sit there.
+ */
+export const FAMILY_SEATS: readonly Point[] = [
+  { x: -0.62, y: -0.26 },
+  { x: 0.62, y: -0.26 },
+  { x: -0.62, y: 0.26 },
+  { x: 0.62, y: 0.26 },
+];
+export const MAX_SEATS = FAMILY_SEATS.length;
+/** Where each chair of a table with this many seats stands. */
+export const seatOffsetsFor = (seats: number): readonly Point[] => (seats > SEAT_OFFSETS.length ? FAMILY_SEATS : SEAT_OFFSETS);
 /** Where staff stand to serve or clear a table: its front edge, clear of both chairs. */
 export const SERVE_OFFSET: Point = { x: 0, y: 0.75 };
 /**
@@ -360,6 +381,25 @@ function buildMap(tier: number): MapDef {
   const nextRight = future.find((f) => f.tier === tier + 1 && f.piece.x0 >= x1);
   // From the sidewalk to the door, while there is a front yard.
   const path: Area[] = y1 < STREET_Y ? [{ x0: Math.floor(door), y0: y1, x1: Math.floor(door) + 1, y1: STREET_Y, floor: 'path', walkable: true }] : [];
+  // The packing corner: its counter in the kitchen's front row, next to the dining room (clear
+  // of the stoves, the sinks and the fridge in every kitchen), the packers behind and beside it,
+  // and outside the takeaway window a path of its own out to the sidewalk.
+  const packing: MapDef['packing'] =
+    tier >= UNLOCK_TIER.packer
+      ? {
+          table: { kind: K.PackTable, x: KX - 1.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
+          spots: [
+            { x: KX - 1.5, y: y1 - 1.45 },
+            { x: KX - 2.55, y: y1 - 0.62 },
+            { x: KX - 2.55, y: y1 - 1.55 },
+          ],
+          window: { x: KX - 1.5, y: y1 + 0.55 },
+          // While packers work here the scooters park by the window (the bags come out there).
+          scooters: Array.from({ length: 8 }, (_, i) => ({ x: KX + 0.4 + i * 1.6, y: STREET_Y + 1.72 })),
+          couriers: Array.from({ length: 8 }, (_, i) => ({ x: KX + 1.15 + i * 1.6, y: STREET_Y + 1.62 })),
+        }
+      : null;
+  if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
   return {
     id: t.id,
     tier,
@@ -426,6 +466,8 @@ function buildMap(tier: number): MapDef {
       { x: x1 - 3.5, y: y1 - 1.6 },
       { x: x1 - 2.4, y: y1 - 2.7 },
     ],
+    checkerSpot: { x: KX - 1.5, y: r.y0 + 0.55 },
+    packing,
     // At the end of the pass, where dishes are called out.
     managerSpot: { x: KX - 0.5, y: deep ? r.y0 + 1 + passLength + 0.6 : r.y0 + 4.6 },
     cleanerIdle: [
@@ -467,6 +509,7 @@ function buildMap(tier: number): MapDef {
     ticketRail: { x: KX - 1.9, y0: r.y0 + 1.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
     decor: [
       { kind: K.Fridge, x: r.x0 + 0.5, y: fridgeY, w: 1, d: 1, blocks: true },
+      ...(packing ? [packing.table] : []),
       { kind: K.Plant, x: KX + 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true },
       { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
       { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },

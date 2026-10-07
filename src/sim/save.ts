@@ -13,6 +13,7 @@ import { questLevel } from './quests';
 import { GEMS, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
 import { newWheel } from './wheel';
+import { RARITIES, type Rarity } from '../data/rarity';
 import { FESTIVAL, FESTIVAL_THEMES } from '../data/events';
 import { newFestival } from './festival';
 
@@ -77,6 +78,7 @@ function plainWorker(role: Role, name: number): WorkerData {
     stats: { speed: 5, quality: 5, charm: 5, stamina: 5 },
     traits: [],
     level: 1,
+    rarity: 'common',
     wage: toSave(fromSave(`${4 * ROLES[role].wageDishes}`)),
     xp: 0,
     morale: STAFF.morale.start,
@@ -224,6 +226,8 @@ function cleanWorker(raw: unknown): WorkerData | null {
     stats,
     traits: (Array.isArray(raw.traits) ? raw.traits : []).filter((t): t is TraitId => typeof t === 'string' && t in TRAITS),
     level: finite(raw.level) && raw.level >= 1 ? Math.floor(raw.level) : 1,
+    // Workers hired before there were rarities count as common.
+    rarity: RARITIES.includes(raw.rarity as Rarity) ? (raw.rarity as Rarity) : 'common',
     wage: raw.wage,
     xp: finite(raw.xp) && raw.xp >= 0 ? raw.xp : 0,
     morale: finite(raw.morale) ? Math.max(0, Math.min(1, raw.morale)) : STAFF.morale.start,

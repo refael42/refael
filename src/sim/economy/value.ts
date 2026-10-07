@@ -26,6 +26,7 @@ function amounts(m: Mods, map: MapDef): Record<Weighted, number> {
     tables,
     stoves: map.startStoves + m.stoves,
     seats: tables + m.seats,
+    family: tables + m.seats + 2 * m.family,
   };
 }
 

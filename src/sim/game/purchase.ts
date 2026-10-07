@@ -8,7 +8,7 @@ import { PropKind } from '../types';
 import { startConstruction } from './construction';
 import { DECOR } from '../../data/decor';
 import { autoTile, canPlaceAt } from './build';
-import { addSeat, addStove, addTable, placeDecor, rebuildGrid } from './create';
+import { addSeat, addStove, addTable, placeDecor, rebuildGrid, syncFamilyTables } from './create';
 import { chairOf, route } from './customers';
 import { pathStillClear } from '../grid';
 import { emit, Ev } from './events';
@@ -143,6 +143,12 @@ function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean,
     const table = addSeat(s, !batch);
     moved = true;
     fx = table ? [chairOf(table, 1)] : [];
+  }
+  // A family table: the next table for two grows now (or as soon as its guests are gone).
+  if (s.mods.family > before.family) {
+    syncFamilyTables(s);
+    const t = s.tables[s.mods.family - 1];
+    fx = t ? [t] : [];
   }
   if (moved && !batch) rerouteWalkers(s);
   s.bumpAt[def.anchor] = s.time;

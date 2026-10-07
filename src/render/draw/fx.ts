@@ -1,4 +1,5 @@
 import type { SkCanvas } from '@shopify/react-native-skia';
+import { PACKING } from '../../data/delivery';
 import { ECONOMY } from '../../data/economy';
 import { Ev } from '../../sim/game/events';
 import { formatNumber } from '../../sim/format';
@@ -18,7 +19,7 @@ const EXPANDS: readonly number[] = UPGRADES.filter((u) => u.expands).map((u) => 
 
 export const FxKind = {
   Text: 1, Coin: 2, Bill: 3, Burst: 4, Poof: 5, Dish: 6, Ripple: 7, Ding: 8, Cross: 9, StarFly: 10, StarDrop: 11, PlateFly: 12,
-  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16, Grade: 17, Flyer: 18, MenuFly: 19,
+  LevelUp: 13, Confetti: 14, ScreenText: 15, Dust: 16, Grade: 17, Flyer: 18, MenuFly: 19, BagFly: 20,
 } as const;
 const STRIDE = 10;
 const CAP = 160;
@@ -144,6 +145,12 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       const ty = isoY(a, ev[o + E.b]!);
       const dish = ev[o + E.c]!;
       spawnFx(s, FxKind.Dish, t, ECONOMY.serveFlightSeconds, wx, wy - 30, tx, ty - 18, dish, snap.dishTiers[dish] ?? 0);
+    } else if (type === Ev.BagHandoff) {
+      // The packed bag leaves the window sill and lands in the courier's hands.
+      spawnFx(s, FxKind.BagFly, t, PACKING.windowSeconds, wx, wy - 19, isoX(a, ev[o + E.b]!), isoY(a, ev[o + E.b]!) - 30);
+    } else if (type === Ev.Packed) {
+      // A bag is done and set on the sill.
+      spawnFx(s, FxKind.Ding, t, 0.5, isoX(ex, ey + 0.5), isoY(ex, ey + 0.5) - 26);
     } else if (type === Ev.Burst) {
       spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 22);
     } else if (type === Ev.Poof) {
@@ -319,6 +326,11 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
       const dx = x + (d[o + X1]! - x) * e + Math.sin(p * Math.PI * 3) * 4;
       const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 18;
       sprXf(c, A, A.S.flyers, dx, dy, Math.sin(p * Math.PI * 4) * 25, 0.9, 0.9, P.plain);
+    } else if (kind === FxKind.BagFly) {
+      const e = p * p * (3 - 2 * p);
+      const dx = x + (d[o + X1]! - x) * e;
+      const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 16;
+      sprXf(c, A, A.S.bag, dx, dy, Math.sin(p * Math.PI) * -15, 1, 1, P.plain);
     } else if (kind === FxKind.PlateFly) {
       const e = p * p * (3 - 2 * p);
       const dx = x + (d[o + X1]! - x) * e;

@@ -1,4 +1,5 @@
 import { PropKind as K, type PropKind } from '../sim/types';
+import { UNLOCK_TIER } from './unlocks';
 import { TIERS } from './buildings';
 import { Dish } from './dishes';
 
@@ -12,8 +13,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
  * `plates` and `tables` are counts. `price` is per dish.
  */
-export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'building'];
+export type Stat = 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building'];
 
 export interface Effect {
   stat: Stat;
@@ -47,7 +48,7 @@ export interface UpgradeDef {
   /** Capacity tracks stop here; endless tracks leave it out. */
   max?: number;
   /** Capacity tracks limited by the free spots of the current building instead (or, for chairs, by the tables). */
-  spots?: 'tables' | 'stoves' | 'seats';
+  spots?: 'tables' | 'stoves' | 'seats' | 'family';
   /** Level 1 adds this dish to the menu. */
   unlocksDish?: Dish;
   /** Bought by placing it on a free tile in build mode (one level = one more on the floor). */
@@ -94,6 +95,22 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'iceCream', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9e7, growth: 1.18, unlocksDish: Dish.IceCream,
     requires: { item: 'shakshuka', level: 10 },
     effect: { stat: 'price', per: 0.3, dish: Dish.IceCream }, milestone: { stat: 'price', factor: 2, dish: Dish.IceCream } },
+  // Each opens with its building (src/data/unlocks.ts), at about that building's own price.
+  { id: 'pizza', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9e8, growth: 1.18, unlocksDish: Dish.Pizza,
+    requires: { item: 'building', level: UNLOCK_TIER.pizza },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Pizza }, milestone: { stat: 'price', factor: 2, dish: Dish.Pizza } },
+  { id: 'sushi', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 9e9, growth: 1.185, unlocksDish: Dish.Sushi,
+    requires: { item: 'building', level: UNLOCK_TIER.sushi },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Sushi }, milestone: { stat: 'price', factor: 2, dish: Dish.Sushi } },
+  { id: 'steak', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 2.4e11, growth: 1.185, unlocksDish: Dish.Steak,
+    requires: { item: 'building', level: UNLOCK_TIER.steak },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Steak }, milestone: { stat: 'price', factor: 2, dish: Dish.Steak } },
+  { id: 'cake', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 2e12, growth: 1.19, unlocksDish: Dish.Cake,
+    requires: { item: 'building', level: UNLOCK_TIER.cake },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Cake }, milestone: { stat: 'price', factor: 2, dish: Dish.Cake } },
+  { id: 'lobster', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 2.4e13, growth: 1.19, unlocksDish: Dish.Lobster,
+    requires: { item: 'building', level: UNLOCK_TIER.lobster },
+    effect: { stat: 'price', per: 0.3, dish: Dish.Lobster }, milestone: { stat: 'price', factor: 2, dish: Dish.Lobster } },
 
   // Kitchen: speed, and quality (= every dish sells for more).
   // Global multipliers grow slowly on purpose: they stack with every recipe level.
@@ -117,6 +134,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // A second chair at the next table: room for a couple (who only come once there is room).
   { id: 'seats', category: 'front', anchor: K.Table, restyle: null, baseCost: 200, growth: 2.3, spots: 'seats',
     effect: { stat: 'seats', per: 1 }, milestone: null },
+  // Owner request: "new tables for more people, a different design, say square". From the
+  // grand restaurant on, a table for two becomes a square family table for four.
+  { id: 'family', category: 'front', anchor: K.Table, restyle: null, baseCost: 2e6, growth: 1.6, spots: 'family',
+    requires: { item: 'building', level: UNLOCK_TIER.family }, effect: { stat: 'family', per: 1 }, milestone: null },
   { id: 'cloth', category: 'front', anchor: K.Table, restyle: 'anchor', baseCost: 25, growth: 1.16,
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
   { id: 'chairs', category: 'front', anchor: K.Chair, restyle: 'anchor', baseCost: 20, growth: 1.15,

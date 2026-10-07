@@ -7,6 +7,8 @@ import { EntityType } from './types';
  */
 export const STRIDE = 25;
 
+const RARITY_INDEX = { common: 0, rare: 1, epic: 2, legendary: 3 } as const;
+
 /** Fields shared by every record. */
 export const F = { type: 0, x: 1, y: 2, px: 3, py: 4, id: 5 } as const;
 
@@ -126,7 +128,10 @@ function writeCharacter(d: Packed, o: number, c: CharacterView): void {
   d[o + C.emoteTime] = c.emoteTime;
   d[o + C.patience] = c.patience;
   d[o + C.bubble] = c.bubble;
-  d[o + C.rank] = c.rank ?? 0;
+  // The rarity rides in the tens: rank % 10 is the badge (or VIP / child), rank / 10 the rarity.
+  // (Workers and applicants have one; customers and strollers do not.)
+  const rarity = (c as { rarity?: keyof typeof RARITY_INDEX }).rarity ?? 'common';
+  d[o + C.rank] = (c.rank ?? 0) + 10 * RARITY_INDEX[rarity];
   d[o + C.patienceKind] = c.patienceKind ?? 0;
 }
 

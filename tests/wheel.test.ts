@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { STAND_MAP } from '../src/data/maps';
+import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
 import { WHEEL, WHEEL_SEGMENTS } from '../src/data/wheel';
 import { queueCommand } from '../src/sim/game/commands';
-import { createGame } from '../src/sim/game/create';
+import { createGame, type GameSetup } from '../src/sim/game/create';
 import { Ev } from '../src/sim/game/events';
 import { stepGame } from '../src/sim/game/step';
 import { CustomerState } from '../src/sim/game/types';
@@ -12,9 +12,21 @@ import { addWheelToken, collectWheel, FREE_MS, freeIn, freeReady, landing, prize
 
 const NOW = 1_800_000_000_000;
 
+/** The wheel opens with the bistro (src/data/unlocks.ts). */
+const game = (seed: number, setup: GameSetup = {}) => createGame(mapForTier(1), seed, { ...setup, levels: { building: 1, ...setup.levels } });
+
 describe('lucky wheel', () => {
+  it('is locked in the first diner, open from the bistro and in every later branch', () => {
+    const diner = createGame(STAND_MAP, 1);
+    expect(spinCost(diner, 0)).toBe('none');
+    expect(spinWheel(diner, 0, false)).toBe(-1);
+    expect(spinCost(game(1), 0)).toBe('free');
+    diner.city = 1;
+    expect(spinCost(diner, 0)).toBe('free');
+  });
+
   it('has a free spin at once, then one every few hours of real time', () => {
-    const s = createGame(STAND_MAP, 1);
+    const s = game(1);
     expect(spinCost(s, NOW)).toBe('free');
     expect(spinWheel(s, NOW, false)).toBe(WHEEL.firstSegment);
     collectWheel(s);
@@ -26,7 +38,7 @@ describe('lucky wheel', () => {
   });
 
   it('waits for the prize to be taken before the next spin, and pays it once', () => {
-    const s = createGame(STAND_MAP, 1, { gems: 0 });
+    const s = game(1, { gems: 0 });
     spinWheel(s, NOW, false);
     expect(s.gems).toBe(0);
     expect(spinCost(s, NOW + FREE_MS)).toBe('none');
@@ -38,7 +50,7 @@ describe('lucky wheel', () => {
   });
 
   it('uses stored spins from cleared stages, then gems', () => {
-    const s = createGame(STAND_MAP, 1, { gems: WHEEL.gemCost + 3 });
+    const s = game(1, { gems: WHEEL.gemCost + 3 });
     spinWheel(s, NOW, false);
     collectWheel(s);
     for (let i = 0; i < WHEEL.maxTokens + 2; i++) addWheelToken(s);
@@ -55,7 +67,7 @@ describe('lucky wheel', () => {
   });
 
   it('cannot be bought without enough gems', () => {
-    const s = createGame(STAND_MAP, 1);
+    const s = game(1);
     spinWheel(s, NOW, false);
     collectWheel(s);
     s.gems = WHEEL.gemCost - 1;
@@ -65,7 +77,7 @@ describe('lucky wheel', () => {
   });
 
   it('lands on every segment about as often as its weight says', () => {
-    const s = createGame(STAND_MAP, 3);
+    const s = game(3);
     s.wheel.spins = 1;
     const hits = WHEEL_SEGMENTS.map(() => 0);
     const n = 20000;
@@ -80,7 +92,7 @@ describe('lucky wheel', () => {
 
   it('pays coins as minutes of income, gems, a boost, or the jackpot', () => {
     for (const [i, seg] of WHEEL_SEGMENTS.entries()) {
-      const s = createGame(STAND_MAP, 1, { gems: 0 });
+      const s = game(1, { gems: 0 });
       s.wheel = { nextFree: 0, tokens: 0, spins: 5, prize: i };
       const coins = s.coins;
       const value = prizeCoins(s, seg.prize);
@@ -99,7 +111,7 @@ describe('lucky wheel', () => {
   });
 
   it('a prize does not count as income, so the next prize is not inflated by it', () => {
-    const s = createGame(STAND_MAP, 1);
+    const s = game(1);
     for (let i = Math.round(60 / STEP_SEC); i > 0; i--) {
       for (const c of s.customers) if (c.state === CustomerState.Queued) queueCommand(s, { type: 'seat', customer: c.id });
       stepGame(s, STEP_SEC);
@@ -114,7 +126,7 @@ describe('lucky wheel', () => {
   });
 
   it('goes through the command queue and is saved', () => {
-    const s = createGame(STAND_MAP, 1);
+    const s = game(1);
     queueCommand(s, { type: 'spin', now: NOW, paid: false });
     stepGame(s, STEP_SEC);
     expect(s.wheel.prize).toBe(WHEEL.firstSegment);
@@ -128,7 +140,7 @@ describe('lucky wheel', () => {
   });
 
   it('starts fresh from a save made before the wheel, and drops a broken one', () => {
-    const s = createGame(STAND_MAP, 1);
+    const s = game(1);
     const raw = makeSave(s, 1000) as unknown as Record<string, unknown>;
     delete raw.wheel;
     const old = parseSave(JSON.stringify(raw));

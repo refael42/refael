@@ -53,6 +53,10 @@ export const LOOKS = {
   // The courier: a red delivery jacket (a hoodie), a cap and the insulated delivery backpack.
   courier: { outfit: Outfit.Hoodie, hair: Hair.Short, hairColor: 1, skin: 2, shirt: SHIRT.tomato, pants: PANTS.denim, hat: Hat.Cap, accessory: Accessory.Backpack },
   promoter: { outfit: Outfit.Tee, hair: Hair.Curly, hairColor: 2, skin: 3, shirt: SHIRT.mustard, pants: PANTS.denim, hat: Hat.Cap, accessory: Accessory.Sunglasses },
+  // The checker: a chef's jacket in charcoal, a bandana and reading glasses (the eye for detail).
+  checker: { outfit: Outfit.Chef, hair: Hair.Bob, hairColor: 2, skin: 4, shirt: SHIRT.charcoal, pants: PANTS.black, hat: Hat.Bandana, accessory: Accessory.Glasses },
+  // The packer: the delivery team's red, in a tee and a cap.
+  packer: { outfit: Outfit.Tee, hair: Hair.Ponytail, hairColor: 3, skin: 1, shirt: SHIRT.tomato, pants: PANTS.khaki, hat: Hat.Cap, accessory: Accessory.None },
 } satisfies Record<string, Look>;
 
 const idle = (seconds: number, extra: Partial<Extract<RoutineStep, { do: 'act' }>> = {}): RoutineStep => ({

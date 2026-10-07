@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { cancelAnimation, Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from 'react-native-reanimated';
+import { unlocksAt } from '../data/unlocks';
 import { TIERS } from '../data/buildings';
 import { mapForTier, type MapDef } from '../data/maps';
 import { ROLES } from '../data/staff';
@@ -103,6 +104,7 @@ function NextBuilding({ level }: { level: number }) {
   const next = TIERS[level + 1];
   if (!now || !next) return null;
   const tables = mapForTier(level + 1).tables.length - mapForTier(level).tables.length;
+  const opens = unlocksAt(level + 1);
   const staff = Object.keys(ROLES).reduce((sum, r) => sum + ((next.staff[r as keyof typeof ROLES] ?? 0) - (now.staff[r as keyof typeof ROLES] ?? 0)), 0);
   const perk = (value: string, label: string) => (
     <View style={styles.perk}>
@@ -122,6 +124,18 @@ function NextBuilding({ level }: { level: number }) {
         {perk(`x${+(next.arrivals / now.arrivals).toFixed(2)}`, t('stat.arrivals'))}
         {perk(`x${+(next.price / now.price).toFixed(2)}`, t('stat.price'))}
       </View>
+      {/* What the next building opens (src/data/unlocks.ts): something to look forward to. */}
+      {opens.length > 0 && (
+        <View style={[styles.line, styles.perks]}>
+          <Text style={styles.stat}>{t('unlock.opens')}</Text>
+          {opens.map((u) => (
+            <View key={u.id} style={styles.perk}>
+              <Text style={styles.valueNext}>{u.icon}</Text>
+              <Text style={styles.stat}>{t(u.name)}</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </>
   );
 }

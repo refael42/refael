@@ -54,13 +54,13 @@ function silhouette(c: SkCanvas, A: RenderAssets, i: number, paint: SkPaint, w: 
 }
 
 /** The main sprite of a prop, used to outline or glow it. -1 = none. */
-function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number): number {
+function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number, active: boolean): number {
   'worklet';
   const L = A.L.look;
   if (kind === PropKind.Stove) return look(L.stove, tier);
   if (kind === PropKind.Sink) return look(L.sink, tier);
   if (kind === PropKind.Fridge) return look(L.fridge, tier);
-  if (kind === PropKind.Table) return look(L.table, tier);
+  if (kind === PropKind.Table) return look(active ? L.tableSquare : L.table, tier);
   if (kind === PropKind.Chair) return look(variant === 2 ? L.chairRest : variant === 1 ? L.chairSeat : L.chair, tier);
   if (kind === PropKind.Plant) return look(variant === 1 ? L.plantBush : L.plantPalm, tier);
   if (kind === PropKind.Neon) return look(L.neonBoard, tier);
@@ -168,22 +168,32 @@ function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier
  * A table and what is on it. `level` packs it (see the sim's table snapshot): while eating,
  * each chair's dish + 1 in base 8 (chair 0 first); when dirty, the number of plates left.
  */
-function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: Packed): void {
+function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: Packed, square: boolean): void {
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
-  spr(c, A, look(A.L.look.table, tier), 0, 0, plain);
+  spr(c, A, look(square ? A.L.look.tableSquare : A.L.look.table, tier), 0, 0, plain);
   const top = oy(0, 0, 17);
-  if (variant === 1) {
-    const d0 = (level % 8) - 1;
-    const d1 = (Math.floor(level / 8) % 8) - 1;
+  // level packs each chair's dish (+1, 0 = none) in base 16 (src/sim/game/step.ts).
+  const meal = (dish: number, x: number, y: number, gx: number, gy: number) => {
+    spr(c, A, look(A.L.plate[dish]!, dishTiers[dish] ?? 0), ox(x, y), oy(x, y, 17), plain);
+    spr(c, A, S.glass, ox(gx, gy), oy(gx, gy, 17), plain);
+  };
+  if (variant === 1 && square) {
+    // Four chairs: a plate on each corner, in front of whoever sits there (the far row first).
+    for (const seat of [0, 1, 2, 3]) {
+      const dish = (Math.floor(level / 16 ** seat) % 16) - 1;
+      if (dish < 0) continue;
+      const sx = seat % 2 === 0 ? -0.17 : 0.17;
+      const sy = seat < 2 ? -0.2 : 0.2;
+      meal(dish, sx, sy, sx * 1.6, sy - 0.12);
+    }
+  } else if (variant === 1) {
+    const d0 = (level % 16) - 1;
+    const d1 = (Math.floor(level / 16) % 16) - 1;
     // Alone at the table the plate sits in the middle; a couple each get theirs on their side.
-    const meal = (dish: number, x: number, y: number, gx: number) => {
-      spr(c, A, look(A.L.plate[dish]!, dishTiers[dish] ?? 0), ox(x, y), oy(x, y, 17), plain);
-      spr(c, A, S.glass, ox(gx, -0.14), oy(gx, -0.14, 17), plain);
-    };
-    if (d0 >= 0) meal(d0, d1 >= 0 ? -0.12 : 0.06, 0.06, -0.12);
-    if (d1 >= 0) meal(d1, 0.16, 0.06, 0.18);
+    if (d0 >= 0) meal(d0, d1 >= 0 ? -0.12 : 0.06, 0.06, -0.12, -0.14);
+    if (d1 >= 0) meal(d1, 0.16, 0.06, 0.18, -0.14);
   } else if (variant === 2) {
     spr(c, A, S.stain, 0, 0, plain);
     spr(c, A, S.plateDirty, ox(0.05, 0.05), oy(0.05, 0.05, 17), plain);
@@ -212,7 +222,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const k = Math.sin(since * Math.PI * 5.5) * (1 - since / 0.55) * 0.14;
     c.scale(1 - k, 1 + k);
   }
-  const base = baseSprite(A, kind, variant, tier);
+  const base = baseSprite(A, kind, variant, tier, active);
   // Chairs come by the dozen right next to their glowing table: they keep no aura of their own.
   const crowd = kind === PropKind.Chair || kind === PropKind.Table;
   if (base >= 0 && tier >= AURA_TIER && kind !== PropKind.Chair && (looks.detail || !crowd)) {
@@ -229,7 +239,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   if (kind === PropKind.Stove) drawStove(c, A, active, t, tier);
   else if (kind === PropKind.Sink) drawSink(c, A, active, t, tier);
   else if (kind === PropKind.Table) {
-    drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers);
+    drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers, active);
   } else if (kind === PropKind.Chair) {
     // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
     spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);
@@ -276,9 +286,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const age = t - d[o + PF.since]!;
     const pop = age < 0.35 ? easeOutBack(clamp01(age / 0.35)) : 1;
     const bobY = -Math.abs(Math.sin(t * 3 + seed)) * 2.5;
-    // A delivery waits in its takeaway bag for the courier.
-    if (d[o + PF.level]! === 1) sprXf(c, A, S.bag, 0, bobY, 0, pop * 1.15, pop * 1.15, plain);
+    // A delivery waits in its takeaway box to be packed (level bit 1); bit 2: the checker passed it.
+    const flags = d[o + PF.level]!;
+    if (flags % 2 === 1) sprXf(c, A, S.foodBox, 0, bobY, 0, pop * 1.15, pop * 1.15, plain);
     else sprXf(c, A, look(A.L.plate[variant]!, looks.dishTiers[variant] ?? 0), 0, bobY, 0, pop, pop, plain);
+    if (flags >= 2) spr(c, A, S.checkBadge, 7, -14 + bobY, plain);
     if (age > 0.2) {
       const ring = 1 + fract(t * 0.9 + seed) * 0.8;
       A.paints.fade.setAlphaf(0.9 - fract(t * 0.9 + seed) * 0.9);
@@ -359,6 +371,44 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   else if (kind === PropKind.Car) spr(c, A, A.L.car[variant % A.L.car.length]!, 0, 0, plain);
   else if (kind === PropKind.Stall) spr(c, A, A.L.stall[variant % A.L.stall.length]!, 0, 0, plain);
   else if (kind === PropKind.Slide) spr(c, A, S.slide, 0, 0, plain);
+  else if (kind === PropKind.PackTable) {
+    // The packing counter; the packed bags wait on the window sill (level = how many), and
+    // a few sparkles while someone packs.
+    spr(c, A, S.packTable, 0, 0, plain);
+    const bags = d[o + PF.level]!;
+    for (let i = 0; i < bags; i++) {
+      const bx = -0.33 + i * 0.22;
+      sprXf(c, A, S.bag, ox(bx, 0.5), oy(bx, 0.5, 19), 0, 0.8, 0.8, plain);
+    }
+    if (active) {
+      // Packing, step by step: the open box beside an open bag, the box lifted into the bag,
+      // then the bag folded shut; a ring over the counter shows how far along it is.
+      // Drawn a size up, on the front half of the counter (the flat boxes stand at the back).
+      const prog = d[o + PF.progress]!;
+      const big = 1.4;
+      const bx = 0.18;
+      const by = 0.12;
+      const fx0 = -0.12;
+      if (prog < 0.45) {
+        sprXf(c, A, S.foodBox, ox(fx0, by), oy(fx0, by, 18), 0, big, big, plain);
+        sprXf(c, A, S.bagOpen, ox(bx, by), oy(bx, by, 18), 0, big, big, plain);
+      } else if (prog < 0.8) {
+        const k = (prog - 0.45) / 0.35;
+        const fx = fx0 + (bx - fx0) * k;
+        const lift = Math.sin(k * Math.PI) * 14 - k * 8;
+        // Over the bag first, then down inside it (drawn behind the bag's front).
+        const shrink = big * (k > 0.6 ? 1 - (k - 0.6) * 0.6 : 1);
+        if (k > 0.6) sprXf(c, A, S.foodBox, ox(fx, by), oy(fx, by, 18) - lift, 0, shrink, shrink, plain);
+        sprXf(c, A, S.bagOpen, ox(bx, by), oy(bx, by, 18), 0, big, big, plain);
+        if (k <= 0.6) sprXf(c, A, S.foodBox, ox(fx, by), oy(fx, by, 18) - lift, 0, big, big, plain);
+      } else {
+        const k = (prog - 0.8) / 0.2;
+        const pop = big * (1 + Math.sin(k * Math.PI) * 0.15);
+        sprXf(c, A, S.bag, ox(bx, by), oy(bx, by, 18), 0, pop, pop, plain);
+      }
+      hint(c, A, 0, oy(0, 0, 18) - 38, S.bag, prog, t);
+    }
+  }
   else if (kind === PropKind.ParkFountain) {
     spr(c, A, S.parkFountain, 0, 0, plain);
     // The water glitters and splashes, every droplet a pure function of time.

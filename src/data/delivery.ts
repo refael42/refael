@@ -25,3 +25,23 @@ export const DELIVERY = {
   /** The scooter's drive off and back in on screen (s). */
   driveSeconds: 2,
 };
+
+/**
+ * The packing corner (owner request: "a place that packs, connected with the deliveries, where
+ * online orders come in, workers pack them and hand them to the courier through a window").
+ * It opens with a bigger building (src/data/unlocks.ts): packers take the delivery bags off the
+ * pass, pack them at the counter by the front wall, and leave them on the takeaway window's
+ * shelf; couriers take them from outside, without walking through the kitchen.
+ */
+export const PACKING = {
+  /** Packing one order (seconds at speed 5). */
+  seconds: 2.2,
+  /** Lifting the food box off the pass. */
+  takeSeconds: 0.4,
+  /** The bag handed out through the window into the courier's hands (its flight on screen). */
+  windowSeconds: 0.6,
+  /** Packed orders sell for a little more (sealed, neat, still hot). */
+  priceMult: 1.1,
+  /** Bags the shelf shows at most (more wait there, drawn as this many). */
+  shelfShown: 4,
+};

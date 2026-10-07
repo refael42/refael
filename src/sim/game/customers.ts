@@ -6,7 +6,7 @@ import { ANIM } from '../../data/customers';
 import { DAY, KITCHEN } from '../../data/staff';
 import { weekArrivals } from '../calendar';
 import { REVIEW } from '../../data/reviews';
-import { SEAT_OFFSETS, type Point } from '../../data/maps';
+import { seatOffsetsFor, type Point } from '../../data/maps';
 import { big, type Big } from '../big';
 import { findPath } from '../grid';
 import { customerLook } from '../looks';
@@ -24,19 +24,29 @@ import { CustomerState, OrderState, TableState, type Customer, type GameState, t
 /** About one guest in three checks their phone while waiting for the food. */
 const phoneUser = (c: Customer) => c.id % 3 === 1;
 
-export const chairOf = (t: Table, seat = 0): Point => ({ x: t.x + SEAT_OFFSETS[seat]!.x, y: t.y + SEAT_OFFSETS[seat]!.y });
+const seatOffset = (t: Table, seat: number): Point => seatOffsetsFor(t.seats)[seat] ?? { x: -0.62, y: 0 };
+export const chairOf = (t: Table, seat = 0): Point => {
+  const o = seatOffset(t, seat);
+  return { x: t.x + o.x, y: t.y + o.y };
+};
 
 /** Where the dish lands: in front of its chair. */
-export const dishSpot = (t: Table, seat: number): Point => ({ x: t.x + (seat === 0 ? -0.12 : 0.12), y: t.y });
+export const dishSpot = (t: Table, seat: number): Point => {
+  const o = seatOffset(t, seat);
+  return { x: t.x + (o.x < 0 ? -0.12 : 0.12), y: t.y + o.y * 0.6 };
+};
 
 /** Everyone who came in together (just them, when alone). */
 const partyOf = (s: GameState, c: Customer): Customer[] => s.customers.filter((o) => o.party === c.party);
 const leaderOf = (s: GameState, c: Customer): Customer => s.customers.find((o) => o.id === c.party) ?? c;
 
-/** Where a party member waits in line: the leader on the spot, a friend right beside them. */
+/** Where a party member waits in line: the leader on the spot, the rest of them around. */
 function queueSpot(s: GameState, c: Customer, slot: number): Point {
   const p = s.map.queue[slot]!;
-  return c.party === c.id ? p : { x: p.x + PARTY.queueOffset.x, y: p.y + PARTY.queueOffset.y };
+  if (c.party === c.id) return p;
+  const member = Math.max(1, s.customers.filter((o) => o.party === c.party).indexOf(c));
+  const o = PARTY.queueOffsets[(member - 1) % PARTY.queueOffsets.length]!;
+  return { x: p.x + o.x, y: p.y + o.y };
 }
 
 function pickType(s: GameState): CustomerType {
@@ -81,14 +91,23 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   // Friends come along only once there are tables for two: the more of them, the more pairs.
   const pairTables = s.tables.filter((t) => t.seats >= 2).length;
   const pair = type.pairs && pairTables > 0 && next(s.rng) < (PARTY.pairChance * pairTables) / s.tables.length;
-  const leader = newCustomer(s, type, start, slot, -1, pair ? 2 : 1);
+  // With family tables, some pairs are whole families of 3-4 (by the next id: the game's dice
+  // are left alone, so a game without family tables plays exactly as before).
+  const familyTables = pair ? s.tables.filter((t) => t.seats > 2).length : 0;
+  const roll = hash01(s.nextId * 3.17 + 0.61);
+  const family = familyTables > 0 && roll < (PARTY.familyChance * familyTables) / pairTables;
+  const size = family ? (roll < (PARTY.familyChance * familyTables) / pairTables / 2 ? 4 : 3) : pair ? 2 : 1;
+  const leader = newCustomer(s, type, start, slot, -1, size);
   if (look) leader.look = { ...look };
   maybeVip(s, leader);
   s.customers.push(leader);
-  if (pair) {
-    const friend = newCustomer(s, type, { x: start.x - 0.4, y: start.y + 0.3 }, -1, leader.id, 2);
-    // Some come with a child (by the id: the game's dice are left alone).
-    if (PARTY.kidTypes.includes(type.id) && hash01(friend.id * 5.31 + 0.2) < PARTY.kidChance) friend.rank = KID_RANK;
+  for (let m = 1; m < size; m++) {
+    const o = PARTY.spawnOffsets[m - 1]!;
+    const friend = newCustomer(s, type, { x: start.x + o.x, y: start.y + o.y }, -1, leader.id, size);
+    // Some come with a child (by the id: the game's dice are left alone); a family's third and
+    // fourth are mostly children.
+    const kids = family && m >= 2 ? PARTY.familyKidChance : PARTY.kidChance;
+    if ((family || PARTY.kidTypes.includes(type.id)) && hash01(friend.id * 5.31 + 0.2) < kids) friend.rank = KID_RANK;
     s.customers.push(friend);
   }
   return leader;
@@ -419,8 +438,8 @@ export function updateCustomers(s: GameState, dt: number): void {
       case CustomerState.ToTable:
         if (followPath(c, c.path, c.walkSpeed, dt)) {
           setPose(c, Pose.Sit);
-          // Seat 0 faces the table toward +x, the chair opposite faces back toward -x.
-          c.facing = c.seat === 1 ? Facing.BackLeft : Facing.FrontRight;
+          // A chair on the -x side faces the table toward +x, the one opposite faces back toward -x.
+          c.facing = seatOffset(s.tables[c.table]!, c.seat).x > 0 ? Facing.BackLeft : Facing.FrontRight;
           // The menu is on the table, or on its way in the host's hand.
           c.held = c.menuFrom >= 0 ? Held.None : Held.Menu;
           setState(c, CustomerState.Reading);

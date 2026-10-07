@@ -249,6 +249,44 @@ const tables = looks('table', [-32, -50, 32, 14], (c, t) => {
   }
 });
 
+// ---------- square family tables (owner request: "tables for more people, a different design,
+// say square"): four legs, a long cloth with the runner down the middle, the same looks ----------
+
+const SQ = { w: 0.8, d: 0.96 };
+const tablesSquare = looks('tableSquare', [-38, -52, 38, 20], (c, t) => {
+  const s = CLOTH[t]!;
+  floorShadow(c, 0, 0, 0.58, 0.32);
+  for (const [x, y] of [[-0.32, -0.4], [0.32, -0.4], [-0.32, 0.4], [0.32, 0.4]] as const) {
+    box(c, { x, y, w: 0.06, d: 0.06, h: 11, color: t === 3 ? GOLD : '#4A3040' });
+  }
+  box(c, { x: 0, y: 0, z: 11, w: SQ.w, d: SQ.d, h: 6, color: s.cloth, shade: { top: s.top }, rim: true });
+  if (t >= 2) box(c, { x: 0, y: 0, z: 11, w: SQ.w + 0.01, d: SQ.d + 0.01, h: 1.2, color: GOLD });
+  onTop(c, 17, () => {
+    c.drawRect(Skia.XYWHRect(-SQ.w / 2 + 0.04, -SQ.d / 2 + 0.04, SQ.w - 0.08, SQ.d - 0.08), stroke(s.rim, t === 3 ? 0.035 : 0.02));
+    c.drawRect(Skia.XYWHRect(-0.08, -SQ.d / 2, 0.16, SQ.d), fill(s.runner));
+    c.drawRect(Skia.XYWHRect(-0.08, -SQ.d / 2, 0.16, SQ.d), stroke(s.rim, 0.02));
+  });
+  // The centerpiece in the middle (the four plates take the corners).
+  if (t === 0) cylinder(c, 0, 0, 0.05, 17, 3, '#E8E2D6', '#FFFFFF');
+  if (t === 1) {
+    candle(c, 0, -0.12, 17, 5);
+    candle(c, 0, 0.12, 17, 4);
+  }
+  if (t === 2) {
+    cylinder(c, 0, 0, 0.04, 17, 6, '#BFE3FF', '#D6EEFF');
+    for (const [dx, dy] of [[0, -0.6], [2, 0.4], [-2, 0.6]] as const) {
+      const [rx, ry] = P(0, 0, 25);
+      c.drawPath(path.smooth([[rx + dx, ry + dy - 3], [rx + dx + 2.4, ry + dy - 0.6], [rx + dx, ry + dy + 1.6], [rx + dx - 2.4, ry + dy - 0.6]]), fill('#E8305A'));
+    }
+  }
+  if (t === 3) {
+    cylinder(c, 0, 0, 0.05, 17, 1, GOLD, '#FFE08A');
+    box(c, { x: 0, y: 0, z: 18, w: 0.025, d: 0.025, h: 6, color: GOLD });
+    box(c, { x: 0, y: 0, z: 23, w: 0.03, d: 0.26, h: 1, color: GOLD });
+    for (const dy of [-0.12, 0, 0.12]) candle(c, 0, dy, 24, dy === 0 ? 5 : 3.6);
+  }
+});
+
 // ---------- chairs: red velvet -> tufted -> tall purple velvet -> gold throne ----------
 
 const CHAIR = [
@@ -590,6 +628,7 @@ export const stationSprites = {
   ...fridgeBig,
   ...streetSignBig,
   ...tables,
+  ...tablesSquare,
   ...chairs,
   ...chairSeats,
   ...chairRests,

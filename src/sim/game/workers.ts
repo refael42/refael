@@ -1,3 +1,4 @@
+import { RARITY } from '../../data/rarity';
 import { isWeekend, weekArrivals } from '../calendar';
 import { TIERS } from '../../data/buildings';
 import { DAY, ROLES, RUSH, SHIFT, STAFF, type Role } from '../../data/staff';
@@ -40,7 +41,8 @@ export function headcount(s: GameState, role: Role): number {
 export const hasRoom = (s: GameState, role: Role) => headcount(s, role) < capacity(s, role);
 
 export function gainXp(s: GameState, st: Staff): void {
-  st.xp += STAFF.xp.perJob;
+  // Rarer people learn faster (src/data/rarity.ts).
+  st.xp += STAFF.xp.perJob * RARITY[st.rarity].xp;
   while (st.xp >= xpToNext(st.level)) {
     st.xp -= xpToNext(st.level);
     levelUp(s, st);

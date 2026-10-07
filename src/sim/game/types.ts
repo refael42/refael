@@ -3,6 +3,7 @@ import type { Role, StatId } from '../../data/staff';
 import type { TraitId } from '../../data/traits';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
+import type { Rarity } from '../../data/rarity';
 import type { Levels, Mods, Perks } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
@@ -96,6 +97,13 @@ export interface Order {
   quality: number;
   /** A delivery (src/data/delivery.ts): no guest, a takeaway bag, the courier takes it out. */
   delivery: boolean;
+  /** The checker looked it over (it sells for more). */
+  checked?: boolean;
+  /**
+   * Packed by a packer: true while it waits on the takeaway window's shelf, false once a
+   * courier took it (it still pays as a packed order); unset if nobody packed it.
+   */
+  packed?: boolean;
 }
 
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
@@ -185,7 +193,11 @@ export type Job =
   /** The host welcomes the first in line, walks the party to their table and hands out the menus. */
   | { kind: 'escort'; customer: number; table: number; party: number[]; phase: 'greet' | 'lead' | 'hand' }
   /** A courier takes bags from the pass to the scooter and rides off (`left`/`back`: sim times they rode off and return). */
-  | { kind: 'deliver'; orders: number[]; phase: 'toPass' | 'pack' | 'toScooter' | 'away'; left: number; back: number }
+  | { kind: 'deliver'; orders: number[]; phase: 'toPass' | 'pack' | 'toWindow' | 'window' | 'toScooter' | 'away'; left: number; back: number }
+  /** The checker looks over a dish on the pass. */
+  | { kind: 'check'; order: number }
+  /** A packer takes a delivery off the pass, packs it at the counter, leaves it on the window shelf. */
+  | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toTable' | 'packing' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */
@@ -197,6 +209,8 @@ export interface Person {
   level: number;
   /** Coins per day. */
   wage: Big;
+  /** Common, rare, epic or legendary (src/data/rarity.ts). */
+  rarity: Rarity;
 }
 
 export interface Staff extends CharacterView, Person {

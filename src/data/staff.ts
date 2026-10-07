@@ -4,8 +4,8 @@ import { LOOKS } from './scenes';
 // Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
 // everyone else is hired from applicants who show up at the door.
 
-export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier';
-export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier'];
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier' | 'checker' | 'packer';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier', 'checker', 'packer'];
 
 export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
 export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
@@ -39,9 +39,26 @@ export const ROLES: Record<Role, RoleDef> = {
   manager: { role: 'manager', walkSpeed: 1.7, look: LOOKS.manager, wageDishes: 5, cap: 1, weight: 2, minTeam: 5, needs: { waiter: 2 }, primary: ['charm', 'stamina'] },
   // No place for one at the first diner: the bigger buildings each add some (src/data/buildings.ts).
   promoter: { role: 'promoter', walkSpeed: 1.6, look: LOOKS.promoter, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 4, primary: ['charm', 'speed'] },
-  // Deliveries (src/data/delivery.ts): one scooter at the diner, more in every bigger building.
-  courier: { role: 'courier', walkSpeed: 1.8, look: LOOKS.courier, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 3, primary: ['speed', 'charm'] },
+  // Deliveries (src/data/delivery.ts): they open with the bistro (src/data/unlocks.ts), and every
+  // bigger building has room for more scooters.
+  courier: { role: 'courier', walkSpeed: 1.8, look: LOOKS.courier, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 3, primary: ['speed', 'charm'] },
+  // Owner request: "a checker for the dishes, and people who pack takeaway". Both open with a
+  // bigger building (src/data/unlocks.ts): the checker at the head of the pass, the packers in
+  // the packing corner by the takeaway window.
+  checker: { role: 'checker', walkSpeed: 1.6, look: LOOKS.checker, wageDishes: 3, cap: 0, weight: 2, minTeam: 5, primary: ['quality', 'speed'] },
+  packer: { role: 'packer', walkSpeed: 1.6, look: LOOKS.packer, wageDishes: 2, cap: 0, weight: 2, minTeam: 5, needs: { courier: 1 }, primary: ['speed', 'stamina'] },
 };
+
+/**
+ * The checker looks over every dish that lands on the pass before it goes out: a dish they
+ * passed sells for more (their quality stat sets how much, like a cook's).
+ */
+export const CHECKER = {
+  /** Seconds to look one dish over (at speed 5). */
+  seconds: 1.1,
+  /** A checked dish's price grows by this share (times the checker's quality factor). */
+  quality: 0.12,
+} as const;
 
 /**
  * The promoter (owner request: "more workers") works the sidewalk: a flyer for whoever walks

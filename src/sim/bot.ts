@@ -86,6 +86,12 @@ function wanted(s: GameState, role: string): number {
     case 'courier':
       // Deliveries once the kitchen keeps up with the room (the buildings cap them).
       return s.stoves.length >= 2 ? Math.min(s.stoves.length - 1, 1 + Math.floor(tables / 12)) : 0;
+    case 'checker':
+      // Once the room is big enough that every dish's price counts.
+      return tables >= 10 ? 1 : 0;
+    case 'packer':
+      // One per two couriers, once there are couriers.
+      return Math.ceil(s.staff.filter((st) => st.role === 'courier' && !st.leaving).length / 2);
     case 'promoter':
       // One once the room is busy, then another for every 20 more tables (the buildings cap them).
       return tables >= 6 ? 1 + Math.floor((tables - 6) / 20) : 0;
