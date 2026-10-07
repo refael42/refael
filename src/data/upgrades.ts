@@ -6,8 +6,8 @@ import { Dish } from './dishes';
 // The upgrade catalog. Adding an upgrade = adding a row here (plus its strings in i18n).
 // Every row is an endless level track, except capacity rows (new tables) that floor space caps.
 
-export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'delivery' | 'decor' | 'marketing' | 'building';
-export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'delivery', 'decor', 'marketing', 'building'];
+export type Category = 'menu' | 'kitchen' | 'cleaning' | 'front' | 'bar' | 'delivery' | 'decor' | 'marketing' | 'building';
+export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', 'front', 'bar', 'delivery', 'decor', 'marketing', 'building'];
 
 /**
  * What an upgrade improves. Multiplier stats start at 1 (levels add, milestones multiply);
@@ -15,7 +15,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
  */
 export type Stat =
   | 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price'
-  | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed';
+  | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed'
+  | 'mixSpeed' | 'drinkPrice';
 export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers'];
 
 export interface Effect {
@@ -144,6 +145,13 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
   { id: 'chairs', category: 'front', anchor: K.Chair, restyle: 'anchor', baseCost: 20, growth: 1.15,
     effect: { stat: 'patience', per: 0.06 }, milestone: { stat: 'tips', factor: 1.1 } },
+
+  // The bar (owner: "a bar from the first moment, bartenders who shake cocktails"): the counter
+  // (bartenders work faster, a new look at the milestones) and the cocktail menu (every drink sells for more).
+  { id: 'barCounter', category: 'bar', anchor: K.BarCounter, restyle: 'anchor', baseCost: 60, growth: 1.16,
+    effect: { stat: 'mixSpeed', per: 0.08 }, milestone: { stat: 'mixSpeed', factor: 1.5 } },
+  { id: 'cocktails', category: 'bar', anchor: K.BarCounter, restyle: null, baseCost: 90, growth: 1.17,
+    effect: { stat: 'drinkPrice', per: 0.1 }, milestone: { stat: 'drinkPrice', factor: 1.5 } },
 
   // Deliveries (owner: "the delivery station can be upgraded, and the couriers, and more of
   // them"): room for more couriers, faster scooters (a new look at the milestones), the delivery

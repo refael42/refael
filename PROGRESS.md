@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M27 | Owner: a bar from day one that grows with the buildings (straight → L → three sides open to the kitchen), bartenders who shake cocktails and pour drinks, drinks on the bar's pass for the waiters, guests on bar stools served by the bartenders | ✅ Done |
 | M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
 | M24 | Owner: things open as the restaurant grows (wheel, deliveries, family tables, dishes...), worker rarities, square family tables for 4, 5 new dishes, the checker, the packing corner with packers and a takeaway window | ✅ Done |
@@ -72,6 +73,41 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M27 (owner: "start building a bar for the restaurant that you get from the first moment
+  and grows with the stages, with bartenders who shake cocktails; plain drinks too; a ready drink
+  is put on the pass and a waiter comes to take it; at the final stage the bar is a rectangle where
+  only the side toward the kitchen stays open, three sides in all; later guests can sit at the bar
+  too and the bartenders serve them"):
+  - **Where it stands** (`barOf` in `src/data/maps.ts`): by the kitchen at the top of the dining
+    room, every building. Diner and bistro: a straight counter (3 tiles) with the pass at its
+    kitchen end. Grand and palace: an L (the top piece turns toward the kitchen, 4 tiles). Empire
+    on: three sides, the side toward the kitchen open (5-6 tiles). The bartenders stand inside,
+    the waiters pick up at the kitchen end, so nobody crosses the room. The tiles are kept free of
+    tables in that building only (a bigger building's bar does not shrink the diner).
+  - **Bartender** (`src/data/staff.ts`, `src/sim/game/bar.ts`): a new role (teal suit), one slot
+    from the diner, more from the grand restaurant on. A seated guest orders a drink with the meal
+    45% of the time (by their id, so the dice the game rolls did not change); the bartender walks
+    to a station and **shakes** a cocktail over the shoulder (mojito, margarita, tropical,
+    martini) or **pours** a soda or lemonade, then puts it on the bar's pass (3 slots, a ding).
+    Waiters take the older of a ready drink and a ready dish; a drink goes on a small round tray.
+    Tap a drink on the pass to toss it to its table (like dishes). The guest pays for it at once
+    (a share of the meal's price, so drinks keep up with the menu). Drinks list:
+    `src/data/bar.ts` (new ones open with the buildings).
+  - **Bar seats** (from the grand restaurant, an unlock card): red stools along the dining side
+    (and the ends in the three-sided bar). A guest who comes alone sits there 35% of the time
+    when a stool is free and a bartender works, orders across the counter (patience bar), sips,
+    sometimes has a second round (40%), pays (the drink's share of half the priciest dish on the menu, times the cocktail menu)
+    and goes. Walking out costs rating like at a table.
+  - **Upgrades** (a new "bar" tab, or tap the counter): bar counter (drinks made 8% faster a
+    level, a new counter look at the milestones) and cocktail menu (+10% a drink). The balance
+    bot hires a bartender once there are 4 tables.
+  - **Art** (`src/render/art/barArt.ts`): counter pieces (the back one with bottles, two corners,
+    the pass with a rubber mat), stools, six drinks, a shaker, a drink tray, a glass in hand;
+    poses shake, pour and sip; a guest on a stool sits higher (a new `lift` field in the
+    snapshot).
+  - Tests: `tests/bar.test.ts` (the shape every building, everyone reaches the bar, no bartender
+    no drinks, shake/pour/pass/carry/table, tap to toss, bar guests pay and go, the upgrades).
+    Balance: bistro 35:10, grand 52:37, no dead zones, no income explosions.
 - Done in M26 (owner: "so many tables lined up in one place looks robotic and a headache: from
   now on and from the start, a variety of tables to design with, long, round and more, placed
   wherever you want by the stage you are at"; mid-turn: "too much symmetry between the tables,
@@ -646,6 +682,8 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M19/M20 busy bistro (hosts, the tourist bus), production build | ~50 | — | 10.7–12 (zoomed in: ~4.5) |
 | M25 crown, full late-game save, zoomed out, before / after the detail cut | 798 | 5.6 / 4.3 ms draw | 6.6 / 7.9 |
 | M26 crown (141 tables in the new layout, a rug under each) | 725 | 5.9 ms draw | 6.7 |
+| M27 palace with the L bar, two bartenders, a bar guest | 187–190 | 1.6–3.9 ms draw | 11 |
+| M27 crown with the three-sided bar, zoomed out | 741 | 4.3–7.0 ms draw | 7–10 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -653,7 +691,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 381 unit tests.
+- `npm run check` — typecheck + 389 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.

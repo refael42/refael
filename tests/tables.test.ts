@@ -9,6 +9,7 @@ import { costOf, upgradeDef } from '../src/sim/economy/upgrades';
 import { canPlaceTable, nextTableSpot, tableAnchors } from '../src/sim/game/build';
 import { queueCommand } from '../src/sim/game/commands';
 import { createGame } from '../src/sim/game/create';
+import { touristArrives } from '../src/sim/game/customers';
 import { buyUpgrade } from '../src/sim/game/purchase';
 import { stepGame } from '../src/sim/game/step';
 import { TableState, type GameState } from '../src/sim/game/types';
@@ -78,11 +79,12 @@ describe('table styles (owner: "a variety of tables, placed wherever you want")'
     expect(t.seats).toBe(fullSeats('long'));
     expect(t.seats).toBe(6);
     expect(s.props.filter((p) => t.chairs.includes(p.id) && p.kind === PropKind.Chair)).toHaveLength(9);
-    // The other tables are taken: whoever comes in groups of five or six can only sit here.
+    // Groups of five or six come now and then (straight to the line, many in a row).
     let biggest = 0;
-    for (let i = 0; i < 4000 && biggest < 5; i++) {
-      stepGame(s, STEP_SEC);
-      for (const c of s.customers) biggest = Math.max(biggest, c.partySize);
+    for (let i = 0; i < 400 && biggest < 5; i++) {
+      s.customers = [];
+      const c = touristArrives(s, s.map.doors[0]!.outside);
+      biggest = Math.max(biggest, c?.partySize ?? 0);
     }
     expect(biggest).toBeGreaterThanOrEqual(5);
   });

@@ -168,6 +168,7 @@ export function addTable(s: GameState, rebuild = true, at?: TableSpot): Table | 
     seats,
     party: new Array<number>(seats).fill(-1),
     dishes: new Array<number>(seats).fill(-1),
+    drinks: new Array<number>(seats).fill(-1),
     plates: 0,
     progress: 0,
     since: s.time,
@@ -189,6 +190,7 @@ export function addSeat(s: GameState, rebuild = true): Table | null {
   addChair(s, t, 1);
   t.party.push(-1);
   t.dishes.push(-1);
+  t.drinks.push(-1);
   if (rebuild) rebuildGrid(s);
   return t;
 }
@@ -208,6 +210,7 @@ export function syncFamilyTables(s: GameState): Table[] {
     furnish(s, t);
     t.party = new Array<number>(t.seats).fill(-1);
     t.dishes = new Array<number>(t.seats).fill(-1);
+    t.drinks = new Array<number>(t.seats).fill(-1);
     out.push(t);
   }
   return out;
@@ -229,6 +232,7 @@ export function moveTable(s: GameState, index: number, to: Point, style: TableSt
   t.style = style;
   t.party = new Array<number>(t.seats).fill(-1);
   t.dishes = new Array<number>(t.seats).fill(-1);
+  t.drinks = new Array<number>(t.seats).fill(-1);
   t.since = s.time;
   furnish(s, t);
   rebuildGrid(s);
@@ -376,6 +380,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     customers: [],
     tables: [],
     orders: [],
+    drinks: [],
+    barSeats: map.bar.stools.map(() => -1),
     staff: [],
     walkers: [],
     cleanPlates: KITCHEN.plates + mods.plates,

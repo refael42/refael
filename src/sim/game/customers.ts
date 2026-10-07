@@ -20,6 +20,7 @@ import { boostNow } from '../shop';
 import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
 import { BUS } from '../../data/events';
+import { cancelDrinks, maybeBarGuest, maybeOrderDrink, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 /** About one guest in three checks their phone while waiting for the food. */
@@ -106,6 +107,11 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   if (look) leader.look = { ...look };
   maybeVip(s, leader);
   s.customers.push(leader);
+  // Someone alone may sit at the bar instead of waiting in line (from the grand restaurant).
+  if (size === 1 && maybeBarGuest(s, leader)) {
+    leader.path = route(s, leader, s.map.bar.stools[leader.stool]!.at);
+    return leader;
+  }
   for (let m = 1; m < size; m++) {
     const o = PARTY.spawnOffsets[m - 1]!;
     const friend = newCustomer(s, type, { x: start.x + o.x, y: start.y + o.y }, -1, leader.id, size);
@@ -181,6 +187,10 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     patienceKind: PATIENCE_ICON[type.patience],
     menuFrom: -1,
     tourist: false,
+    stool: -1,
+    drinkOrder: -1,
+    rounds: 0,
+    sipping: -1,
   };
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
   c.path = route(s, start, queueSpot(s, c, leader.queueSlot));
@@ -228,6 +238,7 @@ function changeRating(s: GameState, delta: number, at: Point): void {
 
 /** Off home along the street (also used when the place closes for building work). */
 export function sendHome(s: GameState, c: Customer): void {
+  cancelDrinks(s, c);
   c.path = route(s, c, pick(s.rng, s.map.spawns));
   c.queueSlot = -1;
   c.table = -1;
@@ -243,6 +254,7 @@ function vacate(s: GameState, t: Table): void {
   t.state = t.plates > 0 ? TableState.Dirty : TableState.Free;
   t.party.fill(-1);
   t.dishes.fill(-1);
+  t.drinks.fill(-1);
   t.since = s.time;
 }
 
@@ -407,6 +419,14 @@ function followLeader(s: GameState, c: Customer, dt: number): void {
 export function updateCustomers(s: GameState, dt: number): void {
   for (const c of s.customers) {
     c.stateTime += dt;
+    // A guest at the bar has a day of their own (src/sim/game/bar.ts).
+    if (c.stool >= 0) {
+      updateBarGuest(s, c, dt, (m) => sendHome(s, m), () => {
+        s.stats.walkouts += 1;
+        changeRating(s, ECONOMY.rating.walkout, c);
+      });
+      continue;
+    }
     switch (c.state) {
       case CustomerState.Arriving:
         if (followPath(c, c.path, c.walkSpeed, dt)) {
@@ -464,6 +484,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           const id = s.nextId++;
           s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
           c.order = id;
+          maybeOrderDrink(s, c);
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;
           startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day));

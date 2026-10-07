@@ -57,6 +57,8 @@ export const LOOKS = {
   checker: { outfit: Outfit.Chef, hair: Hair.Bob, hairColor: 2, skin: 4, shirt: SHIRT.charcoal, pants: PANTS.black, hat: Hat.Bandana, accessory: Accessory.Glasses },
   // The packer: the delivery team's red, in a tee and a cap.
   packer: { outfit: Outfit.Tee, hair: Hair.Ponytail, hairColor: 3, skin: 1, shirt: SHIRT.tomato, pants: PANTS.khaki, hat: Hat.Cap, accessory: Accessory.None },
+  // The bartender: a teal suit behind the counter.
+  bartender: { outfit: Outfit.Suit, hair: Hair.Bun, hairColor: 1, skin: 4, shirt: SHIRT.teal, pants: PANTS.black, hat: Hat.None, accessory: Accessory.None },
 } satisfies Record<string, Look>;
 
 const idle = (seconds: number, extra: Partial<Extract<RoutineStep, { do: 'act' }>> = {}): RoutineStep => ({

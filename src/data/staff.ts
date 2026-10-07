@@ -4,8 +4,8 @@ import { LOOKS } from './scenes';
 // Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
 // everyone else is hired from applicants who show up at the door.
 
-export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier' | 'checker' | 'packer';
-export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier', 'checker', 'packer'];
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier' | 'checker' | 'packer' | 'bartender';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier', 'checker', 'packer', 'bartender'];
 
 export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
 export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
@@ -47,6 +47,9 @@ export const ROLES: Record<Role, RoleDef> = {
   // the packing corner by the takeaway window.
   checker: { role: 'checker', walkSpeed: 1.6, look: LOOKS.checker, wageDishes: 3, cap: 0, weight: 2, minTeam: 5, primary: ['quality', 'speed'] },
   packer: { role: 'packer', walkSpeed: 1.6, look: LOOKS.packer, wageDishes: 2, cap: 0, weight: 2, minTeam: 5, needs: { courier: 1 }, primary: ['speed', 'stamina'] },
+  // The bar (owner: "a bar from the first moment"): room for one bartender in the diner, more as
+  // the bar grows (src/data/buildings.ts). Drinks come once there is one.
+  bartender: { role: 'bartender', walkSpeed: 1.6, look: LOOKS.bartender, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 2, primary: ['speed', 'quality'] },
 };
 
 /**

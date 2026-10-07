@@ -16,6 +16,7 @@ import { updateCourier } from './delivery';
 import { updateChecker } from './checker';
 import { freeDeliverySlot, packersOn, packingProgress, parking, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
+import { readyDrink, updateBartender, updateDrinkRun } from './bar';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => serveSpot(t.x, t.y);
@@ -47,6 +48,9 @@ export function homeOf(s: GameState, st: Staff): Point {
       const spots = s.map.packing?.spots ?? [s.map.washerSpot];
       return spots[st.slot % spots.length]!;
     }
+    case 'bartender':
+      // Behind the counter, the first one by the pass.
+      return s.map.bar.stations[st.slot % s.map.bar.stations.length]!;
   }
 }
 
@@ -65,6 +69,8 @@ const HOME_FACING: Record<Role, Staff['facing']> = {
   // Down along the pass, over the dishes.
   checker: Facing.FrontLeft,
   packer: Facing.FrontLeft,
+  // Across the counter, toward the room.
+  bartender: Facing.FrontRight,
 };
 
 /** What each job carries when not carrying food or plates. */
@@ -232,6 +238,14 @@ function findJob(s: GameState, st: Staff): void {
     // A shift manager sends the dish whose guest is closest to losing patience; otherwise the oldest goes first.
     ready.sort(manager ? (a, b) => patienceOf(s, a) - patienceOf(s, b) : (a, b) => a.since - b.since);
     const order = ready[0];
+    // A drink on the bar's pass that has waited longer than the next dish goes first.
+    const drink = readyDrink(s);
+    if (drink && (!order || drink.since < order.since)) {
+      drink.waiter = st.id;
+      st.path = [];
+      setJob(st, { kind: 'drinkRun', drink: drink.id, phase: 'toBar' });
+      return;
+    }
     if (order) {
       order.waiter = st.id;
       st.path = [];
@@ -365,6 +379,12 @@ function updateRunner(s: GameState, st: Staff, dt: number): boolean {
   }
   if (job.kind === 'pickup') updatePickup(s, st, s.orders.find((o) => o.id === job.order), dt);
   else if (job.kind === 'buss') updateBuss(s, st, dt);
+  else if (job.kind === 'drinkRun' && !updateDrinkRun(s, st, dt, (to) => walkTo(s, st, to, dt), besideTable)) {
+    // Done, or the drink is gone (its guest left, the player tossed it): free for the next.
+    const d = s.drinks.find((x) => x.id === job.drink);
+    if (d && d.waiter === st.id && d.state === OrderState.Ready) d.waiter = -1;
+    release(st);
+  }
   return true;
 }
 
@@ -670,6 +690,10 @@ export function updateStaff(s: GameState, dt: number): void {
     else if (st.role === 'courier') busy = updateCourier(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
     else if (st.role === 'checker') busy = updateChecker(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
     else if (st.role === 'packer') busy = updatePacker(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
+    else if (st.role === 'bartender') {
+      busy = updateBartender(s, st, dt, (to) => walkTo(s, st, to, dt), homeOf(s, st));
+      if (!busy) goHome(s, st, dt);
+    }
     else busy = updateRunner(s, st, dt);
     st.busy = busy;
     st.bubble = s.notices.some((n) => n.kind === 'raise' && n.staff === st.id) ? Bubble.Raise : 0;

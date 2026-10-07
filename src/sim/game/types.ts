@@ -62,6 +62,12 @@ export interface Customer extends CharacterView {
   vip: boolean;
   /** Came on the tourist bus: pays more, double festival points (src/data/events.ts). */
   tourist: boolean;
+  /** A guest at the bar: their stool (-1: at a table, or none). */
+  stool: number;
+  /** Their drink order (-1 none), how many rounds they have had at the bar, and the drink in front of them there (-1 none). */
+  drinkOrder: number;
+  rounds: number;
+  sipping: number;
 }
 
 export interface Table {
@@ -79,13 +85,37 @@ export interface Table {
   state: TableState;
   /** Chairs at it (1, 2 with "More chairs", every one of its style's with "Family table"). */
   seats: number;
-  /** Who sits in each chair (-1 empty) and the dish in front of them (-1 none). */
+  /** Who sits in each chair (-1 empty), the dish and the drink in front of them (-1 none). */
   party: number[];
   dishes: number[];
+  drinks: number[];
   /** Dirty plates left behind for whoever clears it. */
   plates: number;
   progress: number;
   since: number;
+}
+
+/**
+ * A drink (src/data/bar.ts): with a meal at a table (a waiter takes it from the bar's pass), or
+ * for a guest at the bar (`bar`: the bartender hands it across the counter). States as Order's:
+ * Queued, Cooking (being made), Ready (on the pass), Flying (tossed by the player), Carried.
+ */
+export interface DrinkOrder {
+  id: number;
+  customer: number;
+  drink: number;
+  state: OrderState;
+  progress: number;
+  /** Place on the bar's pass while Ready (-1 none). */
+  slot: number;
+  since: number;
+  landsAt: number;
+  /** Who carries it (a waiter) or makes it (a bartender); -1 none. */
+  waiter: number;
+  bartender: number;
+  bar: boolean;
+  /** Price multiplier from the bartender who made it. */
+  quality: number;
 }
 
 export interface Order {
@@ -137,6 +167,8 @@ export type Command =
   | { type: 'hurry'; work: number }
   /** Build mode: carry a placed decor piece to another free tile. */
   | { type: 'move'; from: Point; to: Point }
+  /** Toss a ready drink from the bar's pass to its table. */
+  | { type: 'serveDrink'; drink: number }
   /** Build mode: put a table somewhere else, in this style (the same spot: just a new look). */
   | { type: 'moveTable'; table: number; to: Point; style: TableStyle }
   /** Hand this restaurant over and open a branch in the next city (prestige). */
@@ -209,6 +241,10 @@ export type Job =
   | { kind: 'deliver'; orders: number[]; phase: 'toPass' | 'pack' | 'toWindow' | 'window' | 'toScooter' | 'away'; left: number; back: number }
   /** The checker looks over a dish on the pass. */
   | { kind: 'check'; order: number }
+  /** A bartender makes a drink: at their place, then onto the pass (a table's) or across the counter (a bar guest's). */
+  | { kind: 'mix'; drink: number; phase: 'toStation' | 'mixing' | 'toPass' | 'place' | 'hand' }
+  /** A waiter takes a drink from the bar's pass to the table. */
+  | { kind: 'drinkRun'; drink: number; phase: 'toBar' | 'handoff' | 'toTable' | 'serve' }
   /** A packer takes a delivery off the pass, packs it at the counter, leaves it on the window shelf. */
   | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toFridge' | 'fridge' | 'toTable' | 'packing' }
   | { kind: 'home' };
@@ -360,6 +396,10 @@ export interface GameState {
   customers: Customer[];
   tables: Table[];
   orders: Order[];
+  /** Drinks ordered at the tables and the bar (src/sim/game/bar.ts). */
+  drinks: DrinkOrder[];
+  /** Who sits on each bar stool (customer id, -1 free). */
+  barSeats: number[];
   staff: Staff[];
   walkers: Walker[];
   cleanPlates: number;

@@ -96,10 +96,33 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     farArm = s * 0.045;
     bob = Math.abs(Math.cos(t * 9 + phase)) * 1.3;
     // Leaning into the walk and rocking from foot to foot; carefully upright with a full tray.
-    const careful = held === Held.TrayFull || held === Held.DirtyPlates || held === Held.FoodBox || held === Held.FoodDrink;
+    const careful = held === Held.TrayFull || held === Held.DirtyPlates || held === Held.FoodBox || held === Held.FoodDrink || held === Held.DrinkTray;
     lean = (careful ? 1 : 3) + s * (careful ? 0.5 : 1.4);
     // Setting off: a little push forward.
     if (poseTime < 0.2) lean += Math.sin((poseTime / 0.2) * Math.PI) * 3;
+  } else if (pose === Pose.Shake) {
+    // Shaking a cocktail: the shaker up by the shoulder, fast, the body rocking with it.
+    armUp = true;
+    armUpLift = 7 + Math.sin(t * 24 + phase) * 3.5;
+    bob = Math.abs(Math.sin(t * 24 + phase)) * 0.8;
+    lean = -1 + Math.sin(t * 12 + phase) * 1.2;
+    headX = Math.sin(t * 12 + phase) * 0.6;
+  } else if (pose === Pose.Pour) {
+    // Pouring: the glass tipped out over the counter, a slow steady arm.
+    armUp = true;
+    armUpLift = 2 + Math.sin(t * 4 + phase) * 0.6;
+    lean = 2.5;
+    headY = 0.8;
+  } else if (pose === Pose.Sip) {
+    // At the bar: the glass up to the lips now and then.
+    showLegs = false;
+    const p = (t * 0.5 + phase) % 1;
+    const raise = p < 0.25 ? Math.sin((p / 0.25) * Math.PI) : 0;
+    armUp = true;
+    armUpLift = 1 + raise * 7;
+    bob = -1.5 + breathe * 0.3;
+    headY = raise * -0.6;
+    headX = raise > 0 ? 0 : glance * 1.1;
   } else if (pose === Pose.Sit || pose === Pose.SitEat) {
     showLegs = false;
     bob = -1.5 + breathe * 0.3;
@@ -195,7 +218,8 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   const rarity = Math.floor(rankRaw / 10);
   const kid = rank === KID_RANK;
   c.save();
-  c.translate(isoX(wx, wy) + shake, isoY(wx, wy));
+  // Up on a bar stool: higher than a chair.
+  c.translate(isoX(wx, wy) + shake, isoY(wx, wy) - d[o + C.lift]!);
   if (kid) {
     if (!showLegs) c.translate(0, -KID_SEAT_LIFT);
     c.scale(KID_SCALE, KID_SCALE);
@@ -292,7 +316,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, headX, headUp, P.plain);
 
   if (held !== Held.None) {
-    if (held === Held.TrayFull || held === Held.TrayEmpty || held === Held.DirtyPlates) {
+    if (held === Held.TrayFull || held === Held.TrayEmpty || held === Held.DirtyPlates || held === Held.DrinkTray) {
       // The tray wobbles a little with every step.
       const wobble = pose === Pose.Walk ? Math.sin(t * 18 + phase) * 0.7 : 0;
       spr(c, A, L.held[held]!, lx(viewB, 0.1, -0.3), ly(viewB, 0.1, -0.3, 23) + up + wobble, P.plain);

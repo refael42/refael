@@ -13,6 +13,11 @@ export const Pose = {
   Impatient: 6,
   Phone: 7,
   Cheer: 8,
+  /** A bartender shaking a cocktail (the shaker up by the shoulder), or pouring a plain drink. */
+  Shake: 9,
+  Pour: 10,
+  /** A bar guest sipping their drink. */
+  Sip: 11,
 } as const;
 export type Pose = (typeof Pose)[keyof typeof Pose];
 
@@ -20,7 +25,7 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11 } as const;
+export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11, Shaker: 12, DrinkTray: 13, Glass: 14 } as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -101,6 +106,12 @@ export const PropKind = {
   Booth: 41,
   /** The back half of a long table (two tiles deep): a piece of its own so the chairs along it sort right. */
   TableBack: 42,
+  /** A piece of the bar counter (variant: 0 along y, 1 the back side, 2 the back corner, 3 the front corner, 4 the front side; +10 where ready drinks wait). */
+  BarCounter: 43,
+  /** A bar stool (variant: the way its sitter faces). */
+  BarStool: 44,
+  /** A drink: on the bar's pass (active), or on the counter in front of a bar guest. variant = which drink. */
+  Drink: 45,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -110,7 +121,7 @@ export const EntityType = { Character: 1, Prop: 2 } as const;
  * Persistent icon bubbles (not timed like emotes): what a customer wants, or what a prop needs.
  * Dish bubbles are `DishBase + dish id`.
  */
-export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, Cv: 4, Raise: 5, DishBase: 10 } as const;
+export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, Cv: 4, Raise: 5, DishBase: 10, DrinkBase: 40 } as const;
 
 /** What the renderer needs to draw a character, whatever system drives it. */
 export interface CharacterView {
@@ -134,6 +145,8 @@ export interface CharacterView {
   rank?: number;
   /** Icon next to the patience bar: 0 clock, 1 in a hurry, 2 takes their time. */
   patienceKind?: number;
+  /** Sitting up on a bar stool: drawn this many px higher. */
+  lift?: number;
 }
 
 /** What the renderer needs to draw a prop. */
@@ -156,6 +169,8 @@ export interface PropView {
   depthBias: number;
   /** A table's design (src/data/tables.ts, by index). */
   style?: number;
+  /** A table: each chair's drink (+1, 0 = none) in base 8. */
+  extra?: number;
 }
 
 /** A scripted step; ambient characters loop through a list of these. */

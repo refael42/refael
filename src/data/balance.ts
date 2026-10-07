@@ -37,6 +37,8 @@ export const VALUE = {
   tripSpeed: 0.15,
   deliveryPrice: 0.2,
   packSpeed: 0.1,
+  mixSpeed: 0.12,
+  drinkPrice: 0.2,
   /** A new dish on the menu (more choice, a pricier plate). */
   newDish: 0.4,
   /** How many to show in the "best value" list. */

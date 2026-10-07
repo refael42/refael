@@ -2,7 +2,7 @@ import { TIERS } from '../../data/buildings';
 import { mapForTier, type MapDef, type Point } from '../../data/maps';
 import { autoStyle, footprint, serveSpot, styleDef, type TableSpot, type TableStyle } from '../../data/tables';
 import { canReach, cutTree, reachableFrom, reachableInside, type CutTree, type Grid } from '../grid';
-import { mustReach, nearOf, roomOf, staffSpots, tableFits, tileFree, tileKey, type Room } from '../layout';
+import { mustReach, nearOf, reservedTiles, roomOf, tableFits, tileFree, tileKey, type Room } from '../layout';
 import type { GameState } from './types';
 import { reservedBy } from './works';
 
@@ -17,12 +17,8 @@ export type { TableSpot } from '../../data/tables';
 
 const key = tileKey;
 
-/** Tiles kept free in each tier: its own staff spots and those of every bigger building after it. */
-const RESERVED: readonly Set<number>[] = TIERS.map((_, tier) => {
-  const out = new Set<number>();
-  for (let t = tier; t < TIERS.length; t++) for (const p of staffSpots(mapForTier(t))) out.add(key(p.x, p.y));
-  return out;
-});
+/** Tiles kept free in each tier: its own staff spots and bar, and the staff spots of every bigger building after it. */
+const RESERVED: readonly Set<number>[] = TIERS.map((_, tier) => reservedTiles(TIERS.map((__, t) => mapForTier(t)), tier));
 
 /**
  * Where the building's own layout puts tables (their chairs and serving spots too): decor the

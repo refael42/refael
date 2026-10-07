@@ -1,6 +1,7 @@
 import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { nextTableSpot } from './build';
+import { barSlotPoint, counterBefore, landFlyingDrinks } from './bar';
 import { styleIndex } from '../../data/tables';
 import { UPGRADES } from '../../data/upgrades';
 import { canBuy, levelOf, tierOf, upgradeDef } from '../economy/upgrades';
@@ -59,6 +60,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateWorkers(s, dt);
   updateApplicants(s, dt);
   landFlyingDishes(s);
+  landFlyingDrinks(s);
   updateTables(s, dt);
   // A family table bought while its table for two was busy grows once the guests are gone.
   if (s.mods.family > 0) for (const t of syncFamilyTables(s)) emit(s, Ev.Upgrade, t.x, t.y, 1, UPGRADE_QUIET, PropKind.Table);
@@ -83,7 +85,10 @@ function dynamicProps(s: GameState): PropView[] {
     const dirty = t.state === TableState.Dirty || t.state === TableState.Cleaning;
     // level packs what is on it: the dirty plates, or each chair's dish (+1, 0 = none) in base 16.
     const dishes = t.dishes.reduce((sum, d, seat) => sum + (d + 1) * 16 ** seat, 0);
+    // Each chair's drink (+1, 0 = none) in base 8.
+    const drinks = t.drinks.reduce((sum, d, seat) => sum + (d + 1) * 8 ** seat, 0);
     const look = {
+      extra: dirty ? 0 : drinks,
       variant: dirty ? 2 : t.state === TableState.Occupied && dishes > 0 ? 1 : 0,
       level: dirty ? t.plates : dishes,
       // Every chair its style has (a family table for four, a long table for six).
@@ -123,6 +128,18 @@ function dynamicProps(s: GameState): PropView[] {
       );
       ticket += 1;
     }
+  }
+  // Drinks waiting on the bar's pass (they bob and sparkle like dishes), and in front of the guests at the bar.
+  const barTop = s.map.bar.passTop;
+  for (const d of s.drinks) {
+    if (d.state !== OrderState.Ready) continue;
+    const p = barSlotPoint(s, d.slot);
+    out.push(prop(SYNTH * 2 + d.id, PropKind.Drink, p.x, p.y, { variant: d.drink, active: true, lift: barTop, since: d.since, depthBias: 1 }));
+  }
+  for (const c of s.customers) {
+    if (c.stool < 0 || c.sipping < 0) continue;
+    const p = counterBefore(s, c.stool);
+    out.push(prop(SYNTH * 2 + c.id, PropKind.Drink, p.x, p.y, { variant: c.sipping, lift: barTop, depthBias: 1 }));
   }
   const noPlates = s.staff.some((st) => st.stalled === 'plates');
   out.push(

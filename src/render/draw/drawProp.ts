@@ -79,6 +79,11 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.Table) return tableSprite(A, style, active, false, tier);
   if (kind === PropKind.TableBack) return tableSprite(A, style, active, true, tier);
   if (kind === PropKind.Booth) return look(variant === 2 ? L.boothRest : variant === 1 ? L.boothSeat : L.booth, tier);
+  if (kind === PropKind.BarCounter) {
+    const shape = variant % 10;
+    return look(shape === 1 ? L.barXBack : shape === 2 ? L.barCornerBack : shape === 3 ? L.barCornerFront : shape === 4 ? L.barXFront : L.barY, tier);
+  }
+  if (kind === PropKind.BarStool) return look(L.barStool, tier);
   if (kind === PropKind.PackTable) return look(L.packTable, tier);
   if (kind === PropKind.Chair) return look(variant === 2 ? L.chairRest : variant === 1 ? L.chairSeat : L.chair, tier);
   if (kind === PropKind.Plant) return look(variant === 1 ? L.plantBush : L.plantPalm, tier);
@@ -192,15 +197,20 @@ function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier
  * (src/sim/game/step.ts), or the dirty plates; `full`: it has every chair its style has. A long
  * table comes in two halves (`back`): each draws the plates of the chairs along it.
  */
-function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: Packed, full: boolean, detail: boolean, style: number, back: boolean): void {
+function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number, progress: number, bubble: number, t: number, tier: number, dishTiers: Packed, full: boolean, detail: boolean, style: number, back: boolean, drinks: number): void {
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
   spr(c, A, tableSprite(A, style, full, back, tier), 0, 0, plain);
   const top = oy(0, 0, 17);
+  // `drinks` packs each chair's drink (+1, 0 = none) in base 8: it stands where the water glass would.
+  let seatNo = 0;
   const meal = (dish: number, x: number, y: number, gx: number, gy: number) => {
     spr(c, A, look(A.L.plate[dish]!, dishTiers[dish] ?? 0), ox(x, y), oy(x, y, 17), plain);
-    if (detail) spr(c, A, S.glass, ox(gx, gy), oy(gx, gy, 17), plain);
+    const drink = (Math.floor(drinks / 8 ** seatNo) % 8) - 1;
+    seatNo++;
+    if (drink >= 0) spr(c, A, A.L.drink[drink] ?? S.glass, ox(gx, gy), oy(gx, gy, 17), plain);
+    else if (detail) spr(c, A, S.glass, ox(gx, gy), oy(gx, gy, 17), plain);
   };
   if (variant === 1 && (full || style === LONG)) {
     // A plate in front of each chair, pulled in toward the middle of the top (the far row first).
@@ -210,6 +220,7 @@ function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number,
       const dish = (Math.floor(level / 16 ** seat) % 16) - 1;
       if (dish < 0) continue;
       const o = seats[seat]!;
+      seatNo = seat;
       const sx = o.x * 0.27;
       let sy = mid + (o.y - mid) * 0.77;
       // The back half draws the far plates, the front half the rest (from its own tile).
@@ -222,7 +233,9 @@ function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number,
     const d0 = (level % 16) - 1;
     const d1 = (Math.floor(level / 16) % 16) - 1;
     // Alone at the table the plate sits in the middle; a couple each get theirs on their side.
+    seatNo = 0;
     if (d0 >= 0) meal(d0, d1 >= 0 ? -0.12 : 0.06, 0.06, -0.12, -0.14);
+    seatNo = 1;
     if (d1 >= 0) meal(d1, 0.16, 0.06, 0.18, -0.14);
   } else if (variant === 2 && !back) {
     spr(c, A, S.stain, 0, 0, plain);
@@ -247,8 +260,8 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   const wy = d[o + F.y]!;
   const seed = d[o + F.id]! * 0.71;
   const style = d[o + PF.style]!;
-  // A booth's sofas follow the chairs' upgrade, a long table's back half the tables'.
-  const tier = looks.tiers[kind === PropKind.Booth ? PropKind.Chair : kind === PropKind.TableBack ? PropKind.Table : kind] ?? 0;
+  // A booth's sofas follow the chairs' upgrade, a long table's back half the tables', the bar's stools its counter's.
+  const tier = looks.tiers[kind === PropKind.Booth ? PropKind.Chair : kind === PropKind.TableBack ? PropKind.Table : kind === PropKind.BarStool ? PropKind.BarCounter : kind] ?? 0;
   c.save();
   c.translate(isoX(wx, wy), isoY(wx, wy, d[o + PF.lift]!));
   // Just upgraded: a springy squash-and-stretch around the floor anchor.
@@ -275,8 +288,22 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   if (kind === PropKind.Stove) drawStove(c, A, active, t, tier);
   else if (kind === PropKind.Sink) drawSink(c, A, active, t, tier);
   else if (kind === PropKind.Table || kind === PropKind.TableBack) {
-    drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers, active, looks.detail, style, kind === PropKind.TableBack);
-  } else if (kind === PropKind.Booth) spr(c, A, base, 0, 0, plain);
+    drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers, active, looks.detail, style, kind === PropKind.TableBack, d[o + PF.extra]!);
+  } else if (kind === PropKind.Booth || kind === PropKind.BarStool) spr(c, A, base, 0, 0, plain);
+  else if (kind === PropKind.BarCounter) {
+    spr(c, A, base, 0, 0, plain);
+    // Where ready drinks wait for the waiters: a rubber mat.
+    if (variant >= 10) spr(c, A, S.barMat, 0, 0, plain);
+  } else if (kind === PropKind.Drink) {
+    // On the bar's pass it pops in, bobs and sparkles until a waiter takes it; in front of a guest at the bar it stands still.
+    const age = t - d[o + PF.since]!;
+    if (active) {
+      const pop = age < 0.35 ? easeOutBack(clamp01(age / 0.35)) : 1;
+      const bobY = -Math.abs(Math.sin(t * 3 + seed)) * 2;
+      sprXf(c, A, A.L.drink[variant] ?? A.L.drink[0]!, 0, bobY, 0, pop, pop, plain);
+      sparkles(c, A, 0, -12, t, 8, seed);
+    } else spr(c, A, A.L.drink[variant] ?? A.L.drink[0]!, 0, 0, plain);
+  }
   else if (kind === PropKind.Chair) {
     // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
     spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);

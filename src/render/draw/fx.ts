@@ -44,6 +44,7 @@ const FX_HEIGHT: Record<number, number> = {
   [PropKind.Stove]: 60, [PropKind.Sink]: 44, [PropKind.Fridge]: 80, [PropKind.Pass]: 40, [PropKind.PlatesClean]: 44,
   [PropKind.Table]: 34, [PropKind.Chair]: 34, [PropKind.TableSlot]: 30, [PropKind.Plant]: 60, [PropKind.Neon]: 100, [PropKind.StreetSign]: 70,
   [PropKind.Flowers]: 50, [PropKind.Scooter]: 30, [PropKind.PackTable]: 40, [PropKind.FloorLamp]: 80, [PropKind.Aquarium]: 56, [PropKind.Statue]: 76, [PropKind.Fountain]: 70, [PropKind.Piano]: 66,
+  [PropKind.BarCounter]: 44,
 };
 
 export interface Camera {
@@ -338,7 +339,10 @@ export function drawWorldFx(c: SkCanvas, A: RenderAssets, s: FxState, t: number)
       const e = p * p * (3 - 2 * p);
       const dx = x + (d[o + X1]! - x) * e;
       const dy = y + (d[o + Y1]! - y) * e - Math.sin(p * Math.PI) * 40;
-      sprXf(c, A, A.L.plate[d[o + VALUE]!]![d[o + STYLE]!]!, dx, dy, Math.sin(p * Math.PI) * 18, 1 + Math.sin(p * Math.PI) * 0.35, 1 + Math.sin(p * Math.PI) * 0.35, P.plain);
+      // A drink rides as -1 - its index.
+      const v = d[o + VALUE]!;
+      const look = v < 0 ? (A.L.drink[-1 - v] ?? A.L.drink[0]!) : A.L.plate[v]![d[o + STYLE]!]!;
+      sprXf(c, A, look, dx, dy, Math.sin(p * Math.PI) * 18, 1 + Math.sin(p * Math.PI) * 0.35, 1 + Math.sin(p * Math.PI) * 0.35, P.plain);
     } else if (kind === FxKind.Ding) {
       const r = 0.6 + p * 1.6;
       sprFade(c, A, A.S.ring, x, y, r, 1 - p);

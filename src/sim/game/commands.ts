@@ -3,7 +3,8 @@ import { claimReviews } from './reviews';
 import { UPGRADES } from '../../data/upgrades';
 import { fromSave } from '../big';
 import { emit, Ev } from './events';
-import { seatCustomer } from './customers';
+import { dishSpot, seatCustomer } from './customers';
+import { barSlotPoint, serveDrink } from './bar';
 import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf, UPGRADE_QUIET } from './purchase';
 import { moveDecor, moveTable } from './create';
@@ -49,6 +50,12 @@ export function tapTargets(s: GameState): TapTarget[] {
       out.push({ x: c.x, y: c.y, height: HEIGHT.customer, command: { type: 'seat', customer: c.id } });
     }
   }
+  // A drink waiting on the bar's pass: tap it over to its table.
+  for (const d of s.drinks) {
+    if (d.state !== OrderState.Ready || d.bar) continue;
+    const p = barSlotPoint(s, d.slot);
+    out.push({ x: p.x, y: p.y, height: HEIGHT.dish, command: { type: 'serveDrink', drink: d.id } });
+  }
   if (s.dirtyPlates > 0) out.push({ x: s.map.dirtyStack.x, y: s.map.dirtyStack.y, height: HEIGHT.sink, command: { type: 'wash' } });
   // The present on the sidewalk.
   if (s.gift) out.push({ x: s.gift.x, y: s.gift.y, height: HEIGHT.gift, command: { type: 'gift' } });
@@ -84,6 +91,7 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Scooter]: 20,
   [PropKind.PackTable]: 30,
   [PropKind.LockSign]: 40,
+  [PropKind.BarCounter]: 22,
 };
 
 /** Stations with upgrades, and the padlocks on land for later (they open the building upgrades). */
@@ -194,6 +202,10 @@ function apply(s: GameState, cmd: Command): void {
       emit(s, Ev.Poof, cmd.from.x, cmd.from.y);
       emit(s, Ev.Ding, Math.floor(cmd.to.x) + 0.5, Math.floor(cmd.to.y) + 0.5);
     }
+  } else if (cmd.type === 'serveDrink') {
+    const d = s.drinks.find((x) => x.id === cmd.drink);
+    const c = d ? s.customers.find((x) => x.id === d.customer) : undefined;
+    if (d && c && c.table >= 0 && d.state === OrderState.Ready && !d.bar) serveDrink(s, d, dishSpot(s.tables[c.table]!, c.seat));
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
     grantCoins(s, coins);

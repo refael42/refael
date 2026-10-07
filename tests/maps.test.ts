@@ -7,7 +7,7 @@ import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables'> = {
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -163,7 +163,11 @@ describe('map generator', () => {
       const prev = mapForTier(t - 1);
       const map = mapForTier(t);
       expect(map.building.x1).toBe(tierRect(t).x1);
-      expect(map.tables.slice(0, prev.tables.length)).toEqual(prev.tables);
+      // The smaller building's tables stay where they were and open first (the few in the way of
+      // the bigger bar make room for it).
+      const kept = prev.tables.filter((p) => map.tables.some((t) => t.x === p.x && t.y === p.y && t.style === p.style));
+      expect(map.tables.slice(0, kept.length)).toEqual(kept);
+      expect(kept.length, `tier ${t}`).toBeGreaterThanOrEqual(prev.tables.length - 3);
       expect(map.tables.length).toBeGreaterThan(prev.tables.length);
       expect(map.waiterIdle.length).toBeGreaterThanOrEqual(3 + (TIERS[t]!.staff.waiter ?? 0));
       expect(map.cleanerIdle.length).toBeGreaterThanOrEqual(2 + (TIERS[t]!.staff.cleaner ?? 0));

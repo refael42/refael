@@ -32,6 +32,8 @@ function amounts(m: Mods, map: MapDef): Record<Weighted, number> {
     tripSpeed: m.tripSpeed,
     deliveryPrice: m.deliveryPrice,
     packSpeed: m.packSpeed,
+    mixSpeed: m.mixSpeed,
+    drinkPrice: m.drinkPrice,
   };
 }
 

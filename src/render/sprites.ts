@@ -16,13 +16,14 @@ import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { LOCK_BOARDS, propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
 import { RUG_COLORS, tableSprites } from './art/tableArt';
+import { barSprites, DRINK_SPRITES } from './art/barArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...tableSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
-const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
+const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
 const GLOW_PAD = 4;
 
 /**
@@ -58,7 +59,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof tableSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -118,15 +119,18 @@ export const LAYERS = {
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
-  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink']]),
-  bubble: byEnum(Bubble.DishBase + DISH_ICONS.length, [
+  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld']]),
+  bubble: byEnum(Bubble.DrinkBase + DRINK_SPRITES.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
     [Bubble.NoPlates, 'noPlates'],
     [Bubble.Cv, 'cv'],
     [Bubble.Raise, 'raise'],
     ...DISH_ICONS.map((name, i) => [Bubble.DishBase + i, name] as const),
+    ...DRINK_SPRITES.map((name, i) => [Bubble.DrinkBase + i, name] as const),
   ]),
+  /** Each drink (src/data/bar.ts order). */
+  drink: DRINK_SPRITES.map((name) => INDEX[name]!),
   /** Dish icon per dish id (tickets, bubbles). */
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
   /** The padlock sign on later land, by that building's tier. */
@@ -155,6 +159,12 @@ export const LAYERS = {
     tableLongBack: looks('tableLongBack'),
     tableLongFront: looks('tableLongFront'),
     tableLong: looks('tableLong'),
+    barY: looks('barY'),
+    barXBack: looks('barXBack'),
+    barCornerBack: looks('barCornerBack'),
+    barCornerFront: looks('barCornerFront'),
+    barXFront: looks('barXFront'),
+    barStool: looks('barStool'),
     booth: looks('booth'),
     boothSeat: looks('boothSeat'),
     boothRest: looks('boothRest'),

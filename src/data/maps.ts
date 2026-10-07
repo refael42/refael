@@ -1,8 +1,9 @@
-import { PropKind as K, type PropKind } from '../sim/types';
+import { Facing, PropKind as K, type PropKind } from '../sim/types';
 import { TIERS, type DiningFloor, type Grow } from './buildings';
 import { UNLOCK_TIER } from './unlocks';
+import { BAR } from './bar';
 import type { TableSpot } from './tables';
-import { designTables, staffSpots, tileKey } from '../sim/layout';
+import { designTables, reservedTiles } from '../sim/layout';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -107,6 +108,22 @@ export interface MapDef {
     fridge: Furniture;
     fridgeSpot: Point;
   } | null;
+  /**
+   * The bar (src/data/bar.ts): by the waiters' lane, open toward the kitchen. A straight counter
+   * in the first buildings, then an L, and from the empire three sides (`stage` 1-3). Bartenders
+   * stand inside (`stations`, the first one by the pass); ready drinks wait on the counter at
+   * `pass` (its top `passTop` px up) for a waiter standing at `pickup`; from the grand restaurant
+   * guests sit on stools around it, each served from `serve` across the counter.
+   */
+  bar: {
+    stage: 1 | 2 | 3;
+    counters: Furniture[];
+    pass: Point;
+    passTop: number;
+    pickup: Point;
+    stations: Point[];
+    stools: { at: Point; facing: Facing; serve: Point }[];
+  };
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
   hostSpot: Point;
@@ -345,6 +362,51 @@ function acrossTheStreet(width: number, doors: readonly number[]): { areas: Area
   return { areas, decor };
 }
 
+/** How many bartenders' places (and stools along the side) the bar has in each building. */
+const BAR_LEN: readonly number[] = [3, 3, 4, 4, 5, 5, 6, 6];
+/** The bar's counter top (px): the height drinks stand at. */
+const BAR_TOP = 24;
+
+/**
+ * The bar of building `tier`: a column for the bartenders right by the waiters' lane (the side
+ * open toward the kitchen), the counter on its far side, stools beyond it. It stays where the
+ * first diner had it, growing longer and gaining sides with the buildings.
+ */
+function barOf(tier: number, y1: number): MapDef['bar'] {
+  const stage = tier >= 4 ? 3 : tier >= BAR.seatsTier ? 2 : 1;
+  const len = BAR_LEN[tier] ?? 3;
+  const ix = KITCHEN_X + 1.5;
+  const cx = ix + 1;
+  const r0 = DINER_Y0 + 2.5;
+  const r1 = r0 + len - 1;
+  const piece = (x: number, y: number, variant: number): Furniture => ({ kind: K.BarCounter, x, y, w: 1, d: 1, blocks: true, variant });
+  const counters: Furniture[] = [];
+  for (let y = r0; y <= r1; y++) counters.push(piece(cx, y, 0));
+  if (stage >= 2) counters.push(piece(ix, r0 - 1, 1), piece(cx, r0 - 1, 2));
+  if (stage >= 3) counters.push(piece(ix, r1 + 1, 4), piece(cx, r1 + 1, 3));
+  // Ready drinks wait at the end of the counter nearest the waiters.
+  const pass = stage === 1 ? { x: cx, y: r0 } : { x: ix, y: r0 - 1 };
+  const passPiece = counters.find((c) => c.x === pass.x && c.y === pass.y)!;
+  passPiece.variant = (passPiece.variant ?? 0) + 10;
+  const stools: MapDef['bar']['stools'] = [];
+  if (tier >= BAR.seatsTier) {
+    for (let y = r0; y <= r1; y++) stools.push({ at: { x: cx + 1, y }, facing: Facing.BackLeft, serve: { x: ix, y } });
+    if (stage >= 3) {
+      stools.push({ at: { x: ix, y: r0 - 2 }, facing: Facing.FrontLeft, serve: { x: ix, y: r0 } });
+      if (r1 + 2 < y1 - 1) stools.push({ at: { x: ix, y: r1 + 2 }, facing: Facing.BackRight, serve: { x: ix, y: r1 } });
+    }
+  }
+  return {
+    stage,
+    counters,
+    pass,
+    passTop: BAR_TOP,
+    pickup: stage === 1 ? { x: cx, y: r0 - 1 } : { x: ix - 1, y: r0 - 1 },
+    stations: Array.from({ length: len }, (_, k) => ({ x: ix, y: r0 + k })),
+    stools,
+  };
+}
+
 const ALL_DOORS = TIERS.map((_, t) => tierRect(t).x1 - 1.5);
 const ACROSS = acrossTheStreet(WORLD.width, ALL_DOORS);
 const SITE_TREES = siteTrees(WORLD.width);
@@ -414,6 +476,7 @@ function buildMap(tier: number): MapDef {
         }
       : null;
   if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
+  const bar = barOf(tier, y1);
   return {
     id: t.id,
     tier,
@@ -482,6 +545,7 @@ function buildMap(tier: number): MapDef {
     ],
     checkerSpot: { x: KX - 1.5, y: r.y0 + 0.55 },
     packing,
+    bar,
     // At the end of the pass, where dishes are called out.
     managerSpot: { x: KX - 0.5, y: deep ? r.y0 + 1 + passLength + 0.6 : r.y0 + 4.6 },
     cleanerIdle: [
@@ -526,6 +590,8 @@ function buildMap(tier: number): MapDef {
     decor: [
       { kind: K.Fridge, x: r.x0 + 0.5, y: fridgeY, w: 1, d: 1, blocks: true },
       ...(packing ? [packing.table, packing.pass, packing.fridge] : []),
+      ...bar.counters,
+      ...bar.stools.map((st) => ({ kind: K.BarStool, ...st.at, w: 1, d: 1, blocks: true, variant: st.facing })),
       { kind: K.Plant, x: KX + 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true },
       { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
       { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
@@ -557,9 +623,7 @@ const MAPS: readonly MapDef[] = (() => {
   const out: MapDef[] = [];
   let prev: TableSpot[] = [];
   BARE.forEach((map, tier) => {
-    const reserved = new Set<number>();
-    for (let t = tier; t < BARE.length; t++) for (const p of staffSpots(BARE[t]!)) reserved.add(tileKey(p.x, p.y));
-    prev = designTables(map, prev, reserved);
+    prev = designTables(map, prev, reservedTiles(BARE, tier));
     out.push({ ...map, tables: prev });
   });
   return out;

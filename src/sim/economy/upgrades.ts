@@ -33,6 +33,9 @@ export interface Mods {
   tripSpeed: number;
   deliveryPrice: number;
   packSpeed: number;
+  /** The bar: how fast drinks are made, and what they sell for. */
+  mixSpeed: number;
+  drinkPrice: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -147,6 +150,8 @@ function emptyMods(): Mods {
     tripSpeed: 1,
     deliveryPrice: 1,
     packSpeed: 1,
+    mixSpeed: 1,
+    drinkPrice: 1,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };

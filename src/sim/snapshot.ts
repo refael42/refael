@@ -5,7 +5,7 @@ import { EntityType } from './types';
  * The render snapshot: a flat number array the UI thread can read cheaply. One fixed-size record
  * per entity, already sorted back-to-front, so the renderer just walks it in order.
  */
-export const STRIDE = 25;
+export const STRIDE = 26;
 
 const RARITY_INDEX = { common: 0, rare: 1, epic: 2, legendary: 3 } as const;
 
@@ -33,10 +33,12 @@ export const C = {
   bubble: 22,
   rank: 23,
   patienceKind: 24,
+  /** Seated higher than a chair (a bar stool): px up. */
+  lift: 25,
 } as const;
 
 /** Prop record fields. */
-export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11, progress: 12, bubble: 13, style: 14 } as const;
+export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11, progress: 12, bubble: 13, style: 14, extra: 15 } as const;
 
 /** Sim events (coins earned, dish ready...) ride along so the UI thread can spawn effects. */
 export const EVENT_STRIDE = 8;
@@ -133,6 +135,7 @@ function writeCharacter(d: Packed, o: number, c: CharacterView): void {
   const rarity = (c as { rarity?: keyof typeof RARITY_INDEX }).rarity ?? 'common';
   d[o + C.rank] = (c.rank ?? 0) + 10 * RARITY_INDEX[rarity];
   d[o + C.patienceKind] = c.patienceKind ?? 0;
+  d[o + C.lift] = c.lift ?? 0;
 }
 
 function writeProp(d: Packed, o: number, p: PropView): void {
@@ -151,6 +154,7 @@ function writeProp(d: Packed, o: number, p: PropView): void {
   d[o + P.progress] = p.progress;
   d[o + P.bubble] = p.bubble;
   d[o + P.style] = p.style ?? 0;
+  d[o + P.extra] = p.extra ?? 0;
 }
 
 const packed = (v: readonly number[] | Packed | undefined): Packed => (v instanceof Float64Array ? v : v && v.length > 0 ? Float64Array.from(v) : NONE);

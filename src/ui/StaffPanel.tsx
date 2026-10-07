@@ -30,7 +30,7 @@ interface Props {
   onClose: () => void;
 }
 
-const ROLE_ICON: Record<Role, SpriteName> = { cook: 'hatToqueF', waiter: 'trayFull', washer: 'plateStack', host: 'seat', cleaner: 'clean', manager: 'clipboard', promoter: 'flyers', courier: 'bag', checker: 'checkBadge', packer: 'packBox' };
+const ROLE_ICON: Record<Role, SpriteName> = { cook: 'hatToqueF', waiter: 'trayFull', washer: 'plateStack', host: 'seat', cleaner: 'clean', manager: 'clipboard', promoter: 'flyers', courier: 'bag', checker: 'checkBadge', packer: 'packBox', bartender: 'shaker' };
 const ICON_PX = 36;
 const roleIcon = (role: Role) => spriteIcon(ROLE_ICON[role], Math.round(ICON_PX * PixelRatio.get()));
 

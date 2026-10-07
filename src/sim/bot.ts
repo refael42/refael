@@ -92,6 +92,9 @@ function wanted(s: GameState, role: string): number {
     case 'packer':
       // One per two couriers, once there are couriers.
       return Math.ceil(s.staff.filter((st) => st.role === 'courier' && !st.leaving).length / 2);
+    case 'bartender':
+      // The bar once the room is past the first few tables, another as it grows (the bar caps them).
+      return tables >= 4 ? 1 + Math.floor(tables / 24) : 0;
     case 'promoter':
       // One once the room is busy, then another for every 20 more tables (the buildings cap them).
       return tables >= 6 ? 1 + Math.floor((tables - 6) / 20) : 0;

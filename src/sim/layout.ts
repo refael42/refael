@@ -10,11 +10,25 @@ import { canReach, gridWith, reachableInside, type Grid } from './grid';
 export const tileKey = (x: number, y: number) => Math.floor(y) * 1000 + Math.floor(x);
 const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight', 'gold'];
 
-/** Spots one building's people need free: staff spots, the line, the way in. */
+/** Spots one building's people need free: staff spots, the line, the way in (the bar's: barSpots). */
 export function staffSpots(map: MapDef): Point[] {
   const out: Point[] = [...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, map.checkerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop];
   if (map.packing) out.push(map.packing.table, ...map.packing.spots, map.packing.window, ...map.packing.pickups, map.packing.fridgeSpot);
   for (const d of map.doors) out.push(d.inside, { x: d.inside.x - 1, y: d.inside.y }, { x: d.inside.x + 1, y: d.inside.y }, { x: d.inside.x, y: d.inside.y - 1 });
+  return out;
+}
+
+/**
+ * The bar's: the bartenders' column, where waiters take drinks, the stools. Kept free in its own
+ * building only (the bar grows with the buildings: tables in the way of a bigger one move when it opens).
+ */
+export const barSpots = (map: MapDef): Point[] => [...map.bar.stations, map.bar.pickup, ...map.bar.stools.map((st) => st.at)];
+
+/** Tiles kept free in building `map` (`maps`: every building, smallest first): its people's and the bar's, and the people's of every bigger building. */
+export function reservedTiles(maps: readonly MapDef[], tier: number): Set<number> {
+  const out = new Set<number>();
+  for (let t = tier; t < maps.length; t++) for (const p of staffSpots(maps[t]!)) out.add(tileKey(p.x, p.y));
+  for (const p of barSpots(maps[tier]!)) out.add(tileKey(p.x, p.y));
   return out;
 }
 
@@ -24,7 +38,7 @@ export function isDiningFloor(map: MapDef, x: number, y: number): boolean {
 
 /** Everything that must stay reachable: staff spots, each table's serving spot and chairs (from beside them). */
 export function mustReach(map: MapDef, tables: readonly TableSpot[]): Point[] {
-  const out = staffSpots(map);
+  const out = [...staffSpots(map), ...barSpots(map)];
   for (const t of tables) out.push(serveSpot(t.x, t.y), ...sideTiles(t.style, t.x, t.y, -1), ...sideTiles(t.style, t.x, t.y, 1));
   return out;
 }
@@ -211,7 +225,7 @@ export function designTables(map: MapDef, prev: readonly TableSpot[], reserved: 
   const placed: TableSpot[] = [];
   const tryAdd = (t: TableSpot): boolean => {
     // Keep the corner by the door clear: the line, the host and the way in.
-    if (t.x > door.x - 4 && t.y > door.y - 3.2) return false;
+    if (t.x > r.x1 - 4 && t.y > r.y1 - 3) return false;
     if (!tableFits(room, t.style, t.x, t.y, nearOf(room))) return false;
     occupy(room, t);
     placed.push(t);
@@ -231,16 +245,17 @@ export function designTables(map: MapDef, prev: readonly TableSpot[], reserved: 
       x += mix(g, row + tier * 11) < 0.6 ? 1 : 2;
     }
   };
+  // A row may start a tile or two further in, where that costs no table (the first diner is two
+  // tables wide: there it cannot).
+  const width = r.x1 - 1 - (kx + 1);
+  const fit = (st: number) => Math.floor((width - st) / 3);
   // Along the back wall: sofas in twos and threes (booths sit snug against a wall; tables for two
   // in the diner), now and then a long table.
   // (A long table there stands back against the wall: its front a row further in.)
-  groups(r.y0 + 0.5, 0, (g) => (mix(g, tier + 9) < 0.25 ? 'long' : open('booth') ? 'booth' : 'square'), [2, 2, 3], mix(0, tier) < 0.5 ? 0 : 1, 1);
+  groups(r.y0 + 0.5, 0, (g) => (mix(g, tier + 9) < 0.25 ? 'long' : open('booth') ? 'booth' : 'square'), [2, 2, 3], mix(0, tier) < 0.5 || fit(1) < fit(0) ? 0 : 1, 1);
   // Then the rows: set off from each other, a wider aisle now and then (behind it long tables
   // fit: a long one reaches a row back).
-  // Each row starts a different distance in from the one before it, where that costs no table
-  // (the first diner is two tables wide: there it cannot).
-  const width = r.x1 - 1 - (kx + 1);
-  const fit = (st: number) => Math.floor((width - st) / 3);
+  // Each row starts a different distance in from the one before it.
   let start = 0;
   for (let y = r.y0 + 2.5, row = 1; y <= r.y1 - 1.5; row++) {
     const turn = 1 + Math.floor(mix(row, tier) * 2);
