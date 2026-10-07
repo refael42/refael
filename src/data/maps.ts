@@ -1,6 +1,8 @@
 import { PropKind as K, type PropKind } from '../sim/types';
 import { TIERS, type DiningFloor, type Grow } from './buildings';
 import { UNLOCK_TIER } from './unlocks';
+import type { TableSpot } from './tables';
+import { designTables, staffSpots, tileKey } from '../sim/layout';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -64,10 +66,11 @@ export interface MapDef {
   /** Line spots, front first (tile centers). */
   queue: Point[];
   /**
-   * Every table spot, in the order they open: the first `startTables` exist from the start,
-   * the rest are bought ("New table"). Each has a chair on its -x side where the customer sits.
+   * The building's own layout, in the order tables open: the first `startTables` exist from the
+   * start, the rest come when bought without picking a spot ("New table"), each in its design.
+   * The player may put tables elsewhere (build mode); how many there can be is this many.
    */
-  tables: Point[];
+  tables: TableSpot[];
   startTables: number;
   /** Stove spots and where their cook stands; like tables, the first `startStoves` exist. */
   stoves: { stove: Furniture; cook: Point }[];
@@ -159,8 +162,7 @@ export const FAMILY_SEATS: readonly Point[] = [
 export const MAX_SEATS = FAMILY_SEATS.length;
 /** Where each chair of a table with this many seats stands. */
 export const seatOffsetsFor = (seats: number): readonly Point[] => (seats > SEAT_OFFSETS.length ? FAMILY_SEATS : SEAT_OFFSETS);
-/** Where staff stand to serve or clear a table: its front edge, clear of both chairs. */
-export const SERVE_OFFSET: Point = { x: 0, y: 0.75 };
+export { SERVE_OFFSET } from './tables';
 /**
  * The opposite chair faces away from the camera, so its backrest is a prop of its own placed
  * this far past the chair: it then sorts (and draws) in front of the person sitting there.
@@ -195,11 +197,8 @@ const OLD_MARGIN = 2;
  */
 const STREET = { sidewalk: 2, road: 3, far: 2, park: 9, edge: 1 } as const;
 const STREET_DEPTH = STREET.sidewalk + STREET.road + STREET.far + STREET.park + STREET.edge;
-/** Tables come in blocks of two columns, three tiles apart; the first block starts this far into the room. */
-const FIRST_TABLE_COLUMN = 2.5;
+/** The dining room's staff posts and neon signs come every this many tiles (the room's tables are laid out in src/sim/layout.ts). */
 const BLOCK = 6;
-/** Opening order inside a block (rows from the back wall): spread out first, so a few tables already fill the room. */
-const BLOCK_ORDER: readonly [number, number][] = [[0, 2.5], [1, 2.5], [0, 6.5], [1, 6.5], [0, 4.5], [1, 4.5], [0, 8.5]];
 /** Stove rows (from the back wall) in a deep kitchen; the sink keeps row 6. */
 const DEEP_STOVE_ROWS: readonly number[] = [2, 4, 8, 10, 12, 14, 16, 18];
 /** Stoves at most per building: the bigger kitchens have lines of them (owner: "a bigger kitchen"). */
@@ -255,33 +254,6 @@ function ring(outer: Rect, inner: Rect): Rect[] {
     { x0: inner.x1, y0: inner.y0, x1: outer.x1, y1: inner.y1 },
   ];
   return out.filter((r) => r.x1 > r.x0 && r.y1 > r.y0);
-}
-
-/** Every table spot of a room, block by block (clear of the door, the line and the host). */
-function roomSpots(r: Rect): Point[] {
-  const depth = r.y1 - r.y0;
-  const deep = depth > BASE.depth;
-  // A deeper room adds rows, keeping the front row free as the aisle.
-  const extra: [number, number][] = deep ? [[1, 8.5]] : [];
-  for (let y = 10.5; deep && y <= depth - 1.5; y += 2) extra.push([0, y], [1, y]);
-  const spots: Point[] = [];
-  for (let b = 0; KITCHEN_X + FIRST_TABLE_COLUMN + b * BLOCK + 3 < r.x1 - 2; b++) {
-    const c0 = KITCHEN_X + FIRST_TABLE_COLUMN + b * BLOCK;
-    for (const [col, y] of [...BLOCK_ORDER, ...extra]) spots.push({ x: c0 + col * 3, y: r.y0 + y });
-    // The previous door corner is free now that the door moved on (deep rooms have it already).
-    if (b > 0 && !deep) spots.push({ x: c0 - 3, y: r.y0 + 8.5 });
-  }
-  // The corner by the door belongs to the line and the host.
-  return spots.filter((p) => !(p.x > r.x1 - 4 && p.y > r.y1 - 3));
-}
-
-/** A tier's spots: the smaller building's first, in the same order (tables you bought stay put), then the new ones. */
-function tableSpots(tier: number): Point[] {
-  const all = roomSpots(tierRect(tier));
-  if (tier === 0) return all;
-  const prev = tableSpots(tier - 1);
-  const had = new Set(prev.map((p) => `${p.x},${p.y}`));
-  return [...prev, ...all.filter((p) => !had.has(`${p.x},${p.y}`))];
 }
 
 /**
@@ -484,7 +456,7 @@ function buildMap(tier: number): MapDef {
       { x: door + 1, y: y1 - 2.5 },
       { x: door + 1, y: y1 - 3.5 },
     ],
-    tables: tableSpots(tier),
+    tables: [],
     startTables: 3,
     stoves: stoveSpots(tier, r, deep, fridgeY),
     startStoves: 1,
@@ -575,7 +547,23 @@ function buildMap(tier: number): MapDef {
   };
 }
 
-const MAPS: readonly MapDef[] = TIERS.map((_, t) => buildMap(t));
+const BARE: readonly MapDef[] = TIERS.map((_, t) => buildMap(t));
+
+/**
+ * Each building's tables, laid out around what its people need (and the people of every bigger
+ * building after it): the smaller building's tables stay put, the new room around them gets its own.
+ */
+const MAPS: readonly MapDef[] = (() => {
+  const out: MapDef[] = [];
+  let prev: TableSpot[] = [];
+  BARE.forEach((map, tier) => {
+    const reserved = new Set<number>();
+    for (let t = tier; t < BARE.length; t++) for (const p of staffSpots(BARE[t]!)) reserved.add(tileKey(p.x, p.y));
+    prev = designTables(map, prev, reserved);
+    out.push({ ...map, tables: prev });
+  });
+  return out;
+})();
 
 export const mapForTier = (tier: number): MapDef => MAPS[Math.max(0, Math.min(MAPS.length - 1, tier))]!;
 

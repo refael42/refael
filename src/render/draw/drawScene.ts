@@ -8,7 +8,7 @@ import { drawBadges, drawProp, drawWorks, type PropLooks } from './drawProp';
 import { drawScreenFx, drawWorldFx, processEvents, type Camera, type FxState } from './fx';
 import { hudAnchors, type HudLayout } from './hud';
 import { isoX, isoY } from '../iso';
-import { sprFade } from './primitives';
+import { spr, sprFade } from './primitives';
 
 /** 0 by day, 1 deep at night (the last part of each day), with soft dusk and dawn. */
 export function nightOf(phase: number): number {
@@ -40,7 +40,7 @@ const DETAIL_ZOOM = 0.62;
 
 export interface BuildOverlay {
   tiles: number[];
-  /** [x, y, prop kind] of the picked tile, or empty. */
+  /** [x, y, prop kind] of the picked tile (and a table's style, for a table), or empty. */
   pick: number[];
   /** [x, y] of a placed piece being moved, or empty: its tile glows under it. */
   from: number[];
@@ -56,6 +56,15 @@ function decorLook(A: RenderAssets, kind: number): number {
   if (kind === PropKind.Fountain) return L.fountain[0]!;
   if (kind === PropKind.Piano) return L.piano[0]!;
   return -1;
+}
+
+/** A table design's whole set (table and seats), by style index (src/data/tables.ts). */
+function tableSet(A: RenderAssets, style: number): number {
+  'worklet';
+  if (style === 1) return A.S.setSquare;
+  if (style === 2) return A.S.setLong;
+  if (style === 3) return A.S.setBooth;
+  return A.S.setRound;
 }
 
 /** After the night tint: lamp halos and the neon sign shine through the dark. */
@@ -127,6 +136,19 @@ export function drawScene(
     for (let i = 0; i < build.tiles.length; i += 2) sprFade(c, A, A.S.tileFree, isoX(build.tiles[i]!, build.tiles[i + 1]!), isoY(build.tiles[i]!, build.tiles[i + 1]!), 1, glow);
     if (build.from.length === 2) sprFade(c, A, A.S.tilePicked, isoX(build.from[0]!, build.from[1]!), isoY(build.from[0]!, build.from[1]!), 1.05 + Math.sin(t * 6) * 0.05, 0.95);
   }
+  // A rug under each table, on the floor before anything stands on it: the colors take turns by
+  // where the table stands (neighbors in a row mostly share one).
+  for (let i = 0; i < snap.count; i++) {
+    const o = i * STRIDE;
+    if (d[o + F.type] === EntityType.Character || d[o + PF.kind] !== PropKind.Table) continue;
+    const tx = d[o + F.x]!;
+    const ty = d[o + F.y]!;
+    const px = isoX(tx, ty);
+    const py = isoY(tx, ty);
+    if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
+    const rugs = A.L.rug[d[o + PF.style]!] ?? A.L.rug[0]!;
+    spr(c, A, rugs[(Math.floor(tx / 7) * 3 + Math.floor(ty) * 5) % rugs.length]!, px, py, A.paints.plain);
+  }
   // Only what is on screen (a big restaurant zoomed in has most of itself off to the sides).
   // Sprites stand up from their floor anchor, so the margin is bigger above than below.
   for (let i = 0; i < snap.count; i++) {
@@ -138,11 +160,12 @@ export function drawScene(
     else drawProp(c, A, d, o, t, looks);
   }
   // ...and the picked tile with a see-through preview of the piece, bobbing a little.
-  if (build && build.pick.length === 3) {
+  if (build && build.pick.length >= 3) {
     const px = isoX(build.pick[0]!, build.pick[1]!);
     const py = isoY(build.pick[0]!, build.pick[1]!);
     sprFade(c, A, A.S.tilePicked, px, py, 1, 0.9);
-    const look = decorLook(A, build.pick[2]!);
+    // A table: the whole set in its design (a 4th number), else a decor piece.
+    const look = build.pick.length === 4 ? tableSet(A, build.pick[3]!) : decorLook(A, build.pick[2]!);
     if (look >= 0) sprFade(c, A, look, px, py - 4 - Math.abs(Math.sin(t * 3)) * 4, 1, 0.75);
   }
   for (let i = 0; i < snap.count; i++) {

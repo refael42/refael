@@ -1,64 +1,49 @@
 import { TIERS } from '../../data/buildings';
-import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, type MapDef, type Point } from '../../data/maps';
-import { buildGrid, canReach, cutTree, reachableFrom, type CutTree, type Grid } from '../grid';
+import { mapForTier, type MapDef, type Point } from '../../data/maps';
+import { autoStyle, footprint, serveSpot, styleDef, type TableSpot, type TableStyle } from '../../data/tables';
+import { canReach, cutTree, reachableFrom, reachableInside, type CutTree, type Grid } from '../grid';
+import { mustReach, nearOf, roomOf, staffSpots, tableFits, tileFree, tileKey, type Room } from '../layout';
 import type { GameState } from './types';
 import { reservedBy } from './works';
 
-// Build mode: where decor may go. A tile is buildable when it is dining-room floor, nothing
-// stands on it, nothing the restaurant needs (now or in any bigger building) uses it, and
-// with it taken every chair, table and work spot can still be reached from the door, even
-// with every table and every second chair in place: the room can never get blocked.
+export type { TableSpot } from '../../data/tables';
 
-const key = (x: number, y: number) => Math.floor(y) * 1000 + Math.floor(x);
-const DINING_FLOORS: readonly string[] = ['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight', 'gold'];
+// Build mode: where decor and tables may go (owner: "tables of every kind, placed wherever you
+// want"). A tile is buildable when it is dining-room floor, nothing stands on it, no worker,
+// the line or the door needs it (now or in any bigger building), and with it taken every chair,
+// table and work spot can still be reached from the door, with every table's chairs counted
+// even before they are bought: the room can never get blocked. The checks themselves are in
+// src/sim/layout.ts (the map generator lays its rooms out with them too).
 
-/** Spots one building needs free: tables and their chairs and serving spots, staff spots, the line. */
-function spotsOf(map: MapDef): Point[] {
-  const out: Point[] = [];
-  for (const t of map.tables) {
-    out.push(t, { x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
-    for (const seat of SEAT_OFFSETS) out.push({ x: t.x + seat.x, y: t.y + seat.y });
-  }
-  out.push(...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, map.checkerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop);
-  if (map.packing) out.push(map.packing.table, ...map.packing.spots, map.packing.window, ...map.packing.pickups, map.packing.fridgeSpot);
-  for (const d of map.doors) out.push(d.inside, { x: d.inside.x - 1, y: d.inside.y }, { x: d.inside.x + 1, y: d.inside.y }, { x: d.inside.x, y: d.inside.y - 1 });
-  return out;
-}
+const key = tileKey;
 
-/** Tiles kept free in each tier: its own needs and those of every bigger building after it. */
+/** Tiles kept free in each tier: its own staff spots and those of every bigger building after it. */
 const RESERVED: readonly Set<number>[] = TIERS.map((_, tier) => {
   const out = new Set<number>();
-  for (let t = tier; t < TIERS.length; t++) for (const p of spotsOf(mapForTier(t))) out.add(key(p.x, p.y));
+  for (let t = tier; t < TIERS.length; t++) for (const p of staffSpots(mapForTier(t))) out.add(key(p.x, p.y));
   return out;
 });
 
-/** Where everything must stay reachable from (staff spots and the seats; chairs count via a neighbor). */
-const MUST_REACH = new WeakMap<MapDef, Point[]>();
-function mustReach(map: MapDef): Point[] {
-  let out = MUST_REACH.get(map);
-  if (!out) {
-    out = spotsOf(map).filter((p) => !map.tables.some((t) => t.x === p.x && t.y === p.y));
-    MUST_REACH.set(map, out);
-  }
+/**
+ * Where the building's own layout puts tables (their chairs and serving spots too): decor the
+ * game places by itself (the balance bot, a save whose spot is gone) keeps off them when it can,
+ * so tables bought later still find room. A player may put anything there.
+ */
+const TABLE_ZONE: readonly Set<number>[] = TIERS.map((_, tier) => {
+  const out = new Set<number>();
+  for (const t of mapForTier(tier).tables) for (const p of [...footprint(t.style, t.x, t.y), serveSpot(t.x, t.y)]) out.add(key(p.x, p.y));
   return out;
-}
+});
 
-function isDiningFloor(map: MapDef, x: number, y: number): boolean {
-  return map.areas.some((a) => DINING_FLOORS.includes(a.floor) && x >= a.x0 && x < a.x1 && y >= a.y0 && y < a.y1);
-}
+const spotsOf = (s: GameState, ignore = -1): TableSpot[] => s.tables.filter((t) => t.index !== ignore).map((t) => ({ x: t.x, y: t.y, style: t.style }));
 
-/** The cheap checks: dining floor, free right now, not needed by anything. */
-function looksFree(s: GameState, tx: number, ty: number): boolean {
-  const map = s.map;
-  if (s.construction || !isDiningFloor(map, tx, ty) || RESERVED[map.tier]!.has(key(tx, ty))) return false;
-  return s.grid.walk[ty * s.grid.w + tx] === 1 && !reservedBy(s, tx, ty);
-}
-
-/** The worst case: every table bought, every second chair, all decor (and pieces on the way). */
-function worstCase(s: GameState): Grid {
-  const map = s.map;
+/**
+ * The worst case: every table with all of its chairs, all decor (and pieces on the way).
+ * `ignore`: a table being moved (its tiles count as free).
+ */
+function worstCase(s: GameState, ignore = -1): Room {
   const pending = s.works.flatMap((w) => (w.at ? [w.at] : []));
-  return buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, [...s.placed, ...pending]);
+  return roomOf(s.map, spotsOf(s, ignore), [...s.placed, ...pending], RESERVED[s.map.tier]!, (tx, ty) => reservedBy(s, tx, ty));
 }
 
 const SIDES: readonly [number, number][] = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -79,9 +64,9 @@ interface RoomCuts {
   ok: boolean;
 }
 
-function roomCuts(g: Grid, map: MapDef): RoomCuts {
+function roomCuts(g: Grid, map: MapDef, reach: readonly Point[]): RoomCuts {
   const cuts = cutTree(g, map.doors[0]!.inside);
-  const access = mustReach(map).map((p) => {
+  const access = reach.map((p) => {
     const tx = Math.floor(p.x);
     const ty = Math.floor(p.y);
     if (tx < 0 || ty < 0 || tx >= g.w || ty >= g.h) return [];
@@ -141,39 +126,41 @@ function staysOpen(r: RoomCuts, tx: number, ty: number): boolean {
   return true;
 }
 
-/** With tile (tx, ty) taken too, can everything still be reached from the door? The plain full
+/** With tile (x, y) taken too, can everything still be reached from the door? The plain full
  * search: the cut tree answers the same much faster, and the tests check that they agree. */
 export function keepsRoomOpenSlowly(s: GameState, x: number, y: number): boolean {
-  return looksFree(s, Math.floor(x), Math.floor(y)) && keepsRoomOpen(worstCase(s), s.map, Math.floor(x), Math.floor(y));
-}
-
-function keepsRoomOpen(g: Grid, map: MapDef, tx: number, ty: number): boolean {
-  const i = ty * g.w + tx;
-  const was = g.walk[i]!;
-  g.walk[i] = 0;
-  const reach = reachableFrom(g, map.doors[0]!.inside);
-  const ok = mustReach(map).every((p) => canReach(g, reach, p));
-  g.walk[i] = was;
-  return ok;
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  if (s.construction) return false;
+  const room = worstCase(s);
+  if (!tileFree(room, tx, ty)) return false;
+  const g = room.g;
+  g.walk[ty * g.w + tx] = 0;
+  const reach = reachableFrom(g, s.map.doors[0]!.inside);
+  return mustReach(s.map, room.tables).every((p) => canReach(g, reach, p));
 }
 
 /** Can a decor piece go on the tile at (x, y) right now? */
 export function canPlaceAt(s: GameState, x: number, y: number): boolean {
   const tx = Math.floor(x);
   const ty = Math.floor(y);
-  return looksFree(s, tx, ty) && staysOpen(roomCuts(worstCase(s), s.map), tx, ty);
+  if (s.construction) return false;
+  const room = worstCase(s);
+  return tileFree(room, tx, ty) && staysOpen(roomCuts(room.g, s.map, mustReach(s.map, room.tables)), tx, ty);
 }
 
 /** Every tile decor can go on now (tile centers), back rows first. One worst-case room for all of them. */
 export function buildableTiles(s: GameState): Point[] {
   const out: Point[] = [];
+  if (s.construction) return out;
   const b = s.map.building;
-  let room: RoomCuts | null = null;
+  const room = worstCase(s);
+  let cuts: RoomCuts | null = null;
   for (let y = b.y0; y < b.y1; y++) {
     for (let x = b.x0; x < b.x1; x++) {
-      if (!looksFree(s, x, y)) continue;
-      room ??= roomCuts(worstCase(s), s.map);
-      if (staysOpen(room, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
+      if (!tileFree(room, x, y)) continue;
+      cuts ??= roomCuts(room.g, s.map, mustReach(s.map, room.tables));
+      if (staysOpen(cuts, x, y)) out.push({ x: x + 0.5, y: y + 0.5 });
     }
   }
   return out;
@@ -181,17 +168,100 @@ export function buildableTiles(s: GameState): Point[] {
 
 /**
  * Where a piece goes when nobody picked a spot (the balance bot, a save whose spot is gone):
- * the free tile nearest `near`, by default the back corner of the room.
+ * the free tile nearest `near`, by default the back corner of the room, off the tables' places.
  */
 export function autoTile(s: GameState, near: Point = { x: s.map.building.x0, y: s.map.building.y0 }): Point | null {
+  const zone = TABLE_ZONE[s.map.tier]!;
   let best: Point | null = null;
   let bestD = Infinity;
   for (const p of buildableTiles(s)) {
-    const d = Math.hypot(p.x - near.x, p.y - near.y);
+    const d = Math.hypot(p.x - near.x, p.y - near.y) + (zone.has(key(p.x, p.y)) ? 1000 : 0);
     if (d < bestD) {
       bestD = d;
       best = p;
     }
   }
   return best;
+}
+
+// ---------- tables ----------
+
+/**
+ * Can a table of `style` stand with its anchor (front tile) at (x, y)? See tableFits.
+ * `ignore`: the table being moved.
+ */
+export function canPlaceTable(s: GameState, style: TableStyle, x: number, y: number, ignore = -1): boolean {
+  if (s.construction) return false;
+  return tableFits(worstCase(s, ignore), style, Math.floor(x) + 0.5, Math.floor(y) + 0.5);
+}
+
+/** Every anchor where a table of `style` fits now (tile centers): the green tiles in build mode. */
+export function tableAnchors(s: GameState, style: TableStyle, ignore = -1): Point[] {
+  const out: Point[] = [];
+  if (s.construction) return out;
+  const b = s.map.building;
+  const room = worstCase(s, ignore);
+  const near = nearOf(room);
+  const back = Math.min(0, ...styleDef(style).top.map(([, dy]) => dy));
+  for (let y = b.y0 - back; y < b.y1; y++) {
+    for (let x = b.x0 + 1; x < b.x1 - 1; x++) if (tableFits(room, style, x + 0.5, y + 0.5, near)) out.push({ x: x + 0.5, y: y + 0.5 });
+  }
+  return out;
+}
+
+/**
+ * A whole saved layout checked at once (loading a big save one table at a time took a search of
+ * the room per table): every table on free floor, none on another, and everything reachable.
+ */
+export function layoutWorks(s: GameState, tables: readonly TableSpot[]): boolean {
+  if (s.construction) return false;
+  const room = worstCase(s);
+  const g = room.g;
+  for (const t of tables) {
+    for (const p of footprint(t.style, t.x, t.y)) {
+      const tx = Math.floor(p.x);
+      const ty = Math.floor(p.y);
+      if (!tileFree(room, tx, ty)) return false;
+      g.walk[ty * g.w + tx] = 0;
+    }
+  }
+  for (const t of tables) {
+    const p = serveSpot(t.x, t.y);
+    if (room.serve.has(key(p.x, p.y)) || !g.walk[Math.floor(p.y) * g.w + Math.floor(p.x)]) return false;
+    room.serve.add(key(p.x, p.y));
+  }
+  const reach = reachableInside(g, s.map.doors[0]!.inside);
+  return mustReach(s.map, [...room.tables, ...tables]).every((p) => {
+    const i = Math.floor(p.y) * g.w + Math.floor(p.x);
+    return !g.inside[i] || canReach(g, reach, p);
+  });
+}
+
+/** The next table's spot, per walkable grid (a new grid = something moved) and what else could change it. */
+const NEXT_SPOT = new WeakMap<Grid, { key: string; spot: TableSpot | null }>();
+
+/**
+ * Where the next table goes when nobody picks a spot (the upgrade list, the dashed "+", the bot):
+ * the building's own layout, its next free place in opening order and design; if the player's
+ * own layout took them all, the free spot nearest the back of the room. Null: no room left.
+ */
+export function nextTableSpot(s: GameState): TableSpot | null {
+  const k = `${s.tables.length}:${s.works.length}:${s.construction ? 1 : 0}:${s.map.tier}`;
+  const known = NEXT_SPOT.get(s.grid);
+  if (known && known.key === k) return known.spot;
+  const spot = findTableSpot(s);
+  NEXT_SPOT.set(s.grid, { key: k, spot });
+  return spot;
+}
+
+function findTableSpot(s: GameState): TableSpot | null {
+  if (s.construction) return null;
+  const room = worstCase(s);
+  const near = nearOf(room);
+  for (const p of s.map.tables) if (tableFits(room, p.style, p.x, p.y, near)) return p;
+  const style = autoStyle(s.tables.length, s.map.tier);
+  const free = tableAnchors(s, style);
+  let best: Point | null = null;
+  for (const p of free) if (!best || p.y < best.y || (p.y === best.y && p.x < best.x)) best = p;
+  return best ? { ...best, style } : null;
 }

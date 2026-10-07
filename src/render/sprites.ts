@@ -15,13 +15,14 @@ import { fxSprites } from './art/fxArt';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { LOCK_BOARDS, propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
+import { RUG_COLORS, tableSprites } from './art/tableArt';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...tableSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
-const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
+const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
 const GLOW_PAD = 4;
 
 /**
@@ -57,7 +58,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof tableSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -140,6 +141,8 @@ export const LAYERS = {
   trophy: FESTIVAL_THEMES.map((_, i) => INDEX[`trophy${i}`]!),
   /** Tree sprites per city: [city * 2 + map variant] (src/data/franchise.ts). */
   trees: CITIES.flatMap((city) => city.trees.map((k) => INDEX[TREE_SPRITE[k]]!)),
+  /** A rug under each table, by table style (src/data/tables.ts) and then color. */
+  rug: ['rugRound', 'rugRect', 'rugLong', 'rugRect'].map((shape) => RUG_COLORS.map((_, k) => INDEX[`${shape}${k}`]!)),
   /** Station looks by milestone tier. */
   look: {
     stove: looks('stove'),
@@ -147,6 +150,14 @@ export const LAYERS = {
     fridge: looks('fridge'),
     table: looks('table'),
     tableSquare: looks('tableSquare'),
+    tableSmall: looks('tableSmall'),
+    tableRound4: looks('tableRound4'),
+    tableLongBack: looks('tableLongBack'),
+    tableLongFront: looks('tableLongFront'),
+    tableLong: looks('tableLong'),
+    booth: looks('booth'),
+    boothSeat: looks('boothSeat'),
+    boothRest: looks('boothRest'),
     packTable: looks('packTable'),
     chair: looks('chair'),
     chairSeat: looks('chairSeat'),

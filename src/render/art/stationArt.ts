@@ -12,10 +12,10 @@ import { palmFronds } from './propArt';
 // player SEES what they bought. Past the last look, the renderer adds a golden aura instead.
 
 export const LOOKS = 4;
-const GOLD = '#E2B13C';
+export const GOLD = '#E2B13C';
 const STEEL = '#AEB8C4';
 const STEEL_DARK = '#7E8A98';
-const VELVET = '#C8202E';
+export const VELVET = '#C8202E';
 
 /** `name0`..`name3` sprites from one parametric drawing. */
 export function looks(name: string, bounds: SpriteDef['bounds'], draw: (c: SkCanvas, t: number) => void): Record<string, SpriteDef> {
@@ -209,14 +209,14 @@ const fridges = looks('fridge', [-30, -86, 30, 12], (c, t) => {
 
 // ---------- tables: white cloth -> cream & gold with a candle -> red velvet & a rose -> black & gold candelabra ----------
 
-const CLOTH = [
+export const CLOTH = [
   { cloth: '#F1EBE1', top: '#FFFFFF', runner: VELVET, rim: GOLD },
   { cloth: '#EFE2C6', top: '#FFF6E2', runner: GOLD, rim: '#B8892A' },
   { cloth: '#8E1424', top: '#B3202E', runner: '#F4D58A', rim: GOLD },
   { cloth: '#1E1A24', top: '#2E2836', runner: GOLD, rim: '#FFE08A' },
 ] as const;
 
-function candle(c: SkCanvas, x: number, y: number, z: number, h: number) {
+export function candle(c: SkCanvas, x: number, y: number, z: number, h: number) {
   cylinder(c, x, y, 0.025, z, h, '#F4EEE2', '#FFFFFF');
   const [fx, fy] = P(x, y, z + h + 2.4);
   c.drawPath(path.smooth([[fx, fy - 2.6], [fx + 1.2, fy], [fx, fy + 1], [fx - 1.2, fy]]), fill('#FFB42A'));

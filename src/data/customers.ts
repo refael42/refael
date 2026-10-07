@@ -65,13 +65,15 @@ export const PARTY = {
   /** Chance that a newcomer brings a friend, times the share of tables with two chairs. */
   pairChance: 0.4,
   /** Where the others stand around them in line (tiles): the friend first. */
-  queueOffsets: [{ x: 0.3, y: 0.42 }, { x: -0.32, y: 0.38 }, { x: 0.02, y: 0.66 }] as readonly { x: number; y: number }[],
+  queueOffsets: [{ x: 0.3, y: 0.42 }, { x: -0.32, y: 0.38 }, { x: 0.02, y: 0.66 }, { x: 0.36, y: 0.86 }, { x: -0.3, y: 0.9 }] as readonly { x: number; y: number }[],
   /** Where they show up next to the leader. */
-  spawnOffsets: [{ x: -0.4, y: 0.3 }, { x: 0.35, y: 0.32 }, { x: -0.1, y: 0.62 }] as readonly { x: number; y: number }[],
+  spawnOffsets: [{ x: -0.4, y: 0.3 }, { x: 0.35, y: 0.32 }, { x: -0.1, y: 0.62 }, { x: 0.3, y: 0.8 }, { x: -0.42, y: 0.86 }] as readonly { x: number; y: number }[],
   /** Of the pairs, the share that are families of 3-4, times the family tables per table for two. */
   familyChance: 0.7,
   /** A family's third and fourth: this often a child. */
   familyKidChance: 0.75,
+  /** Of the families, the share that are big groups of 5-6, times the tables for six per family table. */
+  bigChance: 0.45,
   /** Chance that the friend is a child (families: not with students), drawn smaller. Just the look. */
   kidChance: 0.3,
   kidTypes: ['regular', 'tourist', 'relaxed'] as readonly CustomerTypeId[],

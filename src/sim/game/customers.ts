@@ -6,7 +6,8 @@ import { ANIM } from '../../data/customers';
 import { DAY, KITCHEN } from '../../data/staff';
 import { weekArrivals } from '../calendar';
 import { REVIEW } from '../../data/reviews';
-import { seatOffsetsFor, type Point } from '../../data/maps';
+import type { Point } from '../../data/maps';
+import { seatLayout, styleIndex, TOP_MIDDLE } from '../../data/tables';
 import { big, type Big } from '../big';
 import { findPath } from '../grid';
 import { customerLook } from '../looks';
@@ -24,16 +25,17 @@ import { CustomerState, OrderState, TableState, type Customer, type GameState, t
 /** About one guest in three checks their phone while waiting for the food. */
 const phoneUser = (c: Customer) => c.id % 3 === 1;
 
-const seatOffset = (t: Table, seat: number): Point => seatOffsetsFor(t.seats)[seat] ?? { x: -0.62, y: 0 };
+const seatOffset = (t: Table, seat: number): Point => seatLayout(t.style, t.seats)[seat] ?? { x: -0.62, y: 0 };
 export const chairOf = (t: Table, seat = 0): Point => {
   const o = seatOffset(t, seat);
   return { x: t.x + o.x, y: t.y + o.y };
 };
 
-/** Where the dish lands: in front of its chair. */
+/** Where the dish lands: in front of its chair, pulled in toward the middle of the top. */
 export const dishSpot = (t: Table, seat: number): Point => {
   const o = seatOffset(t, seat);
-  return { x: t.x + (o.x < 0 ? -0.12 : 0.12), y: t.y + o.y * 0.6 };
+  const mid = TOP_MIDDLE[styleIndex(t.style)]!.y;
+  return { x: t.x + (o.x < 0 ? -0.12 : 0.12), y: t.y + mid + (o.y - mid) * 0.6 };
 };
 
 /** Everyone who came in together (just them, when alone). */
@@ -96,7 +98,10 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   const familyTables = pair ? s.tables.filter((t) => t.seats > 2).length : 0;
   const roll = hash01(s.nextId * 3.17 + 0.61);
   const family = familyTables > 0 && roll < (PARTY.familyChance * familyTables) / pairTables;
-  const size = family ? (roll < (PARTY.familyChance * familyTables) / pairTables / 2 ? 4 : 3) : pair ? 2 : 1;
+  // A long table for six: some families are big groups of 5-6 (by the id again).
+  const bigTables = family ? s.tables.filter((t) => t.seats > 4).length : 0;
+  const crowd = bigTables > 0 && hash01(s.nextId * 1.91 + 0.13) < (PARTY.bigChance * bigTables) / familyTables;
+  const size = crowd ? (hash01(s.nextId * 2.37 + 0.5) < 0.5 ? 6 : 5) : family ? (roll < (PARTY.familyChance * familyTables) / pairTables / 2 ? 4 : 3) : pair ? 2 : 1;
   const leader = newCustomer(s, type, start, slot, -1, size);
   if (look) leader.look = { ...look };
   maybeVip(s, leader);

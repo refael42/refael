@@ -5,8 +5,8 @@ import { fromSave } from '../big';
 import { emit, Ev } from './events';
 import { seatCustomer } from './customers';
 import { PropKind } from '../types';
-import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf } from './purchase';
-import { moveDecor } from './create';
+import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf, UPGRADE_QUIET } from './purchase';
+import { moveDecor, moveTable } from './create';
 import { openBranch } from '../franchise';
 import { claimDaily, openGift } from '../retention';
 import { collectWheel, spinWheel } from '../wheel';
@@ -164,7 +164,15 @@ function apply(s: GameState, cmd: Command): void {
   } else if (cmd.type === 'wash') {
     handWash(s);
   } else if (cmd.type === 'buy') {
-    buyUpgrade(s, cmd.item, cmd.at, cmd.step);
+    buyUpgrade(s, cmd.item, cmd.at, cmd.step, cmd.style);
+  } else if (cmd.type === 'moveTable') {
+    const t = s.tables[cmd.table];
+    const from = t ? { x: t.x, y: t.y } : null;
+    if (from && moveTable(s, cmd.table, cmd.to, cmd.style)) {
+      rerouteWalkers(s);
+      if (from.x !== t!.x || from.y !== t!.y) emit(s, Ev.Poof, from.x, from.y);
+      emit(s, Ev.Upgrade, t!.x, t!.y, 1, UPGRADE_QUIET, PropKind.Table);
+    }
   } else if (cmd.type === 'hurry') {
     const w = s.works.find((x) => x.id === cmd.work);
     if (w) hurryWork(s, w.id, siteOf(s, w));

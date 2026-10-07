@@ -2,6 +2,6 @@
 // things are found instead of missed. Bump `version` and rewrite `items` (i18n keys) each time.
 
 export const NEWS = {
-  version: 25,
-  items: ['news.reviews', 'news.deliveryUp', 'news.deliveryStation', 'news.north', 'news.smooth'] as const,
+  version: 26,
+  items: ['news.tables', 'news.moveTables', 'news.layout', 'news.bigGroups'] as const,
 };

@@ -18,7 +18,9 @@ import { TEST_MONEY } from '../data/economy';
 import { big, toSave } from '../sim/big';
 import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
 import { crewCount } from '../sim/economy/works';
-import { buildableTiles } from '../sim/game/build';
+import { buildableTiles, tableAnchors } from '../sim/game/build';
+import { tableIsFree } from '../sim/game/create';
+import { styleIndex, type TableStyle } from '../data/tables';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState, PlacedDecor } from '../sim/game/types';
 import { PropKind } from '../sim/types';
@@ -67,6 +69,17 @@ const SNAP_TILES = 1.3;
 /** Build mode: a placed piece is picked within this many px (at zoom 1) of its middle, this high up. */
 const PICK_PX = 34;
 const PICK_HEIGHT = 30;
+const TABLE_PICK_HEIGHT = 16;
+
+/** What build mode is doing (see where it is used). `busy`: a table with guests was tapped. */
+interface BuildState {
+  item: string | null;
+  tile: Point | null;
+  moving?: Point;
+  table?: number;
+  style?: TableStyle;
+  busy?: boolean;
+}
 
 /** Name tags under the cast and props, so the owner can review each piece. */
 function Labels({ camera }: { camera: Camera }) {
@@ -202,8 +215,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   panelOpen.current = panel !== null || staff !== null;
 
   // Build mode: what is picked, which tile, and the free tiles shown on the floor.
-  // `moving`: a placed piece picked up to go on another tile.
-  const [build, setBuild] = useState<{ item: string | null; tile: Point | null; moving?: Point } | null>(null);
+  // `moving`: a placed piece picked up to go on another tile; `table`: a table picked up (by its
+  // index) to go somewhere else; `style`: the table design picked (a new table or the one moving).
+  const [build, setBuild] = useState<BuildState | null>(null);
   // Coins change all the time: the full wallet is read often only while a panel shows it.
   const wallet = usePoll(gameRef, readWallet, panel || build ? 6 : 0.1);
   const buildRef = useRef(build);
@@ -217,21 +231,25 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       return;
     }
     const decor = DECOR.find((d) => build.item === `place_${d.id}`);
+    // A table being placed or moved: the spots where that design fits.
+    const tables = build.style !== undefined && (build.item === 'tables' || build.table !== undefined);
     // Free tiles only change when something is built: they are worked out again only then
     // (on a big map that takes a moment, felt as a hitch if done every second).
     let seen = '';
     const refresh = () => {
       const game = gameRef.current;
-      const now = game ? `${game.map.tier}:${game.placed.length}:${game.tables.length}:${game.works.length}:${game.placed.map((p) => p.x * 100 + p.y).join(',')}` : '';
+      const layout = game ? game.tables.map((t) => `${t.x},${t.y},${t.style}`).join(';') : '';
+      const now = game ? `${game.map.tier}:${game.placed.length}:${layout}:${game.works.length}:${game.placed.map((p) => p.x * 100 + p.y).join(',')}` : '';
       if (now !== seen || !game) {
         seen = now;
-        freeTiles.current = game ? buildableTiles(game) : [];
+        freeTiles.current = !game ? [] : tables ? tableAnchors(game, build.style!, build.table ?? -1) : buildableTiles(game);
       }
       setFreeCount(freeTiles.current.length);
+      const moved = build.table !== undefined ? game?.tables[build.table] : undefined;
       overlay.value = {
-        tiles: decor || build.moving ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
-        pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : [],
-        from: build.moving ? [build.moving.x, build.moving.y] : [],
+        tiles: decor || build.moving || tables ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
+        pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : tables && build.tile ? [build.tile.x, build.tile.y, PropKind.Table, styleIndex(build.style!)] : [],
+        from: build.moving ? [build.moving.x, build.moving.y] : moved ? [moved.x, moved.y] : [],
       };
     };
     refresh();
@@ -241,8 +259,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const placeBuild = () => {
     const b = buildRef.current;
     if (!b?.item) return;
-    command(b.item === 'tables' ? { type: 'buy', item: 'tables' } : { type: 'buy', item: b.item, ...(b.tile ? { at: b.tile } : {}) });
-    setBuild({ item: b.item, tile: null });
+    if (b.table !== undefined && b.tile && b.style) command({ type: 'moveTable', table: b.table, to: b.tile, style: b.style });
+    else if (b.item === 'tables') command({ type: 'buy', item: 'tables', ...(b.tile && b.style ? { at: b.tile, style: b.style } : {}) });
+    else command({ type: 'buy', item: b.item, ...(b.tile ? { at: b.tile } : {}) });
+    setBuild(b.table !== undefined ? { item: null, tile: null } : { item: b.item, tile: null, style: b.style });
   };
 
   // The building: its background, where the camera looks (the building site while the
@@ -363,8 +383,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           }
         }
         const game = gameRef.current;
-        // A piece is picked by what you see: its body stands up from its tile.
+        // A piece is picked by what you see: its body stands up from its tile (a table's top is lower).
         let piece: PlacedDecor | undefined;
+        let table = -1;
         let near = PICK_PX * cam.zoom;
         for (const d of game?.placed ?? []) {
           const dist = Math.hypot(cam.x + isoX(d.x, d.y) * cam.zoom - x, cam.y + isoY(d.x, d.y, PICK_HEIGHT) * cam.zoom - y);
@@ -373,14 +394,35 @@ function GameRunner({ boot }: { boot: GameBoot }) {
             piece = d;
           }
         }
-        if (b.moving) {
+        // Tables too (not while a green tile is right under the finger: that is a spot being picked).
+        if (!tile || b.style === undefined) {
+          for (const t of game?.tables ?? []) {
+            const dist = Math.hypot(cam.x + isoX(t.x, t.y) * cam.zoom - x, cam.y + isoY(t.x, t.y, TABLE_PICK_HEIGHT) * cam.zoom - y);
+            if (dist < near) {
+              near = dist;
+              table = t.index;
+              piece = undefined;
+            }
+          }
+        }
+        if (table >= 0 && game) {
+          const t = game.tables[table]!;
+          // Guests at it: it stays until they leave (the bar says so).
+          setBuild(tableIsFree(t) ? { item: null, tile: null, table, style: t.style } : { item: null, tile: null, busy: true });
+        } else if (b.moving) {
           if (piece && !tile) setBuild({ item: null, tile: null, moving: { x: piece.x, y: piece.y } });
           else if (tile) {
             command({ type: 'move', from: b.moving, to: tile });
             setBuild({ item: null, tile: null });
           }
+        } else if (b.table !== undefined) {
+          // A table picked up goes straight to the green tile tapped.
+          if (tile && b.style) {
+            command({ type: 'moveTable', table: b.table, to: tile, style: b.style });
+            setBuild({ item: null, tile: null });
+          }
         } else if (piece) setBuild({ item: null, tile: null, moving: { x: piece.x, y: piece.y } });
-        else if (tile && b.item && b.item !== 'tables') setBuild({ item: b.item, tile });
+        else if (tile && b.item && (b.item !== 'tables' || b.style)) setBuild({ item: b.item, tile, style: b.style });
         return;
       }
       const hit = tap(x, y, cam);
@@ -459,9 +501,14 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           item={build.item}
           tile={build.tile}
           freeTiles={freeCount}
-          moving={build.moving ?? null}
+          moving={build.moving ?? (build.table !== undefined ? { x: 0, y: 0 } : null)}
+          movingTable={build.table !== undefined}
+          busy={build.busy === true}
+          style={build.style ?? null}
+          tier={tier}
+          onStyle={(style) => setBuild({ ...build, style, tile: null })}
           onCancelMove={() => setBuild({ item: null, tile: null })}
-          onItem={(item) => setBuild({ item, tile: null })}
+          onItem={(item) => setBuild({ item, tile: null, ...(item === 'tables' ? { style: 'round' as const } : {}) })}
           onPlace={placeBuild}
           onDone={() => setBuild(null)}
         />

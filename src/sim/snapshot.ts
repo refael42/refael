@@ -36,7 +36,7 @@ export const C = {
 } as const;
 
 /** Prop record fields. */
-export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11, progress: 12, bubble: 13 } as const;
+export const P = { kind: 6, variant: 7, level: 8, active: 9, lift: 10, since: 11, progress: 12, bubble: 13, style: 14 } as const;
 
 /** Sim events (coins earned, dish ready...) ride along so the UI thread can spawn effects. */
 export const EVENT_STRIDE = 8;
@@ -150,6 +150,7 @@ function writeProp(d: Packed, o: number, p: PropView): void {
   d[o + P.since] = p.since;
   d[o + P.progress] = p.progress;
   d[o + P.bubble] = p.bubble;
+  d[o + P.style] = p.style ?? 0;
 }
 
 const packed = (v: readonly number[] | Packed | undefined): Packed => (v instanceof Float64Array ? v : v && v.length > 0 ? Float64Array.from(v) : NONE);

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { buyNow } from './helpers';
 import { CONSTRUCTION, TIERS } from '../src/data/buildings';
 import { DECOR } from '../src/data/decor';
-import { mapForTier, SEAT_OFFSETS, SERVE_OFFSET, STAND_MAP } from '../src/data/maps';
+import { mapForTier, STAND_MAP } from '../src/data/maps';
+import { footprint, serveSpot, sideTiles } from '../src/data/tables';
 import { STEP_SEC } from '../src/data/sim';
 import { big } from '../src/sim/big';
 import { canBuy, upgradeDef } from '../src/sim/economy/upgrades';
@@ -12,7 +13,7 @@ import { queueCommand } from '../src/sim/game/commands';
 import { buyUpgrade } from '../src/sim/game/purchase';
 import { stepGame } from '../src/sim/game/step';
 import type { GameState } from '../src/sim/game/types';
-import { buildGrid, canReach, reachableFrom } from '../src/sim/grid';
+import { canReach, gridWith, isWalkable, reachableFrom } from '../src/sim/grid';
 import { makeSave, parseSave, restoreGame } from '../src/sim/save';
 import { PropKind } from '../src/sim/types';
 
@@ -21,24 +22,26 @@ const rich = (s: GameState) => {
   return s;
 };
 
-/** Everything that must stay reachable, with every table and second chair in place. */
+/** Everything that must stay reachable, with every table's chairs all in place. */
 function allReachable(s: GameState): boolean {
   const map = s.map;
-  const g = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length, s.placed);
+  const g = gridWith(map, map.stoves.length, s.tables.flatMap((t) => footprint(t.style, t.x, t.y)), s.placed);
   const reach = reachableFrom(g, map.doors[0]!.inside);
   const points = [...map.queue, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, ...map.pickupSpots, map.washerSpot, map.dirtyDrop];
-  for (const t of map.tables) points.push({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y }, ...SEAT_OFFSETS.map((o) => ({ x: t.x + o.x, y: t.y + o.y })));
-  return points.every((p) => canReach(g, reach, p));
+  for (const t of s.tables) points.push(serveSpot(t.x, t.y), ...sideTiles(t.style, t.x, t.y, -1), ...sideTiles(t.style, t.x, t.y, 1));
+  // Staff stand on the serving spots: those stay open floor.
+  return points.every((p) => canReach(g, reach, p)) && s.tables.every((t) => isWalkable(g, serveSpot(t.x, t.y)));
 }
 
 describe('build mode', () => {
-  it('offers free dining-room tiles only, never a table spot, the line or the door', () => {
+  it('offers free dining-room tiles only, never a table, its chairs or serving spot, the line or the door', () => {
     TIERS.forEach((_, tier) => {
-      const s = createGame(mapForTier(tier), 1, { levels: { building: tier } });
+      const s = createGame(mapForTier(tier), 1, { levels: { building: tier, tables: 4, seats: 2 } });
       const tiles = buildableTiles(s);
       expect(tiles.length, `tier ${tier}`).toBeGreaterThan(4);
       const key = (p: { x: number; y: number }) => `${Math.floor(p.x)},${Math.floor(p.y)}`;
-      const banned = new Set([...s.map.tables, ...s.map.queue, s.map.doors[0]!.inside].map(key));
+      const tables = s.tables.flatMap((t) => [...footprint(t.style, t.x, t.y), serveSpot(t.x, t.y)]);
+      const banned = new Set([...tables, ...s.map.queue, s.map.doors[0]!.inside].map(key));
       for (const t of tiles) {
         expect(banned.has(key(t))).toBe(false);
         expect(t.x).toBeGreaterThanOrEqual(6);
@@ -63,7 +66,8 @@ describe('build mode', () => {
         }
       }
     });
-  });
+    // The full search is the slow one, and it runs on every tile of every building.
+  }, 60000);
 
   it('places decor on the chosen tile, and that tile is taken afterwards', () => {
     const s = rich(createGame(STAND_MAP, 2));
@@ -82,7 +86,7 @@ describe('build mode', () => {
   it('even a room packed with decor never blocks a chair, a table or a work spot', () => {
     TIERS.forEach((_, tier) => {
       const s = rich(createGame(mapForTier(tier), 3, { levels: { building: tier } }));
-      for (let i = 0; i < 200; i++) {
+      for (let i = 0; i < 2000; i++) {
         const at = autoTile(s);
         if (!at) break;
         // Placed straight in: the per-kind limits do not matter for this check.

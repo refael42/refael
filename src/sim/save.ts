@@ -1,3 +1,5 @@
+import { isTableStyle } from '../data/tables';
+import type { TableSpot } from './game/build';
 import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/looks';
 import { REVIEW, REVIEW_LINES, type ReviewKind } from '../data/reviews';
 import { DISHES } from '../data/dishes';
@@ -7,8 +9,8 @@ import { ROLE_LIST, ROLES, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { DECOR_BY_ID } from '../data/decor';
 import { TRAITS, type TraitId } from '../data/traits';
 import { RANK, UPGRADE_BY_ID } from '../data/upgrades';
-import { fromSave, toSave } from './big';
-import { capOf, isCappedTrack, levelOf } from './economy/upgrades';
+import { fromSave, toSave, ZERO, type Big } from './big';
+import { capOf, costOf, isCappedTrack, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
 import type { GameState, PlacedDecor, QuestState, Review } from './game/types';
 import { questLevel } from './quests';
@@ -23,7 +25,7 @@ import { newFestival } from './festival';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -44,6 +46,8 @@ export interface SaveData {
   team: WorkerData[];
   /** Decor placed in build mode (tile centers). */
   placed: PlacedDecor[];
+  /** Where each table stands (its front tile's middle) and its style; none in saves from before table styles. */
+  tables?: TableSpot[];
   /** Restaurant level and its claimed quests; the all-time counters quests use. */
   quests: QuestState;
   fiveStars: number;
@@ -126,12 +130,15 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v10 (M24): the buildings grew mostly to one side; now they grow north too (owner request),
   // so there is more land behind the site and everything moves back with it.
   10: (old) => shiftPlaces(old, SAVE_SHIFT.v11),
+  // v11 (M25) had no table styles: no tables saved, the map lays them out (in mixed styles).
+  11: (old) => old,
 };
 
-/** Placed decor and work sites, moved with the site by `d` tiles. */
+/** Placed decor, tables and work sites, moved with the site by `d` tiles. */
 function shiftPlaces(old: Record<string, unknown>, d: { x: number; y: number }): Record<string, unknown> {
   return {
     ...old,
+    tables: Array.isArray(old.tables) ? old.tables.map((p) => (isRecord(p) && finite(p.x) && finite(p.y) ? { ...p, x: p.x + d.x, y: p.y + d.y } : p)) : old.tables,
     placed: Array.isArray(old.placed) ? old.placed.map((p) => (isRecord(p) && finite(p.x) && finite(p.y) ? { ...p, x: p.x + d.x, y: p.y + d.y } : p)) : old.placed,
     works: Array.isArray(old.works) ? old.works.map((w) => (isRecord(w) && isRecord(w.at) && finite(w.at.x) && finite(w.at.y) ? { ...w, at: { x: w.at.x + d.x, y: w.at.y + d.y } } : w)) : old.works,
   };
@@ -168,6 +175,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     levels: { ...s.levels },
     team: s.staff.filter((st) => !st.leaving).map((st) => ({ ...workerOf(st), wage: toSave(st.wage) })),
     placed: s.placed.map((p) => ({ ...p })),
+    tables: s.tables.map((t) => ({ x: t.x, y: t.y, style: t.style })),
     quests: { level: s.quests.level, claimed: [...s.quests.claimed] },
     fiveStars: s.stats.fiveStars,
     rushes: s.stats.rushes,
@@ -192,7 +200,7 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'obj
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /** Keeps only upgrades that still exist, as whole levels within their caps. */
-function cleanLevels(raw: unknown): Record<string, number> | null {
+function cleanLevels(raw: unknown): { levels: Record<string, number>; refund: Big } | null {
   if (!isRecord(raw)) return null;
   const out: Record<string, number> = {};
   for (const [id, level] of Object.entries(raw)) {
@@ -204,11 +212,19 @@ function cleanLevels(raw: unknown): Record<string, number> | null {
   const building = UPGRADE_BY_ID.building!;
   if (out.building) out.building = Math.min(out.building, capOf(building, STAND_MAP, out) ?? Infinity);
   const map = mapForTier(levelOf(out, 'building'));
+  // Levels past a cap that came down (the buildings' new table layouts hold fewer tables than
+  // the old rows did) are paid back: nobody loses what they bought.
+  let refund = ZERO;
   // Twice: second chairs are capped by the tables, which the first pass may have cut down.
   for (let pass = 0; pass < 2; pass++) {
-    for (const id of Object.keys(out)) out[id] = Math.min(out[id]!, capOf(UPGRADE_BY_ID[id]!, map, out) ?? Infinity);
+    for (const id of Object.keys(out)) {
+      const def = UPGRADE_BY_ID[id]!;
+      const had = out[id]!;
+      out[id] = Math.min(had, capOf(def, map, out) ?? Infinity);
+      for (let l = out[id]!; l < had; l++) refund = refund.add(costOf(def, l));
+    }
   }
-  return out;
+  return { levels: out, refund };
 }
 
 const bigText = (v: unknown): v is string => {
@@ -257,8 +273,9 @@ function validate(o: Record<string, unknown>): SaveData | null {
   if (o.version !== SAVE_VERSION) return null;
   if (!finite(o.savedAt) || !finite(o.rating) || !finite(o.served) || !finite(o.hires) || !finite(o.day)) return null;
   if (!bigText(o.coins) || !bigText(o.earned) || !Array.isArray(o.team) || !Array.isArray(o.placed)) return null;
-  const levels = cleanLevels(o.levels);
-  if (!levels) return null;
+  const cleaned = cleanLevels(o.levels);
+  if (!cleaned) return null;
+  const { levels, refund } = cleaned;
   const quests = cleanQuests(o.quests);
   if (!quests) return null;
   const count = (v: unknown) => (finite(v) && v >= 0 ? Math.floor(v) : 0);
@@ -266,7 +283,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
   return {
     version: SAVE_VERSION,
     savedAt: o.savedAt,
-    coins: o.coins,
+    coins: refund.gt(0) ? toSave(fromSave(o.coins).add(refund)) : o.coins,
     earned: o.earned,
     rating: o.rating,
     served: o.served,
@@ -276,6 +293,10 @@ function validate(o: Record<string, unknown>): SaveData | null {
     team,
     // Only known decor on real coordinates; whether a spot is still free is checked when the game is built.
     placed: o.placed.filter((p): p is PlacedDecor => isRecord(p) && typeof p.item === 'string' && p.item in DECOR_BY_ID && finite(p.x) && finite(p.y)).map((p) => ({ item: p.item, x: p.x, y: p.y })),
+    // The same for tables: known styles on real coordinates (where they fit is checked when the game is built).
+    ...(Array.isArray(o.tables)
+      ? { tables: o.tables.filter((t): t is TableSpot => isRecord(t) && isTableStyle(t.style) && finite(t.x) && finite(t.y)).map((t) => ({ x: t.x, y: t.y, style: t.style })) }
+      : {}),
     quests,
     fiveStars: count(o.fiveStars),
     rushes: count(o.rushes),
@@ -398,6 +419,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     day: save.day,
     team: savedTeam(save),
     placed: save.placed,
+    tables: save.tables,
     quests: save.quests,
     fiveStars: save.fiveStars,
     rushes: save.rushes,

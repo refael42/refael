@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/data/buildings';
-import { mapForTier, SEAT_OFFSETS, STAND_MAP, tierRect, WORLD_SHIFT, type MapDef, type Point } from '../src/data/maps';
+import { mapForTier, STAND_MAP, tierRect, WORLD_SHIFT, type MapDef, type Point } from '../src/data/maps';
+import { serveSpot, sideTiles } from '../src/data/tables';
 import { PropKind as K } from '../src/sim/types';
-import { buildGrid, findPath } from '../src/sim/grid';
+import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing'> = {
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -38,16 +39,7 @@ const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | '
     { x: 13.5, y: 9.5 },
     { x: 13.5, y: 8.5 },
   ],
-  // Two columns of tables with a walking lane between rows; the door corner stays free for the line.
-  tables: [
-    { x: 8.5, y: 4.5 },
-    { x: 11.5, y: 4.5 },
-    { x: 8.5, y: 8.5 },
-    { x: 11.5, y: 8.5 },
-    { x: 8.5, y: 6.5 },
-    { x: 11.5, y: 6.5 },
-    { x: 8.5, y: 10.5 },
-  ],
+  // (Its tables are laid out like a restaurant now, src/sim/layout.ts: see the tests below.)
   startTables: 3,
   // The second stove slots in between the first one and the sink: one long cooking line.
   stoves: [
@@ -124,7 +116,6 @@ describe('map generator', () => {
     const m = STAND_MAP;
     expect(mapForTier(0)).toBe(m);
     expect(m.building).toEqual({ x0: HAND_MADE.building.x0 + WORLD_SHIFT.x, y0: HAND_MADE.building.y0 + WORLD_SHIFT.y, x1: HAND_MADE.building.x1 + WORLD_SHIFT.x, y1: HAND_MADE.building.y1 + WORLD_SHIFT.y });
-    expect(m.tables).toEqual(HAND_MADE.tables.map(at));
     expect(m.stoves).toEqual(HAND_MADE.stoves.map((st) => ({ stove: at(st.stove), cook: at(st.cook) })));
     for (const key of ['pass', 'hostSpot', 'managerSpot', 'sink', 'washerSpot', 'dirtyDrop', 'cleanStack', 'dirtyStack'] as const) expect(m[key], key).toEqual(at(HAND_MADE[key]));
     for (const key of ['passSlots', 'pickupSpots', 'waiterIdle', 'cleanerIdle', 'queue'] as const) expect(m[key], key).toEqual(HAND_MADE[key].map(at));
@@ -179,6 +170,23 @@ describe('map generator', () => {
     }
   });
 
+  it('lays tables out like a restaurant, not a canteen: mixed designs, rows set off, room between groups', () => {
+    TIERS.forEach((_, t) => {
+      const map = mapForTier(t);
+      const tables = map.tables;
+      // Every design the building has, and a long table somewhere.
+      expect(new Set(tables.map((s) => s.style)).size, `tier ${t}`).toBeGreaterThanOrEqual(t === 0 ? 2 : 3);
+      if (t > 0) expect(tables.some((s) => s.style === 'long'), `tier ${t}`).toBe(true);
+      // Few tables have one straight behind them two rows back (the old grid: most of them). The
+      // first diner is two tables wide: its rows cannot be set off without losing tables.
+      const at = new Set(tables.map((s) => `${s.x},${s.y}`));
+      const lined = tables.filter((s) => at.has(`${s.x},${s.y - 2}`)).length;
+      if (t > 0) expect(lined / tables.length, `tier ${t}`).toBeLessThan(0.45);
+      // About as many tables as a canteen layout held (the economy counts on them).
+      expect(tables.length, `tier ${t}`).toBeGreaterThanOrEqual([7, 16, 30, 40, 65, 78, 105, 125][t]!);
+    });
+  });
+
   it('only the last tier has no lot for sale', () => {
     TIERS.forEach((_, t) => {
       const map = mapForTier(t);
@@ -196,11 +204,12 @@ describe('map generator', () => {
       const grid = buildGrid(map, map.tables.length, map.stoves.length, map.tables.length);
       const door = map.doors[0]!.inside;
       for (const spot of map.tables) {
-        for (const seat of SEAT_OFFSETS) {
-          expect(findPath(grid, door, { x: spot.x + seat.x, y: spot.y + seat.y }), `tier ${t} table ${spot.x},${spot.y}`).not.toBeNull();
+        for (const seat of [...sideTiles(spot.style, spot.x, spot.y, -1), ...sideTiles(spot.style, spot.x, spot.y, 1)]) {
+          expect(findPath(grid, door, seat), `tier ${t} table ${spot.x},${spot.y}`).not.toBeNull();
         }
-        // ...and the spot where staff serve and clear it.
-        expect(findPath(grid, door, { x: spot.x, y: spot.y + 0.75 }), `tier ${t} serve ${spot.x},${spot.y}`).not.toBeNull();
+        // ...and the spot where staff serve and clear it, open floor.
+        expect(isWalkable(grid, serveSpot(spot.x, spot.y)), `tier ${t} serve ${spot.x},${spot.y}`).toBe(true);
+        expect(findPath(grid, door, serveSpot(spot.x, spot.y)), `tier ${t} serve ${spot.x},${spot.y}`).not.toBeNull();
       }
       for (const p of [...map.pickupSpots, map.washerSpot, ...map.waiterIdle, ...map.cleanerIdle, map.hostSpot, map.managerSpot, ...map.queue]) {
         expect(findPath(grid, door, p), `tier ${t} spot ${p.x},${p.y}`).not.toBeNull();

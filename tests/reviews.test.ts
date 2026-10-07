@@ -33,14 +33,21 @@ describe('service grade', () => {
   });
 
   it('a customer seated right away pays more than one left waiting in line', () => {
-    const quick = createGame(STAND_MAP, 21, { roster: [...team] });
-    const slow = createGame(STAND_MAP, 21, { roster: [...team] });
-    play(quick, 240, 0);
-    play(slow, 240, 12);
-    const perMeal = (s: GameState) => s.stats.earned.toNumber() / Math.max(1, s.stats.served);
-    expect(quick.stats.served).toBeGreaterThan(5);
-    expect(slow.stats.served).toBeGreaterThan(5);
-    expect(perMeal(quick)).toBeGreaterThan(perMeal(slow) * 1.1);
+    // A few days (seeds), so one lucky run does not decide it.
+    let quickPay = 0;
+    let slowPay = 0;
+    for (const seed of [21, 22, 23]) {
+      const quick = createGame(STAND_MAP, seed, { roster: [...team] });
+      const slow = createGame(STAND_MAP, seed, { roster: [...team] });
+      play(quick, 240, 0);
+      play(slow, 240, 12);
+      const perMeal = (s: GameState) => s.stats.earned.toNumber() / Math.max(1, s.stats.served);
+      expect(quick.stats.served).toBeGreaterThan(5);
+      expect(slow.stats.served).toBeGreaterThan(5);
+      quickPay += perMeal(quick);
+      slowPay += perMeal(slow);
+    }
+    expect(quickPay).toBeGreaterThan(slowPay * 1.1);
   });
 });
 

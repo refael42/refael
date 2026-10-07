@@ -6,8 +6,6 @@ const grid = buildGrid(STAND_MAP);
 const street = STAND_MAP.areas.find((a) => a.floor === 'sidewalk')!;
 const SIDEWALK = { x: 8.5, y: street.y0 + 0.5 };
 const ROAD = { x: 8.5, y: street.y0 + 3.5 };
-/** The old tests' points, moved with the diner into the world. */
-const at = (x: number, y: number) => ({ x: x + STAND_MAP.building.x0 - 2, y: y + STAND_MAP.building.y0 - 2 });
 
 function pathLength(from: { x: number; y: number }, path: { x: number; y: number }[]) {
   let len = 0;
@@ -48,14 +46,18 @@ describe('A* pathfinding', () => {
   });
 
   it('never routes through a table', () => {
-    const path = findPath(grid, at(7.5, 6.5), at(10.5, 3.5))!;
-    let prev = at(7.5, 6.5);
+    // From the door to the far side of the room's first table: every step on open floor.
+    const t = STAND_MAP.tables[0]!;
+    const from = STAND_MAP.doors[0]!.inside;
+    const to = { x: t.x, y: t.y - 1 };
+    const path = findPath(grid, from, to)!;
+    expect(path).not.toBeNull();
+    let prev = from;
     for (const p of path) {
       for (let i = 0; i <= 20; i++) {
         const x = prev.x + ((p.x - prev.x) * i) / 20;
         const y = prev.y + ((p.y - prev.y) * i) / 20;
-        const goal = Math.floor(x) === 10 && Math.floor(y) === 3;
-        if (!goal) expect(isWalkable(grid, { x, y })).toBe(true);
+        expect(isWalkable(grid, { x, y })).toBe(true);
       }
       prev = p;
     }

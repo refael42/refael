@@ -8,7 +8,8 @@ import { crewsOf, startWork } from './works';
 import { PropKind } from '../types';
 import { startConstruction } from './construction';
 import { DECOR } from '../../data/decor';
-import { autoTile, canPlaceAt } from './build';
+import { autoTile, canPlaceAt, canPlaceTable, nextTableSpot, type TableSpot } from './build';
+import type { TableStyle } from '../../data/tables';
 import { addSeat, addStove, addTable, placeDecor, rebuildGrid, syncFamilyTables } from './create';
 import { chairOf, route } from './customers';
 import { pathStillClear } from '../grid';
@@ -24,7 +25,7 @@ export const UPGRADE_QUIET = 2;
 export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   if (kind === PropKind.Table) return s.tables.map((t) => ({ x: t.x, y: t.y }));
   if (kind === PropKind.TableSlot) {
-    const next = s.map.tables[s.tables.length];
+    const next = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
     return next ? [next] : [];
   }
   if (kind === PropKind.StoveSlot) {
@@ -57,21 +58,29 @@ export function siteOf(s: GameState, w: Work): Point {
 
 /**
  * Buys one level, or a batch of them (bulk buying), if allowed and affordable. Decor goes on
- * tile `at` (it must be free), or on the nearest free tile when no spot was chosen. A level that
- * needs a crew starts its job and ends the batch. Returns whether anything was bought.
+ * tile `at` (it must be free), or on the nearest free tile when no spot was chosen; so does a
+ * table, in `style` (no spot: where the next one goes). A level that needs a crew starts its job
+ * and ends the batch. Returns whether anything was bought.
  */
-export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep = 1): boolean {
+export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep = 1, style?: TableStyle): boolean {
   const def = upgradeDef(id);
-  const plan = planBuy(def, s.levels, s.coins, s.map, crewsOf(s), def.build ? 1 : step);
+  const tables = def.effect.stat === 'tables';
+  // A table needs room first (each one changes where the next fits, so they go one at a time).
+  const spot: TableSpot | null | undefined = tables ? (at && style ? (canPlaceTable(s, style, at.x, at.y) ? { x: at.x, y: at.y, style } : null) : nextTableSpot(s)) : undefined;
+  if (spot === null) return false;
+  const plan = planBuy(def, s.levels, s.coins, s.map, crewsOf(s), def.build || (tables && at) ? 1 : step);
   if (plan.status !== 'ok') return false;
   const decor = def.build ? DECOR.find((d) => d.kind === def.anchor) : undefined;
   const tile = decor ? (at ? (canPlaceAt(s, at.x, at.y) ? at : null) : autoTile(s)) : null;
   if (decor && !tile) return false;
-  // A batch (ten tables at once...) builds the walkable grid and re-plans the walkers once, at the end.
-  const batch = plan.count > 1;
+  // A batch (ten chairs at once...) builds the walkable grid and re-plans the walkers once, at the end.
+  const batch = plan.count > 1 && !tables;
   let moved = false;
   for (let i = 0; i < plan.count; i++) {
     const level = levelOf(s.levels, id);
+    // Ten tables at once: each needs a spot of its own (the room fills as they go in).
+    const place = tables ? (i === 0 && spot ? spot : nextTableSpot(s)) : undefined;
+    if (place === null) break;
     s.coins = s.coins.sub(costOf(def, level));
     if (workSeconds(def, level) > 0) {
       const site = tile ?? anchorPoints(s, def.anchor)[0] ?? s.map.pass;
@@ -79,7 +88,7 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
       s.bumpAt[def.anchor] = s.time;
       break;
     }
-    moved = applyLevel(s, id, tile, i === plan.count - 1, batch) || moved;
+    moved = applyLevel(s, id, tile, i === plan.count - 1, batch, place) || moved;
   }
   if (batch && moved) {
     rebuildGrid(s);
@@ -108,7 +117,7 @@ export function finishWork(s: GameState, w: Work): void {
  * last of a batch). `batch`: leave the grid and the walkers to the caller (done once for all).
  * Returns whether furniture was added.
  */
-function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean, batch = false): boolean {
+function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean, batch = false, place?: TableSpot): boolean {
   const def = upgradeDef(id);
   const decor = def.build ? DECOR.find((d) => d.kind === def.anchor) : undefined;
   const level = levelOf(s.levels, id);
@@ -133,7 +142,7 @@ function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean,
     moved = true;
   }
   if (s.mods.tables > before.tables) {
-    const table = addTable(s, !batch);
+    const table = addTable(s, !batch, place);
     moved = true;
     fx = table ? [table] : [];
   }

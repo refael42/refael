@@ -1,5 +1,7 @@
 import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
+import { nextTableSpot } from './build';
+import { styleIndex } from '../../data/tables';
 import { UPGRADES } from '../../data/upgrades';
 import { canBuy, levelOf, tierOf, upgradeDef } from '../economy/upgrades';
 import { bestBuy } from '../economy/value';
@@ -81,17 +83,23 @@ function dynamicProps(s: GameState): PropView[] {
     const dirty = t.state === TableState.Dirty || t.state === TableState.Cleaning;
     // level packs what is on it: the dirty plates, or each chair's dish (+1, 0 = none) in base 16.
     const dishes = t.dishes.reduce((sum, d, seat) => sum + (d + 1) * 16 ** seat, 0);
+    const look = {
+      variant: dirty ? 2 : t.state === TableState.Occupied && dishes > 0 ? 1 : 0,
+      level: dirty ? t.plates : dishes,
+      // Every chair its style has (a family table for four, a long table for six).
+      active: t.seats > 2,
+      since: t.since,
+      style: styleIndex(t.style),
+    };
     out.push(
       prop(t.propId, PropKind.Table, t.x, t.y, {
-        variant: dirty ? 2 : t.state === TableState.Occupied && dishes > 0 ? 1 : 0,
-        level: dirty ? t.plates : dishes,
-        // A square family table for four.
-        active: t.seats > 2,
-        since: t.since,
+        ...look,
         progress: t.state === TableState.Cleaning ? t.progress : 0,
         bubble: t.state === TableState.Dirty && t.waiter < 0 ? Bubble.Clean : 0,
       }),
     );
+    // A long table's back half: the same plates and looks, drawn a tile further back.
+    if (t.backId >= 0 && t.style === 'long') out.push(prop(t.backId, PropKind.TableBack, t.x, t.y - 1, look));
   }
   const rail = s.map.ticketRail;
   let ticket = 0;
@@ -133,8 +141,8 @@ function dynamicProps(s: GameState): PropView[] {
   );
   // The next table and stove spots show as ghosts you can buy (variant 1 = affordable now).
   const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins, s.map)) ? 1 : 0);
-  const spot = s.map.tables[s.tables.length];
-  if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4 }));
+  const spot = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
+  if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4, style: styleIndex(spot.style) }));
   const stoveSpot = s.map.stoves[s.stoves.length];
   if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
   if (s.construction) out.push(...scaffolding(s.construction));

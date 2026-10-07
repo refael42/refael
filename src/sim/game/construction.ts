@@ -60,6 +60,8 @@ function finishConstruction(s: GameState): void {
     day: s.day,
     team: s.staff.filter((st) => !st.leaving).map(workerOf),
     placed: s.placed,
+    // Tables stay where the player put them (the room only grows), in their styles.
+    tables: s.tables.map((t) => ({ x: t.x, y: t.y, style: t.style })),
     perks: s.perks,
     trophies: s.trophies,
     city: s.city,
@@ -75,7 +77,9 @@ function finishConstruction(s: GameState): void {
     nextApplicant: s.nextApplicant,
     bumpAt: s.bumpAt,
     reviews: s.reviews,
+    reviewSeq: s.reviewSeq,
     lastReviewTime: s.lastReviewTime,
+    lastWalkoutReview: s.lastWalkoutReview,
     buzzUntil: s.buzzUntil,
     rush: s.rush,
     quests: s.quests,

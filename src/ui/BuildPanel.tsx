@@ -3,6 +3,7 @@ import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { TIERS } from '../data/buildings';
 import { DECOR, placeRow } from '../data/decor';
+import { TABLE_STYLE_DEFS, type TableStyle } from '../data/tables';
 import type { Point } from '../data/maps';
 import { useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
@@ -17,6 +18,10 @@ export const BUILD_ITEMS: readonly string[] = ['tables', ...DECOR.map((d) => pla
 
 const ICON_PX = 34;
 const icon = (id: string) => spriteIcon(upgradeIcon(id, 0), Math.round(ICON_PX * PixelRatio.get()));
+/** Each table design's picture: the table with its chairs (or sofas). */
+const SET_SPRITE = { round: 'setRound', square: 'setSquare', long: 'setLong', booth: 'setBooth' } as const;
+const STYLE_PX = 40;
+const styleIcon = (style: TableStyle) => spriteIcon(SET_SPRITE[style], Math.round(STYLE_PX * PixelRatio.get()));
 
 /** How much better one more of it makes things, e.g. "+4%". */
 function effectText(id: string): string {
@@ -32,6 +37,14 @@ interface Props {
   freeTiles: number;
   /** A placed piece picked up to move (tap a green tile to put it there). */
   moving: Point | null;
+  /** ...and it is a table (its design can change on the way). */
+  movingTable: boolean;
+  /** A table with guests at it was tapped: it waits until they leave. */
+  busy: boolean;
+  /** The table design picked, and the building (designs open with buildings). */
+  style: TableStyle | null;
+  tier: number;
+  onStyle: (style: TableStyle) => void;
   onCancelMove: () => void;
   onItem: (item: string) => void;
   onPlace: () => void;
@@ -39,7 +52,7 @@ interface Props {
 }
 
 /** Build mode's bottom bar: pick a piece, tap a green tile, place it. */
-export function BuildPanel({ wallet, item, tile, freeTiles, moving, onCancelMove, onItem, onPlace, onDone }: Props) {
+export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable, busy, style, tier, onStyle, onCancelMove, onItem, onPlace, onDone }: Props) {
   const t = useT();
   const rise = useSharedValue(1);
   useEffect(() => {
@@ -48,8 +61,21 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, onCancelMove
   const riseStyle = useAnimatedStyle(() => ({ transform: [{ translateY: rise.value * 160 }] }));
   const chosen = item ? upgradeDef(item) : null;
   const isDecor = chosen?.build === true;
+  const isTable = item === 'tables' || movingTable;
   const affordable = chosen ? canBuyNow(chosen, wallet) : false;
-  const hint = moving ? (freeTiles === 0 ? t('ui.noTile') : t('ui.moveHint')) : !chosen ? t('ui.buildPick') : !isDecor ? t('ui.tableSpot') : freeTiles === 0 ? t('ui.noTile') : tile ? null : t('ui.buildTap');
+  const hint = busy
+    ? t('ui.tableBusy')
+    : movingTable
+      ? freeTiles === 0 ? t('ui.noTableSpot') : t('ui.tableMoveHint')
+      : moving
+        ? freeTiles === 0 ? t('ui.noTile') : t('ui.moveHint')
+        : !chosen
+          ? t('ui.buildPick')
+          : freeTiles === 0
+            ? t(isTable ? 'ui.noTableSpot' : 'ui.noTile')
+            : tile
+              ? null
+              : t(isTable ? 'ui.tableSpot' : 'ui.buildTap');
   return (
     <Animated.View style={[styles.wrap, riseStyle]} pointerEvents="box-none">
       <View style={styles.bar}>
@@ -58,14 +84,14 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, onCancelMove
         ) : (
           <Text style={styles.hint}>{t(`up.${item}`)}</Text>
         )}
-        {chosen && (isDecor ? tile !== null : true) && (
+        {chosen && !movingTable && (isDecor || isTable ? tile !== null : true) && (
           <Pressable onPress={onPlace} disabled={!affordable} style={[styles.place, !affordable && styles.placeOff]}>
             <View style={styles.coin} />
             <Text style={styles.placeText}>{formatBig(costOf(chosen, levelOf(wallet.levels, chosen.id)))}</Text>
             <Text style={styles.placeText}>{t('ui.place')}</Text>
           </Pressable>
         )}
-        {moving && (
+        {(moving || busy) && (
           <Pressable onPress={onCancelMove} style={styles.done}>
             <Text style={styles.doneText}>{t('ui.cancel')}</Text>
           </Pressable>
@@ -74,6 +100,23 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, onCancelMove
           <Text style={styles.doneText}>{t('ui.done')}</Text>
         </Pressable>
       </View>
+      {isTable && style && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
+          {TABLE_STYLE_DEFS.map((d) => {
+            const open = d.tier <= tier;
+            const need = TIERS[d.tier];
+            return (
+              <Pressable key={d.id} onPress={() => onStyle(d.id)} disabled={!open} style={[styles.chip, d.id === style && styles.cardOn, !open && styles.cardOff]}>
+                <Image source={{ uri: styleIcon(d.id) }} style={styles.styleIcon} />
+                <Text style={styles.name} numberOfLines={1}>
+                  {t(`table.${d.id}`)}
+                </Text>
+                {!open && need && <Text style={styles.small}>{`🔒 ${t(`tier.${need.id}`)}`}</Text>}
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
         {BUILD_ITEMS.map((id) => {
           const def = upgradeDef(id);
@@ -138,6 +181,8 @@ const styles = StyleSheet.create({
   cardOn: { borderColor: gold, backgroundColor: panel.row },
   cardOff: { opacity: 0.5 },
   icon: { width: ICON_PX, height: ICON_PX },
+  chip: { width: 96, backgroundColor: panel.bg, borderColor: '#5A3A6A', borderWidth: 2, borderRadius: 14, padding: 6, gap: 2, alignItems: 'center' },
+  styleIcon: { width: STYLE_PX, height: STYLE_PX },
   name: { color: '#FFFFFF', fontWeight: '900', fontSize: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   effect: { color: '#7EE08F', fontWeight: '900', fontSize: 11 },

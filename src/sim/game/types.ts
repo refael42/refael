@@ -10,6 +10,7 @@ import type { Grid } from '../grid';
 import type { Rng } from '../rng';
 import type { CharacterView, PropKind, PropView } from '../types';
 import type { BulkStep } from '../../data/works';
+import type { TableStyle } from '../../data/tables';
 
 export const CustomerState = {
   Arriving: 0,
@@ -68,10 +69,15 @@ export interface Table {
   /** Waiter on the way to clear it (-1 none). */
   waiter: number;
   propId: number;
+  /** Its design (src/data/tables.ts) and the props that go with it: the chairs (or sofas), and a long table's back half (-1 none). */
+  style: TableStyle;
+  chairs: number[];
+  backId: number;
+  /** Its anchor: the front tile's middle (where it was put down). */
   x: number;
   y: number;
   state: TableState;
-  /** Chairs at it (1, or 2 with "More chairs"). */
+  /** Chairs at it (1, 2 with "More chairs", every one of its style's with "Family table"). */
   seats: number;
   /** Who sits in each chair (-1 empty) and the dish in front of them (-1 none). */
   party: number[];
@@ -125,12 +131,14 @@ export type Command =
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
-  /** `at` = the tile for decor placed in build mode; `step` = levels at once (bulk buying). */
-  | { type: 'buy'; item: string; at?: Point; step?: BulkStep }
+  /** `at` = the tile for decor (or a new table, in `style`) placed in build mode; `step` = levels at once (bulk buying). */
+  | { type: 'buy'; item: string; at?: Point; step?: BulkStep; style?: TableStyle }
   /** Speed up a big upgrade in progress (a tap on its site), or finish it now with gems. */
   | { type: 'hurry'; work: number }
   /** Build mode: carry a placed decor piece to another free tile. */
   | { type: 'move'; from: Point; to: Point }
+  /** Build mode: put a table somewhere else, in this style (the same spot: just a new look). */
+  | { type: 'moveTable'; table: number; to: Point; style: TableStyle }
   /** Hand this restaurant over and open a branch in the next city (prestige). */
   | { type: 'branch' }
   /** Open the present on the sidewalk. */

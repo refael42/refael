@@ -12,7 +12,7 @@ const cache = new Map<string, string>();
 
 /** A sprite rendered into a square `px` icon (device pixels), as a data URI. */
 export function spriteIcon(name: SpriteName, px: number): string {
-  return defIcon(name, spriteDef(name), px);
+  return defIcon(String(name), spriteDef(name), px);
 }
 
 /** The HUD's big icons (not in the world atlas), the same way. */

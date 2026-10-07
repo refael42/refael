@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
 | M24 | Owner: things open as the restaurant grows (wheel, deliveries, family tables, dishes...), worker rarities, square family tables for 4, 5 new dishes, the checker, the packing corner with packers and a takeaway window | ✅ Done |
 | M23 | Owner: the map past the road (far sidewalk, park, plaza, cars) and bigger all round; an eighth building | ✅ Done |
@@ -71,6 +72,39 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M26 (owner: "so many tables lined up in one place looks robotic and a headache: from
+  now on and from the start, a variety of tables to design with, long, round and more, placed
+  wherever you want by the stage you are at"; mid-turn: "too much symmetry between the tables,
+  it is not a dining hall, it is a restaurant: think of a better design of the positions"):
+  - **Table designs** (`src/data/tables.ts`): round (the pedestal table, a bigger round top for
+    four), square (a small four-legged one, the big square one for four), long (two tiles deep,
+    six chairs as a family table) from the start, booths (two sofas facing over a table) from
+    the bistro. How many sit still comes from the upgrades (one chair, "More chairs", "Family
+    table" for every chair), so every design costs the same; groups of 5-6 come once there is a
+    long family table. Art: `src/render/art/tableArt.ts` (four looks each, the tablecloth
+    upgrade); a long table is two props (its back half sorts behind the chairs along it).
+  - **Free placement** (build mode): "New table" shows the designs (a locked one says which
+    building opens it), green tiles where the picked one fits, a see-through preview, "place".
+    Tap a table with nobody at it to pick it up: a green tile moves it (free), another design
+    changes it on the spot. A table only goes where its top and every chair it could get have
+    free floor, the spot in front stays open to serve from, and every chair, table and work spot
+    can still be reached (`src/sim/layout.ts`; a quick check around the table, the full search
+    only when there is no way round close by; the tests check they agree on every tile). The
+    crown's 600 spots take ~40 ms. A table bought from the upgrade list goes to the building's
+    next free spot; no room left: it is not sold.
+  - **A restaurant, not a canteen** (`designTables` in `src/sim/layout.ts`, used by the map
+    generator): booths in twos and threes along the back wall (small square tables in the
+    diner), then rows of groups (one to three tables, one design each) with walkways between
+    them, each row set off from the one before, a wider aisle now and then where long tables
+    stand, single tables in whatever gaps are left; the corner by the door is left to the line.
+    The first tables open spread over the room. A rug under each table (round, rectangular,
+    long; four colors), drawn with the table so it moves with it (the old block rugs were baked
+    into the floor). Spots per building: 7, 18, 33, 42, 73, 87, 119, 141 (the rows held 7, 19,
+    35, 47, 79, 95, 129, 159); a save with more tables than its building now holds is paid back
+    the levels that no longer fit.
+  - **Save v12** keeps where each table stands and its design (older saves: the building's new
+    layout). Tables stay where they are when the building grows. Fixed on the way: a new
+    building reset the reviews' id counter (it is kept now).
 - Done in M25 (owner: "the delivery station and the couriers can be upgraded, more couriers;
   deliveries have their own fridge and pass the packers take food from and pack (all animated);
   the welcome-back money popup is buggy and stutters; the late game still lags; reviews no longer
@@ -611,6 +645,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M5b new game during the tutorial (glove + message) | 27 | 0.7 ms | 16–18 |
 | M19/M20 busy bistro (hosts, the tourist bus), production build | ~50 | — | 10.7–12 (zoomed in: ~4.5) |
 | M25 crown, full late-game save, zoomed out, before / after the detail cut | 798 | 5.6 / 4.3 ms draw | 6.6 / 7.9 |
+| M26 crown (141 tables in the new layout, a rug under each) | 725 | 5.9 ms draw | 6.7 |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with
@@ -618,7 +653,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 367 unit tests.
+- `npm run check` — typecheck + 381 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.
@@ -646,7 +681,6 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 - Seating is manual until you hire a host (M4); while the app is closed the offline estimate
   assumes slow seating by the staff. Deeper automation comes in M6.
 - Staff jobs are still simple loops; workers never take breaks (energy only lowers speed).
-- Tables stay on their fixed spots (only decor can be moved in build mode).
 - The bot puts decor on the free tile nearest the back corner, so its rooms look clustered;
   players choose.
 - Applicants only come one or two at a time at the door; there is no job board / ads yet.

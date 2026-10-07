@@ -26,52 +26,16 @@ export interface BackgroundDef {
   doorX?: number;
   /** Where the kitchen ends: the white tiles on the back wall run this far. */
   kitchenX?: number;
-  /** Rugs under the groups of tables (owner request: a room with areas, not one long grid). */
-  rugs?: readonly Rug[];
   /** The branch's city: the ground, the sidewalk and the trees outside. */
   city?: number;
 }
 
-export interface Rug {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-  floor: DiningFloor;
-  /** Alternates from one group to the next: colors and pattern. */
-  style: number;
-}
 
-/** First table column (from the kitchen line) and block width of the map generator (src/data/maps.ts). */
-const TABLE_COLUMN = 2.5;
-const TABLE_BLOCK = 6;
-
-/** One rug per block of tables, a little bigger than the tables and their chairs. */
-function rugsOf(map: MapDef): Rug[] {
-  const first = map.kitchenX + TABLE_COLUMN;
-  const blocks = new Map<number, { x: number; y: number }[]>();
-  for (const t of map.tables) {
-    const b = Math.floor((t.x - first + 0.01) / TABLE_BLOCK);
-    blocks.set(b, [...(blocks.get(b) ?? []), t]);
-  }
-  return [...blocks.entries()].map(([b, spots]) => {
-    const c0 = first + b * TABLE_BLOCK;
-    const ys = spots.map((p) => p.y);
-    return {
-      x0: c0 - 1.15,
-      x1: c0 + 4.05,
-      y0: Math.min(...ys) - 1,
-      y1: Math.min(map.building.y1 - 0.35, Math.max(...ys) + 1.15),
-      floor: map.theme.dining,
-      style: b % 2,
-    };
-  });
-}
 
 /** What the game map looks like as a background. */
 export function mapBackground(map: MapDef, city = 0): BackgroundDef {
   const { width, height, areas, building, wallHeight, backdrop } = map;
-  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, kitchenX: map.kitchenX, rugs: rugsOf(map), city };
+  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, kitchenX: map.kitchenX, city };
 }
 
 const TREE_ART = { palm: propSprites.treePalm, round: propSprites.treeRound, olive: propSprites.treeOlive, cypress: propSprites.treeCypress } as const;
@@ -197,17 +161,6 @@ function starlight(c: SkCanvas, a: Area) {
   floorBorder(c, a, border);
 }
 
-/** Rug colors per dining floor, two styles each: base, border band, pattern. */
-const RUGS: Record<DiningFloor, readonly [string, string, string][]> = {
-  dining: [['#EAD9B2', '#7E1E2A', '#C9A35A'], ['#2E3A6E', '#EAD9B2', '#E2B13C']],
-  emerald: [['#E8DCC0', '#0E4A35', '#C9A35A'], ['#5A1E3A', '#E8DCC0', '#E2B13C']],
-  royal: [['#EFE6D0', '#1A2D66', '#C9A35A'], ['#7A1F2E', '#EFE6D0', '#E2B13C']],
-  marble: [['#7A1F2E', '#E2B13C', '#F2D48A'], ['#1A2D66', '#E2B13C', '#9FB4E8']],
-  velvet: [['#1E1440', '#E2B13C', '#8E7BD6'], ['#0E3A3A', '#E2B13C', '#7FD6C2']],
-  ocean: [['#F2E6CC', '#0A5A6A', '#E2B13C'], ['#E8714E', '#F6E9D2', '#FFFFFF']],
-  starlight: [['#2C1F66', '#E2B13C', '#9FB4E8'], ['#0C0B2E', '#C9A35A', '#FFE27A']],
-  gold: [['#1E1508', '#E2B13C', '#FFF1B8'], ['#7A1F2E', '#FFE27A', '#FFFFFF']],
-};
 
 /** The crown's floor: gold parquet in a checker of two tones, with a black diamond at every corner. */
 function gold(c: SkCanvas, a: Area) {
@@ -222,32 +175,6 @@ function gold(c: SkCanvas, a: Area) {
     for (let tx = a.x0; tx < a.x1; tx++) if (hash(tx, ty) > 0.8) c.drawCircle(tx + 0.5, ty + 0.5, 0.05, fill('#FFF1B8', 0.8));
   }
   floorBorder(c, a, border);
-}
-
-/** A rug on the floor plane: a soft edge, a border band, a diamond or dotted field, fringes. */
-function rug(c: SkCanvas, r: Rug) {
-  const [base, border, accent] = RUGS[r.floor][r.style % 2]!;
-  const w = r.x1 - r.x0;
-  const h = r.y1 - r.y0;
-  const rr = (inset: number) => Skia.RRectXY(Skia.XYWHRect(r.x0 + inset, r.y0 + inset, w - inset * 2, h - inset * 2), 0.12, 0.12);
-  c.drawRRect(rr(-0.04), fill(darken(base, 0.35), 0.6));
-  c.drawRRect(rr(0), fill(base));
-  c.drawRRect(rr(0.32), stroke(border, 0.3));
-  c.drawRRect(rr(0.14), stroke(accent, 0.05));
-  c.drawRRect(rr(0.52), stroke(accent, 0.05));
-  // The field: a diamond lattice, or rows of dots.
-  for (let y = r.y0 + 1; y < r.y1 - 0.8; y += 1) {
-    for (let x = r.x0 + 1; x < r.x1 - 0.8; x += 1) {
-      if (r.style % 2 === 0) {
-        c.drawPath(path.poly([[x, y - 0.22], [x + 0.22, y], [x, y + 0.22], [x - 0.22, y]]), fill(accent, 0.45));
-      } else c.drawCircle(x, y, 0.09, fill(accent, 0.6));
-    }
-  }
-  // Fringes on the two short ends.
-  for (let y = r.y0 + 0.1; y < r.y1 - 0.05; y += 0.16) {
-    c.drawRect(Skia.XYWHRect(r.x0 - 0.12, y, 0.12, 0.05), fill(lighten(base, 0.2)));
-    c.drawRect(Skia.XYWHRect(r.x1, y, 0.12, 0.05), fill(lighten(base, 0.2)));
-  }
 }
 
 function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
@@ -443,7 +370,6 @@ export function recordBackground(def: BackgroundDef): SkPicture {
   const c = rec.beginRecording(Skia.XYWHRect(bounds.minX - 20, bounds.minY - 20, bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40));
   onTop(c, 0, () => {
     for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city);
-    for (const r of def.rugs ?? []) rug(c, r);
   });
   for (const a of def.areas) if (a.floor === 'lot' || a.floor === 'locked') lotFence(c, a);
   // Back to front, so nearer trees overlap farther ones.

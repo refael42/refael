@@ -97,6 +97,10 @@ export const PropKind = {
   /** The deliveries' own pass (along x, two tiles) and their drinks fridge (active = door open). */
   DeliveryPass: 39,
   DrinksFridge: 40,
+  /** A booth's sofa (owner: "a variety of tables"): 0 = the first side's (its back toward -x), 1 = the seat opposite, 2 = that one's back (drawn in front of who sits there). */
+  Booth: 41,
+  /** The back half of a long table (two tiles deep): a piece of its own so the chairs along it sort right. */
+  TableBack: 42,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -150,6 +154,8 @@ export interface PropView {
   bubble: number;
   /** Added to the depth-sort key: things on counters draw after them, wall decor before all. */
   depthBias: number;
+  /** A table's design (src/data/tables.ts, by index). */
+  style?: number;
 }
 
 /** A scripted step; ambient characters loop through a list of these. */

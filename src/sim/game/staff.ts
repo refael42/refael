@@ -1,6 +1,7 @@
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
-import { SERVE_OFFSET, type Point } from '../../data/maps';
+import type { Point } from '../../data/maps';
+import { serveSpot } from '../../data/tables';
 import { KITCHEN, PROMO, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
 import { TRAIT_FX } from '../../data/traits';
 import { facingFor, followPath, setPose } from '../movement';
@@ -17,7 +18,7 @@ import { freeDeliverySlot, packersOn, packingProgress, parking, slotPoint, updat
 import { PACKING } from '../../data/delivery';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
-export const besideTable = (t: Table): Point => ({ x: t.x + SERVE_OFFSET.x, y: t.y + SERVE_OFFSET.y });
+export const besideTable = (t: Table): Point => serveSpot(t.x, t.y);
 /** ...facing the table from there. */
 const FACING_TABLE = Facing.BackRight;
 

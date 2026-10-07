@@ -1,5 +1,5 @@
 import type { MapDef, Point } from '../data/maps';
-import { SEAT_OFFSETS } from '../data/maps';
+import { sideTiles, topTiles } from '../data/tables';
 
 /**
  * Walkability grid + A*. Walls sit on tile edges, so crossing the building boundary is only
@@ -33,10 +33,10 @@ function markFootprint(g: Grid, cx: number, cy: number, w: number, d: number): v
 }
 
 /**
- * How many of the map's table and stove spots are in use, how many tables (the first ones)
- * have their second chair, and the tiles of decor placed in build mode: furniture blocks tiles.
+ * The walkable grid: the kitchen's first `stoveCount` stoves, the counters, the tiles taken by
+ * tables and chairs (`taken`, tile centers) and the decor placed in build mode.
  */
-export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves, pairTables = 0, placed: readonly Point[] = []): Grid {
+export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[], placed: readonly Point[] = []): Grid {
   const g: Grid = {
     w: map.width,
     h: map.height,
@@ -55,10 +55,7 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
   }
   const stoves = map.stoves.slice(0, stoveCount).map((s) => s.stove);
   for (const f of [...stoves, map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
-  map.tables.slice(0, tableCount).forEach((t, i) => {
-    markFootprint(g, t.x, t.y, 1, 1);
-    for (const seat of SEAT_OFFSETS.slice(0, i < pairTables ? 2 : 1)) markFootprint(g, t.x + seat.x, t.y + seat.y, 1, 1);
-  });
+  for (const p of taken) markFootprint(g, p.x, p.y, 1, 1);
   for (const p of placed) markFootprint(g, p.x, p.y, 1, 1);
   for (const door of map.doors) {
     const a = tileIndex(g, Math.floor(door.inside.x), Math.floor(door.inside.y));
@@ -66,6 +63,15 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
     g.doorLinks.add(key(a, c));
   }
   return g;
+}
+
+/**
+ * The room as the map lays it out when nobody moves anything: its first `tableCount` tables,
+ * the first `pairTables` of them with their second chair (tests ask this of every building).
+ */
+export function buildGrid(map: MapDef, tableCount: number = map.startTables, stoveCount: number = map.startStoves, pairTables = 0, placed: readonly Point[] = []): Grid {
+  const taken = map.tables.slice(0, tableCount).flatMap((t, i) => [...topTiles(t.style, t.x, t.y), ...sideTiles(t.style, t.x, t.y, -1), ...(i < pairTables ? sideTiles(t.style, t.x, t.y, 1) : [])]);
+  return gridWith(map, stoveCount, taken, placed);
 }
 
 /** Can a walker step between two neighboring tiles (walls and door rules included)? */
@@ -151,6 +157,34 @@ export function reachableFrom(g: Grid, from: Point): Uint8Array {
       if (!inBounds(g, nx, ny)) continue;
       const nb = tileIndex(g, nx, ny);
       if (seen[nb] || !canStep(g, cur, nb, -1)) continue;
+      if (dx !== 0 && dy !== 0 && (!canStep(g, cur, tileIndex(g, cx + dx, cy), -1) || !canStep(g, cur, tileIndex(g, cx, cy + dy), -1))) continue;
+      seen[nb] = 1;
+      queue.push(nb);
+    }
+  }
+  return seen;
+}
+
+/**
+ * Like reachableFrom, but only inside the building (`from` inside): what furniture can cut off
+ * is all in there, and the room is a small part of the world (build mode asks this of hundreds
+ * of spots at a time).
+ */
+export function reachableInside(g: Grid, from: Point): Uint8Array {
+  const seen = new Uint8Array(g.w * g.h);
+  const start = tileIndex(g, Math.floor(from.x), Math.floor(from.y));
+  const queue = [start];
+  seen[start] = 1;
+  while (queue.length > 0) {
+    const cur = queue.pop()!;
+    const cx = cur % g.w;
+    const cy = Math.floor(cur / g.w);
+    for (const [dx, dy] of DIRS) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (!inBounds(g, nx, ny)) continue;
+      const nb = tileIndex(g, nx, ny);
+      if (seen[nb] || !g.inside[nb] || !canStep(g, cur, nb, -1)) continue;
       if (dx !== 0 && dy !== 0 && (!canStep(g, cur, tileIndex(g, cx + dx, cy), -1) || !canStep(g, cur, tileIndex(g, cx, cy + dy), -1))) continue;
       seen[nb] = 1;
       queue.push(nb);
