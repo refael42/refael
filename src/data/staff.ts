@@ -1,0 +1,194 @@
+import type { Look } from './looks';
+import { LOOKS } from './scenes';
+
+// Staff: roles, what stats do, wages, morale and energy. The restaurant opens with only a cook;
+// everyone else is hired from applicants who show up at the door.
+
+export type Role = 'cook' | 'waiter' | 'washer' | 'host' | 'cleaner' | 'manager' | 'promoter' | 'courier' | 'checker' | 'packer' | 'bartender';
+export const ROLE_LIST: readonly Role[] = ['cook', 'waiter', 'washer', 'host', 'cleaner', 'manager', 'promoter', 'courier', 'checker', 'packer', 'bartender'];
+
+export type StatId = 'speed' | 'quality' | 'charm' | 'stamina';
+export const STAT_IDS: readonly StatId[] = ['speed', 'quality', 'charm', 'stamina'];
+
+export interface RoleDef {
+  role: Role;
+  /** Tiles per second at speed 5. */
+  walkSpeed: number;
+  /** Uniform; the face and hair come from the person. */
+  look: Look;
+  /** Daily wage at level 1, counted in fries sold (wages follow the menu's prices). */
+  wageDishes: number;
+  /** How many fit in the stand. Cooks are limited by stoves instead. */
+  cap: number;
+  /** How often applicants want this job (relative). */
+  weight: number;
+  /** Applicants only show up for this job once the team is this big... */
+  minTeam: number;
+  /** ...and has at least this many of these jobs (a shift manager needs waiters to run). */
+  needs?: Partial<Record<Role, number>>;
+  /** The stats this job uses most; level-ups mostly improve these. */
+  primary: readonly [StatId, StatId];
+}
+
+export const ROLES: Record<Role, RoleDef> = {
+  cook: { role: 'cook', walkSpeed: 1.8, look: LOOKS.cook, wageDishes: 3, cap: 0, weight: 2, minTeam: 0, primary: ['speed', 'quality'] },
+  waiter: { role: 'waiter', walkSpeed: 1.7, look: LOOKS.waiter, wageDishes: 2.5, cap: 3, weight: 4, minTeam: 0, primary: ['speed', 'charm'] },
+  washer: { role: 'washer', walkSpeed: 1.5, look: LOOKS.washer, wageDishes: 2, cap: 1, weight: 3, minTeam: 0, primary: ['speed', 'stamina'] },
+  host: { role: 'host', walkSpeed: 1.5, look: LOOKS.host, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 3, primary: ['charm', 'speed'] },
+  cleaner: { role: 'cleaner', walkSpeed: 1.6, look: LOOKS.cleaner, wageDishes: 2, cap: 2, weight: 2, minTeam: 3, primary: ['speed', 'stamina'] },
+  manager: { role: 'manager', walkSpeed: 1.7, look: LOOKS.manager, wageDishes: 5, cap: 1, weight: 2, minTeam: 5, needs: { waiter: 2 }, primary: ['charm', 'stamina'] },
+  // No place for one at the first diner: the bigger buildings each add some (src/data/buildings.ts).
+  promoter: { role: 'promoter', walkSpeed: 1.6, look: LOOKS.promoter, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 4, primary: ['charm', 'speed'] },
+  // Deliveries (src/data/delivery.ts): they open with the bistro (src/data/unlocks.ts), and every
+  // bigger building has room for more scooters.
+  courier: { role: 'courier', walkSpeed: 1.8, look: LOOKS.courier, wageDishes: 2.5, cap: 0, weight: 2, minTeam: 3, primary: ['speed', 'charm'] },
+  // Owner request: "a checker for the dishes, and people who pack takeaway". Both open with a
+  // bigger building (src/data/unlocks.ts): the checker at the head of the pass, the packers in
+  // the packing corner by the takeaway window.
+  checker: { role: 'checker', walkSpeed: 1.6, look: LOOKS.checker, wageDishes: 3, cap: 0, weight: 2, minTeam: 5, primary: ['quality', 'speed'] },
+  packer: { role: 'packer', walkSpeed: 1.6, look: LOOKS.packer, wageDishes: 2, cap: 0, weight: 2, minTeam: 5, needs: { courier: 1 }, primary: ['speed', 'stamina'] },
+  // The bar (owner: "a bar from the first moment"): room for one bartender in the diner, more as
+  // the bar grows (src/data/buildings.ts). Drinks come once there is one.
+  bartender: { role: 'bartender', walkSpeed: 1.6, look: LOOKS.bartender, wageDishes: 2.5, cap: 1, weight: 2, minTeam: 2, primary: ['speed', 'quality'] },
+};
+
+/**
+ * The checker looks over every dish that lands on the pass before it goes out: a dish they
+ * passed sells for more (their quality stat sets how much, like a cook's).
+ */
+export const CHECKER = {
+  /** Seconds to look one dish over (at speed 5). */
+  seconds: 1.1,
+  /** A checked dish's price grows by this share (times the checker's quality factor). */
+  quality: 0.12,
+} as const;
+
+/**
+ * The promoter (owner request: "more workers") works the sidewalk: a flyer for whoever walks
+ * by, and now and then one of them turns round and comes in to eat.
+ */
+export const PROMO = {
+  /** A flyer every this many seconds (at speed 5)... */
+  everySeconds: 3.5,
+  /** ...to a passer-by this close (tiles), each one once. */
+  reach: 2.8,
+  /** The chance they come in (at charm 5; charm moves it like every stat). */
+  walkIn: 0.3,
+} as const;
+
+/**
+ * The shift manager (owner request) runs the waiters from the end of the pass: calls out ready
+ * dishes (the guest who has waited the longest first), keeps the floor team quick, fresh and in
+ * good spirits, and walks over to calm the most impatient guest now and then. Effects scale
+ * with their charm (and how well they work right now).
+ */
+export const SHIFT = {
+  /** Waiters' work speed with a manager on shift (at charm 5). */
+  waiterSpeed: 0.2,
+  /** Share of the waiters' tiredness the manager takes away. */
+  drainCut: 0.4,
+  /** Morale the floor team (waiters, host, cleaners) gains per minute. */
+  moralePerMinute: 0.08,
+  /** A table visit every this many seconds (at speed 5), to a guest whose patience is below `calmBelow`. */
+  calmEverySeconds: 9,
+  calmBelow: 0.7,
+  /** Seconds at the table, and the share of the guest's patience it gives back. */
+  talkSeconds: 1.4,
+  calmPatience: 0.35,
+} as const;
+
+export const STARTING_STAFF: readonly Role[] = ['cook'];
+
+export const STAFF = {
+  /** Stats run 1..10; 5 is average. Each point away from 5 changes the effect by `perPoint`. */
+  stat: { min: 1, max: 10, average: 5, perPoint: 0.06 },
+  /** Energy 0..1: drains while working (less with stamina), refills while idle. */
+  energy: { drainPerSecond: 1 / 160, staminaPerPoint: 0.1, recoverPerSecond: 1 / 20, tired: 0.25, slowestAt0: 0.55 },
+  /** Morale 0..1: speed scales from `slowest` (0) to `fastest` (1). Below `quit` at payday = they quit. */
+  morale: {
+    start: 0.75,
+    slowest: 0.7,
+    fastest: 1.1,
+    paid: 0.05,
+    unpaid: -0.35,
+    bonus: 0.3,
+    scold: -0.15,
+    raiseYes: 0.2,
+    raiseNo: -0.2,
+    gossip: -0.04,
+    quit: 0.12,
+    unpaidDaysToQuit: 2,
+  },
+  /** Scolding: a short burst of speed, paid for in morale. */
+  scold: { seconds: 25, speedBonus: 0.25 },
+  /** XP per finished job; level n needs `first * growth^(n-1)` more. */
+  xp: { perJob: 1, first: 12, growth: 1.6 },
+  /**
+   * Daily chance a good worker asks for a raise, and by how much. Owner request: rare, and
+   * never two at once: one open request at a time, and after anyone asks, nobody else does for
+   * `teamGapDays` days.
+   */
+  raise: { minLevel: 2, minDaysBetween: 6, chance: 0.08, amount: 0.2, maxAmount: 0.5, teamGapDays: 3 },
+  /** Wage multiplier per level above 1. */
+  wagePerLevel: 0.25,
+  /** Signing fee, in days of wage. Training costs `trainDays * level` days of wage. Bonus = one day. */
+  signingDays: 1,
+  trainDays: 3,
+  /** Offering less: the cut, and the base chance they accept. */
+  negotiate: { cut: 0.2, accept: 0.55, perLevel: -0.06 },
+  /** Uniform upgrades: a silver badge from this level, gold from the next. */
+  rankLevels: [3, 6],
+} as const;
+
+/**
+ * Applicants: the first comes fast (first hire < 2 min), then every so often. A kitchen with no
+ * cook gets a cook applicant almost at once (a trial shift costs nothing: never a dead end).
+ */
+export const APPLICANTS = { firstSeconds: 20, gap: { min: 35, max: 70 }, patienceSeconds: 70, maxWaiting: 2, levelUpChance: 0.35, noCookSeconds: 8 } as const;
+
+/**
+ * Rush hour (hands-on): hold the button and the whole team works faster while the charge
+ * lasts; every second of it costs everyone a little morale. The charge refills when released.
+ */
+export const RUSH = {
+  /** Extra work speed for everyone. */
+  speed: 0.6,
+  /** A full charge lasts this long held down... */
+  seconds: 8,
+  /** ...and takes this long to refill from empty. */
+  rechargeSeconds: 40,
+  /** Too little charge to start (a tap on an empty meter does nothing). */
+  minCharge: 0.15,
+  /** Morale every worker loses per second of rush. */
+  moralePerSecond: 0.01,
+} as const;
+
+/** One in-game day; wages are paid when it ends. */
+export const DAY = { seconds: 120 } as const;
+
+export const KITCHEN = {
+  /** Plates the restaurant owns; all start clean. The clean-dishes loop cycles them. */
+  plates: 5,
+  /** Seconds for the dishwasher to wash and polish one plate. */
+  washSeconds: 3,
+  /** A player tap at the sink scrubs this share of a plate. */
+  handWashTapBoost: 0.34,
+  /** The cook turns to the pass and sets the plate down. */
+  plateSeconds: 0.45,
+  /** The waiter wipes a table before carrying the dirty plate away. */
+  bussSeconds: 0.7,
+  /** Waiters hand dishes over / pick plates up this fast. */
+  handoffSeconds: 0.35,
+  /** The host takes this long (at speed 5) to welcome the first person in line. */
+  hostSeconds: 2.5,
+  /**
+   * Then walks them to their table (owner request) and waits for them to sit, at most this long,
+   * hands each one a menu (this long), and goes back to the stand.
+   */
+  escortWaitSeconds: 6,
+  handMenuSeconds: 0.5,
+  /** Guests seated without a host pick up the menu at the table; with one, they wait this long at most for it. */
+  menuWaitSeconds: 8,
+  /** While every host is walking someone in, the first in line walks to a free table alone after this long. */
+  selfSeatSeconds: 4,
+} as const;
