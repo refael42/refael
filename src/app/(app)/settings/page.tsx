@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AreasPanel, type AreaNode } from "@/components/settings/areas-panel";
 import { ContractorsPanel, MembersPanel, type ContractorRow, type MemberRow } from "@/components/settings/people-panels";
+import { ImportPlanCard } from "@/components/settings/import-plan";
 import { ImportContractorsDialog } from "@/components/settings/import-contractors";
 import { ProjectPanel } from "@/components/settings/project-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -55,7 +56,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
           <TabsTrigger value="members">{t.settings.members}</TabsTrigger>
         </TabsList>
         <TabsContent value="project">
-          <ProjectPanel project={s.project} />
+          <div className="flex flex-col gap-4">
+            <ImportPlanCard />
+            <ProjectPanel project={s.project} />
+          </div>
         </TabsContent>
         <TabsContent value="areas">
           <AreasPanel tree={areaProgress(snap).map(toNode)} />

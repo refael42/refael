@@ -198,6 +198,32 @@ describe.skipIf(!ENABLED)("SupabaseStore against Postgres + PostgREST", () => {
     expect((await loadFlow(store, project.organization_id, "apartment")).stages).toHaveLength(2);
   });
 
+  it("imports a work-plan spreadsheet and re-imports it in place", async () => {
+    const { parseWorkbook } = await import("../import/plan");
+    const { importPlan } = await import("../services/import-plan");
+    const pm = (await store.byId("profiles", DEMO_IDS.pm))!;
+    const project = (await store.byId("projects", DEMO_IDS.project))!;
+    const ctx = { store, now: NOW, s: { profile: pm, memberships: [], project, role: "pm" as const, contractorIds: [], isDemo: false } };
+    const sheet = (status: string) => [
+      {
+        sheet: "תוכנית",
+        data: [
+          ["מס", "סוג עבודה", "מיקום", "משימה", "בעל מקצוע / אחראי", "סטטוס", "תלויות"],
+          [1, "חשמל", "לובי", "כבלים בלובי", "אחמד החשמלאי", status, ""],
+          [2, "בנייה", "דירה 14", "תיקון קיר", "עז סמארה", "טרם התחיל", "1"],
+        ],
+      },
+    ];
+    const r = await importPlan(ctx, parseWorkbook(sheet("בביצוע")), { buildingName: "בניין A" });
+    expect(r).toMatchObject({ created: 2, dependencies: 1 });
+    const r2 = await importPlan(ctx, parseWorkbook(sheet("הושלם")), { buildingName: "בניין A" });
+    expect(r2).toMatchObject({ created: 0, updated: 2, awaitingApproval: 1 });
+    const tasks = await store.select("tasks", { where: { project_id: project.id, external_ref: { in: ["תוכנית#1", "תוכנית#2"] } } });
+    expect(tasks.map((t) => t.status).sort()).toEqual(["awaiting_approval", "planned"]);
+    const deps = await store.select("dependencies", { where: { project_id: project.id, source: "import" } });
+    expect(deps).toHaveLength(1);
+  });
+
   it("runs the reminders tick (checks, overdue, no-response, digest) idempotently", async () => {
     const { runTick } = await import("../services/reminders");
     const first = await runTick(store, NOW);

@@ -19,7 +19,7 @@ export type TaskStatus =
   | "done"
   | "blocked_manual";
 export type DependencyType = "finish_to_start" | "finish_plus_lag";
-export type DependencySource = "manual" | "template" | "ai" | "learned";
+export type DependencySource = "manual" | "template" | "ai" | "learned" | "import";
 export type BlockerStatus = "open" | "resolved";
 export type RuleScope = "same_area" | "same_room";
 export type RuleSource = "system" | "custom" | "learned";
@@ -118,6 +118,8 @@ export interface Task {
   plan_pin_id: UUID | null;
   /** stage key in the master construction process, when generated from it */
   flow_stage: string | null;
+  /** where an imported task came from ("<sheet>#<number>"), for re-import */
+  external_ref: string | null;
   created_by: UUID | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;

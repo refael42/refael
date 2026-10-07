@@ -7,6 +7,7 @@ import { useAction } from "@/components/common/use-action";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/misc";
 import { t } from "@/lib/i18n";
 import { emptyStructure, StructureFields, toStructureInput } from "./structure-fields";
 
@@ -19,6 +20,7 @@ export function NewProjectForm({ needsCompany, today }: { needsCompany: boolean;
   const [start, setStart] = useState(today);
   const [target, setTarget] = useState("");
   const [structure, setStructure] = useState(emptyStructure);
+  const [fromExcel, setFromExcel] = useState(false);
 
   return (
     <form
@@ -33,11 +35,11 @@ export function NewProjectForm({ needsCompany, today }: { needsCompany: boolean;
               address,
               startDate: start || null,
               targetDate: target || null,
-              structure: toStructureInput(structure),
+              structure: fromExcel ? null : toStructureInput(structure),
             }),
           t.setup.created,
         );
-        if (id) router.push("/");
+        if (id) router.push(fromExcel ? "/settings?tab=project#import" : "/");
       }}
     >
       <Card>
@@ -66,14 +68,20 @@ export function NewProjectForm({ needsCompany, today }: { needsCompany: boolean;
           </div>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t.setup.structure}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <StructureFields value={structure} onChange={setStructure} />
-        </CardContent>
-      </Card>
+      <label className="flex items-center gap-2 rounded-md border p-3 text-sm">
+        <Checkbox id="np-excel" checked={fromExcel} onCheckedChange={(v) => setFromExcel(!!v)} />
+        {t.importPlan.fromExcel}
+      </label>
+      {!fromExcel && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t.setup.structure}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <StructureFields value={structure} onChange={setStructure} />
+          </CardContent>
+        </Card>
+      )}
       <Button type="submit" size="lg" disabled={pending || !name.trim() || (needsCompany && !company.trim())}>
         {t.setup.create}
       </Button>
