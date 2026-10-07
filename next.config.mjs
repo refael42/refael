@@ -12,6 +12,8 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // private app: keep every page out of search engines
+      { source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }] },
       {
         source: "/sw.js",
         headers: [
