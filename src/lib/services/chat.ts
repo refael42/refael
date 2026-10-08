@@ -7,7 +7,7 @@ import type { AiParsedJson, AiStatus, Conversation, Message, MessageKind, Messag
 import { t } from "../i18n";
 import { canSeeConversation, isPM } from "./access";
 import { AccessError, type ProjectSession } from "./auth-types";
-import { directConversation } from "./messaging";
+import { directConversation, relayMessage } from "./messaging";
 import type { Ctx } from "./tasks";
 
 export interface ConversationListItem {
@@ -182,6 +182,7 @@ export async function sendMessage(
     created_at: now,
   });
   await store.update("conversation_participants", { conversation_id: conversationId, profile_id: s.profile.id }, { last_read_at: now });
+  await relayMessage(store, msg);
   return msg;
 }
 

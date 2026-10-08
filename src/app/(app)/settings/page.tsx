@@ -4,6 +4,7 @@ import { ContractorsPanel, MembersPanel, type ContractorRow, type MemberRow } fr
 import { ImportPlanCard } from "@/components/settings/import-plan";
 import { ImportContractorsDialog } from "@/components/settings/import-contractors";
 import { ProjectPanel } from "@/components/settings/project-panel";
+import { WhatsappCard } from "@/components/settings/whatsapp-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStore } from "@/lib/db";
 import { t } from "@/lib/i18n";
@@ -68,6 +69,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
           <div className="flex justify-end">
             <ImportContractorsDialog />
           </div>
+          <WhatsappCard />
           <ContractorsPanel rows={contractors} trades={snap.trades.map((x) => ({ value: x.id, label: x.name }))} />
         </TabsContent>
         <TabsContent value="members">

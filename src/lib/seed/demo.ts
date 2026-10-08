@@ -115,6 +115,8 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
       full_name: name,
       phone,
       email,
+      wa_last_inbound_at: null,
+      wa_opt_out: false,
       created_at: created,
     });
   person(DEMO_IDS.pm, DEMO_PEOPLE.pm.name, DEMO_PEOPLE.pm.email, DEMO_PEOPLE.pm.phone);

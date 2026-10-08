@@ -45,6 +45,29 @@ export const serverEnv = {
       .map((x) => x.trim().toLowerCase())
       .filter(Boolean);
   },
+  /** WhatsApp Cloud API (Meta). All four are needed for WhatsApp to switch on. */
+  get whatsappToken() {
+    return process.env.WHATSAPP_TOKEN ?? "";
+  },
+  get whatsappPhoneNumberId() {
+    return process.env.WHATSAPP_PHONE_NUMBER_ID ?? "";
+  },
+  get whatsappAppSecret() {
+    return process.env.WHATSAPP_APP_SECRET ?? "";
+  },
+  get whatsappVerifyToken() {
+    return process.env.WHATSAPP_VERIFY_TOKEN ?? "";
+  },
+  /** approved utility template with one body variable, used outside the 24h window */
+  get whatsappTemplate() {
+    return process.env.WHATSAPP_TEMPLATE ?? "siteflow_update";
+  },
+  get whatsappTemplateLang() {
+    return process.env.WHATSAPP_TEMPLATE_LANG ?? "he";
+  },
+  get whatsappApiVersion() {
+    return process.env.WHATSAPP_API_VERSION ?? "v23.0";
+  },
   /** Hours without a reply before a "no response" reminder fires. */
   get noResponseHours() {
     return Number(process.env.NO_RESPONSE_HOURS ?? 6);

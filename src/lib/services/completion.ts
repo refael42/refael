@@ -9,7 +9,7 @@ import { assertCanReportTask, assertPM } from "./access";
 import { audit } from "./audit";
 import { AccessError } from "./auth-types";
 import { isOwnMediaKey } from "./chat";
-import { messageContractor, postSystemMessage, projectPMs } from "./messaging";
+import { messageContractor, postSystemMessage, projectPMs, relayMessage } from "./messaging";
 import { notify } from "./notify";
 import { withRelease } from "./release";
 import { ServiceError, setTaskStatus, type Ctx } from "./tasks";
@@ -55,8 +55,8 @@ export async function submitReport(
     ? await messageContractor(store, s.project.id, task.contractor_id, he.sys.reportSubmitted(s.profile.full_name, task.title), { task_id: task.id })
     : null;
   if (sent) {
-    for (const key of input.photoKeys)
-      await store.insert("messages", {
+    for (const key of input.photoKeys) {
+      const [m] = await store.insert("messages", {
         conversation_id: sent.conversationId,
         project_id: s.project.id,
         sender_profile_id: s.profile.id,
@@ -64,6 +64,8 @@ export async function submitReport(
         media_url: key,
         meta: { task_id: task.id },
       });
+      await relayMessage(store, m);
+    }
   }
   if (input.sourceMessageId) await store.insert("message_links", { message_id: input.sourceMessageId, task_id: task.id, kind: "completion" }).catch(() => undefined);
 

@@ -1,6 +1,21 @@
 import type { Store } from "../db/store";
 import type { Message, MessageMeta } from "../db/types";
 
+/**
+ * Message relays (WhatsApp) see every chat message after it is stored.
+ * Registered at startup like notification channels; a relay must not throw.
+ */
+type MessageRelay = (store: Store, msg: Message) => Promise<void>;
+const relays: MessageRelay[] = [];
+
+export function registerMessageRelay(r: MessageRelay) {
+  if (!relays.includes(r)) relays.push(r);
+}
+
+export async function relayMessage(store: Store, msg: Message) {
+  for (const r of relays) await r(store, msg).catch((err) => console.warn("[relay] failed", err));
+}
+
 /** Project managers of a project (profile ids). */
 export async function projectPMs(store: Store, projectId: string): Promise<string[]> {
   const pms = await store.select("project_members", { where: { project_id: projectId, role: "pm" } });
@@ -44,6 +59,7 @@ export async function postSystemMessage(
     text,
     meta,
   });
+  await relayMessage(store, m);
   return m;
 }
 
