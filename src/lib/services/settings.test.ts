@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_IDS, sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
 import { listConversations } from "./chat";
-import { addMember, createAreas, createContractor, deleteArea, expandNames, normalizePhone } from "./settings";
+import { addMember, createAreas, createContractor, deleteArea, expandNames, normalizePhone, updateContractor } from "./settings";
 
 describe("project setup", () => {
   it("expands ranges and normalises phones", () => {
@@ -44,5 +44,19 @@ describe("project setup", () => {
     const pm = await ctxFor("pm", store);
     await addMember(pm, { name: "יועץ", email: "consult@x.co", role: "viewer" });
     expect(store.data.project_members.filter((m) => m.project_id === DEMO_IDS.project && m.role === "viewer")).toHaveLength(2);
+  });
+});
+
+describe("contractor without contact details", () => {
+  it("gets a login and project access once a phone or email is added", async () => {
+    const store = demoStore();
+    const pm = await ctxFor("pm", store);
+    const [c] = await store.insert("contractors", { organization_id: pm.s.project.organization_id, profile_id: null, name: "שור המסגר", phone: null, trade_id: null, company: null });
+    await updateContractor(pm, c.id, { name: "שור המסגר", phone: "050-7777777", email: "shor@example.com" });
+    const after = (await store.byId("contractors", c.id))!;
+    expect(after.phone).toBe("+972507777777");
+    const profile = (await store.byId("profiles", after.profile_id!))!;
+    expect(profile).toMatchObject({ phone: "+972507777777", email: "shor@example.com" });
+    expect(store.data.project_members.some((m) => m.profile_id === profile.id && m.project_id === pm.s.project.id && m.role === "contractor")).toBe(true);
   });
 });

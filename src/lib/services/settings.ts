@@ -171,6 +171,20 @@ export async function updateContractor(ctx: Ctx, id: string, input: Partial<Cont
   if (input.phone !== undefined) patch.phone = normalizePhone(input.phone);
   if (input.company !== undefined) patch.company = input.company?.trim() || null;
   if (input.trade_id !== undefined) patch.trade_id = input.trade_id;
+  // a contractor imported without contact details gets a login once a phone / email is added
+  if (!c.profile_id) {
+    const phone = (patch.phone as string | null | undefined) ?? c.phone;
+    const email = input.email !== undefined ? cleanEmail(input.email) : null;
+    if (phone || email) {
+      const known = await findPerson(ctx, phone, email);
+      const [profile] = known
+        ? [known]
+        : await ctx.store.insert("profiles", { full_name: (patch.name as string) ?? c.name, phone, email, organization_id: c.organization_id });
+      patch.profile_id = profile.id;
+      await ensureMember(ctx, profile.id, "contractor");
+      await directConversation(ctx.store, ctx.s.project.id, ctx.s.profile.id, profile.id);
+    }
+  }
   await ctx.store.update("contractors", { id }, patch);
   if (c.profile_id) {
     const p: Record<string, unknown> = {};
