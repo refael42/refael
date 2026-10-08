@@ -60,3 +60,14 @@ describe("contractor without contact details", () => {
     expect(store.data.project_members.some((m) => m.profile_id === profile.id && m.project_id === pm.s.project.id && m.role === "contractor")).toBe(true);
   });
 });
+
+describe("promoting a contractor", () => {
+  it("adding a contractor as PM upgrades their role instead of failing", async () => {
+    const store = demoStore();
+    const pm = await ctxFor("pm", store);
+    const c = await createContractor(pm, { name: "עידו", email: "ido@example.com", phone: "050-1212121" });
+    await addMember(pm, { name: "עידו", email: "ido@example.com", role: "pm" });
+    const m = store.data.project_members.find((x) => x.profile_id === c.profile_id && x.project_id === pm.s.project.id)!;
+    expect(m.role).toBe("pm");
+  });
+});
