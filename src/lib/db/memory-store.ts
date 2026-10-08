@@ -92,7 +92,7 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
   notifications: () => ({ body: null, link: null, action: null, urgent: false, read_at: null, project_id: null }),
   conversation_participants: () => ({ last_read_at: null }),
   conversations: () => ({ title: null, last_message_at: null }),
-  profiles: () => ({ auth_user_id: null, organization_id: null, phone: null, email: null }),
+  profiles: () => ({ auth_user_id: null, organization_id: null, phone: null, email: null, wa_last_inbound_at: null, wa_opt_out: false }),
   areas: () => ({ parent_id: null, sort_order: 0, features: [] }),
   contractors: () => ({ profile_id: null, phone: null, trade_id: null, company: null }),
   plan_files: () => ({ floor_area_id: null, created_by: null }),
@@ -138,6 +138,7 @@ export function emptyData(): MemoryData {
     push_subscriptions: [],
     audit_log: [],
     flow_templates: [],
+    wa_inbound: [],
   };
 }
 

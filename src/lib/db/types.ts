@@ -45,6 +45,9 @@ export interface Profile {
   full_name: string;
   phone: string | null;
   email: string | null;
+  /** last WhatsApp message from this person (opens the 24h free-text window) */
+  wa_last_inbound_at: ISODateTime | null;
+  wa_opt_out: boolean;
   created_at: ISODateTime;
 }
 
@@ -215,6 +218,8 @@ export interface Message {
 export interface MessageMeta {
   action?: "request_photo" | "task_released" | "follow_up" | "report_rejected" | "digest";
   task_id?: UUID;
+  /** the message arrived from WhatsApp */
+  via?: "whatsapp";
   [key: string]: unknown;
 }
 
@@ -340,6 +345,13 @@ export interface PushSubscriptionRow {
   created_at: ISODateTime;
 }
 
+/** A WhatsApp webhook message already handled (Meta retries deliveries). */
+export interface WaInbound {
+  id: string;
+  from_phone: string;
+  created_at: ISODateTime;
+}
+
 export interface AuditEntry {
   id: UUID;
   project_id: UUID | null;
@@ -388,6 +400,7 @@ export interface Tables {
   push_subscriptions: PushSubscriptionRow;
   audit_log: AuditEntry;
   flow_templates: FlowTemplate;
+  wa_inbound: WaInbound;
 }
 
 export type TableName = keyof Tables;

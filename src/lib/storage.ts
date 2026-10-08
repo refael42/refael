@@ -31,14 +31,17 @@ export function allowedType(type: string) {
 
 /** Store a file under media/<projectId>/<uuid>.<ext> and return that key. */
 export async function saveUpload(projectId: string, file: File): Promise<string> {
-  if (!allowedType(file.type)) throw new Error("unsupported file type");
-  if (file.size > MAX_UPLOAD_BYTES) throw new Error("file too large");
-  const name = `${randomUUID()}.${EXT[file.type]}`;
+  return saveBytes(projectId, Buffer.from(await file.arrayBuffer()), file.type);
+}
+
+export async function saveBytes(projectId: string, bytes: Buffer, type: string): Promise<string> {
+  if (!allowedType(type)) throw new Error("unsupported file type");
+  if (bytes.length > MAX_UPLOAD_BYTES) throw new Error("file too large");
+  const name = `${randomUUID()}.${EXT[type]}`;
   const key = `${BUCKET}/${projectId}/${name}`;
-  const bytes = Buffer.from(await file.arrayBuffer());
   if (isSupabaseMode()) {
     const { error } = await getAdminClient()!.storage.from(BUCKET).upload(`${projectId}/${name}`, bytes, {
-      contentType: file.type,
+      contentType: type,
       upsert: false,
     });
     if (error) throw new Error(error.message);
