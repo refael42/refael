@@ -77,6 +77,12 @@ describe("whatsapp", () => {
     await handleWebhook(store, hook(text("+972599999999", "שלום")), deps());
     expect(sent.at(-1)).toMatchObject({ to: "+972599999999", how: "text" });
 
+    // the PM writing from WhatsApp is told to use the app; nothing enters a chat
+    const before = store.data.messages.length;
+    await handleWebhook(store, hook(text("+972500000001", "בדיקה")), deps());
+    expect(sent.at(-1)).toMatchObject({ to: "+972500000001", how: "text" });
+    expect(store.data.messages).toHaveLength(before);
+
     await handleWebhook(store, hook(text(YOSSI, "הסר")), deps());
     expect((await store.byId("profiles", contractorProfileId("yossi")))!.wa_opt_out).toBe(true);
     sent.length = 0;

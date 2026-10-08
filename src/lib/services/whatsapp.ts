@@ -166,6 +166,11 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
     await deps.client.sendText(phone, he.wa.noProject);
     return true;
   }
+  // WhatsApp is the contractors' channel; staff use the app
+  if (ctx.s.role !== "contractor") {
+    await deps.client.sendText(phone, he.wa.staffUseApp);
+    return true;
+  }
   const [pm] = await projectPMs(store, ctx.s.project.id);
   if (!pm) return true;
   const conversationId = await directConversation(store, ctx.s.project.id, pm, profile.id);
@@ -206,14 +211,16 @@ async function markVia(store: Store, msg: Message) {
 async function contractorCtx(store: Store, profile: Profile, now: Date): Promise<Ctx | null> {
   const memberships = await store.select("project_members", { where: { profile_id: profile.id } });
   if (!memberships.length) return null;
-  let membership = memberships[0];
-  if (memberships.length > 1) {
+  // prefer a contractor membership (the same person can be staff in another project)
+  let membership = memberships.find((x) => x.role === "contractor") ?? memberships[0];
+  const contractorProjects = memberships.filter((x) => x.role === "contractor");
+  if (contractorProjects.length > 1) {
     const recent = await store.select("notifications", {
-      where: { profile_id: profile.id, project_id: { in: memberships.map((x) => x.project_id) } },
+      where: { profile_id: profile.id, project_id: { in: contractorProjects.map((x) => x.project_id) } },
       order: [["created_at", "desc"]],
       limit: 1,
     });
-    membership = memberships.find((x) => x.project_id === recent[0]?.project_id) ?? membership;
+    membership = contractorProjects.find((x) => x.project_id === recent[0]?.project_id) ?? membership;
   }
   const project = (await store.byId("projects", membership.project_id)) as Project | null;
   if (!project) return null;
