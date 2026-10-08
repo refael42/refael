@@ -1,6 +1,8 @@
 "use client";
-import { Pencil, Phone, Plus, Trash2 } from "lucide-react";
+import { Copy, Link2, MessageCircle, Pencil, Phone, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
+import { loginLinkAction } from "@/app/actions/login-link";
 import { addMemberAction, createContractorAction, removeMemberAction, setMemberRoleAction, updateContractorAction } from "@/app/actions/settings";
 import { Field, OptionSelect, type Option } from "@/components/common/field";
 import { useAction } from "@/components/common/use-action";
@@ -113,6 +115,7 @@ export interface MemberRow {
 export function MembersPanel({ rows }: { rows: MemberRow[] }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", phone: "", email: "", role: "viewer" as "pm" | "viewer" });
+  const [link, setLink] = useState<{ url: string; phone: string | null; name: string } | null>(null);
   const { call, pending } = useAction();
   const roles: Option[] = [
     { value: "pm", label: t.roles.pm },
@@ -135,6 +138,22 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
                 </span>
               )}
             </div>
+            {!m.isMe && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={pending}
+                onClick={async () => {
+                  const r = await call(() => loginLinkAction(m.profileId));
+                  if (r) setLink(r);
+                }}
+                aria-label={t.settings.loginLink}
+                title={t.settings.loginLink}
+              >
+                <Link2 />
+              </Button>
+            )}
             {m.isMe ? (
               <Badge variant="outline">{t.roles[m.role]}</Badge>
             ) : m.role === "contractor" ? (
@@ -156,6 +175,7 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
           </div>
         ))}
       </div>
+      {link && <LoginLinkDialog link={link} onClose={() => setLink(null)} />}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -192,5 +212,41 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function LoginLinkDialog({ link, onClose }: { link: { url: string; phone: string | null; name: string }; onClose: () => void }) {
+  const message = t.settings.loginLinkMessage(link.url);
+  const digits = link.phone?.replace(/\D/g, "") ?? "";
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t.settings.loginLinkTitle(link.name)}</DialogTitle>
+          <DialogDescription>{t.settings.loginLinkHint}</DialogDescription>
+        </DialogHeader>
+        <Input dir="ltr" readOnly value={link.url} onFocus={(e) => e.target.select()} />
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              navigator.clipboard.writeText(message).then(
+                () => toast.success(t.settings.copied),
+                () => toast.error(t.app.error),
+              )
+            }
+          >
+            <Copy />
+            {t.settings.copy}
+          </Button>
+          <Button asChild>
+            <a href={`https://wa.me/${digits}?text=${encodeURIComponent(message)}`} target="_blank" rel="noreferrer">
+              <MessageCircle />
+              {t.settings.sendWhatsapp}
+            </a>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

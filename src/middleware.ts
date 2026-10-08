@@ -2,8 +2,9 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { GATE_COOKIE, gateToken } from "@/lib/gate";
 
-// reachable without the site password: the gate itself, the scheduler (has its own secret), robots
-const GATE_OPEN = ["/gate", "/api/cron", "/robots.txt"];
+// reachable without the site password: the gate itself, the scheduler (has its own secret), robots,
+// and personal login links (the one-time token is the secret; a valid one also opens the gate)
+const GATE_OPEN = ["/gate", "/api/cron", "/robots.txt", "/auth/link"];
 const PUBLIC = ["/gate", "/robots.txt", "/login", "/auth", "/api/cron", "/manifest.webmanifest", "/sw.js", "/offline.html", "/icons", "/demo", "/pdf.worker"];
 
 export async function middleware(request: NextRequest) {

@@ -32,7 +32,7 @@ export function LoginForm() {
     setBusy(true);
     const { error } = await fn();
     setBusy(false);
-    if (error) toast.error(error.message || t.auth.invalid);
+    if (error) toast.error(/rate limit/i.test(error.message) ? t.auth.rateLimit : error.message || t.auth.invalid);
     else onOk();
   }
 
