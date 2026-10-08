@@ -135,8 +135,16 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
                 </span>
               )}
             </div>
-            {m.role === "contractor" || m.isMe ? (
+            {m.isMe ? (
               <Badge variant="outline">{t.roles[m.role]}</Badge>
+            ) : m.role === "contractor" ? (
+              // a contractor can be promoted (e.g. the site manager) — they then see the whole project
+              <OptionSelect
+                className="h-8 w-32"
+                value={m.role}
+                onChange={(v) => v && v !== m.role && call(() => setMemberRoleAction(m.profileId, v as MemberRole), t.app.saved)}
+                options={[{ value: "contractor", label: t.roles.contractor }, ...roles]}
+              />
             ) : (
               <>
                 <OptionSelect className="h-8 w-32" value={m.role} onChange={(v) => v && call(() => setMemberRoleAction(m.profileId, v as MemberRole), t.app.saved)} options={roles} />

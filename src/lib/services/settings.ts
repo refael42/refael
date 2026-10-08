@@ -212,7 +212,12 @@ export async function addMember(ctx: Ctx, input: { name: string; phone?: string 
   const known = await findPerson(ctx, phone, email);
   const profile = known ?? (await ctx.store.insert("profiles", { full_name: name, phone, email, organization_id: ctx.s.project.organization_id }))[0];
   const existing = await ctx.store.first("project_members", { where: { project_id: ctx.s.project.id, profile_id: profile.id } });
-  if (existing) throw new ServiceError(he.settings.alreadyMember);
+  if (existing && existing.role !== "contractor") throw new ServiceError(he.settings.alreadyMember);
+  if (existing) {
+    // a contractor who becomes a PM / viewer (e.g. the site manager listed as "responsible" in an imported plan)
+    await ctx.store.update("project_members", { project_id: ctx.s.project.id, profile_id: profile.id }, { role: input.role });
+    return profile;
+  }
   await ctx.store.insert("project_members", { project_id: ctx.s.project.id, profile_id: profile.id, role: input.role });
   await directConversation(ctx.store, ctx.s.project.id, ctx.s.profile.id, profile.id);
   return profile;
