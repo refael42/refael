@@ -4,8 +4,8 @@ import { GATE_COOKIE, gateToken } from "@/lib/gate";
 
 // reachable without the site password: the gate itself, the scheduler (has its own secret), robots,
 // the WhatsApp webhook (signed by Meta), personal login links, and the privacy policy Meta requires (the one-time token is the secret; a valid one also opens the gate)
-const GATE_OPEN = ["/gate", "/api/cron", "/api/whatsapp", "/robots.txt", "/auth/link", "/privacy"];
-const PUBLIC = ["/gate", "/privacy", "/robots.txt", "/login", "/auth", "/api/cron", "/api/whatsapp", "/manifest.webmanifest", "/sw.js", "/offline.html", "/icons", "/demo", "/pdf.worker"];
+const GATE_OPEN = ["/gate", "/api/cron", "/api/whatsapp", "/robots.txt", "/auth/link", "/privacy", "/data-deletion"];
+const PUBLIC = ["/gate", "/privacy", "/data-deletion", "/robots.txt", "/login", "/auth", "/api/cron", "/api/whatsapp", "/manifest.webmanifest", "/sw.js", "/offline.html", "/icons", "/demo", "/pdf.worker"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
