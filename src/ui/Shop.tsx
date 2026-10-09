@@ -10,9 +10,11 @@ import { countdown } from './Festival';
 import { gold, panel, textShadow } from './theme';
 import { Overlay, scrollFill } from './Overlay';
 import { tapFeedback } from '../audio/sound';
+import type { Purchases } from '../iap/usePurchases';
 
-// The item shop (owner request: pay-to-win): gem packs (a demo, nothing is charged), income
-// boosts and time warps, star workers, and permanent perks, all bought with gems.
+// The item shop (owner request: pay-to-win): gem packs (real money in the App Store / Google
+// Play, a demo elsewhere: src/iap), income boosts and time warps, star workers, and permanent
+// perks, all bought with gems.
 
 type Tab = 'gems' | 'boosts' | 'staff' | 'forever';
 const TABS: readonly Tab[] = ['gems', 'boosts', 'staff', 'forever'];
@@ -162,13 +164,18 @@ interface Props {
   gameRef: { current: GameState | null };
   onCommand: (cmd: Command) => void;
   onClose: () => void;
+  purchases: Purchases;
   initialTab?: Tab;
 }
 
-export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Props) {
+/** What the last gem purchase came to, in words. */
+function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>): string {
+  return note.kind === 'paid' ? `💎 +${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
+}
+
+export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boosts' }: Props) {
   const t = useT();
   const [tab, setTab] = useState<Tab>(initialTab);
-  const [confirm, setConfirm] = useState<(ShopItem & { kind: 'gems' }) | null>(null);
   const data = usePoll(gameRef, readShop, 4);
   if (!data) return null;
   const items = SHOP.filter((i) => TAB_OF[i.kind] === tab);
@@ -192,7 +199,13 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
             </Pressable>
           ))}
         </View>
-        {tab === 'gems' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
+        {tab === 'gems' && purchases.mode === 'demo' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
+        {tab === 'gems' && purchases.mode === 'off' && <Text style={styles.demo}>{t('shop.off')}</Text>}
+        {purchases.note && (
+          <Pressable onPress={purchases.clearNote}>
+            <Text style={styles.demo}>{noteText(t, purchases.note)}</Text>
+          </Pressable>
+        )}
         <ScrollView style={scrollFill} contentContainerStyle={styles.grid}>
           {tab !== 'gems' && <DealCard gameRef={gameRef} onCommand={onCommand} onGems={() => setTab('gems')} />}
           {items.map((item) => {
@@ -208,8 +221,16 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
                 <Title item={item} />
                 <Description item={item} />
                 {item.kind === 'gems' ? (
-                  <Pressable accessibilityRole="button" onPress={() => setConfirm(item)} style={[styles.buy, styles.buyMoney]}>
-                    <Text style={styles.buyText}>{item.price}</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={purchases.busy !== null || !purchases.prices[item.id]}
+                    onPress={() => {
+                      tapFeedback();
+                      purchases.buy(item.id);
+                    }}
+                    style={[styles.buy, styles.buyMoney, (purchases.busy !== null || !purchases.prices[item.id]) && styles.buyOff]}
+                  >
+                    <Text style={styles.buyText}>{purchases.busy === item.id ? '…' : purchases.prices[item.id] ?? '—'}</Text>
                   </Pressable>
                 ) : owned ? (
                   <Text style={styles.owned}>{`✓ ${t('shop.owned')}`}</Text>
@@ -231,34 +252,6 @@ export function Shop({ gameRef, onCommand, onClose, initialTab = 'boosts' }: Pro
             );
           })}
         </ScrollView>
-        {confirm && (
-          <View style={styles.confirmWrap}>
-            <View style={styles.confirm}>
-              <Text style={styles.confirmTitle}>{t(`shop.${confirm.id}`)}</Text>
-              <View style={styles.line}>
-                <Image source={{ uri: gemUri(22) }} style={styles.gem} />
-                <Text style={styles.walletText}>{confirm.gems}</Text>
-              </View>
-              <Text style={styles.desc}>{t('shop.confirm')}</Text>
-              <Text style={styles.demoSmall}>{t('shop.demo')}</Text>
-              <View style={styles.line}>
-                <Pressable accessibilityRole="button" onPress={() => setConfirm(null)} style={[styles.buy, styles.buyOff]}>
-                  <Text style={styles.buyText}>{t('shop.cancel')}</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => {
-                    onCommand({ type: 'gems', amount: confirm.gems });
-                    setConfirm(null);
-                  }}
-                  style={styles.buy}
-                >
-                  <Text style={styles.buyText}>{t('shop.buyDemo')}</Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        )}
     </Overlay>
   );
 }

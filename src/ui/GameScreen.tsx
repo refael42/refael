@@ -32,6 +32,8 @@ import { JuicyButton } from './JuicyButton';
 import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
+import { usePurchases } from '../iap/usePurchases';
+import { PrivacyPanel } from './Privacy';
 import { GearButton, SettingsPanel } from './SettingsPanel';
 import { Hud } from './Hud';
 import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
@@ -170,6 +172,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   paused.current = onboarding || welcome !== null;
   const { snapshot, stats, tap, command, gameRef } = useGame(STAND_MAP, GAME_SEED, stress, boot, paused);
   useGameSounds(gameRef, paused);
+  // Store purchases live as long as the game (one owed from last time is paid out at start).
+  const purchases = usePurchases(gameRef, paused);
   // Screens opened from the settings (the stats) read the running restaurant from here.
   liveGame.ref = gameRef;
   const uiFps = useSharedValue(0);
@@ -475,7 +479,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
-      {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} />}
+      {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} purchases={purchases} />}
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
@@ -573,8 +577,8 @@ export function GameScreen() {
   const insets = useSafeAreaInsets();
   const { lang, view, gameEpoch, profile, setProfile } = useSettings();
   const [settings, setSettings] = useState(false);
-  const [extra, setExtra] = useState<'howto' | 'names' | 'stats' | null>(null);
-  const openExtra = (which: 'howto' | 'names' | 'stats') => {
+  const [extra, setExtra] = useState<'howto' | 'names' | 'stats' | 'privacy' | null>(null);
+  const openExtra = (which: 'howto' | 'names' | 'stats' | 'privacy') => {
     setSettings(false);
     setExtra(which);
   };
@@ -584,9 +588,10 @@ export function GameScreen() {
       <View style={[styles.corner, { bottom: insets.bottom + 10, start: insets.left + 10 }]}>
         <GearButton onPress={() => setSettings(true)} />
       </View>
-      {settings && <SettingsPanel onClose={() => setSettings(false)} onHowTo={() => openExtra('howto')} onNames={() => openExtra('names')} onStats={() => openExtra('stats')} />}
+      {settings && <SettingsPanel onClose={() => setSettings(false)} onHowTo={() => openExtra('howto')} onNames={() => openExtra('names')} onStats={() => openExtra('stats')} onPrivacy={() => openExtra('privacy')} />}
       {extra === 'howto' && <HowToPlay onClose={() => setExtra(null)} />}
       {extra === 'stats' && <StatsPanel onClose={() => setExtra(null)} />}
+      {extra === 'privacy' && <PrivacyPanel onClose={() => setExtra(null)} />}
       {extra === 'names' && (
         <Welcome
           pages={['names']}

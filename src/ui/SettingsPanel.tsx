@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { STORE_BUILD } from '../config';
 import { useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { eraseSave } from '../store/persistence';
@@ -32,7 +33,7 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
 
 const RESET_CONFIRM_MS = 4000;
 
-export function SettingsPanel({ onClose, onHowTo, onNames, onStats }: { onClose: () => void; onHowTo: () => void; onNames: () => void; onStats: () => void }) {
+export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }: { onClose: () => void; onHowTo: () => void; onNames: () => void; onStats: () => void; onPrivacy: () => void }) {
   const t = useT();
   const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, callTestBus, sound, music, haptics, toggle } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
@@ -101,16 +102,24 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats }: { onClose:
               <Text style={styles.chevron}>{'?'}</Text>
             </Pressable>
             <Toggle label={t('set.fps')} on={showPerf} onPress={togglePerf} />
-            <Text style={styles.section}>{t('set.testing')}</Text>
-            <Toggle label={t('set.cast')} on={view === 'cast'} onPress={() => setView(view === 'cast' ? 'game' : 'cast')} />
-            <Toggle label={t('set.stress')} on={stress > 0} onPress={toggleStress} />
-            <Pressable accessibilityRole="button" onPress={addTestMoney} style={styles.row}>
-              <Text style={styles.rowLabel}>{t('set.testMoney')}</Text>
-              <Text style={styles.chevron}>{'+'}</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={callTestBus} style={styles.row}>
-              <Text style={styles.rowLabel}>{t('set.testBus')}</Text>
-              <Text style={styles.chevron}>{'🚌'}</Text>
+            {!STORE_BUILD && (
+              <>
+                <Text style={styles.section}>{t('set.testing')}</Text>
+                <Toggle label={t('set.cast')} on={view === 'cast'} onPress={() => setView(view === 'cast' ? 'game' : 'cast')} />
+                <Toggle label={t('set.stress')} on={stress > 0} onPress={toggleStress} />
+                <Pressable accessibilityRole="button" onPress={addTestMoney} style={styles.row}>
+                  <Text style={styles.rowLabel}>{t('set.testMoney')}</Text>
+                  <Text style={styles.chevron}>{'+'}</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={callTestBus} style={styles.row}>
+                  <Text style={styles.rowLabel}>{t('set.testBus')}</Text>
+                  <Text style={styles.chevron}>{'🚌'}</Text>
+                </Pressable>
+              </>
+            )}
+            <Pressable accessibilityRole="button" onPress={onPrivacy} style={styles.row}>
+              <Text style={styles.rowLabel}>{t('set.privacy')}</Text>
+              <Text style={styles.chevron}>{'🔒'}</Text>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={reset} style={[styles.reset, armed && styles.resetArmed]}>
               <Text style={styles.resetText}>{armed ? t('set.resetConfirm') : t('set.reset')}</Text>

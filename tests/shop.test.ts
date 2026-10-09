@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STAND_MAP } from '../src/data/maps';
-import { GEMS, SHOP_BY_ID, STAR } from '../src/data/shop';
+import { GEMS, PURCHASE_LOG, SHOP_BY_ID, STAR } from '../src/data/shop';
 import { STEP_SEC } from '../src/data/sim';
 import { big } from '../src/sim/big';
 import { computeMods } from '../src/sim/economy/upgrades';
@@ -8,7 +8,7 @@ import { queueCommand } from '../src/sim/game/commands';
 import { createGame } from '../src/sim/game/create';
 import { stepGame } from '../src/sim/game/step';
 import { CustomerState, type GameState } from '../src/sim/game/types';
-import { buyShopItem, incomeRate } from '../src/sim/shop';
+import { buyShopItem, grantPurchase, incomeRate, purchasePaid } from '../src/sim/shop';
 import { makeSave, MIGRATIONS, parseSave, restoreGame } from '../src/sim/save';
 
 function play(s: GameState, seconds: number) {
@@ -21,14 +21,39 @@ function play(s: GameState, seconds: number) {
 const team = ['cook', 'waiter', 'washer'] as const;
 
 describe('item shop', () => {
-  it('starts with a few gems; a demo gem pack adds its gems; nothing is bought without enough gems', () => {
+  it('starts with a few gems; a gem pack adds its gems; nothing is bought without enough gems', () => {
     const s = createGame(STAND_MAP, 81);
     expect(s.gems).toBe(GEMS.start);
     expect(buyShopItem(s, 'goldenMenu')).toBe(false);
     expect(s.gems).toBe(GEMS.start);
-    queueCommand(s, { type: 'gems', amount: 500 });
-    stepGame(s, STEP_SEC);
+    expect(grantPurchase(s, 'gems500', 'tx-1')).toBe(true);
     expect(s.gems).toBe(GEMS.start + 500);
+  });
+
+  it('a store purchase pays once, even when the store reports it again (also after a save)', () => {
+    const s = createGame(STAND_MAP, 84);
+    expect(grantPurchase(s, 'gems80', 'tx-a')).toBe(true);
+    expect(grantPurchase(s, 'gems80', 'tx-a')).toBe(false);
+    expect(purchasePaid(s, 'tx-a')).toBe(true);
+    // Only gem packs are sold for money; an unknown product or an empty id pays nothing.
+    expect(grantPurchase(s, 'goldenMenu', 'tx-b')).toBe(false);
+    expect(grantPurchase(s, 'nope', 'tx-c')).toBe(false);
+    expect(grantPurchase(s, 'gems80', '')).toBe(false);
+    expect(s.gems).toBe(GEMS.start + 80);
+    const loaded = parseSave(JSON.stringify(makeSave(s, Date.now())));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const back = restoreGame(loaded.save, 84, Date.now());
+    expect(grantPurchase(back, 'gems80', 'tx-a')).toBe(false);
+    expect(back.gems).toBe(GEMS.start + 80);
+    // The log keeps the latest ones only.
+    for (let i = 0; i < PURCHASE_LOG + 5; i++) grantPurchase(back, 'gems80', `tx-${i}`);
+    expect(back.purchases).toHaveLength(PURCHASE_LOG);
+    expect(purchasePaid(back, `tx-${PURCHASE_LOG + 4}`)).toBe(true);
+  });
+
+  it('a v12 save gets an empty purchase log', () => {
+    expect(MIGRATIONS[12]!({ purchases: undefined }).purchases).toEqual([]);
   });
 
   it('a boost multiplies every bill while it runs', () => {

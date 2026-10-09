@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Paused for M29 |
 | M27 | Owner: a bar from day one that grows with the buildings (straight → L → three sides open to the kitchen), bartenders who shake cocktails and pour drinks, drinks on the bar's pass for the waiters, guests on bar stools served by the bartenders | ✅ Done |
 | M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
@@ -73,6 +74,22 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- M28 part 1 (owner: "with purchases, Apple and Android, start preparing your part"):
+  - `app.json`: version 1.0.0, bundle id / package `com.refael.restauranttycoon` (placeholder
+    until the owner picks; it cannot change once the app exists in the store consoles), build
+    numbers, `ITSAppUsesNonExemptEncryption: false`. `eas.json`: development / preview /
+    production; production sets `EXPO_PUBLIC_STORE=1` (`src/config.ts` STORE_BUILD), which hides
+    the testing tools in the settings.
+  - Purchases (`src/iap`): the game talks to a small store interface. Gem packs are the only
+    thing sold for money (consumables, product ids = `gems80`, `gems500`, `gems1200`,
+    `gems3000`). A purchase pays out, the save is written, and only then is the store told
+    (finish); the save keeps the last 50 transaction ids (save v13) so a purchase reported twice
+    pays once (`grantPurchase`, tests in tests/shop.test.ts). The browser and Expo Go use a demo
+    store (nothing charged); a store build without the payment library sells nothing.
+  - The native payment library (`expo-iap` 5.8.3) is NOT installed yet: the install was blocked
+    by the session's permission check; the owner decides. Then `nativeStore()` in
+    `src/iap/index.ts` is filled in.
+  - A privacy policy screen in the settings (he/en).
 - Done in M27 (owner: "start building a bar for the restaurant that you get from the first moment
   and grows with the stages, with bartenders who shake cocktails; plain drinks too; a ready drink
   is put on the pass and a waiter comes to take it; at the final stage the bar is a rectangle where
@@ -691,7 +708,7 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## How to verify
 
-- `npm run check` — typecheck + 389 unit tests.
+- `npm run check` — typecheck + 391 unit tests.
 - `npm run balance -- --minutes 60` — the pacing report.
 - `npm run web` (browser) or `npm start` + Expo Go (phone).
 - `npm run export:web` — production web build in `dist/`.

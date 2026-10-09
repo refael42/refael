@@ -14,7 +14,7 @@ import { capOf, costOf, isCappedTrack, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
 import type { GameState, PlacedDecor, QuestState, Review } from './game/types';
 import { questLevel } from './quests';
-import { GEMS, SHOP_BY_ID } from '../data/shop';
+import { GEMS, PURCHASE_LOG, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
 import { newWheel } from './wheel';
 import { RARITIES, type Rarity } from '../data/rarity';
@@ -25,7 +25,7 @@ import { newFestival } from './festival';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 12;
+export const SAVE_VERSION = 13;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -74,6 +74,8 @@ export interface SaveData {
   /** The reviews page (bonuses not taken yet wait there), and the next review's id. */
   reviews: SavedReview[];
   reviewSeq: number;
+  /** Store purchases already paid out (transaction ids), so one the store sends again pays once. */
+  purchases: string[];
 }
 
 /** A review as saved: its bonus as text. */
@@ -132,6 +134,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   10: (old) => shiftPlaces(old, SAVE_SHIFT.v11),
   // v11 (M25) had no table styles: no tables saved, the map lays them out (in mixed styles).
   11: (old) => old,
+  // v12 (M27) had no real store: no purchases paid out yet.
+  12: (old) => ({ ...old, purchases: [] }),
 };
 
 /** Placed decor, tables and work sites, moved with the site by `d` tiles. */
@@ -193,6 +197,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     flash: { ...s.flash },
     reviews: s.reviews.map((r) => ({ ...r, bonus: toSave(r.bonus) })),
     reviewSeq: s.reviewSeq,
+    purchases: [...s.purchases],
   };
 }
 
@@ -315,6 +320,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     festival: cleanFestival(o.festival),
     flash: isRecord(o.flash) && finite(o.flash.slot) ? { slot: Math.floor(o.flash.slot), bought: o.flash.bought === true } : { slot: -1, bought: false },
     ...cleanReviews(o.reviews, o.reviewSeq),
+    purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -437,5 +443,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     flash: save.flash,
     reviews: save.reviews.map((r) => ({ ...r, bonus: fromSave(r.bonus) })),
     reviewSeq: save.reviewSeq,
+    purchases: save.purchases,
   });
 }

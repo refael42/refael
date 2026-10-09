@@ -2,9 +2,11 @@ import type { Role } from './staff';
 import type { TraitId } from './traits';
 
 // The item shop (owner request: pay-to-win). Gems are the premium currency: a few come from
-// quests (every restaurant level-up), the rest from gem packs. Packs are a DEMO here: the
-// "purchase" just adds the gems, no money changes hands (a real store needs store accounts and
-// a native payment library, which the owner has not set up). Prices are shown for the look.
+// quests (every restaurant level-up), the rest from gem packs. Gem packs are the only thing sold
+// for real money (App Store / Google Play, owner decision M28); everything else costs gems.
+// The packs are consumables, created in both store consoles under the same product ids
+// (docs/store/products.md). The price shown is the store's own (local currency); `price` here is
+// only the fallback for the demo store (browser, Expo Go), where nothing is charged.
 
 export const GEMS = {
   /** What a new restaurant (or an older save) starts with. */
@@ -14,7 +16,7 @@ export const GEMS = {
 } as const;
 
 export type ShopItem =
-  /** Gems for (pretend) money; `price` is only displayed. */
+  /** Gems for money: `id` is the store product id; `price` is shown only in the demo store. */
   | { id: string; kind: 'gems'; gems: number; price: string; tag?: 'popular' | 'best' }
   /** All income x`mult` for a while. */
   | { id: string; kind: 'boost'; cost: number; mult: number; minutes: number }
@@ -57,6 +59,12 @@ export const SHOP: readonly ShopItem[] = [
 ];
 
 export const SHOP_BY_ID: Readonly<Record<string, ShopItem>> = Object.fromEntries(SHOP.map((i) => [i.id, i]));
+
+/** The gem packs: what the App Store and Google Play sell (product ids = item ids). */
+export const GEM_PACKS = SHOP.filter((i): i is ShopItem & { kind: 'gems' } => i.kind === 'gems');
+
+/** How many paid-out store transactions a save remembers (a repeat comes within minutes, not months). */
+export const PURCHASE_LOG = 50;
 
 /** Star workers: a high level, top skills in the job's main stats, two good traits. */
 export const STAR = {

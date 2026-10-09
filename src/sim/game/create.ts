@@ -339,6 +339,8 @@ export interface GameSetup {
   /** The reviews page, and the next review's id. */
   reviews?: GameState['reviews'];
   reviewSeq?: number;
+  /** Store purchases already paid out (transaction ids). */
+  purchases?: readonly string[];
   /** Where each table stands and its style (older saves: none, the map lays them out). */
   tables?: readonly TableSpot[];
 }
@@ -431,6 +433,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     wheel: setup.wheel ? { ...setup.wheel } : { nextFree: 0, tokens: 0, spins: 0, prize: -1 },
     festival: setup.festival ? { ...setup.festival, trophies: [...setup.festival.trophies] } : newFestival(),
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
+    purchases: [...(setup.purchases ?? [])],
     bus: null,
     nextBus: 0,
     nextDelivery: 0,

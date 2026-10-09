@@ -1,6 +1,6 @@
 import { FLASH } from '../data/events';
 import { NAMES } from '../data/names';
-import { GEMS, SHOP_BY_ID, STAR, WARP_MIN_PER_SECOND, type ShopItem } from '../data/shop';
+import { GEMS, PURCHASE_LOG, SHOP_BY_ID, STAR, WARP_MIN_PER_SECOND, type ShopItem } from '../data/shop';
 import { ROLES, STAT_IDS, type StatId } from '../data/staff';
 import { big, type Big } from './big';
 import { computeMods } from './economy/upgrades';
@@ -150,9 +150,25 @@ export function buyDeal(s: GameState, now: number): boolean {
   return true;
 }
 
-/** Gems from a gem pack (a demo purchase) or a quest level-up. */
+/** Gems handed over (a quest level-up, a gem pack). */
 export function addGems(s: GameState, amount: number): void {
   if (Number.isFinite(amount) && amount > 0) s.gems += Math.floor(amount);
 }
+
+/**
+ * A gem pack paid for in the store. Stores may report one purchase more than once (the app was
+ * closed before it was confirmed, a restart): it pays once per transaction id. Returns whether
+ * gems were added.
+ */
+export function grantPurchase(s: GameState, product: string, transaction: string): boolean {
+  const item = SHOP_BY_ID[product];
+  if (!item || item.kind !== 'gems' || !transaction || s.purchases.includes(transaction)) return false;
+  s.purchases = [...s.purchases.slice(-(PURCHASE_LOG - 1)), transaction];
+  addGems(s, item.gems);
+  return true;
+}
+
+/** Was this store transaction already paid out (safe to confirm to the store)? */
+export const purchasePaid = (s: GameState, transaction: string): boolean => s.purchases.includes(transaction);
 
 export { GEMS };

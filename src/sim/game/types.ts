@@ -157,7 +157,6 @@ export type Command =
   /** Spend gems in the item shop. */
   | { type: 'shop'; item: string }
   /** Gems from a (demo) gem pack purchase. */
-  | { type: 'gems'; amount: number }
   | { type: 'serve'; order: number }
   | { type: 'clean'; table: number }
   | { type: 'wash' }
@@ -457,6 +456,8 @@ export interface GameState {
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
+  /** Store purchases already paid out (their transaction ids, the latest few): a purchase the store reports twice pays once. */
+  purchases: string[];
   /** Strollers across the road counted apart from everything else (their ids, their dice). */
   ambientSeq: number;
   /** When the next delivery order comes in (sim time). */
