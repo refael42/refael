@@ -77,6 +77,8 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // Menu: the money makers. Linear price per level, doubled at every milestone.
   { id: 'fries', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 5, growth: 1.15,
     effect: { stat: 'price', per: 0.3, dish: Dish.Fries }, milestone: { stat: 'price', factor: 2, dish: Dish.Fries } },
+  { id: 'salad', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 30, growth: 1.16, unlocksDish: Dish.Salad,
+    effect: { stat: 'price', per: 0.3, dish: Dish.Salad }, milestone: { stat: 'price', factor: 2, dish: Dish.Salad } },
   { id: 'burger', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 70, growth: 1.165, unlocksDish: Dish.Burger,
     requires: { item: 'fries', level: 5 },
     effect: { stat: 'price', per: 0.3, dish: Dish.Burger }, milestone: { stat: 'price', factor: 2, dish: Dish.Burger } },
@@ -89,6 +91,9 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'hummus', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 90000, growth: 1.175, unlocksDish: Dish.Hummus,
     requires: { item: 'building', level: 1 },
     effect: { stat: 'price', per: 0.3, dish: Dish.Hummus }, milestone: { stat: 'price', factor: 2, dish: Dish.Hummus } },
+  { id: 'padThai', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 300000, growth: 1.175, unlocksDish: Dish.PadThai,
+    requires: { item: 'building', level: UNLOCK_TIER.padThai },
+    effect: { stat: 'price', per: 0.3, dish: Dish.PadThai }, milestone: { stat: 'price', factor: 2, dish: Dish.PadThai } },
   { id: 'schnitzel', category: 'menu', anchor: K.Pass, restyle: 'dish', baseCost: 900000, growth: 1.175, unlocksDish: Dish.Schnitzel,
     requires: { item: 'hummus', level: 10 },
     effect: { stat: 'price', per: 0.3, dish: Dish.Schnitzel }, milestone: { stat: 'price', factor: 2, dish: Dish.Schnitzel } },

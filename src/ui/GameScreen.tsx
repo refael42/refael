@@ -41,6 +41,7 @@ import { theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewsChip, ReviewsPanel } from './Reviews';
+import { GuideChip, GuideEdition, GuidePanel } from './Guide';
 import { RushButton } from './RushButton';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { DealChip, GemPill, Shop } from './Shop';
@@ -294,6 +295,11 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [daily, setDaily] = useState(false);
   const [wheel, setWheel] = useState(false);
   const [reviews, setReviews] = useState(false);
+  const [guide, setGuide] = useState(false);
+  // A new edition of the guide: its card, once.
+  const edition = usePoll(gameRef, readEdition, 2);
+  const [shownEdition, setShownEdition] = useState(-1);
+  const editionCard = edition && edition.id !== shownEdition && edition.id >= 0 ? edition : null;
   const [festival, setFestival] = useState(false);
   useFestivalClock(command, true);
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
@@ -459,6 +465,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
           {/* Reviews live on their own page now (owner request), not on the screen. */}
           <ReviewsChip gameRef={gameRef} onPress={() => setReviews(true)} style={styles.inColumn} />
+          <GuideChip gameRef={gameRef} onPress={() => setGuide(true)} style={styles.inColumn} />
         </View>
       )}
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
@@ -484,6 +491,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
+      {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
+      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} onClose={() => setShownEdition(editionCard.id)} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -572,6 +581,12 @@ function CastView() {
     </>
   );
 }
+
+/** The newest guide edition notice (its card shows once). */
+const readEdition = (s: GameState) => {
+  const n = [...s.notices].reverse().find((x) => x.kind === 'guide');
+  return n && n.kind === 'guide' ? { id: n.id, stars: n.stars, change: n.change, plate: n.plate } : null;
+};
 
 export function GameScreen() {
   const insets = useSafeAreaInsets();

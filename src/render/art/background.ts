@@ -241,7 +241,20 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, 0.05), fill('#B9A77E'));
       c.drawRect(Skia.XYWHRect(a.x0, a.y1 - 0.05, w, 0.05), fill('#B9A77E'));
     },
-    kitchen: () => tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? '#EDEAE4' : '#37333F')),
+    // The kitchen (owner M29: "throw out that ugly kitchen"): large warm stone tiles, quiet
+    // grout, instead of the loud black-and-white checkerboard.
+    kitchen: () => {
+      tiles(c, a, (x, y) => ((x + y) % 2 === 0 ? '#D3CEC6' : '#C9C3BA'));
+      for (let x = a.x0; x <= a.x1; x++) c.drawRect(Skia.XYWHRect(x - 0.012, a.y0, 0.024, h), fill('#A9A298', 0.7));
+      for (let y = a.y0; y <= a.y1; y++) c.drawRect(Skia.XYWHRect(a.x0, y - 0.012, w, 0.024), fill('#A9A298', 0.7));
+      // A drain grate every few tiles, as kitchens have.
+      for (let ty = a.y0 + 3; ty < a.y1; ty += 6) {
+        for (let tx = a.x0 + 2; tx < a.x1; tx += 5) {
+          c.drawRect(Skia.XYWHRect(tx + 0.3, ty + 0.42, 0.4, 0.16), fill('#7E8A98'));
+          for (let k = 0; k < 4; k++) c.drawRect(Skia.XYWHRect(tx + 0.34 + k * 0.09, ty + 0.44, 0.04, 0.12), fill('#4A505C'));
+        }
+      }
+    },
     dining: () => carpet(c, a, CARPETS.dining),
     emerald: () => carpet(c, a, CARPETS.emerald),
     royal: () => carpet(c, a, CARPETS.royal),
@@ -294,10 +307,31 @@ function wallFace(c: SkCanvas, length: number, H: number, tiledUntil: number, wa
   rectIn(c, 0, H - 5, length, 2, GOLD);
   for (let a = 0.5; a < length; a += 1) rectIn(c, a - 0.01, 22, 0.02, H - 30, lighten(wall, 0.06));
   if (tiledUntil > 0) {
-    // White tiles behind the cooking line.
-    rectIn(c, 0, 18, tiledUntil, 26, '#F1EEE8');
-    for (let b = 22; b < 44; b += 4) rectIn(c, 0, b, tiledUntil, 0.5, '#CFD8DE');
-    for (let a = 0.25; a < tiledUntil; a += 0.25) rectIn(c, a, 18, 0.01, 26, '#CFD8DE');
+    // The kitchen's walls (owner M29): white subway tiles to the ceiling, a dark steel base, a
+    // shelf of jars and spices, copper pans hanging below it.
+    const top = H - 6;
+    rectIn(c, 0, 0, tiledUntil, top, '#F4F1EB');
+    for (let b = 3, row = 0; b < top; b += 3.2, row++) {
+      rectIn(c, 0, b, tiledUntil, 0.4, '#D9DEE3');
+      for (let a = row % 2 ? 0.125 : 0; a < tiledUntil; a += 0.25) rectIn(c, a, b, 0.008, 3.2, '#DCE1E6');
+    }
+    rectIn(c, 0, 0, tiledUntil, 3, '#4A505C');
+    rectIn(c, 0, top - 1, tiledUntil, 1, '#AEB8C4');
+    rectIn(c, 0.15, 44, tiledUntil - 0.3, 1.4, '#9AA6B4');
+    const jars = ['#E5483B', '#F2C14E', '#7BC67E', '#8A5A34', '#F28A12', '#3A3646'];
+    for (let a = 0.3, i = 0; a < tiledUntil - 0.25; a += 0.22, i++) {
+      rectIn(c, a, 45.4, 0.12, 5 + (i % 3), '#E4E9EE');
+      rectIn(c, a + 0.01, 45.4, 0.1, 3 + (i % 3), jars[i % jars.length]!);
+    }
+    rectIn(c, 0.15, 39, tiledUntil - 0.3, 0.5, '#7E8A98');
+    for (let a = 0.6, i = 0; a < tiledUntil - 0.4; a += 1.3, i++) {
+      // A pan on its hook: handle up, the copper round below.
+      rectIn(c, a, 33, 0.03, 6, '#5A3A24');
+      const r = i % 3 === 0 ? 3.4 : 2.7;
+      const b = 30 - (i % 2) * 1.5;
+      c.drawOval(Skia.XYWHRect(a + 0.015 - r / 32, b - r, (r * 2) / 32, r * 2), fill('#C47A3A'));
+      c.drawOval(Skia.XYWHRect(a + 0.015 - (r * 0.55) / 32, b - r * 0.55, (r * 1.1) / 32, r * 1.1), fill('#E09A5A'));
+    }
   }
 }
 

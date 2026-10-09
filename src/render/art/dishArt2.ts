@@ -165,6 +165,49 @@ const iconLobster = sprite(ICON, (c) => {
   for (const y of [-1, 2]) c.drawLine(-2.6, y, 2.6, y, stroke('#9A2A16', 0.7));
 });
 
+
+// ---------- the new stations' dishes (owner M29): a salad off the cold line, pad thai off the wok ----------
+
+const saladPlates = looks('plateSalad', [-16, -18, 16, 6], (c, t) => {
+  const [x, y] = P(0, 0, plateBase(c, t));
+  // A tumble of leaves, tomato, cucumber; feta and a drizzle from the second look on.
+  blob(c, ellipse(x, y - 2.6, 8.6, 4.2), '#5FAE4E');
+  const bits: [number, number, string][] = [[-4, -3.6, '#7BC67E'], [3, -4.2, '#3FA65A'], [-1, -5.2, '#8FD07E'], [4.5, -2, '#7BC67E'], [-4.6, -1.4, '#3FA65A']];
+  for (const [dx, dy, col] of bits) blob(c, ellipse(x + dx, y + dy, 2.6, 1.4), col);
+  for (const [dx, dy] of [[-2, -2.6], [2.4, -3], [0.4, -1.4]] as const) c.drawCircle(x + dx, y + dy, 1.2, fill('#E5483B'));
+  for (const [dx, dy] of [[1, -4.4], [-3, -4.2]] as const) c.drawCircle(x + dx, y + dy, 1, fill('#CDEBB0'));
+  if (t >= 1) for (const [dx, dy] of [[-1.2, -3.6], [3.4, -1.6], [-3.6, -2.4]] as const) c.drawRect(Skia.XYWHRect(x + dx - 0.9, y + dy - 0.9, 1.8, 1.8), fill('#FFFDF4'));
+  if (t >= 2) c.drawPath(path.smooth([[x - 5, y - 4], [x - 1, y - 5.6], [x + 3, y - 3], [x + 6, y - 4.4]], false), stroke('#F2C14E', 0.6));
+  if (t === 3) c.drawCircle(x + 0.5, y - 5.8, 1.1, fill(GOLD));
+});
+
+const padThaiPlates = looks('platePadThai', [-16, -19, 16, 6], (c, t) => {
+  const [x, y] = P(0, 0, plateBase(c, t));
+  // A nest of noodles, prawns, a lime wedge; peanuts and bean sprouts as it gets finer.
+  blob(c, ellipse(x, y - 3, 8.4, 4.2), '#E2B65A');
+  for (let i = 0; i < 6; i++) c.drawPath(path.smooth([[x - 7, y - 4 + i * 0.9], [x - 3, y - 5.6 + i * 0.9], [x + 1, y - 3 + i * 0.9], [x + 6, y - 4.6 + i * 0.9]], false), stroke('#F2D088', 0.8));
+  for (const [dx, dy] of [[-3, -5.4], [2.6, -4.8]] as const) {
+    c.drawPath(path.smooth([[x + dx - 2, y + dy], [x + dx, y + dy - 1.8], [x + dx + 2, y + dy], [x + dx, y + dy + 0.6]], true, 0.8), fill('#F28A5A'));
+  }
+  c.drawPath(path.poly([[x + 6, y - 1], [x + 9, y - 2.4], [x + 8.6, y + 0.4]]), fill('#9BD86A'));
+  if (t >= 1) for (const [dx, dy] of [[-1, -2], [1.5, -2.6], [-4, -2.4], [4, -3.2]] as const) c.drawCircle(x + dx, y + dy, 0.6, fill('#B07A3A'));
+  if (t >= 2) for (const dx of [-5, -4, 3.5]) c.drawLine(x + dx, y - 6, x + dx + 0.8, y - 3.4, stroke('#F4F0E0', 0.6));
+  if (t === 3) c.drawCircle(x, y - 6.4, 1.1, fill(GOLD));
+});
+
+const iconSalad = sprite(ICON, (c) => {
+  glossy(c, path.smooth([[-7, -1], [-6, 4], [0, 6.5], [6, 4], [7, -1]], true, 0.9), '#DCE2E8');
+  for (const [x, y, col] of [[-3.4, -2.4, '#3FA65A'], [1.6, -3.6, '#7BC67E'], [4.2, -1.4, '#3FA65A'], [-0.6, -0.8, '#8FD07E']] as const) glossy(c, path.smooth(ellipse(x, y, 3, 2), true, 1), col);
+  c.drawCircle(-1, -3.6, 1.4, fill('#E5483B'));
+  c.drawCircle(2.6, -0.6, 1.2, fill('#E5483B'));
+});
+
+const iconPadThai = sprite(ICON, (c) => {
+  glossy(c, path.smooth(ellipse(0, 1.5, 7.4, 4.6), true, 1), '#E2B65A');
+  for (let i = 0; i < 4; i++) c.drawPath(path.smooth([[-6, -1 + i * 1.6], [-2, -3 + i * 1.6], [2, -0.6 + i * 1.6], [6, -2.4 + i * 1.6]], false), stroke('#F6DC9A', 0.9));
+  glossy(c, path.smooth([[-3, -4], [0, -6], [3, -4], [0, -3]], true, 0.8), '#F28A5A');
+});
+
 export const moreDishSprites = {
   ...pizzaPlates,
   ...sushiPlates,
@@ -176,4 +219,8 @@ export const moreDishSprites = {
   iconSteak,
   iconCake,
   iconLobster,
+  ...saladPlates,
+  ...padThaiPlates,
+  iconSalad,
+  iconPadThai,
 };

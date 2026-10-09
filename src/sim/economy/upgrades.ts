@@ -98,7 +98,7 @@ export function tracksAtCap(levels: Levels): number {
  */
 export function capOf(def: UpgradeDef, map: MapDef, levels: Levels): number | undefined {
   if (def.spots === 'tables') return map.tables.length - map.startTables;
-  if (def.spots === 'stoves') return map.stoves.length - map.startStoves;
+  if (def.spots === 'stoves') return map.cookCap - map.startStoves;
   if (def.spots === 'seats') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'));
   // A family table is a table for two made bigger.
   if (def.spots === 'family') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'), levelOf(levels, 'seats'));

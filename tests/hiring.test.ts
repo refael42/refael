@@ -241,13 +241,14 @@ describe('growth and management', () => {
     expect(s.customers.some((c) => c.state === CustomerState.Eating || c.state === CustomerState.Paying) || s.stats.served > 0).toBe(true);
   });
 
-  it('a second stove makes room for a second cook', () => {
+  it('another cook post makes room for a second cook (the whole kitchen stands from the start)', () => {
     const s = createGame(STAND_MAP, 14);
     rich(s);
+    expect(s.stoves).toHaveLength(STAND_MAP.stoves.length);
     expect(capacity(s, 'cook')).toBe(1);
     expect(buyNow(s, 'stove2')).toBe(true);
     expect(capacity(s, 'cook')).toBe(2);
-    expect(s.stoves).toHaveLength(2);
+    expect(s.stoves).toHaveLength(STAND_MAP.stoves.length);
     const a = waitForApplicant(s, 'cook');
     queueCommand(s, { type: 'hire', applicant: a.id, trial: false });
     run(s, 10);

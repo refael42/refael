@@ -4,7 +4,7 @@
 // all agree on what comes when. `tier` is the index in TIERS (src/data/buildings.ts): the
 // diner is 0, the bistro 1, and so on.
 
-export type UnlockId = 'wheel' | 'courier' | 'promoter' | 'family' | 'checker' | 'barSeats' | 'packer' | 'pizza' | 'sushi' | 'steak' | 'cake' | 'lobster';
+export type UnlockId = 'wheel' | 'courier' | 'promoter' | 'family' | 'checker' | 'barSeats' | 'packer' | 'padThai' | 'pizza' | 'sushi' | 'steak' | 'cake' | 'lobster';
 
 export interface UnlockDef {
   id: UnlockId;
@@ -19,6 +19,7 @@ export const UNLOCKS: readonly UnlockDef[] = [
   { id: 'wheel', tier: 1, icon: '🎡', name: 'unlock.wheel' },
   { id: 'courier', tier: 1, icon: '🛵', name: 'unlock.courier' },
   { id: 'promoter', tier: 1, icon: '📣', name: 'role.promoter' },
+  { id: 'padThai', tier: 1, icon: '🍜', name: 'dish.padThai' },
   { id: 'family', tier: 2, icon: '🍽️', name: 'unlock.family' },
   { id: 'checker', tier: 2, icon: '✅', name: 'role.checker' },
   { id: 'barSeats', tier: 2, icon: '🍸', name: 'unlock.barSeats' },

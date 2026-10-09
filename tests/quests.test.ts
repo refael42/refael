@@ -39,7 +39,7 @@ describe('quests', () => {
   });
 
   it('a new player finishes level 1 by playing, claims each goal, and the restaurant levels up', () => {
-    const s = createGame(STAND_MAP, 71, { roster: ['cook', 'waiter'] });
+    const s = createGame(STAND_MAP, 71, { roster: ['cook', 'waiter', 'washer'] });
     expect(s.quests.level).toBe(1);
     s.coins = big(1000);
     for (let i = 0; i < 3; i++) buyUpgrade(s, 'fries');

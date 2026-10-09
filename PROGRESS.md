@@ -28,7 +28,8 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
-| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Paused for M29 |
+| M29 | Owner: throw out the old kitchen: a huge open kitchen at Michelin level, every dish on its own equipment (fryer, plancha, wok, sushi counter, cold line, range, wood-fired oven), animations for everything, every cook carries the plate to the pass; Michelin-style stars earned the way they are in real life | ✅ Done |
+| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Next (paused while M29 was built) |
 | M27 | Owner: a bar from day one that grows with the buildings (straight → L → three sides open to the kitchen), bartenders who shake cocktails and pour drinks, drinks on the bar's pass for the waiters, guests on bar stools served by the bartenders | ✅ Done |
 | M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
@@ -74,6 +75,48 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M29 (owner: "fix the kitchen, I'm tired of everything looking the same; build a huge
+  kitchen, invest at Michelin level; add Michelin logic, stars you get like in real life; a full
+  kitchen: a wok with a tossing animation for pad thai, a sushi man cutting sushi, a cold line for
+  salads, a hot line, ovens, a deep fryer for the fries, a plancha; an open kitchen; animations for
+  everything without exception; when a cook finishes a dish they walk to the pass and set it down;
+  fix which dish is made on which equipment"):
+  - **Stations** (`src/data/kitchen.ts`): seven kinds, each dish on its own: fryer (fries,
+    falafel, schnitzel), plancha (burger, shawarma, steak), cold line (hummus, ice cream, salad),
+    range (shakshuka, lobster), wok (pad thai), wood-fired oven (pizza, cake), sushi counter
+    (sushi). Every building installs the stations its menu needs (`KITCHEN_STATIONS`); buying
+    "stoves" now adds cooks (posts), not boxes.
+  - **Layout** (`kitchenOf` in `src/data/maps.ts`, the kitchen is 5 tiles wider, save v14 moves
+    old saves): the chef's line right behind the pass (its cooks set plates straight on the pass),
+    then lines of stations in runs of four, every cook behind their station **facing the room**
+    (an open kitchen). Prep tables finish the runs (6 setups). Big kitchens get **corners of the
+    back of the house** laid out so no corner sits beside one like it: dry stores, reach-in
+    fridges, stock pots that simmer and steam, a butchery with hams on a rail, a pastry corner with
+    a working mixer and a cake, speed racks of bread and macarons.
+  - **Cooks** (`updateCook` in `src/sim/game/staff.ts`): take the oldest ticket a free station of
+    its kind can take (scored by the walk there and the walk to the pass), walk there, cook with the
+    station's own motion and tool (basket into the oil, spatula flip, wok toss with flames and
+    noodles in the air, knife at the sushi counter, ladle at the range, peel at the oven, bowl at
+    the cold line), plate it with tweezers on a clean plate, then **carry the plate to the pass and
+    set it down** (the chef's line places it in front of them). Stations show what cooks on them.
+  - **Hoods**: slim brushed-steel canopies on a thin duct, see-through enough that the cooks on the
+    line behind stay in view; warm lamps under the lip. Heat lamps over the pass.
+  - **New dishes**: salad (from the start, cold line) and pad thai (bistro on, wok), with art.
+  - **The Chef's Guide** (`src/data/guide.ts`, `src/sim/game/guide.ts`, `src/ui/Guide.tsx`; the
+    real guide's name is a trademark, so the game's has its own): anonymous inspectors (a quiet
+    guest alone, grey suit, glasses) come on some days from day 2 (more often to starred places),
+    order one of the three priciest dishes, and score **only the plate**: the cook's skill, how
+    mastered the recipe is, the kitchen's equipment and ingredients, the plate reaching the table
+    hot, consistency. After paying they reveal themselves with a verdict. Every 7th day a new
+    edition: recommended (the plate), then stars one at a time, with enough visits (2, 3, 3), a
+    high enough average (68 / 80 / 91) and no bad night; a kitchen that slips loses a star. Stars
+    raise every bill (×1.12 / 1.25 / 1.45) and bring more guests (×1.1 / 1.2 / 1.32). A guide
+    chip on the right opens the guide page (marks, next edition, visits, what is judged with tips);
+    a card shows each new edition; a plaque with the stars stands by the door.
+  - Tests: `tests/kitchen.test.ts` (every dish has its station in every building, all reachable,
+    cooks facing the room, the full cook flow, stations show the food, plate counts stay whole, a
+    big kitchen's corners), `tests/guide.test.ts` (8). Balance: bistro 40:49, grand 58:12, no dead
+    zones, no income explosions.
 - M28 part 1 (owner: "with purchases, Apple and Android, start preparing your part"):
   - `app.json`: version 1.0.0, bundle id / package `com.refael.restauranttycoon` (placeholder
     until the owner picks; it cannot change once the app exists in the store consoles), build
@@ -701,6 +744,9 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M26 crown (141 tables in the new layout, a rug under each) | 725 | 5.9 ms draw | 6.7 |
 | M27 palace with the L bar, two bartenders, a bar guest | 187–190 | 1.6–3.9 ms draw | 11 |
 | M27 crown with the three-sided bar, zoomed out | 741 | 4.3–7.0 ms draw | 7–10 |
+| M29 palace kitchen zoomed in (stations, hoods, guide) | 215 | 1.4–2.4 ms draw | 9–11 |
+| M29 crown, back-of-house corners | 812–819 | 1.8–8.5 ms draw | 5–13 |
+| M29 owner's phone (screenshot from the owner) | 690 | 3.6 ms draw | **60 / 60** |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with

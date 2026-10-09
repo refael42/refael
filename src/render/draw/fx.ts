@@ -213,6 +213,10 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       s.shakeAt = t;
       for (let k = 0; k < 40; k++) spawnFx(s, FxKind.Confetti, t + k * 0.01, 1.8, wx + Math.sin(k * 1.3) * 120, wy - 80, (k / 40) * Math.PI * 2, 0, k);
       for (let k = 0; k < 6; k++) spawnFx(s, FxKind.Burst, t + k * 0.08, 0.8, wx + Math.sin(k * 2.4) * 140, wy - 60 + Math.cos(k * 1.9) * 40);
+    } else if (type === Ev.Inspector) {
+      // The inspector says who they were: their red book pops up, a ring of confetti.
+      spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
+      for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.2, wx, wy - 56, (k / 12) * Math.PI * 2, 0, k);
     } else if (type === Ev.VipArrives) {
       spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
       for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.1, wx, wy - 50, (k / 10) * Math.PI * 2, 0, k);

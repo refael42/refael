@@ -11,6 +11,7 @@ import { formatBig } from '../sim/format';
 import type { GameState } from '../sim/game/types';
 import { incomeRate } from '../sim/shop';
 import { useSettings } from '../store/settings';
+import { rosettes } from './Guide';
 import { liveGame } from './liveGame';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
@@ -39,6 +40,7 @@ const readStats = (s: GameState) => {
     chefTrophies: s.trophies,
     festivalTrophies: s.festival.trophies.length,
     gems: s.gems,
+    guide: rosettes(s.guide.stars, s.guide.plate),
   };
 };
 
@@ -83,6 +85,7 @@ export function StatsPanel({ onClose }: { onClose: () => void }) {
           <Row icon="🏆" label={t('stats.trophies')} value={d.chefTrophies} />
           <Row icon="🎪" label={t('stats.festival')} value={`${d.festivalTrophies}/${FESTIVAL_THEMES.length}`} />
           <Row icon="💎" label={t('stats.gems')} value={d.gems} />
+          <Row icon="📕" label={t('stats.guide')} value={d.guide} />
         </ScrollView>
       )}
     </Overlay>

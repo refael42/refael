@@ -48,17 +48,22 @@ describe('the world round the restaurant (owner: bigger, prettier past the road)
   });
 
   it('an older save keeps its decor where it was in the room: v9 moves by the new land, v7 by everything since', () => {
-    expect(SAVE_SHIFT.v8.x + SAVE_SHIFT.v10.x + SAVE_SHIFT.v11.x).toBe(WORLD_SHIFT.x);
-    expect(SAVE_SHIFT.v8.y + SAVE_SHIFT.v10.y + SAVE_SHIFT.v11.y).toBe(WORLD_SHIFT.y);
+    expect(SAVE_SHIFT.v8.x + SAVE_SHIFT.v10.x + SAVE_SHIFT.v11.x + SAVE_SHIFT.v14.x).toBe(WORLD_SHIFT.x);
+    expect(SAVE_SHIFT.v8.y + SAVE_SHIFT.v10.y + SAVE_SHIFT.v11.y + SAVE_SHIFT.v14.y).toBe(WORLD_SHIFT.y);
+    // v14: the big kitchen (M29) pushed the dining room right.
+    expect(SAVE_SHIFT.v14.x).toBeGreaterThan(0);
     // v11: the buildings grow north too, so the site moved back (owner request).
     expect(SAVE_SHIFT.v11.y).toBeGreaterThan(0);
     const s = createGame(mapForTier(1), 1, { levels: { building: 1, place_flowers: 1 } });
     const raw = makeSave(s, 1000) as unknown as Record<string, unknown>;
     const now = (raw.placed as { x: number; y: number }[])[0]!;
-    const v10 = { ...raw, version: 10, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v11.x, y: now.y - SAVE_SHIFT.v11.y }] };
+    const v13 = { ...raw, version: 13, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v14.x, y: now.y - SAVE_SHIFT.v14.y }] };
+    const d = parseSave(JSON.stringify(v13));
+    expect(d.ok && d.save.placed[0]).toMatchObject({ x: now.x, y: now.y });
+    const v10 = { ...raw, version: 10, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v11.x - SAVE_SHIFT.v14.x, y: now.y - SAVE_SHIFT.v11.y - SAVE_SHIFT.v14.y }] };
     const c = parseSave(JSON.stringify(v10));
     expect(c.ok && c.save.placed[0]).toMatchObject({ x: now.x, y: now.y });
-    const v9 = { ...raw, version: 9, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v10.x - SAVE_SHIFT.v11.x, y: now.y - SAVE_SHIFT.v10.y - SAVE_SHIFT.v11.y }] };
+    const v9 = { ...raw, version: 9, placed: [{ item: 'flowers', x: now.x - SAVE_SHIFT.v10.x - SAVE_SHIFT.v11.x - SAVE_SHIFT.v14.x, y: now.y - SAVE_SHIFT.v10.y - SAVE_SHIFT.v11.y - SAVE_SHIFT.v14.y }] };
     const a = parseSave(JSON.stringify(v9));
     expect(a.ok && a.save.placed[0]).toMatchObject({ x: now.x, y: now.y });
     const v7 = { ...raw, version: 7, placed: [{ item: 'flowers', x: now.x - WORLD_SHIFT.x, y: now.y - WORLD_SHIFT.y }] };

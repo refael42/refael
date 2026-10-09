@@ -10,7 +10,8 @@ import { startConstruction } from './construction';
 import { DECOR } from '../../data/decor';
 import { autoTile, canPlaceAt, canPlaceTable, nextTableSpot, type TableSpot } from './build';
 import type { TableStyle } from '../../data/tables';
-import { addSeat, addStove, addTable, placeDecor, rebuildGrid, syncFamilyTables } from './create';
+import { addSeat, addTable, placeDecor, rebuildGrid, syncFamilyTables } from './create';
+import { cookPosts } from './workers';
 import { chairOf, route } from './customers';
 import { pathStillClear } from '../grid';
 import { emit, Ev } from './events';
@@ -28,9 +29,10 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
     const next = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
     return next ? [next] : [];
   }
+  // Room for another cook: the station the next cook calls home.
   if (kind === PropKind.StoveSlot) {
-    const next = s.map.stoves[s.stoves.length];
-    return next ? [next.stove] : [];
+    const next = s.map.stoves[cookPosts(s) % Math.max(1, s.map.stoves.length)];
+    return next ? [next.cook] : [];
   }
   if (kind === PropKind.PlatesClean) return [s.map.cleanStack];
   // The couriers' scooters by the curb (none to tap before there is a courier).
@@ -147,9 +149,8 @@ function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean,
     fx = table ? [table] : [];
   }
   if (s.mods.stoves > before.stoves) {
-    const stove = addStove(s, !batch);
-    moved = true;
-    fx = stove ? [stove] : [];
+    const home = s.map.stoves[(cookPosts(s) - 1) % Math.max(1, s.map.stoves.length)];
+    fx = home ? [home.cook] : [];
   }
   if (s.mods.seats > before.seats) {
     const table = addSeat(s, !batch);

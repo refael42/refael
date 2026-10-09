@@ -4,6 +4,7 @@ import { UNLOCK_TIER } from './unlocks';
 import { BAR } from './bar';
 import type { TableSpot } from './tables';
 import { designTables, reservedTiles } from '../sim/layout';
+import { KITCHEN_STATIONS, type Station } from './kitchen';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -37,6 +38,13 @@ export interface Furniture {
   variant?: number;
   lift?: number;
   active?: boolean;
+}
+
+export interface KitchenStation {
+  stove: Furniture;
+  cook: Point;
+  facing: Facing;
+  type: Station;
 }
 
 export interface MapDef {
@@ -73,9 +81,17 @@ export interface MapDef {
    */
   tables: TableSpot[];
   startTables: number;
-  /** Stove spots and where their cook stands; like tables, the first `startStoves` exist. */
-  stoves: { stove: Furniture; cook: Point }[];
+  /**
+   * The kitchen's stations (src/data/kitchen.ts), all there from the start: the station (a
+   * Stove prop, variant = its kind, +10 on the wall line under the hood), where its cook stands
+   * and which way they look while cooking.
+   */
+  stoves: KitchenStation[];
+  /** Room for this many cooks: the first `startStoves`, more bought ("another cook"). */
+  cookCap: number;
   startStoves: number;
+  /** Where a cook stands to set a plate on the pass slot of the same index (the kitchen side). */
+  passDrops: Point[];
   pass: Furniture;
   /** Ready dishes wait here (tile centers on top of the pass counter). */
   passSlots: Point[];
@@ -199,8 +215,11 @@ export const BACKREST_SHIFT = 0.2;
 
 type Rect = { x0: number; y0: number; x1: number; y1: number };
 
-/** The first diner: a kitchen 4 tiles wide, a dining room of 8, 10 rows deep. */
-const BASE = { kitchen: 4, dining: 8, depth: 10 } as const;
+/**
+ * The first diner: a kitchen 7 tiles wide (owner M29: "a huge kitchen"; it was 4 until save
+ * v13), a dining room of 8, 10 rows deep.
+ */
+const BASE = { kitchen: 7, dining: 8, depth: 10 } as const;
 /**
  * Land around the whole site (owner: "make the map bigger, prettier past the road"): grass and
  * trees left, right and behind. The saves before (v9 and older) had 2 tiles left and behind.
@@ -216,10 +235,10 @@ const STREET = { sidewalk: 2, road: 3, far: 2, park: 9, edge: 1 } as const;
 const STREET_DEPTH = STREET.sidewalk + STREET.road + STREET.far + STREET.park + STREET.edge;
 /** The dining room's staff posts and neon signs come every this many tiles (the room's tables are laid out in src/sim/layout.ts). */
 const BLOCK = 6;
-/** Stove rows (from the back wall) in a deep kitchen; the sink keeps row 6. */
-const DEEP_STOVE_ROWS: readonly number[] = [2, 4, 8, 10, 12, 14, 16, 18];
-/** Stoves at most per building: the bigger kitchens have lines of them (owner: "a bigger kitchen"). */
-const STOVE_CAP: readonly number[] = [2, 2, 3, 6, 8, 12, 14, 16];
+/** Cooks at most per building (the kitchen has more stations than that, src/data/kitchen.ts). */
+const COOK_CAP: readonly number[] = [2, 2, 3, 6, 8, 12, 14, 16];
+/** Island counters come in runs of this many tiles, a gap between runs to walk through. */
+const ISLAND_RUN = 4;
 /** A third dishwashing line once the kitchen is this deep (the second one is at row 9). */
 const THIRD_SINK_DEPTH = 18;
 
@@ -245,8 +264,11 @@ export function tierRect(t: number): Rect {
 
 const WORLD = { width: tierRect(LAST).x1 + MARGIN_SIDE, height: STREET_Y + STREET_DEPTH };
 
-/** How far the first diner sits from where it used to (the corner of the old maps): old saves move by this. */
-export const WORLD_SHIFT: Point = { x: DINER_X0 - 2, y: DINER_Y0 - 2 };
+/**
+ * How far the first diner's dining room sits from where it was in the oldest maps (its kitchen
+ * ended at x = 6, its back wall at y = 2): old saves move by this, all steps together.
+ */
+export const WORLD_SHIFT: Point = { x: KITCHEN_X - 6, y: DINER_Y0 - 2 };
 
 /**
  * Where the first diner's corner was in the saves of v8 and v9 (2 tiles of grass, then room for
@@ -256,10 +278,14 @@ export const WORLD_SHIFT: Point = { x: DINER_X0 - 2, y: DINER_Y0 - 2 };
 const V9_DINER: Point = { x: OLD_MARGIN + 4, y: OLD_MARGIN + 8 };
 /** Where it was in v10 saves, before the buildings grew north (more land behind the site). */
 const V10_DINER: Point = { x: MARGIN_SIDE + 6, y: MARGIN_BACK + 10 };
+/** Where the first diner's corner was in v11-v13 saves; its kitchen was 4 tiles wide then (the big kitchen, M29, pushed the room right). */
+const V13_DINER: Point = { x: MARGIN_SIDE + 6, y: DINER_Y0 };
+const V13_KITCHEN_X = V13_DINER.x + 4;
 export const SAVE_SHIFT = {
   v8: { x: V9_DINER.x - 2, y: V9_DINER.y - 2 },
   v10: { x: V10_DINER.x - V9_DINER.x, y: V10_DINER.y - V9_DINER.y },
-  v11: { x: DINER_X0 - V10_DINER.x, y: DINER_Y0 - V10_DINER.y },
+  v11: { x: V13_DINER.x - V10_DINER.x, y: V13_DINER.y - V10_DINER.y },
+  v14: { x: KITCHEN_X - V13_KITCHEN_X, y: 0 },
 } as const;
 
 /** `outer` minus `inner` (inside it), as up to four rectangles: behind, in front, left, right. */
@@ -273,20 +299,102 @@ function ring(outer: Rect, inner: Rect): Rect[] {
   return out.filter((r) => r.x1 > r.x0 && r.y1 > r.y0);
 }
 
+/** A number in [0, 1) from two integers: the scenery is placed by it, the same every time. */
+const scatterK = (a: number, b: number): number => {
+  const h = Math.sin(a * 91.3 + b * 47.9) * 24634.6345;
+  return h - Math.floor(h);
+};
+
+/** Prep tables come in this many setups (src/render/art/kitchenArt.ts). */
+export const PREP_KINDS = 6;
+
+/** The back of the house (prep variants PREP_KINDS + these): stores, reach-in fridge, stock pot, butchery, pastry, speed rack. */
+export const BACK_KINDS = 6;
+const Back = { Stores: 0, Fridge: 1, Stock: 2, Butcher: 3, Pastry: 4, Rack: 5 } as const;
+/** A corner is four pieces that belong together. */
+const BACK_CORNERS: readonly (readonly number[])[] = [
+  [Back.Fridge, Back.Stores, Back.Stores, Back.Rack],
+  [Back.Stock, Back.Stock, Back.Stock, Back.Fridge],
+  [Back.Butcher, Back.Butcher, Back.Butcher, Back.Fridge],
+  [Back.Pastry, Back.Rack, Back.Pastry, Back.Pastry],
+];
+
 /**
- * The stoves: a line along the left wall (the original two), and in a kitchen widened to the
- * left, more lines two tiles apart, each cook standing on its right. The first two are where
- * they always were; then row by row across every line, so a wide kitchen fills evenly.
+ * The kitchen (owner M29: "an open kitchen, Michelin level"). Columns counted from the dining
+ * room (X = KITCHEN_X - x): the waiters' lane (0.5), the pass (1.5), then lines of stations at
+ * X = 2.5, 4.5, 6.5... each with its cooks standing behind it (X + 1) FACING THE ROOM, so the
+ * guests watch the wok toss and the sushi cut. The first line is the chef's line, right behind
+ * the pass along its slots: its cooks set the plate straight onto the pass. The cooks of the
+ * lines behind carry their plates round to the ends of the pass. Lines come in runs of four
+ * with a gap to walk through; the back row stays free to walk along. Runs a station started
+ * are finished with prep tables (a board of vegetables, bowls, plates being dressed, herbs...).
  */
-function stoveSpots(tier: number, r: Rect, deep: boolean, fridgeY: number): MapDef['stoves'] {
-  const rows = deep ? DEEP_STOVE_ROWS.filter((y) => r.y0 + y + 1 <= fridgeY - 0.5) : [2, 4];
-  const lines: number[] = [];
-  for (let x = KITCHEN_X - 3.5; x >= r.x0 + 0.5; x -= 2) lines.push(x);
-  const at = (x: number, y: number) => ({ stove: { kind: K.Stove, x, y: r.y0 + y, w: 1, d: 2, blocks: true }, cook: { x: x + 1.05, y: r.y0 + y } });
-  const out: MapDef['stoves'] = rows.slice(0, 2).map((y) => at(lines[0]!, y));
-  for (const y of rows) for (const x of lines) if (!(x === lines[0] && rows.indexOf(y) < 2)) out.push(at(x, y));
-  return out.slice(0, STOVE_CAP[tier] ?? out.length);
+function kitchenOf(tier: number, r: Rect, passLength: number, packing: boolean): { stoves: KitchenStation[]; prep: Furniture[] } {
+  const W = KITCHEN_X - r.x0;
+  const D = r.y1 - r.y0;
+  const tile = (X: number, row: number): Point => ({ x: KITCHEN_X - X, y: r.y0 + row + 0.5 });
+  // The front rows stay free: the way along the kitchen to the door side, and the packing corner.
+  const lastRow = D - (packing ? 3 : 2);
+  type Slot = { X: number; row: number; run: number };
+  // The chef's line: one station behind each pass slot. Then each line's runs.
+  const chef: Slot[] = Array.from({ length: passLength }, (_, i) => ({ X: 2.5, row: 1 + i, run: 0 }));
+  const lines: Slot[][][] = [];
+  let runId = 1;
+  for (let X = 4.5; X + 1 <= W - 0.5; X += 2) {
+    const line: Slot[][] = [];
+    let row = 1;
+    while (row <= lastRow) {
+      const run: Slot[] = [];
+      for (let k = 0; k < ISLAND_RUN && row <= lastRow; k++, row++) run.push({ X, row, run: runId });
+      line.push(run);
+      runId++;
+      row += 1;
+    }
+    lines.push(line);
+  }
+  // Stations fill the chef's line, then the runs nearest the pass across every line, then the
+  // next runs down: the whole width of the kitchen cooks.
+  const order: Slot[] = [...chef];
+  for (let k = 0; lines.some((l) => l[k]); k++) for (const line of lines) if (line[k]) order.push(...line[k]!);
+  const plan = KITCHEN_STATIONS[Math.min(tier, KITCHEN_STATIONS.length - 1)]!;
+  const stoves: KitchenStation[] = [];
+  const used = new Set<Slot>();
+  const usedRuns = new Set<number>();
+  for (const type of plan) {
+    const slot = order.find((x) => !used.has(x));
+    if (!slot) break;
+    used.add(slot);
+    usedRuns.add(slot.run);
+    const at = tile(slot.X, slot.row);
+    stoves.push({
+      stove: { kind: K.Stove, x: at.x, y: at.y, w: 1, d: 1, blocks: true, variant: type },
+      cook: { x: at.x - 1.05, y: at.y },
+      facing: Facing.FrontRight,
+      type,
+    });
+  }
+  // Prep tables finish the runs the stations started. In a big kitchen every other run behind
+  // them is a corner of the back of the house (the stores, the butchery, pastry, the stock
+  // pots), each run its own, so a big kitchen reads as a place, not rows of the same table.
+  const prep: Furniture[] = [];
+  const add = (slot: Slot, variant: number) => {
+    const at = tile(slot.X, slot.row);
+    prep.push({ kind: K.Prep, x: at.x, y: at.y, w: 1, d: 1, blocks: true, variant });
+  };
+  lines.forEach((line, li) => {
+    line.forEach((run, k) => {
+      if (run.some((x) => used.has(x))) {
+        for (const x of run) if (!used.has(x)) add(x, Math.floor(scatterK(tile(x.X, x.row).x, tile(x.X, x.row).y) * PREP_KINDS));
+      } else if (k % 2 === 1 && line.slice(0, k).some((r) => r.some((x) => used.has(x)))) {
+        // Shifted by line and by run: no corner sits beside one like it, along a line or across.
+        const theme = BACK_CORNERS[(li + Math.floor(k / 2)) % BACK_CORNERS.length]!;
+        run.forEach((x, i) => add(x, PREP_KINDS + theme[i % theme.length]!));
+      }
+    });
+  });
+  return { stoves, prep };
 }
+
 
 /** A number in [0, 1) from two integers: the scenery is placed by it, the same every time. */
 const scatter = (a: number, b: number): number => {
@@ -425,6 +533,9 @@ function buildMap(tier: number): MapDef {
   // A longer pass in a deep building: five dishes wait at once instead of three.
   const passLength = deep ? 5 : 3;
   const slots = Array.from({ length: passLength }, (_, i) => r.y0 + 1.5 + i);
+  // The dish pit: behind the chef's line, below the pass (further down in a deep kitchen, whose pass is longer).
+  const sinkRow = deep ? 7 : 6;
+  const kitchen = kitchenOf(tier, r, passLength, tier >= UNLOCK_TIER.packer);
   // The land of the buildings to come: the next one for sale, the others fenced off and locked.
   const future = TIERS.slice(tier + 1).flatMap((_, k) => {
     const u = tier + 1 + k;
@@ -521,12 +632,18 @@ function buildMap(tier: number): MapDef {
     ],
     tables: [],
     startTables: 3,
-    stoves: stoveSpots(tier, r, deep, fridgeY),
+    stoves: kitchen.stoves,
+    cookCap: COOK_CAP[tier] ?? COOK_CAP[COOK_CAP.length - 1]!,
     startStoves: 1,
     pass: { kind: K.Pass, x: KX - 1.5, y: r.y0 + 1 + passLength / 2, w: 1, d: passLength, blocks: true, ...(deep ? { variant: 1 } : {}) },
     passSlots: slots.map((y) => ({ x: KX - 1.5, y })),
     passTop: 24,
     pickupSpots: slots.map((y) => ({ x: KX - 0.5, y })),
+    // The ends of the pass, where the cooks of the lines behind set their plates down.
+    passDrops: [
+      { x: KX - 2.45, y: r.y0 + 0.5 },
+      { x: KX - 2.45, y: r.y0 + 1.5 + passLength },
+    ],
     // Near the pass; bigger buildings employ more waiters, so the line of spots grows.
     waiterIdle: [
       { x: KX + 0.7, y: r.y0 + 4.3 },
@@ -575,20 +692,21 @@ function buildMap(tier: number): MapDef {
       { x: Math.max(1.5, door - 9), y: STREET_Y + 0.55 },
       { x: Math.max(2.5, door - 14), y: STREET_Y + 0.55 },
     ],
-    sink: { kind: K.Sink, x: KX - 3.5, y: r.y0 + 6, w: 1, d: 2, blocks: true },
-    washerSpot: { x: KX - 2.45, y: r.y0 + 6 },
+    sink: { kind: K.Sink, x: KX - 3.5, y: r.y0 + sinkRow, w: 1, d: 2, blocks: true },
+    washerSpot: { x: KX - 2.45, y: r.y0 + sinkRow },
     // Facing the stoves across the walkway, below the pass.
     extraSinks: [
       ...(deep ? [{ sink: { kind: K.Sink, x: KX - 1.5, y: r.y0 + 9, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: KX - 0.45, y: r.y0 + 9 } }] : []),
       ...(depth >= THIRD_SINK_DEPTH ? [{ sink: { kind: K.Sink, x: KX - 1.5, y: r.y0 + 12, w: 1, d: 2, blocks: true, variant: 1 }, washer: { x: KX - 0.45, y: r.y0 + 12 } }] : []),
     ],
-    dirtyDrop: { x: KX - 2.25, y: r.y0 + 5.25 },
-    cleanStack: { x: KX - 3.5, y: r.y0 + 6.5 },
-    dirtyStack: { x: KX - 3.5, y: r.y0 + 5.5 },
+    dirtyDrop: { x: KX - 2.25, y: r.y0 + sinkRow - 0.75 },
+    cleanStack: { x: KX - 3.5, y: r.y0 + sinkRow + 0.5 },
+    dirtyStack: { x: KX - 3.5, y: r.y0 + sinkRow - 0.5 },
     sinkTop: 22,
     ticketRail: { x: KX - 1.9, y0: r.y0 + 1.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
     decor: [
       { kind: K.Fridge, x: r.x0 + 0.5, y: fridgeY, w: 1, d: 1, blocks: true },
+      ...kitchen.prep,
       ...(packing ? [packing.table, packing.pass, packing.fridge] : []),
       ...bar.counters,
       ...bar.stools.map((st) => ({ kind: K.BarStool, ...st.at, w: 1, d: 1, blocks: true, variant: st.facing })),

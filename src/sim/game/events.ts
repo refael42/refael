@@ -98,6 +98,10 @@ export const Ev = {
   Packed: 49,
   /** Bags handed out through the takeaway window from (x,y) (the sill) to the courier at (a,b); c = how many. */
   BagHandoff: 50,
+  /** The guide's inspector paid at (x,y) and said who they were. a = the score */
+  Inspector: 51,
+  /** A new edition of the guide is out. a = stars, b = stars won (+) or lost (-), c = 1 if recommended */
+  Guide: 52,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

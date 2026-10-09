@@ -7,7 +7,7 @@ import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
+const HAND_MADE: Omit<MapDef, 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -41,11 +41,6 @@ const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | '
   ],
   // (Its tables are laid out like a restaurant now, src/sim/layout.ts: see the tests below.)
   startTables: 3,
-  // The second stove slots in between the first one and the sink: one long cooking line.
-  stoves: [
-    { stove: { kind: K.Stove, x: 2.5, y: 4, w: 1, d: 2, blocks: true }, cook: { x: 3.55, y: 4 } },
-    { stove: { kind: K.Stove, x: 2.5, y: 6, w: 1, d: 2, blocks: true }, cook: { x: 3.55, y: 6 } },
-  ],
   startStoves: 1,
   // The pass sits one step from the stove: the cook turns around and sets the plate down.
   pass: { kind: K.Pass, x: 4.5, y: 4.5, w: 1, d: 3, blocks: true },
@@ -111,19 +106,21 @@ const HAND_MADE: Omit<MapDef, 'kitchenX' | 'focus' | 'hostSpots' | 'busStop' | '
 };
 
 describe('map generator', () => {
-  it('tier 0 is the hand-made diner, moved into the world', () => {
-    const at = (p: Point) => ({ ...p, x: p.x + WORLD_SHIFT.x, y: p.y + WORLD_SHIFT.y });
+  it('tier 0 is the hand-made diner, moved into the world (its kitchen grew, M29)', () => {
+    // Everything from the pass to the street sits where it was by the kitchen's edge.
+    const KX = 6;
+    const d = { x: STAND_MAP.kitchenX - KX, y: WORLD_SHIFT.y };
+    const at = (p: Point) => ({ ...p, x: p.x + d.x, y: p.y + d.y });
     const m = STAND_MAP;
     expect(mapForTier(0)).toBe(m);
-    expect(m.building).toEqual({ x0: HAND_MADE.building.x0 + WORLD_SHIFT.x, y0: HAND_MADE.building.y0 + WORLD_SHIFT.y, x1: HAND_MADE.building.x1 + WORLD_SHIFT.x, y1: HAND_MADE.building.y1 + WORLD_SHIFT.y });
-    expect(m.stoves).toEqual(HAND_MADE.stoves.map((st) => ({ stove: at(st.stove), cook: at(st.cook) })));
+    expect(m.building).toEqual({ x0: m.kitchenX - 7, y0: HAND_MADE.building.y0 + d.y, x1: HAND_MADE.building.x1 + d.x, y1: HAND_MADE.building.y1 + d.y });
     for (const key of ['pass', 'hostSpot', 'managerSpot', 'sink', 'washerSpot', 'dirtyDrop', 'cleanStack', 'dirtyStack'] as const) expect(m[key], key).toEqual(at(HAND_MADE[key]));
     for (const key of ['passSlots', 'pickupSpots', 'waiterIdle', 'cleanerIdle', 'queue'] as const) expect(m[key], key).toEqual(HAND_MADE[key].map(at));
-    expect(m.doors.map((d) => d.inside)).toEqual(HAND_MADE.doors.map((d) => at(d.inside)));
-    expect(m.ticketRail).toEqual({ ...HAND_MADE.ticketRail, x: HAND_MADE.ticketRail.x + WORLD_SHIFT.x, y0: HAND_MADE.ticketRail.y0 + WORLD_SHIFT.y });
-    // The furniture inside the room (fridge, plants, neon) too.
+    expect(m.doors.map((x) => x.inside)).toEqual(HAND_MADE.doors.map((x) => at(x.inside)));
+    expect(m.ticketRail).toEqual({ ...HAND_MADE.ticketRail, x: HAND_MADE.ticketRail.x + d.x, y0: HAND_MADE.ticketRail.y0 + d.y });
+    // The dining room's furniture (plants, neon) too.
     const inside = (f: { x: number; y: number }, b: MapDef['building']) => f.x >= b.x0 && f.x <= b.x1 && f.y >= b.y0 && f.y <= b.y1 - 0.4;
-    const kinds: number[] = [K.Fridge, K.Plant, K.Neon];
+    const kinds: number[] = [K.Plant, K.Neon];
     expect(m.decor.filter((f) => kinds.includes(f.kind) && inside(f, m.building))).toEqual(HAND_MADE.decor.filter((f) => kinds.includes(f.kind) && inside(f, HAND_MADE.building)).map(at));
     for (const key of ['startTables', 'startStoves', 'passTop', 'sinkTop', 'wallHeight', 'theme', 'extraSinks'] as const) expect(m[key], key).toEqual(HAND_MADE[key]);
   });

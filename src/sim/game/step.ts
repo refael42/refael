@@ -113,7 +113,9 @@ function dynamicProps(s: GameState): PropView[] {
       const p = slotPoint(s, o);
       // level 1: a delivery, in its takeaway box (on the deliveries' own pass while packers work).
       const lift = o.lane && s.map.packing ? s.map.packing.passTop : s.map.passTop;
-      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift, since: o.since, depthBias: 1 }));
+      // style/extra: where the cook set it down, relative to the slot (tenths of a tile): it slides in from there.
+      const from = o.from ?? p;
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift, since: o.since, depthBias: 1, style: Math.round((from.x - p.x) * 10), extra: Math.round((from.y - p.y) * 10) }));
     } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
       // Order tickets hang on the rail above the pass, oldest first.
       out.push(
@@ -160,9 +162,12 @@ function dynamicProps(s: GameState): PropView[] {
   const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins, s.map)) ? 1 : 0);
   const spot = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
   if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4, style: styleIndex(spot.style) }));
-  const stoveSpot = s.map.stoves[s.stoves.length];
-  if (stoveSpot) out.push(prop(SYNTH - 4, PropKind.StoveSlot, stoveSpot.stove.x, stoveSpot.stove.y, { variant: affordable(PropKind.StoveSlot), depthBias: -0.4 }));
   if (s.construction) out.push(...scaffolding(s.construction));
+  // The guide's plaque out front, once it has written about the place (its stars, or the plate).
+  if (s.guide.stars > 0 || s.guide.plate) {
+    const sign = s.map.decor.find((f) => f.kind === PropKind.StreetSign);
+    if (sign) out.push(prop(SYNTH - 52, PropKind.GuidePlaque, sign.x - 0.9, sign.y, { variant: s.guide.stars }));
+  }
   // A present on the sidewalk, waiting for a tap (`since`: when it goes).
   if (s.gift) out.push(prop(SYNTH - 50, PropKind.Gift, s.gift.x, s.gift.y, { since: s.gift.until }));
   // The tourist bus: drawn where it stops, the renderer drives it in and out (`since` = it set

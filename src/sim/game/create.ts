@@ -1,3 +1,4 @@
+import { newGuide, type GuideState } from './guide';
 import { newFestival } from '../festival';
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
@@ -255,13 +256,13 @@ function restoreTables(s: GameState, saved: readonly TableSpot[], count: number)
   while (s.tables.length < count && addTable(s, false));
 }
 
-/** Installs the next stove spot (room for one more cook). */
+/** Installs the building's next kitchen station (they all stand from the start, src/data/maps.ts). */
 export function addStove(s: GameState, rebuild = true): GameState['stoves'][number] | null {
   const spot = s.map.stoves[s.stoves.length];
   if (!spot) return null;
   const prop = propFrom(s.nextId++, spot.stove);
   s.props.push(prop);
-  const stove = { propId: prop.id, x: spot.stove.x, y: spot.stove.y, cook: spot.cook };
+  const stove = { propId: prop.id, x: spot.stove.x, y: spot.stove.y, cook: spot.cook, facing: spot.facing, type: spot.type, user: -1, dish: -1 };
   s.stoves.push(stove);
   if (rebuild) rebuildGrid(s);
   return stove;
@@ -341,6 +342,8 @@ export interface GameSetup {
   reviewSeq?: number;
   /** Store purchases already paid out (transaction ids). */
   purchases?: readonly string[];
+  /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
+  guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
   /** Where each table stands and its style (older saves: none, the map lays them out). */
   tables?: readonly TableSpot[];
 }
@@ -434,14 +437,15 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     festival: setup.festival ? { ...setup.festival, trophies: [...setup.festival.trophies] } : newFestival(),
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
     purchases: [...(setup.purchases ?? [])],
+    guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),
     bus: null,
     nextBus: 0,
     nextDelivery: 0,
     ambientSeq: 0,
   };
   const tableCount = Math.min(map.tables.length, map.startTables + mods.tables);
-  const stoveCount = Math.min(map.stoves.length, map.startStoves + mods.stoves);
-  while (s.stoves.length < stoveCount) addStove(s, false);
+  // The whole kitchen stands from the start; "another cook" (the stove2 track) is room for a cook.
+  while (s.stoves.length < map.stoves.length) addStove(s, false);
   if (setup.tables) restoreTables(s, setup.tables, tableCount);
   else {
     // The building's own layout (src/sim/layout.ts): built in one go (rebuilding the grid for

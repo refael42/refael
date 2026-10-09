@@ -10,6 +10,7 @@ import { LOOKS } from '../art/stationArt';
 import { BUS } from '../../data/events';
 import { DELIVERY } from '../../data/delivery';
 import { SEAT_LAYOUTS, TOP_MIDDLE } from '../../data/tables';
+import { drawBack, drawStation } from './drawKitchen';
 
 const EXPAND_TIER = EXPAND.tier;
 const BUS_DRIVE = BUS.driveSeconds;
@@ -73,7 +74,11 @@ function tableSprite(A: RenderAssets, style: number, full: boolean, back: boolea
 function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number, active: boolean, style: number): number {
   'worklet';
   const L = A.L.look;
-  if (kind === PropKind.Stove) return look(L.stove, tier);
+  if (kind === PropKind.Stove) {
+    const st = A.L.station[variant % 10];
+    return st ? look(st, tier) : look(L.stove, tier);
+  }
+  if (kind === PropKind.Prep) return A.L.prep[variant] ?? -1;
   if (kind === PropKind.Sink) return look(L.sink, tier);
   if (kind === PropKind.Fridge) return look(L.fridge, tier);
   if (kind === PropKind.Table) return tableSprite(A, style, active, false, tier);
@@ -143,34 +148,6 @@ function hint(c: SkCanvas, A: RenderAssets, x: number, y: number, icon: number, 
   const by = y - Math.abs(Math.sin(t * 2.6)) * 2;
   sprXf(c, A, A.S.bubble, x, by, 0, pulse, pulse, A.paints.plain);
   sprXf(c, A, icon, x, by - 12.6 * pulse, 0, pulse, pulse, A.paints.plain);
-}
-
-function drawStove(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier: number): void {
-  'worklet';
-  const S = A.S;
-  const P = A.paints;
-  spr(c, A, look(A.L.look.stove, tier), 0, 0, P.plain);
-  if (!active) return;
-  // Better stoves burn hotter: bigger flames.
-  const heat = 1 + Math.min(tier, AURA_TIER) * 0.12;
-  sprFade(c, A, S.ovenGlow, 0, 0, 1, 0.6 + Math.sin(t * 13) * Math.sin(t * 7.3) * 0.3);
-  const bx = ox(0.05, -0.45);
-  const by = oy(0.05, -0.45, 23);
-  for (let i = 0; i < 3; i++) {
-    const flick = 0.75 + Math.sin(t * 22 + i * 2.3) * 0.25;
-    sprXf(c, A, S.flame, bx - 7 + i * 7, by + 1, 0, flick * heat, flick * heat * (0.9 + Math.sin(t * 17 + i) * 0.2), P.plain);
-  }
-  spr(c, A, S.pan, bx, by - 1, P.plain);
-  // Burger flip: an arc with a fake 3D flip (vertical squash through zero).
-  const p = (t % 1.8) / 1.8;
-  const air = p < 0.38 ? p / 0.38 : 0;
-  const flip = Math.cos(air * Math.PI * 2);
-  sprXf(c, A, S.patty, bx, by - 4 - Math.sin(air * Math.PI) * 14, air * 25, 1, Math.max(0.15, Math.abs(flip)), P.plain);
-  const px = ox(0.05, 0.45);
-  const py = oy(0.05, 0.45, 23);
-  spr(c, A, S.pot, px, py, P.plain);
-  steamColumn(c, A, px, py - 16, t, 4, 26);
-  steamColumn(c, A, bx, by - 8, t + 0.37, 2, 16);
 }
 
 function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier: number): void {
@@ -285,7 +262,20 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     A.paints.outline.setAlphaf(0.65 + Math.sin(t * 6) * 0.25);
     silhouette(c, A, base, A.paints.outline, 1.8);
   }
-  if (kind === PropKind.Stove) drawStove(c, A, active, t, tier);
+  if (kind === PropKind.Stove) {
+    // A kitchen station (variant: its kind): the fire and the food while a dish cooks, the plate being dressed.
+    const dish = d[o + PF.extra]! - 1;
+    drawStation(c, A, variant % 10, tier, active, d[o + PF.level]! === 1, dish, d[o + PF.progress]!, dish >= 0 ? (looks.dishTiers[dish] ?? 0) : 0, t, seed);
+  } else if (kind === PropKind.Prep) {
+    spr(c, A, A.L.prep[variant] ?? A.S.plateStack, 0, 0, plain);
+    drawBack(c, A, variant, t, seed);
+  }
+  else if (kind === PropKind.GuidePlaque) {
+    // The guide's plaque: a glint now and then, a soft glow for the stars.
+    if (variant > 0) sprFade(c, A, S.glowHalo, 0, -40, 0.7, 0.35 + Math.sin(t * 2) * 0.12);
+    spr(c, A, A.L.plaque[Math.min(3, variant)] ?? A.S.plateStack, 0, 0, plain);
+    sparkles(c, A, 0, -46, t, 8, seed);
+  }
   else if (kind === PropKind.Sink) drawSink(c, A, active, t, tier);
   else if (kind === PropKind.Table || kind === PropKind.TableBack) {
     drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers, active, looks.detail, style, kind === PropKind.TableBack, d[o + PF.extra]!);
@@ -308,7 +298,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
     spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);
   }
-  else if (kind === PropKind.Pass) spr(c, A, variant === 1 ? S.passLong : S.pass, 0, 0, plain);
+  else if (kind === PropKind.Pass) {
+    // The pass under its brass heat lamps (owner M29: "Michelin level").
+    spr(c, A, variant === 1 ? S.passLong : S.pass, 0, 0, plain);
+    spr(c, A, variant === 1 ? S.passLampsLong : S.passLamps, 0, 0, plain);
+  }
   else if (kind === PropKind.TableSlot) {
     // Floor space for one more table: a dashed spot with ghost furniture and a "+" when affordable.
     sprFade(c, A, S.tableSlot, 0, 0, 1, 0.7 + Math.sin(t * 3) * 0.2);
@@ -346,9 +340,13 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     }
   }
   else if (kind === PropKind.PassDish) {
-    // Ready dish pops onto the pass, then bobs and sparkles until someone serves it.
+    // A ready dish slides from the cook's hands onto its slot, then bobs and sparkles until someone serves it.
     const age = t - d[o + PF.since]!;
-    const pop = age < 0.35 ? easeOutBack(clamp01(age / 0.35)) : 1;
+    const fx = d[o + PF.style]! / 10;
+    const fy = d[o + PF.extra]! / 10;
+    const slide = fx !== 0 || fy !== 0 ? 1 - easeOutBack(clamp01(age / 0.4)) : 0;
+    const pop = slide > 0 || age >= 0.35 ? 1 : easeOutBack(clamp01(age / 0.35));
+    c.translate(ox(fx * slide, fy * slide), oy(fx * slide, fy * slide, 0) - Math.sin(clamp01(age / 0.4) * Math.PI) * 6 * (slide > 0 ? 1 : 0));
     const bobY = -Math.abs(Math.sin(t * 3 + seed)) * 2.5;
     // A delivery waits in its takeaway box to be packed (level bit 1); bit 2: the checker passed it.
     const flags = d[o + PF.level]!;

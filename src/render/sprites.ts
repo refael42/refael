@@ -17,13 +17,15 @@ import { LOCK_BOARDS, propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
 import { RUG_COLORS, tableSprites } from './art/tableArt';
 import { barSprites, DRINK_SPRITES } from './art/barArt';
+import { kitchenSprites, STATION_SPRITES } from './art/kitchenArt';
+import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
-const GLOW_BASES = ['stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
+const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
 const GLOW_PAD = 4;
 
 /**
@@ -59,7 +61,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -108,8 +110,8 @@ const looks = (base: string): number[] => {
 const TREE_SPRITE = { palm: 'treePalm', round: 'treeRound', olive: 'treeOlive', cypress: 'treeCypress' } as const;
 
 /** Order icon and plated look per dish id (src/data/dishes.ts order). */
-export const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream', 'iconPizza', 'iconSushi', 'iconSteak', 'iconCake', 'iconLobster'] as const;
-const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma', 'plateHummus', 'plateSchnitzel', 'plateShakshuka', 'plateIceCream', 'platePizza', 'plateSushi', 'plateSteak', 'plateCake', 'plateLobster'] as const;
+export const DISH_ICONS = ['fries', 'burger', 'iconFalafel', 'iconShawarma', 'iconHummus', 'iconSchnitzel', 'iconShakshuka', 'iconIceCream', 'iconPizza', 'iconSushi', 'iconSteak', 'iconCake', 'iconLobster', 'iconSalad', 'iconPadThai'] as const;
+const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma', 'plateHummus', 'plateSchnitzel', 'plateShakshuka', 'plateIceCream', 'platePizza', 'plateSushi', 'plateSteak', 'plateCake', 'plateLobster', 'plateSalad', 'platePadThai'] as const;
 
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
 export const LAYERS = {
@@ -119,7 +121,8 @@ export const LAYERS = {
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
-  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld']]),
+  held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld'],
+    [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers']]),
   bubble: byEnum(Bubble.DrinkBase + DRINK_SPRITES.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
@@ -147,6 +150,11 @@ export const LAYERS = {
   trees: CITIES.flatMap((city) => city.trees.map((k) => INDEX[TREE_SPRITE[k]]!)),
   /** A rug under each table, by table style (src/data/tables.ts) and then color. */
   rug: ['rugRound', 'rugRect', 'rugLong', 'rugRect'].map((shape) => RUG_COLORS.map((_, k) => INDEX[`${shape}${k}`]!)),
+  /** The kitchen's stations by kind (src/data/kitchen.ts), each by milestone look; the prep tables; what cooks on them, by dish. */
+  station: STATION_SPRITES.map((name) => looks(name)),
+  prep: [...Array.from({ length: PREP_KINDS }, (_, i) => INDEX[`prep${i}`]!), ...Array.from({ length: BACK_KINDS }, (_, i) => INDEX[`back${i}`]!)],
+  plaque: [0, 1, 2, 3].map((i) => INDEX[`guidePlaque${i}`]!),
+  cooking: DISH_ICONS.map((_, i) => INDEX[`cook${i}`]!),
   /** Station looks by milestone tier. */
   look: {
     stove: looks('stove'),

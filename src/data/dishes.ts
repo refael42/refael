@@ -1,6 +1,6 @@
 // The menu. Adding a dish = adding a row (plus its icon sprite). Prices are in coins.
 
-export const Dish = { Fries: 0, Burger: 1, Falafel: 2, Shawarma: 3, Hummus: 4, Schnitzel: 5, Shakshuka: 6, IceCream: 7, Pizza: 8, Sushi: 9, Steak: 10, Cake: 11, Lobster: 12 } as const;
+export const Dish = { Fries: 0, Burger: 1, Falafel: 2, Shawarma: 3, Hummus: 4, Schnitzel: 5, Shakshuka: 6, IceCream: 7, Pizza: 8, Sushi: 9, Steak: 10, Cake: 11, Lobster: 12, Salad: 13, PadThai: 14 } as const;
 export type Dish = (typeof Dish)[keyof typeof Dish];
 
 export interface DishDef {
@@ -33,6 +33,11 @@ export const DISHES: readonly DishDef[] = [
   { id: Dish.Steak, nameKey: 'dish.steak', price: 125000, cookSeconds: 10.5, eatSeconds: 8, startsUnlocked: false },
   { id: Dish.Cake, nameKey: 'dish.cake', price: 350000, cookSeconds: 11, eatSeconds: 6, startsUnlocked: false },
   { id: Dish.Lobster, nameKey: 'dish.lobster', price: 1e6, cookSeconds: 12, eatSeconds: 8.5, startsUnlocked: false },
+  // The kitchen's new stations (owner M29: "a cold line for salads", "a wok for pad thai"): a
+  // salad off the cold line early (between the fries and the burger), pad thai off the wok from
+  // the bistro (between the hummus and the schnitzel). Ids go at the end: saves and prices are by id.
+  { id: Dish.Salad, nameKey: 'dish.salad', price: 9, cookSeconds: 4.5, eatSeconds: 5, startsUnlocked: false },
+  { id: Dish.PadThai, nameKey: 'dish.padThai', price: 520, cookSeconds: 7.5, eatSeconds: 7, startsUnlocked: false },
 ];
 
 export function dishDef(id: number): DishDef {

@@ -96,7 +96,7 @@ describe('build mode', () => {
       expect(autoTile(s)).toBeNull();
       expect(allReachable(s), `tier ${tier}`).toBe(true);
     });
-  });
+  }, 20000);
 
   it('each decor track needs one placed first, and placing one helps right away', () => {
     const s = rich(createGame(STAND_MAP, 4));

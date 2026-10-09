@@ -39,7 +39,7 @@ export function Notices({ gameRef, onCommand }: { gameRef: { current: GameState 
     <View style={styles.stack}>
       {items.slice(-3).map(({ notice: n, name, wage }) => (
         <View key={n.id} style={[styles.card, (n.kind === 'quit' || n.kind === 'payday') && styles.bad]}>
-          {n.kind !== 'payday' && <Text style={styles.name}>{NAMES[name]![lang]}</Text>}
+          {(n.kind === 'raise' || n.kind === 'trial' || n.kind === 'quit') && <Text style={styles.name}>{NAMES[name]![lang]}</Text>}
           {n.kind === 'raise' && (
             <>
               <Text style={styles.text}>{t('ui.raiseAsk')}</Text>
@@ -72,6 +72,13 @@ export function Notices({ gameRef, onCommand }: { gameRef: { current: GameState 
               <Text style={styles.text}>{t(n.unpaid ? 'ui.unpaidReason' : 'ui.moraleReason')}</Text>
             </>
           )}
+          {n.kind === 'inspector' && (
+            <>
+              <Text style={styles.name}>{`🕵️ ${t('guide.revealed')}`}</Text>
+              <Text style={styles.text}>{`"${t(n.verdict)}"`}</Text>
+            </>
+          )}
+          {n.kind === 'guide' && <Text style={styles.name}>{`📕 ${t('guide.newEdition')}`}</Text>}
           {n.kind === 'payday' && (
             <>
               <Text style={styles.text}>{t('ui.unpaidWarn')}</Text>

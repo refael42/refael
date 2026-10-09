@@ -18,6 +18,21 @@ export const Pose = {
   Pour: 10,
   /** A bar guest sipping their drink. */
   Sip: 11,
+  /**
+   * The kitchen's stations (owner M29: "animations for everything, without exception"): a cook
+   * lowering and shaking the fryer basket, flipping on the plancha, tossing the wok, cutting
+   * sushi, tossing a salad on the cold line, stirring a pot on the range, sliding a pizza into
+   * the oven; dressing the plate with tweezers; setting it down on the pass.
+   */
+  Fry: 12,
+  Flip: 13,
+  Toss: 14,
+  Slice: 15,
+  Mix: 16,
+  Stir: 17,
+  Bake: 18,
+  Plate: 19,
+  Place: 20,
 } as const;
 export type Pose = (typeof Pose)[keyof typeof Pose];
 
@@ -25,7 +40,13 @@ export type Pose = (typeof Pose)[keyof typeof Pose];
 export const Facing = { FrontRight: 0, FrontLeft: 1, BackRight: 2, BackLeft: 3 } as const;
 export type Facing = (typeof Facing)[keyof typeof Facing];
 
-export const Held = { None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11, Shaker: 12, DrinkTray: 13, Glass: 14 } as const;
+export const Held = {
+  None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11, Shaker: 12, DrinkTray: 13, Glass: 14,
+  /** The kitchen's tools: the fryer basket, the wok, the sushi knife, the salad bowl, the ladle, the pizza peel, plating tweezers. */
+  Basket: 15, Wok: 16, Knife: 17, Bowl: 18, Ladle: 19, Peel: 20, Tweezers: 21,
+  /** A plated dish on its way to the pass: `PlateBase + dish`. */
+  PlateBase: 30,
+} as const;
 export type Held = (typeof Held)[keyof typeof Held];
 
 export const Emote = {
@@ -112,6 +133,10 @@ export const PropKind = {
   BarStool: 44,
   /** A drink: on the bar's pass (active), or on the counter in front of a bar guest. variant = which drink. */
   Drink: 45,
+  /** A kitchen prep table (variant: its setup, +10 on the wall line). Kitchen stations are Stove props, variant = their kind (src/data/kitchen.ts). */
+  Prep: 46,
+  /** The guide's plaque by the street sign (variant: stars, 0 = the plate, "recommended"). */
+  GuidePlaque: 47,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

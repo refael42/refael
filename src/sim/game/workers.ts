@@ -10,6 +10,7 @@ import { Emote, Expression } from '../types';
 import { emote, route } from './customers';
 import { emit, Ev } from './events';
 import { clampStat, FLOOR_TEAM, has, levelUpStat, managerOnShift, rankOf, wageFor, xpToNext } from './people';
+import { guideNewDay } from './guide';
 import type { GameState, Notice, Staff } from './types';
 import type { BulkStep } from '../../data/works';
 
@@ -26,9 +27,12 @@ export function notify(s: GameState, notice: NewNotice): void {
   s.notices.push({ ...notice, id: s.nextNoticeId++, time: s.time } as Notice);
 }
 
-/** How many people this job can take right now (cooks need a stove each). */
+/** Room for cooks: the building's first posts, and every "another cook" bought (up to its cap). */
+export const cookPosts = (s: GameState): number => Math.min(s.map.cookCap, s.map.startStoves + s.mods.stoves);
+
+/** How many people this job can take right now (cooks: the posts there are). */
 export function capacity(s: GameState, role: Role): number {
-  if (role === 'cook') return s.stoves.length;
+  if (role === 'cook') return cookPosts(s);
   // One dishwasher per sink.
   if (role === 'washer') return ROLES.washer.cap + s.map.extraSinks.length;
   // "More couriers" (the fleet upgrade) adds places on top of the building's.
@@ -189,6 +193,8 @@ export function updateWorkers(s: GameState, dt: number): void {
     s.dayTime -= DAY.seconds;
     s.day += 1;
     payday(s);
+    // An inspector may come today; on the seventh day the guide comes out.
+    guideNewDay(s);
     // The weekend starts: more walk-ins all day (the screen says so).
     if (isWeekend(s.day) && !isWeekend(s.day - 1)) emit(s, Ev.Weekend, 0, 0, Math.round((weekArrivals(s.day, 0) - 1) * 100));
   }

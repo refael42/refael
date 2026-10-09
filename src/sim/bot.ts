@@ -8,7 +8,7 @@ import { signingFee } from './game/applicants';
 import { autoTile } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
-import { hasRoom, headcount } from './game/workers';
+import { cookPosts, hasRoom, headcount } from './game/workers';
 import { claimable, goalDone, questLevel } from './quests';
 
 // A stand-in manager for headless runs (balance script, offline progress): it taps what a
@@ -74,7 +74,7 @@ function wanted(s: GameState, role: string): number {
   const tables = s.tables.length;
   switch (role) {
     case 'cook':
-      return s.stoves.length;
+      return cookPosts(s);
     case 'waiter':
       return 1 + Math.floor(tables / 4);
     case 'washer':
@@ -85,7 +85,7 @@ function wanted(s: GameState, role: string): number {
       return tables >= 4 ? 1 + Math.floor(tables / 16) : 0;
     case 'courier':
       // Deliveries once the kitchen keeps up with the room (the buildings cap them).
-      return s.stoves.length >= 2 ? Math.min(s.stoves.length - 1, 1 + Math.floor(tables / 12)) : 0;
+      return cookPosts(s) >= 2 ? Math.min(cookPosts(s) - 1, 1 + Math.floor(tables / 12)) : 0;
     case 'checker':
       // Once the room is big enough that every dish's price counts.
       return tables >= 10 ? 1 : 0;

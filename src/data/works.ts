@@ -12,7 +12,7 @@ export const WORKS = {
   milestone: [10, 30, 60, 120, 180],
   laterMilestone: 240,
   /** A new recipe, by dish id (fries is on the menu from the start). */
-  recipe: [0, 20, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 600],
+  recipe: [0, 20, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 600, 10, 110],
   /** The next building, by the tier it opens. */
   building: [0, 120, 300, 480, 600, 720, 900],
   /** Decor placed by a crew (the small pieces go down at once). */

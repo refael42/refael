@@ -8,7 +8,9 @@ import type { Rarity } from '../../data/rarity';
 import type { Levels, Mods, Perks } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
-import type { CharacterView, PropKind, PropView } from '../types';
+import type { CharacterView, Facing, PropKind, PropView } from '../types';
+import type { Station } from '../../data/kitchen';
+import type { GuideState } from './guide';
 import type { BulkStep } from '../../data/works';
 import type { TableStyle } from '../../data/tables';
 
@@ -68,6 +70,9 @@ export interface Customer extends CharacterView {
   drinkOrder: number;
   rounds: number;
   sipping: number;
+  /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
+  inspector?: boolean;
+  inspectScore?: number;
 }
 
 export interface Table {
@@ -118,6 +123,17 @@ export interface DrinkOrder {
   quality: number;
 }
 
+export interface KitchenSpot {
+  propId: number;
+  x: number;
+  y: number;
+  cook: Point;
+  facing: Facing;
+  type: Station;
+  user: number;
+  dish: number;
+}
+
 export interface Order {
   id: number;
   customer: number;
@@ -138,6 +154,11 @@ export interface Order {
   checked?: boolean;
   /** On the deliveries' own pass (src/data/maps.ts packing): `slot` indexes its slots. */
   lane?: 1;
+  /** Where the cook set it down (it moves from there onto its pass slot). */
+  from?: Point;
+  /** The cook's hand on it (0-1, src/sim/game/guide.ts chefTouch) and when it was set on the pass: the guide's inspectors judge both. */
+  chef?: number;
+  readyAt?: number;
   /**
    * Packed by a packer: true while it waits on the takeaway window's shelf, false once a
    * courier took it (it still pays as a packed order); unset if nobody packed it.
@@ -229,7 +250,11 @@ export interface StationTarget {
 
 /** What a staff member is doing; `phase` advances as they walk and work. */
 export type Job =
-  | { kind: 'cook'; order: number; phase: 'cooking' | 'plating' }
+  /**
+   * A ticket from the rail to the pass (owner M29): to the station its dish is made on, cook,
+   * plate it there, carry the plate to the pass, set it down. `station` indexes `stoves`.
+   */
+  | { kind: 'cook'; order: number; station: number; phase: 'toStation' | 'cooking' | 'plating' | 'toPass' | 'placing' }
   | { kind: 'pickup'; order: number; phase: 'toPass' | 'handoff' | 'toTable' | 'serve' }
   | { kind: 'buss'; table: number; phase: 'toTable' | 'wipe' | 'toSink' | 'drop'; plates?: number }
   /** The shift manager's table visit to calm an impatient guest. */
@@ -306,7 +331,11 @@ export type Notice =
   | { id: number; time: number; kind: 'raise'; staff: number; wage: Big }
   | { id: number; time: number; kind: 'trial'; staff: number }
   | { id: number; time: number; kind: 'quit'; name: number; role: Role; unpaid: boolean }
-  | { id: number; time: number; kind: 'payday'; paid: Big; unpaid: number };
+  | { id: number; time: number; kind: 'payday'; paid: Big; unpaid: number }
+  /** The guide's inspector paid and said who they were: their score, and the words for it. */
+  | { id: number; time: number; kind: 'inspector'; score: number; verdict: string }
+  /** A new edition of the guide is out. */
+  | { id: number; time: number; kind: 'guide'; stars: number; change: number; plate: boolean; visits: number };
 
 /** Ambient people: sidewalk strollers (always) and stress-test roamers (perf testing). */
 export interface Walker extends CharacterView {
@@ -417,7 +446,11 @@ export interface GameState {
   /** Sim time of the last upgrade per anchor kind (the renderer bounces that station). */
   bumpAt: number[];
   /** Stoves in use: their prop and where their cook stands. */
-  stoves: { propId: number; x: number; y: number; cook: Point }[];
+  /**
+   * The kitchen's stations (all of the building's, src/data/maps.ts): where the cook stands and
+   * looks, its kind, who is working at it (staff id, -1 free) and the dish on it (-1 none).
+   */
+  stoves: KitchenSpot[];
   applicants: Applicant[];
   nextApplicant: number;
   /** Day counter (continues across sessions) and seconds into the current day. */
@@ -456,6 +489,8 @@ export interface GameState {
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
+  /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */
+  guide: GuideState;
   /** Store purchases already paid out (their transaction ids, the latest few): a purchase the store reports twice pays once. */
   purchases: string[];
   /** Strollers across the road counted apart from everything else (their ids, their dice). */

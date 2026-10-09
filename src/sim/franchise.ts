@@ -34,7 +34,7 @@ export function openBranch(s: GameState): boolean {
   if (!canOpenBranch(s)) return false;
   const gained = trophiesFor(s.stats.earned);
   const city = s.city + 1;
-  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city, daily: s.daily, wheel: s.wheel, festival: s.festival, flash: s.flash });
+  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city, daily: s.daily, wheel: s.wheel, festival: s.festival, flash: s.flash, purchases: s.purchases });
   const keep = {
     tick: s.tick,
     time: s.time,

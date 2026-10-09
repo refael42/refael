@@ -8,7 +8,7 @@ import { emit, Ev } from './events';
 import { applicantLook, generatePerson, statFactor, typicalStat, uniformLook } from './people';
 import { createStaff } from './staff';
 import type { Applicant, GameState } from './types';
-import { hasRoom } from './workers';
+import { cookPosts, hasRoom } from './workers';
 
 // Job applicants: they walk up to the door with a CV, wait a while, and leave if ignored.
 
@@ -26,7 +26,7 @@ function pickRole(s: GameState): Role | null {
   if (missing('cook') && open.includes('cook')) return 'cook';
   // A stove standing cold counts as a missing job too: without it, a second stove waited a
   // long time for its cook behind all the jobs nobody had yet.
-  const wanted = (r: Role) => missing(r) || (r === 'cook' && count(s, 'cook') < s.stoves.length);
+  const wanted = (r: Role) => missing(r) || (r === 'cook' && count(s, 'cook') < cookPosts(s));
   const weight = (r: Role) => ROLES[r].weight * (wanted(r) ? 3 : 1);
   let roll = next(s.rng) * open.reduce((sum, r) => sum + weight(r), 0);
   for (const r of open) {

@@ -40,6 +40,11 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.Branch:
     case Ev.LevelUpRestaurant:
       return ['fanfare', true];
+    // The guide: an inspector says who they were; a new edition (a fanfare for a star won).
+    case Ev.Inspector:
+      return ['sparkle', true];
+    case Ev.Guide:
+      return b > 0 ? ['fanfare', true] : ['done', false];
     case Ev.Review:
       return a >= 5 ? ['sparkle', false] : [null, false];
     case Ev.Rush:

@@ -19,6 +19,7 @@ import { buzzing, maybeReview, serviceMult, serviceStars, walkoutReview } from '
 import { boostNow } from '../shop';
 import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
+import { guideArrivals, guidePrice, inspectorDish, inspectorDue, inspectorLeaves, makeInspector } from './guide';
 import { BUS } from '../../data/events';
 import { cancelDrinks, maybeBarGuest, maybeOrderDrink, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
@@ -79,7 +80,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 export function updateArrivals(s: GameState): void {
   if (s.construction || s.time < s.nextArrival) return;
   const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
-  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds)) / 60;
+  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds) * guideArrivals(s)) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
@@ -107,6 +108,11 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   if (look) leader.look = { ...look };
   maybeVip(s, leader);
   s.customers.push(leader);
+  // Today's inspector is the next guest who comes alone (they take a table, not the bar).
+  if (size === 1 && !leader.vip && inspectorDue(s)) {
+    makeInspector(s, leader);
+    return leader;
+  }
   // Someone alone may sit at the bar instead of waiting in line (from the grand restaurant).
   if (size === 1 && maybeBarGuest(s, leader)) {
     leader.path = route(s, leader, s.map.bar.stools[leader.stool]!.at);
@@ -269,6 +275,7 @@ function walkout(s: GameState, c: Customer): void {
 }
 
 function storm(s: GameState, c: Customer): void {
+  inspectorLeaves(s, c, true);
   emote(c, Emote.Anger);
   c.expression = Expression.Angry;
   emit(s, Ev.Poof, c.x, c.y);
@@ -365,7 +372,8 @@ function pay(s: GameState, c: Customer): void {
   const stars = serviceStars(mood);
   // A shop boost multiplies the whole bill (and so the tip).
   // So do the festival trophies, and tourists on holiday pay more.
-  const extra = festivalBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1);
+  // The guide's stars too: people come for them and pay for them.
+  const extra = festivalBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s);
   const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.stats.bestCombo = Math.max(s.stats.bestCombo, s.combo);
@@ -382,6 +390,7 @@ function pay(s: GameState, c: Customer): void {
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);
   emit(s, Ev.Service, c.x, c.y, stars);
   maybeReview(s, c, stars, price.add(tip));
+  inspectorLeaves(s, c, false);
   vipBonus(s, c, stars);
   festivalPoints(s, c, stars);
 
@@ -480,7 +489,9 @@ export function updateCustomers(s: GameState, dt: number): void {
           c.stateTime = 0;
         }
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
-          c.dish = chooseDish(s, CUSTOMER_TYPES[c.type]);
+          c.dish = c.inspector
+            ? inspectorDish(s, c, DISHES.filter((d) => s.mods.menu[d.id]).map((d) => d.id), (dish) => dishPrice(s, dish).toNumber())
+            : chooseDish(s, CUSTOMER_TYPES[c.type]);
           const id = s.nextId++;
           s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
           c.order = id;

@@ -154,6 +154,54 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     // Over the stove or the sink, swaying with the stirring or the scrubbing.
     lean = 2.5 + Math.sin(t * rate + phase) * 0.9;
     headY = 0.6;
+  } else if (pose >= Pose.Fry && pose <= Pose.Place) {
+    // At a kitchen station (owner M29): each its own rhythm. `beat` 0..1 repeats.
+    armUp = true;
+    lean = 3;
+    headY = 0.7;
+    if (pose === Pose.Fry) {
+      // Shaking the basket, now and then lifting it to drain.
+      const beat = fract(t * 0.45 + phase);
+      armUpLift = (beat > 0.8 ? Math.sin(((beat - 0.8) / 0.2) * Math.PI) * 6 : 0) + Math.abs(Math.sin(t * 14 + phase)) * 1.4;
+    } else if (pose === Pose.Flip) {
+      // A press, a press, a flip.
+      const beat = fract(t * 0.6 + phase);
+      armUpLift = beat < 0.3 ? Math.sin((beat / 0.3) * Math.PI) * 7 : Math.abs(Math.sin(t * 9 + phase)) * 1.5;
+      lean = 3.5;
+    } else if (pose === Pose.Toss) {
+      // The wok toss: a sharp flick up and back, the whole body in it.
+      const beat = fract(t * 1.1 + phase);
+      const flick = beat < 0.3 ? Math.sin((beat / 0.3) * Math.PI) : 0;
+      armUpLift = 1 + flick * 8;
+      lean = 2 - flick * 4;
+      bob = flick * 1.2;
+    } else if (pose === Pose.Slice) {
+      // Quick, precise strokes of the knife.
+      armUpLift = Math.abs(Math.sin(t * 15 + phase)) * 2.6;
+      lean = 4;
+      headY = 1.2;
+    } else if (pose === Pose.Mix) {
+      // Tossing the salad in the bowl.
+      armUpLift = 2 + Math.max(0, Math.sin(t * 7 + phase)) * 3;
+      lean = 2.5;
+    } else if (pose === Pose.Stir) {
+      armUpLift = 3 + Math.sin(t * 6 + phase) * 1.2;
+      headX = Math.sin(t * 3 + phase) * 0.5;
+    } else if (pose === Pose.Bake) {
+      // Sliding the pizza in with the peel, turning it, drawing it out.
+      armUpLift = 2 + Math.sin(t * 1.6 + phase) * 1.5;
+      lean = 4 + Math.sin(t * 1.6 + phase) * 2;
+    } else if (pose === Pose.Plate) {
+      // Dressing the plate with tweezers: tiny, careful moves, head down.
+      armUpLift = 0.5 + Math.sin(t * 9 + phase) * 0.6;
+      lean = 5;
+      headY = 1.6;
+    } else {
+      // Setting the plate down on the pass.
+      armUpLift = Math.max(0, 3 - poseTime * 9);
+      lean = 6;
+      headY = 1;
+    }
   } else if (pose === Pose.Impatient) {
     nearLift = Math.max(0, Math.sin(t * 13 + phase)) * 2;
     // Looking about: where is the table?
@@ -315,7 +363,42 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   spr(c, A, viewB ? L.hair.B[hair]! : L.hair.F[hair]!, headX, headUp, hairPaint);
   spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, headX, headUp, P.plain);
 
-  if (held !== Held.None) {
+  if (held >= Held.PlateBase) {
+    // A plated dish carried to the pass, held out level in front.
+    const plate = L.plate[held - Held.PlateBase];
+    const wobble = pose === Pose.Walk ? Math.sin(t * 18 + phase) * 0.5 : 0;
+    if (plate) spr(c, A, plate[0]!, hx, hy + 3 + wobble, P.plain);
+  } else if (held === Held.Wok || held === Held.Peel || held === Held.Basket || held === Held.Bowl) {
+    // The cooking tools move with the job: the wok tips on the toss and the noodles fly, the
+    // peel slides forward and back, the basket swings, the salad hops in the bowl.
+    const tool = L.held[held]!;
+    if (held === Held.Wok) {
+      const beat = fract(t * 1.1 + phase);
+      const flick = pose === Pose.Toss && beat < 0.3 ? Math.sin((beat / 0.3) * Math.PI) : 0;
+      sprXf(c, A, tool, hx, hy + 4, -flick * 22, 1, 1, P.plain);
+      if (pose === Pose.Toss) {
+        for (let i = 0; i < 5; i++) {
+          const k = fract(t * 1.1 + phase - 0.05 - i * 0.03);
+          if (k > 0.55) continue;
+          const air = Math.sin((k / 0.55) * Math.PI);
+          sprXf(c, A, i % 2 === 0 ? S.tossNoodle : S.tossVeg, hx + 2 + (i - 2) * 3 + k * 6, hy + 1 - air * (12 + i * 2), k * 500 + i * 60, 1, 1, P.plain);
+        }
+      }
+    } else if (held === Held.Peel) {
+      const push = pose === Pose.Bake ? Math.sin(t * 1.6 + phase) * 5 : 0;
+      spr(c, A, tool, hx + push, hy + 4 + push * 0.5, P.plain);
+    } else if (held === Held.Basket) {
+      sprXf(c, A, tool, hx, hy + 3, pose === Pose.Fry ? Math.sin(t * 14 + phase) * 6 : 0, 1, 1, P.plain);
+    } else {
+      spr(c, A, tool, hx, hy + 3, P.plain);
+      if (pose === Pose.Mix) {
+        for (let i = 0; i < 3; i++) {
+          const k = fract(t * 1.4 + phase + i * 0.33);
+          sprXf(c, A, S.tossLeaf, hx - 4 + i * 4, hy - 2 - Math.sin(k * Math.PI) * 6, k * 300, 0.9, 0.9, P.plain);
+        }
+      }
+    }
+  } else if (held !== Held.None) {
     if (held === Held.TrayFull || held === Held.TrayEmpty || held === Held.DirtyPlates || held === Held.DrinkTray) {
       // The tray wobbles a little with every step.
       const wobble = pose === Pose.Walk ? Math.sin(t * 18 + phase) * 0.7 : 0;

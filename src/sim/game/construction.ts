@@ -96,6 +96,9 @@ function finishConstruction(s: GameState): void {
     wheel: s.wheel,
     festival: s.festival,
     flash: s.flash,
+    // The guide judges the restaurant, not the building; store purchases stay paid out.
+    guide: s.guide,
+    purchases: s.purchases,
     nextBus: s.nextBus,
     city: s.city,
     trophies: s.trophies,

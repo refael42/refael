@@ -3,6 +3,7 @@ import { ECONOMY } from '../../data/economy';
 import type { Point } from '../../data/maps';
 import { serveSpot } from '../../data/tables';
 import { KITCHEN, PROMO, ROLES, SHIFT, STAFF, type Role } from '../../data/staff';
+import { KITCHEN_LINE, stationOf } from '../../data/kitchen';
 import { TRAIT_FX } from '../../data/traits';
 import { facingFor, followPath, setPose } from '../movement';
 import { chance } from '../rng';
@@ -10,13 +11,14 @@ import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../type
 import { dishSpot, emote, route, seatCustomer, startEating, tableFor, walkIn } from './customers';
 import { emit, Ev } from './events';
 import { has, managerOnShift, statFactor, workRate } from './people';
-import { CustomerState, OrderState, TableState, type Customer, type GameState, type Order, type Person, type Staff, type Table } from './types';
+import { CustomerState, OrderState, TableState, type Customer, type GameState, type KitchenSpot, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
 import { updateCourier } from './delivery';
 import { updateChecker } from './checker';
 import { freeDeliverySlot, packersOn, packingProgress, parking, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
 import { readyDrink, updateBartender, updateDrinkRun } from './bar';
+import { chefTouch, inspectPlate, recordPlate } from './guide';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => serveSpot(t.x, t.y);
@@ -27,7 +29,8 @@ const FACING_TABLE = Facing.BackRight;
 export function homeOf(s: GameState, st: Staff): Point {
   switch (st.role) {
     case 'cook':
-      return s.stoves[st.slot]?.cook ?? s.map.stoves[0]!.cook;
+      // Waiting at "their" station (cooks are not tied to it: they go where the ticket's dish is made).
+      return s.stoves[st.slot % Math.max(1, s.stoves.length)]?.cook ?? s.map.stoves[0]!.cook;
     case 'waiter':
       return s.map.waiterIdle[st.slot % s.map.waiterIdle.length]!;
     case 'washer':
@@ -151,75 +154,199 @@ export function walkTo(s: GameState, st: Staff, to: Point, dt: number): boolean 
 function goHome(s: GameState, st: Staff, dt: number): void {
   if (walkTo(s, st, homeOf(s, st), dt)) {
     setPose(st, Pose.Idle);
-    st.facing = HOME_FACING[st.role];
+    st.facing = st.role === 'cook' ? (s.stoves[st.slot % Math.max(1, s.stoves.length)]?.facing ?? HOME_FACING.cook) : HOME_FACING[st.role];
     if (st.job?.kind === 'home') st.job = null;
   }
 }
 
 // ---------- cook ----------
 
+/** The pose and the tool for each kind of station (src/data/kitchen.ts order). */
+const STATION_POSE: readonly Pose[] = [Pose.Fry, Pose.Flip, Pose.Mix, Pose.Stir, Pose.Toss, Pose.Bake, Pose.Slice];
+const STATION_TOOL: readonly Held[] = [Held.Basket, Held.Spatula, Held.Bowl, Held.Ladle, Held.Wok, Held.Peel, Held.Knife];
+
+/** The chef's line: the stations right behind the pass (their cooks set plates straight onto it). */
+const onChefLine = (s: GameState, sv: KitchenSpot): boolean => Math.abs(sv.x - (s.map.kitchenX - 2.5)) < 0.01;
+
+/**
+ * Where a cook sets this order's plate down: from the chef's line, right where they stand (the
+ * pass is just over their station); from the lines behind, at the nearer end of the pass; a
+ * delivery on the deliveries' own pass.
+ */
+function dropPoint(s: GameState, st: Staff, o: Order, sv: KitchenSpot | undefined): Point {
+  if (o.lane && s.map.packing) return s.map.packing.pickups[o.slot] ?? s.map.packing.pickups[0]!;
+  if (sv && onChefLine(s, sv)) return sv.cook;
+  let best = s.map.passDrops[0]!;
+  for (const p of s.map.passDrops) if (Math.hypot(p.x - st.x, p.y - st.y) < Math.hypot(best.x - st.x, best.y - st.y)) best = p;
+  return best;
+}
+
+/** A free pass slot, the one in front of this chef's-line station first (no plate slides along the pass then). */
+function passSlotFor(s: GameState, sv: KitchenSpot): number {
+  if (onChefLine(s, sv)) {
+    const mine = s.map.passSlots.findIndex((p) => Math.abs(p.y - sv.y) < 0.01);
+    if (mine >= 0 && !s.orders.some((o) => (o.state === OrderState.Ready || o.state === OrderState.Plating) && o.slot === mine && !o.lane)) return mine;
+  }
+  return freePassSlot(s);
+}
+
+/**
+ * The station for a ticket: a free one of its dish's kind, this cook's own first (where they
+ * wait), then one no other idle cook is standing at, nearest first. -1 = all busy.
+ */
+function stationFor(s: GameState, st: Staff, dish: number): number {
+  const type = stationOf(dish);
+  const own = s.stoves[st.slot % Math.max(1, s.stoves.length)];
+  if (own && own.type === type && own.user < 0) return st.slot % s.stoves.length;
+  const homes = new Set(s.staff.filter((o) => o !== st && o.role === 'cook' && !o.job).map((o) => o.slot % Math.max(1, s.stoves.length)));
+  let best = -1;
+  let bestScore = Infinity;
+  s.stoves.forEach((sv, i) => {
+    if (sv.type !== type || sv.user >= 0) return;
+    // The walk there, and the walk with the plate to the pass after (none from the chef's line).
+    const toPass = onChefLine(s, sv) ? 0 : Math.min(...s.map.passDrops.map((p) => Math.hypot(p.x - sv.cook.x, p.y - sv.cook.y)));
+    const score = Math.hypot(sv.cook.x - st.x, sv.cook.y - st.y) + toPass + (homes.has(i) ? 50 : 0);
+    if (score < bestScore) {
+      bestScore = score;
+      best = i;
+    }
+  });
+  return best;
+}
+
+/** Lets go of the station (and what was on it). */
+function freeStation(s: GameState, i: number): void {
+  const sv = s.stoves[i];
+  if (!sv) return;
+  sv.user = -1;
+  sv.dish = -1;
+}
+
+/**
+ * A cook's shift (owner M29): the oldest ticket a free station can take; walk there; cook it
+ * the way that station cooks; plate it there (a clean plate, a delivery goes in a box); then
+ * carry it to the pass and set it down: only then is it ready for the waiters.
+ */
 function updateCook(s: GameState, st: Staff, dt: number): boolean {
   let job = st.job;
   if (!job || job.kind !== 'cook') {
     if (st.leaving || st.pendingRole) return false;
-    const next = s.orders.find((o) => o.state === OrderState.Queued);
-    if (!next) {
+    let pick: Order | null = null;
+    let station = -1;
+    for (const o of s.orders) {
+      if (o.state !== OrderState.Queued) continue;
+      const i = stationFor(s, st, o.dish);
+      if (i >= 0) {
+        pick = o;
+        station = i;
+        break;
+      }
+    }
+    if (!pick) {
       st.stalled = null;
       return false;
     }
-    next.state = OrderState.Cooking;
-    next.since = s.time;
-    next.quality = statFactor(st.stats.quality);
-    setJob(st, { kind: 'cook', order: next.id, phase: 'cooking' });
+    pick.state = OrderState.Cooking;
+    pick.since = s.time;
+    pick.quality = statFactor(st.stats.quality);
+    pick.chef = chefTouch(st.stats.quality, st.level);
+    const sv = s.stoves[station]!;
+    sv.user = st.id;
+    sv.dish = -1;
+    st.path = [];
+    setJob(st, { kind: 'cook', order: pick.id, station, phase: 'toStation' });
     job = st.job!;
   }
   if (job.kind !== 'cook') return false;
   const order = s.orders.find((o) => o.id === job.order);
-  if (!order) {
+  const sv = s.stoves[job.station];
+  if (!order || !sv) {
+    // The guest gave up: the station is free again (a plate already used went to the dirty pile with the order).
+    if (sv && sv.user === st.id) freeStation(s, job.station);
+    st.held = TOOL.cook!;
+    st.stalled = null;
     setJob(st, null);
     return false;
   }
-  // Cooks work at their own stove: walk there first if they just arrived.
-  if (!walkTo(s, st, homeOf(s, st), dt)) return true;
+  if (job.phase === 'toStation') {
+    st.held = STATION_TOOL[sv.type] ?? Held.Spatula;
+    if (!walkTo(s, st, sv.cook, dt)) return true;
+    sv.dish = order.dish;
+    job.phase = 'cooking';
+    st.jobTime = 0;
+  }
   const rate = workRate(s, st);
   st.jobTime += dt * rate;
+  st.facing = sv.facing;
   if (job.phase === 'cooking') {
     if (order.progress < 1) {
       order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate) / dishDef(order.dish).cookSeconds);
-      setPose(st, Pose.Cook);
-      st.facing = Facing.BackLeft;
+      setPose(st, STATION_POSE[sv.type] ?? Pose.Cook);
+      st.held = STATION_TOOL[sv.type] ?? Held.Spatula;
       return true;
     }
-    // Done cooking: it needs a clean plate (a delivery goes in a bag) and a free spot on the pass
-    // (with packers at work, a delivery goes on the deliveries' own pass).
-    const lane = order.delivery && packersOn(s) ? 1 : 0;
-    const slot = lane ? freeDeliverySlot(s) : freePassSlot(s);
-    st.stalled = s.cleanPlates <= 0 && !order.delivery ? 'plates' : slot < 0 ? 'pass' : null;
+    // Done: it needs a clean plate (a delivery goes in a box).
+    st.stalled = s.cleanPlates <= 0 && !order.delivery ? 'plates' : null;
     if (st.stalled) {
       setPose(st, Pose.Idle);
       if (st.emote === 0) emote(st, Emote.Exclaim);
-      return false;
+      return true;
     }
     if (!order.delivery) s.cleanPlates -= 1;
     order.state = OrderState.Plating;
+    order.slot = -1;
+    setJob(st, { ...job, phase: 'plating' });
+    st.held = Held.Tweezers;
+    setPose(st, Pose.Plate);
+    return true;
+  }
+  if (job.phase === 'plating') {
+    setPose(st, Pose.Plate);
+    if (st.jobTime < KITCHEN_LINE.plateSeconds) return true;
+    // A free spot on the pass (with packers at work, a delivery goes on the deliveries' own pass).
+    const lane = order.delivery && packersOn(s) ? 1 : 0;
+    const slot = lane ? freeDeliverySlot(s) : passSlotFor(s, sv);
+    st.held = order.delivery ? Held.FoodBox : ((Held.PlateBase + order.dish) as Held);
+    if (slot < 0) {
+      st.stalled = 'pass';
+      setPose(st, Pose.Idle);
+      if (st.emote === 0) emote(st, Emote.Exclaim);
+      return true;
+    }
+    st.stalled = null;
     order.slot = slot;
     if (lane) order.lane = 1;
     else delete order.lane;
-    st.facing = Facing.FrontRight;
-    setPose(st, Pose.Idle);
-    setJob(st, { kind: 'cook', order: order.id, phase: 'plating' });
+    const drop = dropPoint(s, st, order, sv);
+    freeStation(s, job.station);
+    st.path = [];
+    setJob(st, { ...job, phase: 'toPass' });
+    // From the chef's line the pass is right there.
+    if (drop === sv.cook) setJob(st, { ...job, phase: 'placing' });
     return true;
   }
-  if (st.jobTime >= KITCHEN.plateSeconds) {
-    order.state = OrderState.Ready;
-    order.since = s.time;
-    const p = slotPoint(s, order);
-    emit(s, Ev.Ding, p.x, p.y);
-    emote(st, Emote.Star);
-    st.facing = Facing.BackLeft;
-    setJob(st, null);
-    gainXp(s, st);
+  if (job.phase === 'toPass') {
+    if (!walkTo(s, st, dropPoint(s, st, order, undefined), dt)) return true;
+    setPose(st, Pose.Place);
+    setJob(st, { ...job, phase: 'placing' });
+    return true;
   }
+  // Setting it down: over the pass toward the room (+x), or onto the deliveries' pass in front (+y).
+  st.facing = order.lane ? Facing.FrontLeft : Facing.FrontRight;
+  setPose(st, Pose.Place);
+  if (st.jobTime < KITCHEN_LINE.placeSeconds) return true;
+  order.state = OrderState.Ready;
+  order.since = s.time;
+  order.readyAt = s.time;
+  const p = slotPoint(s, order);
+  // The plate goes from the cook's hands onto the pass (from an end of the pass it slides along to its slot).
+  if (!order.lane) order.from = { x: st.x + 0.6, y: st.y };
+  emit(s, Ev.Ding, p.x, p.y);
+  if (chance(s.rng, 0.25)) emote(st, Emote.Star);
+  st.held = TOOL.cook!;
+  setPose(st, Pose.Idle);
+  setJob(st, null);
+  gainXp(s, st);
   return true;
 }
 
@@ -319,6 +446,8 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
   s.orders.splice(s.orders.indexOf(order), 1);
   if (c.state === CustomerState.Waiting) {
     const charm = statFactor(st.stats.charm) * (has(st, 'charmer') ? 1 + TRAIT_FX.charmerTips : 1);
+    recordPlate(s, order);
+    inspectPlate(s, c, order);
     startEating(s, c, order.dish, order.quality, charm);
   }
   gainXp(s, st);
@@ -668,7 +797,6 @@ function betweenJobs(st: Staff): boolean {
 }
 
 export function updateStaff(s: GameState, dt: number): void {
-  const cooking = new Set<number>();
   const washing = new Set<number>();
   for (const st of s.staff) {
     if (st.leaving && betweenJobs(st)) {
@@ -679,8 +807,7 @@ export function updateStaff(s: GameState, dt: number): void {
     let busy = false;
     if (st.role === 'cook') {
       busy = updateCook(s, st, dt);
-      if (busy) cooking.add(st.slot);
-      else if (!st.job) goHome(s, st, dt);
+      if (!busy && !st.job) goHome(s, st, dt);
     } else if (st.role === 'washer') {
       busy = updateWasher(s, st, dt);
       if (busy) washing.add(Math.min(st.slot, s.map.extraSinks.length));
@@ -700,7 +827,18 @@ export function updateStaff(s: GameState, dt: number): void {
   }
   selfSeat(s);
   for (const p of s.props) {
-    if (p.kind === PropKind.Stove) p.active = cooking.has(s.stoves.findIndex((sv) => sv.propId === p.id));
+    if (p.kind === PropKind.Stove) {
+      // Fire under it while a dish cooks; the dish on it (+1) while it cooks and is plated.
+      const i = s.stoves.findIndex((sv) => sv.propId === p.id);
+      const sv = s.stoves[i];
+      const cook = sv && sv.user >= 0 ? s.staff.find((o) => o.id === sv.user) : undefined;
+      const phase = cook?.job?.kind === 'cook' ? cook.job.phase : null;
+      p.active = phase === 'cooking';
+      p.extra = sv && sv.dish >= 0 && (phase === 'cooking' || phase === 'plating') ? sv.dish + 1 : 0;
+      p.level = phase === 'plating' ? 1 : 0;
+      const o = cook?.job?.kind === 'cook' ? s.orders.find((x) => x.id === (cook.job as { order: number }).order) : undefined;
+      p.progress = o && phase === 'cooking' ? o.progress : 0;
+    }
     else if (p.kind === PropKind.Sink) p.active = washing.has(p.variant === 1 ? 1 + s.map.extraSinks.findIndex((e) => e.sink.x === p.x && e.sink.y === p.y) : 0);
     else if (p.kind === PropKind.DrinksFridge) p.active = s.staff.some((st) => st.job?.kind === 'pack' && st.job.phase === 'fridge');
     else if (p.kind === PropKind.PackTable) {
@@ -744,6 +882,10 @@ export function landFlyingDishes(s: GameState): void {
   for (const order of landed) {
     s.orders.splice(s.orders.indexOf(order), 1);
     const c = s.customers.find((x) => x.id === order.customer);
-    if (c && c.state === CustomerState.Waiting) startEating(s, c, order.dish, order.quality, 1);
+    if (c && c.state === CustomerState.Waiting) {
+      recordPlate(s, order);
+      inspectPlate(s, c, order);
+      startEating(s, c, order.dish, order.quality, 1);
+    }
   }
 }

@@ -20,12 +20,13 @@ import { newWheel } from './wheel';
 import { RARITIES, type Rarity } from '../data/rarity';
 import { FESTIVAL, FESTIVAL_THEMES } from '../data/events';
 import { newFestival } from './festival';
+import type { GuideState } from './game/guide';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -76,7 +77,11 @@ export interface SaveData {
   reviewSeq: number;
   /** Store purchases already paid out (transaction ids), so one the store sends again pays once. */
   purchases: string[];
+  /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
+  guide: SavedGuide;
 }
+
+export type SavedGuide = Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
 
 /** A review as saved: its bonus as text. */
 export interface SavedReview extends Omit<Review, 'bonus'> {
@@ -136,6 +141,9 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   11: (old) => old,
   // v12 (M27) had no real store: no purchases paid out yet.
   12: (old) => ({ ...old, purchases: [] }),
+  // v13 (M28) had the small kitchen: the big one (M29) pushed the dining room and everything
+  // right of the kitchen along by as much.
+  13: (old) => ({ ...shiftPlaces(old, SAVE_SHIFT.v14), guide: old.guide ?? { stars: 0, plate: false, edition: 0, visits: [], last: null } }),
 };
 
 /** Placed decor, tables and work sites, moved with the site by `d` tiles. */
@@ -198,6 +206,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     reviews: s.reviews.map((r) => ({ ...r, bonus: toSave(r.bonus) })),
     reviewSeq: s.reviewSeq,
     purchases: [...s.purchases],
+    guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null },
   };
 }
 
@@ -320,9 +329,21 @@ function validate(o: Record<string, unknown>): SaveData | null {
     festival: cleanFestival(o.festival),
     flash: isRecord(o.flash) && finite(o.flash.slot) ? { slot: Math.floor(o.flash.slot), bought: o.flash.bought === true } : { slot: -1, bought: false },
     ...cleanReviews(o.reviews, o.reviewSeq),
+    guide: cleanGuide(o.guide),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
+}
+
+/** The guide as saved: stars 0-3, visits with their day and score (older saves: none yet). */
+function cleanGuide(raw: unknown): SavedGuide {
+  if (!isRecord(raw)) return { stars: 0, plate: false, edition: 0, visits: [], last: null };
+  const visits = (Array.isArray(raw.visits) ? raw.visits : []).filter((v): v is { day: number; score: number } => isRecord(v) && finite(v.day) && finite(v.score)).map((v) => ({ day: Math.floor(v.day), score: Math.max(0, Math.min(100, v.score)) }));
+  const l = raw.last;
+  const last = isRecord(l) && finite(l.edition) && finite(l.stars) && finite(l.change) && finite(l.average) && finite(l.visits)
+    ? { edition: l.edition, stars: Math.max(0, Math.min(3, Math.floor(l.stars))), plate: l.plate === true, change: l.change, average: l.average, visits: l.visits }
+    : null;
+  return { stars: finite(raw.stars) ? Math.max(0, Math.min(3, Math.floor(raw.stars))) : 0, plate: raw.plate === true, edition: finite(raw.edition) && raw.edition >= 0 ? Math.floor(raw.edition) : 0, visits: visits.slice(-20), last };
 }
 
 /** Reviews of known kinds and lines (saves before the reviews page have none). */
@@ -444,5 +465,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     reviews: save.reviews.map((r) => ({ ...r, bonus: fromSave(r.bonus) })),
     reviewSeq: save.reviewSeq,
     purchases: save.purchases,
+    guide: save.guide,
   });
 }
