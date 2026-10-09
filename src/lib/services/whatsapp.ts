@@ -123,7 +123,10 @@ export async function handleWebhook(store: Store, payload: WaWebhook, deps: Inbo
     for (const change of entry.changes ?? [])
       for (const m of change.value?.messages ?? []) {
         try {
-          if (await handleMessage(store, m, deps)) handled++;
+          const outcome = await handleMessage(store, m, deps);
+          // the outcome goes to the server log, so a pilot problem can be seen without guessing
+          console.info(`[whatsapp] inbound ${m.id} ${m.type} from …${m.from.slice(-4)}: ${outcome}`);
+          if (outcome !== "duplicate") handled++;
         } catch (err) {
           console.error("[whatsapp] inbound failed", m.id, err);
         }
@@ -131,20 +134,25 @@ export async function handleWebhook(store: Store, payload: WaWebhook, deps: Inbo
   return handled;
 }
 
-async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDeps): Promise<boolean> {
+type Outcome = "duplicate" | "unknown_number" | "opted_out" | "opted_in" | "no_project" | "staff" | "no_pm" | "chat" | "report" | "unsupported";
+
+async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDeps): Promise<Outcome> {
   // Meta retries deliveries: handle each message id once
-  if (await store.first("wa_inbound", { where: { id: m.id } })) return false;
+  if (await store.first("wa_inbound", { where: { id: m.id } })) return "duplicate";
   try {
     await store.insert("wa_inbound", { id: m.id, from_phone: m.from });
   } catch {
-    return false; // a parallel delivery got it first
+    return "duplicate"; // a parallel delivery got it first
   }
+  // replies are best effort: a failed reply must not lose the message itself
+  const reply = (to: string, text: string) =>
+    deps.client.sendText(to, text).catch((err) => console.warn("[whatsapp] reply failed", (err as Error).message));
 
   const phone = `+${m.from.replace(/\D/g, "")}`;
   const profile = await store.first("profiles", { where: { phone } });
   if (!profile) {
-    await deps.client.sendText(phone, he.wa.unknown);
-    return true;
+    await reply(phone, he.wa.unknown);
+    return "unknown_number";
   }
   const now = deps.now ?? new Date();
   await store.update("profiles", { id: profile.id }, { wa_last_inbound_at: now.toISOString() });
@@ -152,28 +160,27 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
   const text = (m.text?.body ?? m.button?.text ?? m.interactive?.button_reply?.title ?? m.interactive?.list_reply?.title ?? "").trim();
   if (text && STOP.test(text)) {
     await store.update("profiles", { id: profile.id }, { wa_opt_out: true });
-    await deps.client.sendText(phone, he.wa.stopped);
-    return true;
+    await reply(phone, he.wa.stopped);
+    return "opted_out";
   }
   if (text && START.test(text)) {
     await store.update("profiles", { id: profile.id }, { wa_opt_out: false });
-    await deps.client.sendText(phone, he.wa.started);
-    return true;
+    await reply(phone, he.wa.started);
+    return "opted_in";
   }
 
   const ctx = await contractorCtx(store, profile, now);
   if (!ctx) {
-    await deps.client.sendText(phone, he.wa.noProject);
-    return true;
+    await reply(phone, he.wa.noProject);
+    return "no_project";
   }
   // WhatsApp is the contractors' channel; staff use the app
   if (ctx.s.role !== "contractor") {
-    await deps.client.sendText(phone, he.wa.staffUseApp);
-    return true;
+    await reply(phone, he.wa.staffUseApp);
+    return "staff";
   }
-  const [pm] = await projectPMs(store, ctx.s.project.id);
-  if (!pm) return true;
-  const conversationId = await directConversation(store, ctx.s.project.id, pm, profile.id);
+  const conversationId = await pmConversation(store, ctx.s.project.id, profile.id);
+  if (!conversationId) return "no_pm";
 
   const caption = m.image?.caption ?? m.document?.caption ?? "";
   const words = text || caption.trim();
@@ -190,17 +197,37 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
     try {
       key = await deps.saveMedia(ctx.s.project.id, bytes, mime);
     } catch {
-      await deps.client.sendText(phone, he.wa.unsupported);
-      return true;
+      await reply(phone, he.wa.unsupported);
+      return "unsupported";
     }
-    if (m.image && (await photoAsReport(ctx, conversationId, key, caption, now))) return true;
+    if (m.image && (await photoAsReport(ctx, conversationId, key, caption, now))) return "report";
     const kind = m.audio ? "voice" : m.document ? "file" : "image";
     const msg = await sendMessage(ctx, conversationId, { kind, mediaUrl: key });
     await markVia(store, msg);
   } else if (!words) {
-    await deps.client.sendText(phone, he.wa.unsupported);
+    await reply(phone, he.wa.unsupported);
+    return "unsupported";
   }
-  return true;
+  return "chat";
+}
+
+/** The contractor's 1:1 chat with a PM: an existing one with any PM, else a new one with the first PM. */
+async function pmConversation(store: Store, projectId: string, profileId: string): Promise<string | null> {
+  const pms = await projectPMs(store, projectId);
+  if (!pms.length) return null;
+  const mine = await store.select("conversation_participants", { where: { profile_id: profileId } });
+  if (mine.length) {
+    const direct = await store.select("conversations", {
+      where: { id: { in: mine.map((p) => p.conversation_id) }, project_id: projectId, type: "direct" },
+    });
+    if (direct.length) {
+      const withPm = await store.first("conversation_participants", {
+        where: { conversation_id: { in: direct.map((c) => c.id) }, profile_id: { in: pms } },
+      });
+      if (withPm) return withPm.conversation_id;
+    }
+  }
+  return directConversation(store, projectId, pms[0], profileId);
 }
 
 async function markVia(store: Store, msg: Message) {
