@@ -3,7 +3,7 @@ import readXlsxFile from "read-excel-file/node";
 import { he } from "@/lib/i18n/he";
 import { parseWorkbook, type Plan, type SheetRows } from "@/lib/import/plan";
 import { assertPM } from "@/lib/services/access";
-import { buildingNameFrom, importPlan } from "@/lib/services/import-plan";
+import { buildingNameFrom, checkReimport, importPlan } from "@/lib/services/import-plan";
 import { ServiceError } from "@/lib/services/tasks";
 import { run } from "./_run";
 
@@ -26,7 +26,9 @@ export async function previewPlanAction(form: FormData) {
     assertPM(ctx.s);
     const plan = await readPlan(form);
     const count = (st: string) => plan.tasks.filter((t) => t.status === st).length;
+    const reimport = checkReimport(plan, await ctx.store.select("tasks", { where: { project_id: ctx.s.project.id } }));
     return {
+      reimport,
       title: plan.title,
       building: buildingNameFrom(plan, ctx.s.project.name),
       tasks: plan.tasks.length,

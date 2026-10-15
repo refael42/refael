@@ -49,6 +49,49 @@ const TO_STATUS: Record<PlanStatus, TaskStatus> = {
 };
 
 /** Building name from a title like "תוכנית עבודה … - אימבר 16". */
+export interface ReimportCheck {
+  /** tasks already imported into this project from a sheet */
+  existing: number;
+  /** sheet rows that update a task already here */
+  update: number;
+  /** sheet rows that will become new tasks */
+  created: number;
+  /** imported tasks that are no longer in the sheet (they stay in the app) */
+  missing: number;
+  /** matched rows whose task name is now something else: a sign the rows were renumbered */
+  renamed: Array<{ number: string; before: string; after: string }>;
+  /** looks like the numbering changed: importing may duplicate or overwrite the wrong tasks */
+  suspicious: boolean;
+}
+
+const flatTitle = (x: string) => x.replace(/[^\p{L}\p{N}]/gu, "");
+
+/**
+ * Before importing an updated sheet: which rows update existing tasks, which
+ * are new, and whether the rows seem renumbered (same number, other task).
+ */
+export function checkReimport(plan: Plan, tasks: Task[]): ReimportCheck {
+  const imported = new Map(tasks.filter((t) => t.external_ref).map((t) => [t.external_ref!, t] as const));
+  const refs = new Set(plan.tasks.map((t) => t.ref));
+  const matched = plan.tasks.filter((t) => imported.has(t.ref));
+  const renamed = matched
+    .filter((t) => {
+      const a = flatTitle(imported.get(t.ref)!.title);
+      const b = flatTitle(t.title.slice(0, 300));
+      return a !== b && !a.includes(b) && !b.includes(a);
+    })
+    .map((t) => ({ number: t.number, before: imported.get(t.ref)!.title, after: t.title }));
+  const existing = imported.size;
+  return {
+    existing,
+    update: matched.length,
+    created: plan.tasks.length - matched.length,
+    missing: [...imported.keys()].filter((r) => !refs.has(r)).length,
+    renamed: renamed.slice(0, 8),
+    suspicious: existing > 0 && (matched.length < existing * 0.5 || renamed.length > Math.max(2, matched.length * 0.2)),
+  };
+}
+
 export function buildingNameFrom(plan: Plan, fallback: string): string {
   const t = plan.title?.split(/\s+[-–]\s+/).pop()?.trim();
   return t && t.length <= 40 ? t : fallback;

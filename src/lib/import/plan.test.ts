@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ctxFor, demoStore, NOW } from "@/test/fixtures";
-import { importPlan } from "../services/import-plan";
+import { checkReimport, importPlan } from "../services/import-plan";
 import { loadSnapshot } from "../services/snapshot";
 import { classifyLocation, mapStatus, matchPerson, parseWorkbook, splitResponsible, type SheetRows } from "./plan";
 
@@ -119,5 +119,32 @@ describe("work plan spreadsheet", () => {
     const r4 = await importPlan(pm, parseWorkbook(next), { dependencies: false });
     expect(r4.removedDependencies).toBe(2);
     expect(store.data.dependencies.filter((d) => d.source === "import")).toHaveLength(0);
+  });
+
+  it("before re-importing, tells updated from new and warns when the rows were renumbered", async () => {
+    const store = demoStore();
+    const pm = await ctxFor("pm", store);
+    expect(checkReimport(parseWorkbook(SHEETS), store.data.tasks)).toMatchObject({ existing: 0, update: 0, created: 7, suspicious: false });
+    await importPlan(pm, parseWorkbook(SHEETS));
+
+    // same rows, one more and one dropped: fine
+    const next = structuredClone(SHEETS);
+    next[0].data.splice(9, 1);
+    next[0].data.push([8, "בנייה", "לובי", "צבע בלובי", "עז סמארה", "טרם התחיל", null, null, null, null, "", "", ""]);
+    expect(checkReimport(parseWorkbook(next), store.data.tasks)).toMatchObject({ existing: 7, update: 6, created: 1, missing: 1, suspicious: false });
+
+    // rows re-sorted: the numbers now point at other tasks
+    const shuffled = structuredClone(SHEETS);
+    const rows = shuffled[0].data.slice(3);
+    rows.forEach((r, i) => (r[0] = rows.length - i));
+    const c = checkReimport(parseWorkbook(shuffled), store.data.tasks);
+    expect(c.suspicious).toBe(true);
+    expect(c.renamed.length).toBeGreaterThan(2);
+    expect(c.renamed[0]).toMatchObject({ before: expect.any(String), after: expect.any(String) });
+
+    // a renamed sheet tab: nothing matches
+    const renamedTab = structuredClone(SHEETS);
+    renamedTab[0].sheet = "תוכנית השלמה 2";
+    expect(checkReimport(parseWorkbook(renamedTab), store.data.tasks)).toMatchObject({ update: 0, created: 7, suspicious: true });
   });
 });
