@@ -39,7 +39,7 @@ import { PrivacyPanel } from './Privacy';
 import { GearButton, SettingsPanel } from './SettingsPanel';
 import { Hud } from './Hud';
 import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
-import { theme } from './theme';
+import { textShadow, theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewsChip, ReviewsPanel } from './Reviews';
@@ -112,7 +112,8 @@ function Labels({ camera }: { camera: Camera }) {
 function CornerButton({ label, count, onPress, color, ref }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange'; ref?: Ref<View> }) {
   return (
     <View ref={ref}>
-      <JuicyButton label={label} onPress={onPress} style={[styles.cornerButton, color === 'purple' && styles.staffButton, color === 'orange' && styles.buildButton]} />
+      <JuicyButton label={label} onPress={onPress} labelStyle={styles.cornerLabel} style={[styles.cornerButton, color === 'purple' && styles.staffButton, color === 'orange' && styles.buildButton]} />
+      <View pointerEvents="none" style={styles.cornerShine} />
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>
@@ -495,13 +496,13 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
       {!onboarding && <EventToast gameRef={gameRef} style={{ top: hud.top + HUD.height + 8 }} />}
       {!onboarding && (
-        <View style={[styles.rightColumn, { left: hud.right - HUD.ratingWidth, top: hud.top + HUD.height + 6, width: HUD.ratingWidth }]} pointerEvents="box-none">
-          <CityChip gameRef={gameRef} style={styles.inColumn} />
+        <View style={[styles.sideRow, { right: Math.max(0, width - hud.right) - 6, top: hud.top + HUD.height + 8 }]} pointerEvents="box-none">
+          {/* Round buttons in a row under the rating (owner M33: a calmer screen); each opens its page. */}
           {tutorial >= TUTORIAL_STEPS.length && <FestivalChip gameRef={gameRef} onPress={() => setFestival(true)} style={styles.inColumn} />}
           {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
-          {/* Reviews live on their own page now (owner request), not on the screen. */}
           <ReviewsChip gameRef={gameRef} onPress={() => setReviews(true)} style={styles.inColumn} />
           <GuideChip gameRef={gameRef} onPress={() => setGuide(true)} style={styles.inColumn} />
+          <CityChip gameRef={gameRef} style={styles.inColumn} />
         </View>
       )}
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
@@ -677,22 +678,27 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1022' },
   corner: { position: 'absolute' },
   /** Under the rating: the branch's city, the festival, the flash deal. */
-  rightColumn: { position: 'absolute', alignItems: 'flex-end', gap: 6, direction: 'ltr' },
+  /** Under the rating: the festival, the deal, the reviews, the guide, the trophies, right to left. */
+  sideRow: { position: 'absolute', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 2, direction: 'ltr' },
   inColumn: { position: 'relative' },
   cornerRow: { flexDirection: 'row', gap: 10 },
-  cornerButton: { minHeight: 52, paddingHorizontal: 20, backgroundColor: '#35B957', borderColor: '#FFE08A', borderWidth: 2.5 },
-  staffButton: { backgroundColor: '#6A2C8F', borderColor: '#E8C9FF' },
-  buildButton: { backgroundColor: '#D9822B', borderColor: '#FFE08A' },
+  // The three big buttons (owner M33: "so it does not look cheap"): deep colors, a thin light
+  // rim, a soft shadow and a sheen instead of thick yellow borders.
+  cornerButton: { minHeight: 48, minWidth: 92, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#23934A', borderColor: 'rgba(255,255,255,0.45)', borderWidth: 1.5, boxShadow: '0px 4px 12px rgba(8,2,12,0.5)' },
+  staffButton: { backgroundColor: '#5E2A86' },
+  buildButton: { backgroundColor: '#C8702A' },
+  cornerLabel: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', ...textShadow('rgba(0,0,0,0.35)', 1, 0) },
+  cornerShine: { position: 'absolute', left: 6, right: 6, top: 3, height: 18, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.14)' },
   badge: {
     position: 'absolute',
     top: -6,
     end: -6,
-    minWidth: 24,
-    height: 24,
-    borderRadius: 12,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     paddingHorizontal: 5,
     backgroundColor: '#E5483B',
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: '#FFF4E3',
     alignItems: 'center',
     justifyContent: 'center',

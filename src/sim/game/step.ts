@@ -219,6 +219,9 @@ function scaffolding(k: NonNullable<GameState['construction']>): PropView[] {
   return out;
 }
 
+/** Upgrade arrows in the world at most (the best buy's gold star comes on top of them). */
+const MAX_ARROWS = 3;
+
 /** What upgrades look like right now: tiers per station and dish, and where to point arrows. */
 function upgradeViews(s: GameState) {
   const kinds = Object.keys(PropKind).length;
@@ -240,7 +243,9 @@ function upgradeViews(s: GameState) {
   const best = bestBuy(s.levels, s.map, (def) => canBuy(def, s.levels, s.coins, s.map));
   const bestAt = best ? badges.findIndex((v, i) => i % 3 === 2 && v === best.anchor) : -1;
   const bestBadge = bestAt >= 0 ? badges.splice(bestAt - 2, 3) : [];
-  return { tiers, dishTiers, badges, bestBadge };
+  // A few arrows, not one on everything (owner M33: "too many things on the screen"): the first
+  // ones in the upgrade list's order, with the best buy's star besides.
+  return { tiers, dishTiers, badges: badges.slice(0, MAX_ARROWS * 3), bestBadge };
 }
 
 export function gameSnapshot(s: GameState, seq: number): Snapshot {

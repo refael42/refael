@@ -39,6 +39,6 @@ export const REVIEW = {
  * and tourists; slowFood: the food took long; slowLine: the line took long; awful: everything
  * went wrong; walkout: they left without eating.
  */
-export const REVIEW_LINES = { great: 10, good: 8, dish: 8, kids: 4, tourist: 4, ok: 8, slowFood: 8, slowLine: 6, awful: 8, walkout: 8 } as const;
+export const REVIEW_LINES = { great: 18, good: 16, dish: 16, kids: 10, tourist: 10, ok: 14, slowFood: 14, slowLine: 12, awful: 14, walkout: 14 } as const;
 export type ReviewKind = keyof typeof REVIEW_LINES;
 export const REVIEW_KINDS = Object.keys(REVIEW_LINES) as ReviewKind[];

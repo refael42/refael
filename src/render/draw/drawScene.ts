@@ -1,5 +1,6 @@
 import { FilterMode, MipmapMode, type SkCanvas, type SkPaint } from '@shopify/react-native-skia';
 import { Weather } from '../../data/weather';
+import { DINING_GRID } from '../../data/maps';
 import { F, P as PF, STRIDE, type Snapshot } from '../../sim/snapshot';
 import { EntityType, PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
@@ -36,6 +37,11 @@ const CULL_UNDER = 170;
 const CULL_OVER = 60;
 /** Rain streaks on screen at once (a rainy day). */
 const RAIN_STREAKS = 90;
+/** The dining room's blocks and sections (src/data/maps.ts DINING_GRID): a rug color each. */
+const RUG_X0 = DINING_GRID.x0;
+const RUG_PITCH = DINING_GRID.pitch;
+const RUG_FRONT = DINING_GRID.front;
+const RUG_SECTION = DINING_GRID.section;
 /** Below this zoom the crowd of small furniture is drawn without glows and sparkles. */
 const DETAIL_ZOOM = 0.62;
 
@@ -149,7 +155,9 @@ export function drawScene(
     const py = isoY(tx, ty);
     if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
     const rugs = A.L.rug[d[o + PF.style]!] ?? A.L.rug[0]!;
-    spr(c, A, rugs[(Math.floor(tx / 7) * 3 + Math.floor(ty) * 5) % rugs.length]!, px, py, A.paints.plain);
+    // One color to a block of a section (owner M33: tidy), the next block the next color.
+    const block = Math.floor((tx - RUG_X0) / RUG_PITCH) + Math.floor((RUG_FRONT - ty) / RUG_SECTION) * 2;
+    spr(c, A, rugs[((block % rugs.length) + rugs.length) % rugs.length]!, px, py, A.paints.plain);
   }
   // Only what is on screen (a big restaurant zoomed in has most of itself off to the sides).
   // Sprites stand up from their floor anchor, so the margin is bigger above than below.

@@ -280,6 +280,27 @@ function roomFloor(c: SkCanvas, a: Area): boolean {
     case 'pastry':
       grid(c, a, 0.5, ['#F8E2EA', '#FFFFFF'], '#E8C4D2');
       return true;
+    case 'runner': {
+      // A red carpet runner (owner M33: "red carpet paths"): deep red, a gold band near each
+      // long edge, a small gold-and-rose motif on every tile.
+      const along = w >= h;
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#8E1426'));
+      const edges = along
+        ? [Skia.XYWHRect(a.x0, a.y0 + 0.07, w, 0.05), Skia.XYWHRect(a.x0, a.y1 - 0.12, w, 0.05)]
+        : [Skia.XYWHRect(a.x0 + 0.07, a.y0, 0.05, h), Skia.XYWHRect(a.x1 - 0.12, a.y0, 0.05, h)];
+      for (const e of edges) c.drawRect(e, fill(GOLD, 0.95));
+      const inner = along ? Skia.XYWHRect(a.x0, a.y0 + 0.16, w, h - 0.32) : Skia.XYWHRect(a.x0 + 0.16, a.y0, w - 0.32, h);
+      c.drawRect(inner, fill('#A81C30'));
+      for (let ty = a.y0; ty < a.y1; ty++) {
+        for (let tx = a.x0; tx < a.x1; tx++) {
+          const cx = tx + 0.5;
+          const cy = ty + 0.5;
+          c.drawPath(path.poly([[cx, cy - 0.16], [cx + 0.16, cy], [cx, cy + 0.16], [cx - 0.16, cy]]), fill('#C8384A'));
+          c.drawCircle(cx, cy, 0.045, fill(GOLD, 0.9));
+        }
+      }
+      return true;
+    }
     case 'butchery':
       grid(c, a, 1, ['#9A3A34', '#8C322C'], '#E8DCC8', 0.03);
       for (let ty = a.y0; ty < a.y1; ty++) for (let tx = a.x0; tx < a.x1; tx++) for (let k = 0; k < 3; k++) c.drawCircle(tx + hash(tx + k, ty), ty + hash(ty, tx + k), 0.02, fill('#E8C99A', 0.7));
@@ -294,7 +315,7 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
   if (roomFloor(c, a)) return;
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
-  const painters: Record<Exclude<FloorStyle, RoomFloor>, () => void> = {
+  const painters: Record<Exclude<FloorStyle, RoomFloor | 'runner'>, () => void> = {
     // The outdoors take the city's colors (Jerusalem stone, Eilat sand...).
     grass: () => {
       const [g0, g1, speck] = city.ground;
@@ -404,7 +425,7 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), stroke('#8C6A3E', 0.08));
     },
   };
-  painters[a.floor as Exclude<FloorStyle, RoomFloor>]();
+  painters[a.floor as Exclude<FloorStyle, RoomFloor | 'runner'>]();
 }
 
 function lotFence(c: SkCanvas, a: Area) {

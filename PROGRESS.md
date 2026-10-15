@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M33 | Owner: a calmer, classier main screen (too many things shown, looked cheap), a tidy dining room with red carpet paths, more funny reviews | ✅ Done |
 | M32 | Owner: the kitchen in rooms: the line room split into a hot and a cold line, a dish room, a walk-in cooler and freezer with doors, vegetable, prep, stores, pastry and butchery rooms, and a small, detailed manager's office | ✅ Done |
 | M31 | Owner: join tables into a long table for more people, more design levels to unlock for the bar, a kitchen laid out as you like | ✅ Done |
 | M30 | Owner: more design levels for every object, a grander delivery station that really grows and opens more as it levels, big upgrades that take longer the higher the level; the payment library (expo-iap) and the splash screen installed (owner approved) | ✅ Done |
@@ -78,6 +79,30 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M33 (owner: "make the main screen easier on the eye, too many things are shown, and make
+  everything look better so it does not look cheap"; "add more funny reviews"; "I really don't
+  like how the tables are arranged... red carpet paths, orderly, nice to look at"):
+  - **The dining room's plan** (`diningOf` in `src/data/maps.ts`, `designTables` in
+    `src/sim/layout.ts`): straight columns, four tables (chair, table, chair) to a block, a red
+    carpet aisle between blocks; rows counted from the first diner's front, four to a section,
+    a carpet band two tiles wide between sections, a carpet along the front from the door. A
+    design per block and section (round / square in turn, booths on the row against a band,
+    one section of long family tables from the grand restaurant); nothing on a carpet; one rug
+    color per block. Rows and columns are world-fixed, so a bigger building keeps the smaller
+    one's plan. Tables per building: 7, 17, 29, 39, 64, 80, 102, 120 (a few fewer than the old
+    staggered layout; levels past a lower cap are refunded as before). Save v15: a v14 save's
+    tables are laid out on the plan once (as many as were bought; joined ones come apart).
+    Decor placed automatically keeps off the tiles round the plan's chairs (else a pot plant
+    could leave a chair with no way in: the balance bot found this).
+  - **A calmer screen**: the festival, flash deal, reviews, guide and trophies are round
+    buttons in a row under the rating (`src/ui/SideButton.tsx`: an icon, one short word, a red
+    badge, a gold pulse when something is ready) instead of a column of wide cards; the quest
+    and daily-gift buttons too. New glossy icons drawn like the coin and star (speech bubble,
+    red guide book, lightning, trophy, scroll, gift) instead of emoji. At most three green
+    upgrade arrows in the world plus the best buy's star. Thinner gold rims and soft shadows on
+    the pills; the wages line under the money is a quiet line (red only when the till is short);
+    the three big buttons in deep colors with a light rim and a sheen.
+  - **Funny reviews**: 64 new lines across every kind of review, in Hebrew and English.
 - Done in M32 (owner: "divide the kitchen into sections: kitchen, dishwashing, vegetable cutting,
   service prep, cold line, hot line, all divided into rooms; the kitchen itself is a room with its
   lines; dishwashing a room of its own, vegetables, prep, a fridge and freezer room with doors,

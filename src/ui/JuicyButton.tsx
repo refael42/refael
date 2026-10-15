@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { theme } from './theme';
 import { tapFeedback } from '../audio/sound';
@@ -8,10 +8,11 @@ interface Props {
   onPress: () => void;
   active?: boolean;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
 }
 
 /** Every tap squashes and springs back: the smallest unit of "juice". */
-export function JuicyButton({ label, onPress, active = false, style }: Props) {
+export function JuicyButton({ label, onPress, active = false, style, labelStyle }: Props) {
   const scale = useSharedValue(1);
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
   return (
@@ -31,7 +32,7 @@ export function JuicyButton({ label, onPress, active = false, style }: Props) {
       hitSlop={6}
     >
       <Animated.View style={[styles.button, active && styles.active, style, animated]}>
-        <Text style={[styles.label, active && styles.activeLabel]} numberOfLines={1}>
+        <Text style={[styles.label, active && styles.activeLabel, labelStyle]} numberOfLines={1}>
           {label}
         </Text>
       </Animated.View>

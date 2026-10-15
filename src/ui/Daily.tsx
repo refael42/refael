@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { SIDE, SideButton } from './SideButton';
+import { hudIcon } from '../render/icons';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle, PixelRatio } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { DAILY } from '../data/retention';
 import { useT } from '../i18n';
@@ -34,20 +36,8 @@ export const dailyReady = (s: GameState): boolean => readDaily(s).ready;
 /** The gift button next to the stage button, bouncing while today's gift waits. */
 export function DailyButton({ gameRef, onPress, style }: { gameRef: { current: GameState | null }; onPress: () => void; style: StyleProp<ViewStyle> }) {
   const d = usePoll(gameRef, readDaily, 1);
-  const wiggle = useSharedValue(0);
-  useEffect(() => {
-    wiggle.value = withRepeat(withSequence(withTiming(1, { duration: 140 }), withTiming(-1, { duration: 140 }), withTiming(0, { duration: 140 }), withTiming(0, { duration: 1200 })), -1);
-  }, [wiggle]);
-  const wiggleStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${wiggle.value * 12}deg` }] }));
   if (!d?.ready) return null;
-  return (
-    <Animated.View style={[styles.buttonWrap, style, wiggleStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="daily gift" onPress={onPress} hitSlop={6} style={styles.button}>
-        <Text style={styles.buttonIcon}>🎁</Text>
-      </Pressable>
-      <View style={styles.dot} />
-    </Animated.View>
-  );
+  return <SideButton label="daily gift" icon={hudIcon('hudGift', Math.round(SIDE.icon * PixelRatio.get()))} ready onPress={onPress} style={[styles.buttonWrap, style]} />;
 }
 
 export function DailyPanel({ gameRef, onCommand, onClose }: { gameRef: { current: GameState | null }; onCommand: (cmd: Command) => void; onClose: () => void }) {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SIDE, SideButton } from './SideButton';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { tapFeedback } from '../audio/sound';
@@ -44,38 +45,10 @@ function Stars({ n, size }: { n: number; size: number }) {
 }
 
 export function ReviewsChip({ gameRef, onPress, style }: { gameRef: { current: GameState | null }; onPress: () => void; style: StyleProp<ViewStyle> }) {
-  const t = useT();
   const d = usePoll(gameRef, readChip, 1);
-  const pulse = useSharedValue(0);
-  const ready = d !== null && d.waiting > 0 && d.coins !== '0';
-  useEffect(() => {
-    pulse.value = ready ? withRepeat(withSequence(withTiming(1, { duration: 500 }), withTiming(0, { duration: 500 })), -1) : 0;
-  }, [pulse, ready]);
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pulse.value * 0.06 }] }));
   if (!d || d.count === 0) return null;
-  return (
-    <Animated.View style={[styles.chipWrap, style, pulseStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="reviews" onPress={onPress} hitSlop={6} style={[styles.chip, ready && styles.chipReady]}>
-        <Text style={styles.chipIcon}>💬</Text>
-        <View style={styles.chipBody}>
-          <Text numberOfLines={1} style={styles.chipTitle}>{t('reviews.chip')}</Text>
-          {ready ? (
-            <View style={styles.chipCoins}>
-              <Image source={{ uri: coinUri(13) }} style={styles.chipCoin} />
-              <Text numberOfLines={1} style={styles.chipCoinText}>{`+${d.coins}`}</Text>
-            </View>
-          ) : (
-            <Text numberOfLines={1} style={styles.chipAvg}>{`★ ${d.avg.toFixed(1)}`}</Text>
-          )}
-        </View>
-        {d.waiting > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{d.waiting}</Text>
-          </View>
-        )}
-      </Pressable>
-    </Animated.View>
-  );
+  const ready = d.waiting > 0 && d.coins !== '0';
+  return <SideButton label="reviews" icon={hudIcon('hudBubble', Math.round(SIDE.icon * PixelRatio.get()))} caption={ready ? `+${d.coins}` : `★ ${d.avg.toFixed(1)}`} badge={d.waiting > 0 ? d.waiting : undefined} ready={ready} onPress={onPress} style={style} />;
 }
 
 type Filter = 'all' | 'good' | 'bad';

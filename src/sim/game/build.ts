@@ -27,7 +27,12 @@ const RESERVED: readonly Set<number>[] = TIERS.map((_, tier) => reservedTiles(TI
  */
 const TABLE_ZONE: readonly Set<number>[] = TIERS.map((_, tier) => {
   const out = new Set<number>();
-  for (const t of mapForTier(tier).tables) for (const p of [...footprint(t.style, t.x, t.y), serveSpot(t.x, t.y)]) out.add(key(p.x, p.y));
+  for (const t of mapForTier(tier).tables) {
+    for (const p of [...footprint(t.style, t.x, t.y), serveSpot(t.x, t.y)]) out.add(key(p.x, p.y));
+    // And the tiles round its chairs: in the tidy plan (owner M33) the rows between tables are
+    // how people get to the chairs, and a pot plant there leaves a chair with no way in.
+    for (const p of footprint(t.style, t.x, t.y)) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) out.add(key(p.x + dx, p.y + dy));
+  }
   return out;
 });
 

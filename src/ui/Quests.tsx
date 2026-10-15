@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { SIDE, SideButton } from './SideButton';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { TIERS } from '../data/buildings';
@@ -90,25 +91,8 @@ const coinUri = () => hudIcon('hudCoin', Math.round(18 * PixelRatio.get()));
 export function QuestButton({ gameRef, onPress, style }: { gameRef: GameRef; onPress: () => void; style: object }) {
   const t = useT();
   const q = usePoll(gameRef, readReady, 2);
-  const pulse = useSharedValue(1);
-  useEffect(() => {
-    if (q && q.ready > 0) pulse.value = withSequence(withTiming(1.15, { duration: 160 }), withSpring(1, { damping: 6 }));
-  }, [q?.ready, pulse]);
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: pulse.value }] }));
   if (!q) return null;
-  return (
-    <Animated.View style={[styles.buttonWrap, style, pulseStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="quests" onPress={onPress} hitSlop={6} style={styles.button}>
-        <Text style={styles.scroll}>📜</Text>
-        <Text style={styles.buttonLevel}>{`${t('quest.stage')} ${q.level}`}</Text>
-      </Pressable>
-      {q.ready > 0 && (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{q.ready}</Text>
-        </View>
-      )}
-    </Animated.View>
-  );
+  return <SideButton label="quests" icon={hudIcon('hudScroll', Math.round(SIDE.icon * PixelRatio.get()))} caption={`${t('quest.stage')} ${q.level}`} badge={q.ready > 0 ? q.ready : undefined} ready={q.ready > 0} onPress={onPress} style={[styles.buttonWrap, style]} />;
 }
 
 export function QuestPanel({ gameRef, onCommand, onClose }: { gameRef: GameRef; onCommand: (cmd: Command) => void; onClose: () => void }) {

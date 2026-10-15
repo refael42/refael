@@ -119,7 +119,7 @@ function DayPill({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout }) {
           <Image source={{ uri: iconUri(night ? 'hudMoon' : WEATHER_ICON[day.weather], 28) }} style={styles.dayIcon} />
           <Text style={styles.dayLabel}>{t('ui.day')}</Text>
           <Text style={styles.dayNumber}>{day.day}</Text>
-          <Text style={[styles.weekday, day.weekend && styles.weekend]}>{`${day.weekend ? '🎉' : '·'} ${t(`week.${WEEKDAY_IDS[day.weekday]}`)}`}</Text>
+          <Text style={[styles.weekday, day.weekend && styles.weekend]}>{`· ${t(`week.${WEEKDAY_IDS[day.weekday]}`)}`}</Text>
         </View>
         <View style={styles.track}>
           <View style={[styles.trackFill, night && styles.trackNight, { width: `${Math.min(100, day.phase * 100)}%` }]} />
@@ -176,7 +176,6 @@ function WagesChip({ gameRef, layout }: { gameRef: GameRef; layout: HudLayout })
   if (!w || w.count === 0) return null;
   return (
     <View style={[styles.slot, styles.wages, w.short && styles.wagesShort, { left: layout.left + 6, top: layout.top + HUD.height + 44, direction: rtl ? 'rtl' : 'ltr' }]}>
-      <Text style={styles.wagesIcon}>💸</Text>
       <Text style={styles.wagesLabel}>{t('ui.wagesDue')}</Text>
       <Text style={styles.wagesValue}>{`-${w.text}`}</Text>
     </View>
@@ -223,7 +222,8 @@ export function Hud({ gameRef, feed, layout }: Props) {
 }
 
 const DAY_W = 168;
-const RIM = '#F2C14E';
+/** A thin gold rim (owner M33: classier, less loud than the thick yellow one). */
+const RIM = 'rgba(242,198,96,0.9)';
 /** Room on a pill's left end for the icon that sits on it. */
 const UNDER_ICON = HUD.icon - HUD.iconOut + 2;
 
@@ -233,14 +233,14 @@ const styles = StyleSheet.create({
   pill: {
     height: HUD.height,
     borderRadius: HUD.height / 2,
-    backgroundColor: 'rgba(40,16,50,0.93)',
-    borderWidth: 2.5,
+    backgroundColor: 'rgba(28,14,36,0.86)',
+    borderWidth: 1.5,
     borderColor: RIM,
     justifyContent: 'center',
     overflow: 'hidden',
-    boxShadow: '0px 3px 0px rgba(18,8,24,0.85)',
+    boxShadow: '0px 3px 10px rgba(8,2,12,0.45)',
   },
-  shine: { position: 'absolute', left: 8, right: 8, top: 3, height: HUD.height / 2 - 6, borderRadius: HUD.height / 4, backgroundColor: 'rgba(255,255,255,0.13)' },
+  shine: { position: 'absolute', left: 8, right: 8, top: 3, height: HUD.height / 2 - 6, borderRadius: HUD.height / 4, backgroundColor: 'rgba(255,255,255,0.08)' },
   icon: { position: 'absolute', left: -HUD.iconOut, top: (HUD.height - HUD.icon) / 2, width: HUD.icon, height: HUD.icon },
   coinPill: { minWidth: 96, paddingStart: UNDER_ICON, paddingEnd: 16 },
   coins: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', fontVariant: ['tabular-nums'], letterSpacing: 0.3, ...textShadow('rgba(10,4,14,0.9)', 2, 0) },
@@ -263,21 +263,19 @@ const styles = StyleSheet.create({
   outOf: { color: '#C9B3D6', fontSize: 12, fontWeight: '800' },
   buzz: { position: 'absolute', top: HUD.height + 4, right: 0, paddingHorizontal: 9, paddingVertical: 2, borderRadius: 11, backgroundColor: '#E5483B', borderWidth: 2, borderColor: '#FFE08A' },
   buzzText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
+  // A quiet line under the money (owner M33: a calmer screen); red only when the till is short.
   wages: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    height: 24,
+    height: 20,
     paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: 'rgba(40,16,50,0.9)',
-    borderWidth: 1.5,
-    borderColor: '#8A6A9A',
+    borderRadius: 10,
+    backgroundColor: 'rgba(28,14,36,0.6)',
   },
-  wagesShort: { borderColor: '#FF6A5E', backgroundColor: 'rgba(110,20,30,0.92)' },
-  wagesIcon: { fontSize: 12 },
-  wagesLabel: { color: '#E8D7F0', fontSize: 11, fontWeight: '800' },
-  wagesValue: { color: '#FF9A8E', fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  wagesShort: { borderWidth: 1, borderColor: '#FF6A5E', backgroundColor: 'rgba(110,20,30,0.9)' },
+  wagesLabel: { color: '#D8C6E2', fontSize: 10.5, fontWeight: '700' },
+  wagesValue: { color: '#FFB0A4', fontSize: 11.5, fontWeight: '800', fontVariant: ['tabular-nums'] },
   combo: {
     flexDirection: 'row',
     alignItems: 'baseline',

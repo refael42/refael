@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/data/buildings';
 import { mapForTier, STAND_MAP, tierRect, WORLD_SHIFT, type MapDef, type Point } from '../src/data/maps';
-import { serveSpot, sideTiles } from '../src/data/tables';
+import { footprint, serveSpot, sideTiles } from '../src/data/tables';
 import { PropKind as K } from '../src/sim/types';
 import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'rooms' | 'walls' | 'roomDoors' | 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
+const HAND_MADE: Omit<MapDef, 'dining' | 'rooms' | 'walls' | 'roomDoors' | 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -163,8 +163,9 @@ describe('map generator', () => {
       expect(map.building.x1).toBe(tierRect(t).x1);
       // The smaller building's tables stay where they were and open first (the few in the way of
       // the bigger bar make room for it).
-      const kept = prev.tables.filter((p) => map.tables.some((t) => t.x === p.x && t.y === p.y && t.style === p.style));
-      expect(map.tables.slice(0, kept.length)).toEqual(kept);
+      // (In the design of their place in the bigger room.)
+      const kept = prev.tables.filter((p) => map.tables.some((t) => t.x === p.x && t.y === p.y));
+      expect(map.tables.slice(0, kept.length).map((t) => [t.x, t.y])).toEqual(kept.map((t) => [t.x, t.y]));
       expect(kept.length, `tier ${t}`).toBeGreaterThanOrEqual(prev.tables.length - 3);
       expect(map.tables.length).toBeGreaterThan(prev.tables.length);
       expect(map.waiterIdle.length).toBeGreaterThanOrEqual(3 + (TIERS[t]!.staff.waiter ?? 0));
@@ -172,20 +173,24 @@ describe('map generator', () => {
     }
   });
 
-  it('lays tables out like a restaurant, not a canteen: mixed designs, rows set off, room between groups', () => {
+  it('lays tables out tidily (owner M33): straight columns in blocks, red carpet aisles and bands, a design per section', () => {
     TIERS.forEach((_, t) => {
       const map = mapForTier(t);
       const tables = map.tables;
-      // Every design the building has, and a long table somewhere.
+      // Every table on the plan: in one of its columns, on one of its rows.
+      for (const s of tables) {
+        expect(map.dining.cols, `tier ${t}`).toContain(s.x);
+        expect(map.dining.rows.map((r) => r.y + 0.5), `tier ${t}`).toContain(s.y);
+      }
+      // None on a carpet.
+      const carpets = map.areas.filter((a) => a.floor === 'runner');
+      expect(carpets.length, `tier ${t}`).toBeGreaterThan(0);
+      for (const s of tables) for (const p of footprint(s.style, s.x, s.y)) expect(carpets.some((a) => p.x >= a.x0 && p.x < a.x1 && p.y >= a.y0 && p.y < a.y1), `tier ${t}`).toBe(false);
+      // Different designs, a section of long tables from the grand restaurant.
       expect(new Set(tables.map((s) => s.style)).size, `tier ${t}`).toBeGreaterThanOrEqual(t === 0 ? 2 : 3);
-      if (t > 0) expect(tables.some((s) => s.style === 'long'), `tier ${t}`).toBe(true);
-      // Few tables have one straight behind them two rows back (the old grid: most of them). The
-      // first diner is two tables wide: its rows cannot be set off without losing tables.
-      const at = new Set(tables.map((s) => `${s.x},${s.y}`));
-      const lined = tables.filter((s) => at.has(`${s.x},${s.y - 2}`)).length;
-      if (t > 0) expect(lined / tables.length, `tier ${t}`).toBeLessThan(0.45);
-      // About as many tables as a canteen layout held (the economy counts on them).
-      expect(tables.length, `tier ${t}`).toBeGreaterThanOrEqual([7, 16, 30, 40, 65, 78, 105, 125][t]!);
+      if (t >= 2) expect(tables.some((s) => s.style === 'long'), `tier ${t}`).toBe(true);
+      // About as many tables as before the carpets (the economy counts on them).
+      expect(tables.length, `tier ${t}`).toBeGreaterThanOrEqual([7, 16, 28, 38, 62, 78, 100, 118][t]!);
     });
   });
 

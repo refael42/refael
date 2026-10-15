@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { hudIcon } from '../render/icons';
+import { SIDE, SideButton } from './SideButton';
+import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle, PixelRatio } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { GUIDE, verdictOf } from '../data/guide';
 import { useT } from '../i18n';
@@ -24,18 +26,9 @@ const readChip = (s: GameState) => ({
 });
 
 export function GuideChip({ gameRef, onPress, style }: { gameRef: { current: GameState | null }; onPress: () => void; style: StyleProp<ViewStyle> }) {
-  const t = useT();
   const d = usePoll(gameRef, readChip, 1);
   if (!d) return null;
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel="guide" onPress={onPress} hitSlop={6} style={[styles.chip, d.stars > 0 && styles.chipStarred, style]}>
-      <Text style={styles.chipIcon}>📕</Text>
-      <View style={styles.chipBody}>
-        <Text numberOfLines={1} style={styles.chipTitle}>{t('guide.name')}</Text>
-        <Text numberOfLines={1} style={[styles.chipMark, d.stars > 0 && styles.chipMarkStar]}>{d.stars > 0 || d.plate ? rosettes(d.stars, d.plate) : t('guide.chipNone')}</Text>
-      </View>
-    </Pressable>
-  );
+  return <SideButton label="guide" icon={hudIcon('hudBook', Math.round(SIDE.icon * PixelRatio.get()))} caption={d.stars > 0 || d.plate ? rosettes(d.stars, d.plate) : undefined} onPress={onPress} style={style} />;
 }
 
 const PARTS = ['chef', 'mastery', 'equipment', 'ingredients', 'temperature', 'consistency'] as const;

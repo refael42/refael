@@ -1,6 +1,9 @@
 import type { MapDef, Point } from '../data/maps';
-import { footprint, serveSpot, sideTiles, styleDef, TABLE_STYLE_DEFS, type TableSpot, type TableStyle } from '../data/tables';
+import { footprint, serveSpot, sideTiles, styleDef, TABLE_STYLE_DEFS, tableLength, type TableSpot, type TableStyle } from '../data/tables';
 import { canReach, gridWith, reachableInside, type Grid } from './grid';
+
+/** Table rows to a section of the dining room (src/data/maps.ts diningOf). */
+const SECTION_ROWS = 4;
 
 // Where tables can stand in a room, and how the game lays a room out by itself (owner: "too
 // much symmetry between the tables: it is not a dining hall, it is a restaurant, think of a
@@ -200,87 +203,64 @@ function localCheck(g: Grid, near: Near, idx: readonly number[], tops: number, f
 
 // ---------- the room the game lays out ----------
 
-/** A number in [0, 1) from two integers: the same layout every time, different from row to row. */
-const mix = (a: number, b: number): number => {
-  const h = Math.sin(a * 91.7 + b * 47.3 + 13.1) * 24634.6345;
-  return h - Math.floor(h);
-};
-
 /**
- * One building's tables, the way a restaurant is furnished rather than a canteen: sofas in a
- * row along the back wall (small square tables in the first diner), then rows of tables in
- * small groups (one or two side by side) with room to walk between the groups, each row set
- * off a little from the one before, the designs mixed group by group (round, square, now and
- * then a long table or a booth); the corner by the door is left to the line and the host.
- * `prev`: the smaller building's tables, which stay where they were (they come first).
- * Opening order: spread over the room first, so a few tables already fill it.
+ * One building's tables (owner M33: "I really don't like how the tables are arranged... make it
+ * orderly and nice to look at, red carpet paths"), on the room's plan (src/data/maps.ts
+ * diningOf): straight columns in blocks of three between carpet aisles, rows in sections of
+ * four between carpet bands. Each block of a section is one design: round tables, square ones,
+ * from the grand restaurant now and then a section of long family tables (a long table takes
+ * two rows: the row behind it stays free), and the back row along the wall in booths. The corner
+ * by the door is left to the line and the host. `prev`: the smaller building's tables, which
+ * stay where they were (they come first). Opening order: spread over the room first.
  */
 export function designTables(map: MapDef, prev: readonly TableSpot[], reserved: ReadonlySet<number>): TableSpot[] {
   const r = map.building;
-  const kx = map.kitchenX;
   const tier = map.tier;
   const open = (st: TableStyle) => TABLE_STYLE_DEFS.some((d) => d.id === st && d.tier <= tier);
   const door = map.doors[0]!.inside;
   const room = roomOf(map, [], [], reserved);
   const placed: TableSpot[] = [];
+  // Nothing on the red carpets (a smaller building's table where a bigger one has a carpet goes).
+  const carpet = new Set<number>();
+  for (const a of map.areas) if (a.floor === 'runner') for (let y = a.y0; y < a.y1; y++) for (let x = a.x0; x < a.x1; x++) carpet.add(tileKey(x, y));
   const tryAdd = (t: TableSpot): boolean => {
     // Keep the corner by the door clear: the line, the host and the way in.
     if (t.x > r.x1 - 4 && t.y > r.y1 - 3) return false;
+    if (footprint(t.style, t.x, t.y).some((p) => carpet.has(tileKey(p.x, p.y)))) return false;
     if (!tableFits(room, t.style, t.x, t.y, nearOf(room))) return false;
     occupy(room, t);
     placed.push(t);
     return true;
   };
-  const kept = prev.filter((t) => tryAdd(t));
-  // Each group: one design, one to three tables side by side, then a walkway of one or two tiles.
-  const groups = (y: number, row: number, styleOf: (g: number) => TableStyle, sizes: readonly number[], start: number, longShift = 0) => {
-    let x = kx + 2.5 + start;
-    for (let g = 0; x + 1 < r.x1 - 1; g++) {
-      const size = sizes[Math.floor(mix(row * 7 + g, tier + 3) * sizes.length)]!;
-      const style = styleOf(g);
-      for (let k = 0; k < size && x + 1 < r.x1 - 1; k++, x += 3) {
-        // A long table needs the row behind it free: where it does not fit, a round one.
-        if (!tryAdd({ x, y: style === 'long' ? y + longShift : y, style }) && style === 'long') tryAdd({ x, y, style: 'round' });
-      }
-      x += mix(g, row + tier * 11) < 0.6 ? 1 : 2;
-    }
+  const { cols, blocks, rows } = map.dining;
+  // Which design each block of each section gets: round and square in turn, booths on the row
+  // against the carpet band behind it (from the bistro), and from the grand restaurant one
+  // section of long family tables. All by where it is, so every building agrees with the smaller ones.
+  const styleAt = (block: number, segment: number, k: number): TableStyle => {
+    if (tier >= 2 && block === 1 && segment === 1) return 'long';
+    if (k === SECTION_ROWS - 1) return open('booth') ? 'booth' : 'square';
+    return (block + segment) % 2 === 0 ? 'round' : 'square';
   };
-  // A row may start a tile or two further in, where that costs no table (the first diner is two
-  // tables wide: there it cannot).
-  const width = r.x1 - 1 - (kx + 1);
-  const fit = (st: number) => Math.floor((width - st) / 3);
-  // Along the back wall: sofas in twos and threes (booths sit snug against a wall; tables for two
-  // in the diner), now and then a long table.
-  // (A long table there stands back against the wall: its front a row further in.)
-  groups(r.y0 + 0.5, 0, (g) => (mix(g, tier + 9) < 0.25 ? 'long' : open('booth') ? 'booth' : 'square'), [2, 2, 3], mix(0, tier) < 0.5 || fit(1) < fit(0) ? 0 : 1, 1);
-  // Then the rows: set off from each other, a wider aisle now and then (behind it long tables
-  // fit: a long one reaches a row back).
-  // Each row starts a different distance in from the one before it.
-  let start = 0;
-  for (let y = r.y0 + 2.5, row = 1; y <= r.y1 - 1.5; row++) {
-    const turn = 1 + Math.floor(mix(row, tier) * 2);
-    const next = [(start + turn) % 3, (start + 3 - turn) % 3, start];
-    start = next.find((st) => fit(st) === fit(0)) ?? 0;
-    const wide = mix(row, tier + 13) < 0.25;
-    if (wide) y += 1;
-    if (y > r.y1 - 1.5) break;
-    const longs = wide ? 0.35 : 0.12;
-    groups(
-      y,
-      row,
-      (g) => {
-        const roll = mix(g * 3 + row, tier * 5 + 1);
-        return roll < longs ? 'long' : roll < longs + 0.14 && open('booth') ? 'booth' : roll < 0.6 ? 'round' : 'square';
-      },
-      [1, 2, 2, 3],
-      start,
-    );
-    y += 2;
-  }
-  // Last, single tables wherever a gap still takes one (a room holds about as many as a canteen
-  // would, only not in lines): the back rows first, alternating designs.
-  for (let y = r.y0 + 0.5, k = 0; y < r.y1 - 1; y += 1) {
-    for (let x = kx + 2.5; x + 1 < r.x1 - 1; x += 1) if (tryAdd({ x, y, style: mix(x, y) < 0.55 ? 'round' : 'square' })) k++;
+  // The smaller building's tables stay where they are, in the design of their place in this one.
+  const planned = (t: TableSpot): TableSpot => {
+    const row = rows.find((w) => w.y + 0.5 === t.y);
+    const c = cols.indexOf(t.x);
+    if (!row || c < 0 || tableLength(t.style) > 1) return t;
+    const style = styleAt(blocks[c]!, row.segment, row.k);
+    return tableLength(style) === 1 ? { ...t, style } : t;
+  };
+  const kept = prev.map(planned).filter((t) => tryAdd(t));
+  for (const row of rows) {
+    cols.forEach((x, c) => {
+      const style = styleAt(blocks[c]!, row.segment, row.k);
+      const y = row.y + 0.5;
+      // A long table on the section's first and third rows: the row behind each stays free.
+      if (style === 'long') {
+        if (row.k % 2 === 0) tryAdd({ x, y, style }) || tryAdd({ x, y, style: 'round' });
+        return;
+      }
+      tryAdd({ x, y, style });
+    });
   }
   const fresh = placed.filter((t) => !kept.includes(t));
   return [...kept, ...spreadOut(fresh, kept, door)];

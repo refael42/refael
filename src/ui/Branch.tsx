@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { hudIcon } from '../render/icons';
+import { SIDE, SideButton } from './SideButton';
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle, PixelRatio } from 'react-native';
 import { FRANCHISE, cityOf } from '../data/franchise';
 import { TIERS } from '../data/buildings';
 import { useT } from '../i18n';
@@ -126,12 +128,7 @@ export function CityChip({ gameRef, style }: { gameRef: { current: GameState | n
   const t = useT();
   const v = usePoll(gameRef, readChip, 1);
   if (!v || (v.city === 0 && v.trophies === 0)) return null;
-  return (
-    <View style={[styles.chip, style]} pointerEvents="none">
-      <Text style={styles.chipText}>{`🏆 ${v.trophies}`}</Text>
-      <Text style={styles.chipCity}>{t(`city.${cityOf(v.city).id}`)}</Text>
-    </View>
-  );
+  return <SideButton label="trophies" icon={hudIcon('hudTrophy', Math.round(SIDE.icon * PixelRatio.get()))} caption={t(`city.${cityOf(v.city).id}`)} badge={v.trophies > 0 ? v.trophies : undefined} style={style} />;
 }
 
 const styles = StyleSheet.create({

@@ -3,6 +3,7 @@ import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View, type 
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { tapFeedback } from '../audio/sound';
 import { FESTIVAL, FESTIVAL_THEMES, type FestivalReward } from '../data/events';
+import { SIDE, SideButton } from './SideButton';
 import { useT } from '../i18n';
 import { hudIcon, spriteIcon } from '../render/icons';
 import { DISH_ICONS, type SpriteName } from '../render/sprites';
@@ -32,6 +33,14 @@ export function useFestivalClock(onCommand: (cmd: Command) => void, on: boolean)
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
+
+/** The side buttons' short clock: "2d", "5h", "12m". */
+export function shortTime(seconds: number, t: (k: string) => string): string {
+  const s = Math.max(0, Math.floor(seconds));
+  if (s >= 86400) return `${Math.floor(s / 86400)}${t('time.d')}`;
+  if (s >= 3600) return `${Math.floor(s / 3600)}${t('time.h')}`;
+  return `${Math.max(1, Math.floor(s / 60))}${t('time.m')}`;
+}
 
 /** "2d 5h" (units in the player's language), "5:04:09" under a day. */
 export function countdown(seconds: number, t: (k: string) => string): string {
@@ -70,31 +79,11 @@ const titleOf = (t: (k: string) => string, theme: number) => t('fest.title').rep
 export function FestivalChip({ gameRef, onPress, style }: { gameRef: { current: GameState | null }; onPress: () => void; style: StyleProp<ViewStyle> }) {
   const t = useT();
   const d = usePoll(gameRef, readFestival, 1);
-  const pulse = useSharedValue(0);
-  const ready = d !== null && d.reached > d.claimed;
-  useEffect(() => {
-    pulse.value = ready ? withRepeat(withSequence(withTiming(1, { duration: 450 }), withTiming(0, { duration: 450 })), -1) : 0;
-  }, [pulse, ready]);
-  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 + pulse.value * 0.07 }] }));
   if (!d) return null;
+  const ready = d.reached > d.claimed;
   const hurry = d.secondsLeft < FESTIVAL.hurryHours * 3600;
-  const next = FESTIVAL.track[d.reached];
-  const prev = d.reached > 0 ? FESTIVAL.track[d.reached - 1]!.points : 0;
-  const share = next ? Math.min(1, (d.points - prev) / (next.points - prev)) : 1;
-  return (
-    <Animated.View style={[styles.chipWrap, style, pulseStyle]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="festival" onPress={onPress} hitSlop={6} style={[styles.chip, hurry && styles.chipHurry, ready && styles.chipReady]}>
-        <Image source={{ uri: dishIcon(d.theme, 26) }} style={styles.chipIcon} />
-        <View style={styles.chipBody}>
-          <Text numberOfLines={1} style={styles.chipTitle}>{ready ? `🎁 ${t('fest.ready')}` : `🎪 ${t('fest.chip')}`}</Text>
-          <View style={styles.chipTrack}>
-            <View style={[styles.chipFill, { width: `${share * 100}%` }]} />
-          </View>
-          <Text numberOfLines={1} style={[styles.chipTime, hurry && styles.chipTimeHurry]}>{hurry ? `⏰ ${countdown(d.secondsLeft, t)}` : `⏱ ${countdown(d.secondsLeft, t)}`}</Text>
-        </View>
-      </Pressable>
-    </Animated.View>
-  );
+  // A round button (owner M33: a calmer screen): the festival's dish, the time left; a prize to take glows.
+  return <SideButton label="festival" icon={dishIcon(d.theme, SIDE.icon)} caption={shortTime(d.secondsLeft, t)} hurry={hurry} ready={ready} badge={ready ? d.reached - d.claimed : undefined} onPress={onPress} style={style} />;
 }
 
 /** A prize's icon and short words. */

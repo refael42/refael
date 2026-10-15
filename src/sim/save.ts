@@ -27,7 +27,7 @@ import { kitchenSave, type SavedKitchen } from './game/kitchenLayout';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -147,6 +147,10 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // v13 (M28) had the small kitchen: the big one (M29) pushed the dining room and everything
   // right of the kitchen along by as much.
   13: (old) => ({ ...shiftPlaces(old, SAVE_SHIFT.v14), guide: old.guide ?? { stars: 0, plate: false, edition: 0, visits: [], last: null } }),
+  // v14 (M32) laid tables out in staggered groups; the dining room has a tidy plan with red
+  // carpet aisles now (owner M33: "I really don't like how the tables are arranged"): the
+  // tables bought stay bought, the map lays them out on the plan once (joined ones come apart).
+  14: (old) => ({ ...old, tables: undefined }),
 };
 
 /** Placed decor, tables and work sites, moved with the site by `d` tiles. */

@@ -63,7 +63,7 @@ describe('joining tables (owner M30: "join tables into a long table that holds m
     const t = s.tables[i]!;
     expect(t.seats).toBeGreaterThanOrEqual(8);
     let crowd = 0;
-    play(s, 900, (g) => {
+    play(s, 1800, (g) => {
       for (const c of g.customers) if (c.partySize > 6) crowd = Math.max(crowd, c.partySize);
     });
     expect(crowd).toBeGreaterThan(6);

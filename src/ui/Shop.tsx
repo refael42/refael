@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { shortTime } from './Festival';
+import { SIDE, SideButton } from './SideButton';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SHOP, type ShopItem } from '../data/shop';
 import { useT } from '../i18n';
@@ -102,12 +104,7 @@ export function DealChip({ gameRef, onPress, style }: { gameRef: { current: Game
   const t = useT();
   const d = usePoll(gameRef, readDeal, 1);
   if (!d || d.bought) return null;
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel="flash deal" onPress={onPress} hitSlop={6} style={[styles.dealChip, style]}>
-      <Text style={styles.dealChipText}>{`⚡-${Math.round(d.off * 100)}%`}</Text>
-      <Text style={styles.dealChipTime}>{countdown(d.secondsLeft, t)}</Text>
-    </Pressable>
-  );
+  return <SideButton label="flash deal" icon={hudIcon('hudBolt', Math.round(SIDE.icon * PixelRatio.get()))} caption={`-${Math.round(d.off * 100)}%`} badge={shortTime(d.secondsLeft, t)} onPress={onPress} style={style} />;
 }
 
 function Title({ item }: { item: ShopItem }) {

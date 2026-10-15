@@ -98,4 +98,14 @@ describe('offline progress', () => {
     const lonelyCook = { ...savedGame(), team: savedGame().team.filter((w) => w.role === 'cook') };
     expect(offlineEarnings(lonelyCook, NOW + 3600_000)).toBeNull();
   });
+
+  it('a v14 save gets its tables laid out once on the tidy plan (owner M33), as many as it bought', () => {
+    const save = { ...savedGame(), version: 14, tables: [{ x: 25.5, y: 30.5, style: 'round' }, { x: 24.5, y: 32.5, style: 'square' }, { x: 27.5, y: 26.5, style: 'round' }, { x: 26.5, y: 34.5, style: 'round' }] };
+    const loaded = parseSave(JSON.stringify(save));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    const s = restoreGame(loaded.save, 2);
+    expect(s.tables).toHaveLength(STAND_MAP.startTables + 1);
+    for (const t of s.tables) expect(STAND_MAP.dining.cols).toContain(t.x);
+  });
 });

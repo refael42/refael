@@ -17,7 +17,7 @@ export interface Point {
 }
 
 /** `lot`: the next building's land (for sale); `locked`: land of later buildings; `path`: the way from the street to the door. */
-export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | 'locked' | 'path' | 'park' | 'plaza' | 'gravel' | DiningFloor | RoomFloor;
+export type FloorStyle = 'grass' | 'sidewalk' | 'road' | 'kitchen' | 'lot' | 'locked' | 'path' | 'park' | 'plaza' | 'gravel' | 'runner' | DiningFloor | RoomFloor;
 
 /** A floor rectangle [x0, x1) x [y0, y1), painted in order. */
 export interface Area {
@@ -187,6 +187,12 @@ export interface MapDef {
   rooms: Room[];
   walls: RoomWall[];
   roomDoors: RoomDoor[];
+  /**
+   * The dining room's plan (owner M33: "tidy, nice to look at, red carpet aisles"): the columns
+   * tables stand in (anchors' x), the rows from the front back (anchors' tile row), and which
+   * rows' groups start a section (just behind a carpet band). src/sim/layout.ts lays tables on it.
+   */
+  dining: { cols: number[]; blocks: number[]; rows: { y: number; segment: number; k: number }[] };
   /** Order tickets hang along this line above the pass (kitchen side). */
   ticketRail: { x: number; y0: number; step: number; lift: number; max: number };
   decor: Furniture[];
@@ -589,6 +595,69 @@ const ALL_DOORS = TIERS.map((_, t) => tierRect(t).x1 - 1.5);
 const ACROSS = acrossTheStreet(WORLD.width, ALL_DOORS);
 const SITE_TREES = siteTrees(WORLD.width);
 
+/**
+ * The dining room's plan (owner M33: "I really don't like how the tables are arranged; make it
+ * nice: red carpet paths, orderly, good to look at"). Tables stand in straight columns, four
+ * side by side (chair, table, chair: three tiles each) in a block, a red carpet aisle between
+ * blocks; rows two tiles apart (the table, the tile in front to serve from), four rows to a
+ * section, a carpet band two tiles wide across the room between sections, and a carpet along
+ * the front from the door. Columns count from the kitchen and rows from the first diner's front,
+ * so a bigger building keeps the smaller one's plan and adds to it.
+ */
+const BLOCK_TABLES = 4;
+const TABLE_PITCH = 3;
+const BLOCK_PITCH = BLOCK_TABLES * TABLE_PITCH + 1;
+const SECTION_ROWS = 4;
+/** The first diner's front row of tables (its tile row): every building's rows count from it. */
+const FRONT_ROW = DINER_Y0 + BASE.depth - 2;
+
+/** Where the plan's blocks and sections are (the renderer gives each one rug color). */
+export const DINING_GRID = { x0: KITCHEN_X + 1, pitch: BLOCK_PITCH, front: FRONT_ROW + 1, section: SECTION_ROWS * 2 + 1 } as const;
+
+function diningOf(r: Rect): { plan: MapDef['dining']; runners: Area[] } {
+  const KX = KITCHEN_X;
+  const cols: number[] = [];
+  const blocks: number[] = [];
+  const aisles: number[] = [];
+  for (let b = 0; ; b++) {
+    const first = KX + 2.5 + b * BLOCK_PITCH;
+    if (first + 1 >= r.x1) break;
+    for (let k = 0; k < BLOCK_TABLES; k++) {
+      const x = first + k * TABLE_PITCH;
+      if (x + 1 < r.x1) {
+        cols.push(x);
+        blocks.push(b);
+      }
+    }
+    const aisle = KX + 1 + b * BLOCK_PITCH + BLOCK_TABLES * TABLE_PITCH;
+    if (aisle < r.x1 - 1) aisles.push(aisle);
+  }
+  // Rows: in front of the first diner's front row (a building grown toward the street), then back from it.
+  const rows: MapDef['dining']['rows'] = [];
+  for (let y = FRONT_ROW + 2; y <= r.y1 - 2; y += 2) rows.unshift({ y, segment: 0, k: 0 });
+  const bands: number[] = [];
+  let segment = 0;
+  let k = 0;
+  for (let y = FRONT_ROW; y >= r.y0; ) {
+    rows.push({ y, segment, k });
+    k++;
+    // A band behind every fourth row, where another row still fits behind it.
+    if (k === SECTION_ROWS && y - 3 >= r.y0) {
+      bands.push(y - 2);
+      segment++;
+      k = 0;
+      y -= 3;
+    } else y -= 2;
+  }
+  const runner = (x0: number, y0: number, x1: number, y1: number): Area => ({ x0, y0, x1, y1, floor: 'runner', walkable: true });
+  const runners: Area[] = [
+    ...aisles.map((x) => runner(x, r.y0, x + 1, r.y1 - 1)),
+    ...bands.map((y) => runner(KX + 2, y, r.x1, y + 2)),
+    runner(KX + 1, r.y1 - 1, r.x1, r.y1),
+  ];
+  return { plan: { cols, blocks, rows }, runners };
+}
+
 /** The rooms' walls and doors as props (each on the middle of its tile edge), and a sign over every door. */
 function roomFurniture(walls: readonly RoomWall[], doors: readonly RoomDoor[]): Furniture[] {
   const at = (e: { x: number; y: number; along: 'x' | 'y' }) => (e.along === 'x' ? { x: e.x + 0.5, y: e.y } : { x: e.x, y: e.y + 0.5 });
@@ -676,6 +745,7 @@ function buildMap(tier: number): MapDef {
       : null;
   if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
   const bar = barOf(tier, y1);
+  const dining = diningOf(r);
   return {
     id: t.id,
     tier,
@@ -695,6 +765,7 @@ function buildMap(tier: number): MapDef {
         return room.freezerX ? [{ ...floor, x1: room.freezerX }, { ...floor, x0: room.freezerX, floor: 'freezer' }] : [floor];
       }),
       { x0: KX, y0: r.y0, x1, y1, floor: t.dining, walkable: true },
+      ...dining.runners,
       ...path,
     ],
     building: { ...r },
@@ -793,6 +864,7 @@ function buildMap(tier: number): MapDef {
     cleanStack: { x: sink.x, y: sink.y + 0.5 },
     dirtyStack: { x: sink.x, y: sink.y - 0.5 },
     sinkTop: 22,
+    dining: dining.plan,
     rooms: rooms.rooms,
     walls: rooms.walls,
     roomDoors: rooms.doors,
