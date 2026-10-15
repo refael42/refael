@@ -50,3 +50,13 @@ export const WHEEL = {
   turns: 5,
   spinMs: 4600,
 } as const;
+
+/**
+ * The chance of each segment, in percent (one decimal). Shown on the wheel before any spin: a
+ * spin can be bought with gems, and the stores ask a game to show the odds of anything random
+ * bought (App Store guideline 3.1.1, Google Play's policy on randomized items).
+ */
+export function wheelOdds(): number[] {
+  const total = WHEEL_SEGMENTS.reduce((sum, s) => sum + s.weight, 0);
+  return WHEEL_SEGMENTS.map((s) => Math.round((s.weight / total) * 1000) / 10);
+}

@@ -215,7 +215,7 @@ function diamondPlate(c: SkCanvas, a: Area, base: string, raised: string) {
  * office's parquet and rug, cream tiles for prep, sealed concrete for the stores, pink and white
  * for pastry, the butchery's dark red tiles.
  */
-function roomFloor(c: SkCanvas, a: Area): boolean {
+function roomFloor(c: SkCanvas, a: Area, onRed: boolean): boolean {
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
   const edge = (color: string, width = 0.06) => c.drawRect(Skia.XYWHRect(a.x0 + width / 2, a.y0 + width / 2, w - width, h - width), stroke(color, width));
@@ -284,18 +284,20 @@ function roomFloor(c: SkCanvas, a: Area): boolean {
       // A red carpet runner (owner M33: "red carpet paths"): deep red, a gold band near each
       // long edge, a small gold-and-rose motif on every tile.
       const along = w >= h;
-      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#8E1426'));
+      // On the first diner's red carpet a deep burgundy, or it would vanish into the floor.
+      const [base, mid, motif] = onRed ? ['#4A0812', '#5E0E1A', '#8E1E30'] : ['#8E1426', '#A81C30', '#C8384A'];
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill(base));
       const edges = along
         ? [Skia.XYWHRect(a.x0, a.y0 + 0.07, w, 0.05), Skia.XYWHRect(a.x0, a.y1 - 0.12, w, 0.05)]
         : [Skia.XYWHRect(a.x0 + 0.07, a.y0, 0.05, h), Skia.XYWHRect(a.x1 - 0.12, a.y0, 0.05, h)];
       for (const e of edges) c.drawRect(e, fill(GOLD, 0.95));
       const inner = along ? Skia.XYWHRect(a.x0, a.y0 + 0.16, w, h - 0.32) : Skia.XYWHRect(a.x0 + 0.16, a.y0, w - 0.32, h);
-      c.drawRect(inner, fill('#A81C30'));
+      c.drawRect(inner, fill(mid));
       for (let ty = a.y0; ty < a.y1; ty++) {
         for (let tx = a.x0; tx < a.x1; tx++) {
           const cx = tx + 0.5;
           const cy = ty + 0.5;
-          c.drawPath(path.poly([[cx, cy - 0.16], [cx + 0.16, cy], [cx, cy + 0.16], [cx - 0.16, cy]]), fill('#C8384A'));
+          c.drawPath(path.poly([[cx, cy - 0.16], [cx + 0.16, cy], [cx, cy + 0.16], [cx - 0.16, cy]]), fill(motif));
           c.drawCircle(cx, cy, 0.045, fill(GOLD, 0.9));
         }
       }
@@ -311,8 +313,8 @@ function roomFloor(c: SkCanvas, a: Area): boolean {
   }
 }
 
-function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
-  if (roomFloor(c, a)) return;
+function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef, onRed = false) {
+  if (roomFloor(c, a, onRed)) return;
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
   const painters: Record<Exclude<FloorStyle, RoomFloor | 'runner'>, () => void> = {
@@ -538,7 +540,9 @@ export function recordBackground(def: BackgroundDef): SkPicture {
   const rec = Skia.PictureRecorder();
   const c = rec.beginRecording(Skia.XYWHRect(bounds.minX - 20, bounds.minY - 20, bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40));
   onTop(c, 0, () => {
-    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city);
+    // The first diner's dining floor is a red carpet: its runners go darker on it.
+    const onRed = def.areas.some((a) => a.floor === 'dining');
+    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city, onRed);
   });
   for (const a of def.areas) if (a.floor === 'lot' || a.floor === 'locked') lotFence(c, a);
   // Back to front, so nearer trees overlap farther ones.

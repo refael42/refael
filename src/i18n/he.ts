@@ -117,6 +117,7 @@ export const he: Record<TKey, string> = {
   'daily.min': 'דק׳',
   'daily.take': 'לקחת!',
   'daily.tomorrow': 'חוזרים מחר למתנה הבאה',
+  'wheel.odds': '📊 סיכויי הזכייה',
   'wheel.title': 'גלגל המזל',
   'wheel.sub': 'סיבוב חינם כל 4 שעות, ועוד סיבוב על כל שלב שמסיימים.',
   'wheel.spin': 'סובבו',

@@ -115,6 +115,7 @@ export const en = {
   'daily.min': 'min',
   'daily.take': 'Take it!',
   'daily.tomorrow': 'Come back tomorrow for the next one',
+  'wheel.odds': '📊 Chances of each prize',
   'wheel.title': 'Lucky wheel',
   'wheel.sub': 'A free spin every 4 hours, and one more for every stage you clear.',
   'wheel.spin': 'SPIN',

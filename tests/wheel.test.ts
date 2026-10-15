@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
-import { WHEEL, WHEEL_SEGMENTS } from '../src/data/wheel';
+import { WHEEL, WHEEL_SEGMENTS, wheelOdds } from '../src/data/wheel';
 import { queueCommand } from '../src/sim/game/commands';
 import { createGame, type GameSetup } from '../src/sim/game/create';
 import { Ev } from '../src/sim/game/events';
@@ -148,5 +148,12 @@ describe('lucky wheel', () => {
     raw.wheel = { nextFree: 5, tokens: 999, spins: -3, prize: 42 };
     const bad = parseSave(JSON.stringify(raw));
     expect(bad.ok && bad.save.wheel).toEqual({ nextFree: 5, tokens: WHEEL.maxStored, spins: 0, prize: -1 });
+  });
+
+  it('shows the chance of every prize (a spin can be bought: the stores ask for the odds)', () => {
+    const odds = wheelOdds();
+    expect(odds).toHaveLength(WHEEL_SEGMENTS.length);
+    for (const p of odds) expect(p).toBeGreaterThan(0);
+    expect(Math.abs(odds.reduce((a, b) => a + b, 0) - 100)).toBeLessThan(0.5);
   });
 });

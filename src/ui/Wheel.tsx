@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, PixelRatio, Pressable, StyleSheet, Text, useWindowDimensions, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import { buzz, playSound, tapFeedback } from '../audio/sound';
-import { WHEEL, WHEEL_SEGMENTS, type WheelPrize } from '../data/wheel';
+import { WHEEL, WHEEL_SEGMENTS, type WheelPrize, wheelOdds } from '../data/wheel';
 import { useT } from '../i18n';
 import { POINTER_BOUNDS, WHEEL_ART, WHEEL_BOUNDS } from '../render/art/wheelArt';
 import { hudIcon, splashIcon, wheelIcon } from '../render/icons';
@@ -186,6 +186,7 @@ function ConfettiBit({ index, size, go }: { index: number; size: number; go: Sha
 }
 
 export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current: GameState | null }; onCommand: (cmd: Command) => void; onClose: () => void }) {
+  const [odds, setOdds] = useState(false);
   const t = useT();
   const d = usePoll(gameRef, readWheel, 4);
   const { width, height } = useWindowDimensions();
@@ -370,6 +371,23 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
               </>
             )}
             {d.cost !== 'token' && d.tokens > 0 ? <Text style={styles.tokens}>{t('wheel.spinToken').replace('{n}', String(d.tokens))}</Text> : null}
+            {/* The odds of every prize, before any spin (a spin can be bought with gems). */}
+            <Pressable accessibilityRole="button" onPress={() => setOdds(!odds)} hitSlop={6}>
+              <Text style={styles.oddsLink}>{t('wheel.odds')}</Text>
+            </Pressable>
+            {odds ? (
+              <View style={styles.odds}>
+                {WHEEL_SEGMENTS.map((seg, i) => (
+                  <View key={i} style={styles.oddsRow}>
+                    <View style={[styles.oddsDot, { backgroundColor: seg.color }]} />
+                    <Text style={styles.oddsText} numberOfLines={1}>
+                      {longLabel(seg.prize, coins[i] ?? '', t)}
+                    </Text>
+                    <Text style={styles.oddsPct}>{`${ODDS[i]}%`}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
           </>
         )}
       </View>
@@ -377,7 +395,15 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
   );
 }
 
+const ODDS = wheelOdds();
+
 const styles = StyleSheet.create({
+  oddsLink: { color: '#C9B3D6', fontSize: 12, fontWeight: '800', textDecorationLine: 'underline', marginTop: 6 },
+  odds: { marginTop: 4, gap: 2, alignSelf: 'stretch' },
+  oddsRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  oddsDot: { width: 9, height: 9, borderRadius: 5 },
+  oddsText: { flex: 1, color: '#F4E8F8', fontSize: 11.5, fontWeight: '700' },
+  oddsPct: { color: '#FFE27A', fontSize: 11.5, fontWeight: '900', fontVariant: ['tabular-nums'] },
   buttonWrap: { position: 'absolute' },
   button: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#3A1D40', borderWidth: 2.5, borderColor: gold, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', boxShadow: '0px 3px 0px #120818' },
   buttonFace: { position: 'absolute', width: BUTTON_FACE, height: BUTTON_FACE },
