@@ -7,6 +7,7 @@ import { useLaunch } from './store/launch';
 import { loadSettings } from './store/settings';
 import { trace } from './trace';
 import { GameScreen } from './ui/GameScreen';
+import { Safe } from './ui/Safe';
 import { Splash, SPLASH_BG } from './ui/Splash';
 
 export default function App() {
@@ -20,7 +21,11 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar hidden />
       <View style={{ flex: 1, backgroundColor: SPLASH_BG }}>
-        {mounted && <GameScreen />}
+        {mounted && (
+          <Safe>
+            <GameScreen />
+          </Safe>
+        )}
         {!done && <Splash />}
       </View>
     </SafeAreaProvider>

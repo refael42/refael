@@ -33,6 +33,18 @@ const STATION_RADIUS = 48;
 /** An action this many px farther than a station still wins (actions are what you usually mean). */
 const ACTION_BIAS = 6;
 
+/** Errors already logged (by where and message): one line each, not one per frame. */
+const reported = new Set<string>();
+
+/** Logs an error caught in the loop or a screen's read, once. */
+function reportOnce(where: string, e: unknown): void {
+  const err = e instanceof Error ? e : new Error(String(e));
+  const key = `${where}:${err.message}`;
+  if (reported.has(key)) return;
+  reported.add(key);
+  console.warn(`Caught in ${where}: ${err.message}\n${err.stack ?? ''}`);
+}
+
 interface Runner {
   step: () => void;
   publish: (seq: number) => Snapshot;
@@ -58,8 +70,14 @@ function useFixedLoop(make: () => Runner, deps: unknown[]): { snapshot: SharedVa
     const loop = (now: number) => {
       const steps = advance(stepper, now - last);
       last = now;
-      for (let i = 0; i < steps; i++) runner.step();
-      if (steps > 0) snapshot.value = runner.publish(++seq);
+      // A rare state the sim did not expect must cost a tick, not the app: an error thrown here
+      // has nothing above it to catch it, and on a phone that closes the app (owner: "a few crashes").
+      try {
+        for (let i = 0; i < steps; i++) runner.step();
+        if (steps > 0) snapshot.value = runner.publish(++seq);
+      } catch (e) {
+        reportOnce('sim', e);
+      }
       frames += 1;
       if (now - fpsStart >= 1000) {
         stats.jsFps = (frames * 1000) / (now - fpsStart);
@@ -131,7 +149,12 @@ export function useGame(map: MapDef, seed: number, stress: number, boot: GameBoo
   useEffect(() => {
     const save = () => {
       const game = gameRef.current;
-      if (game && !paused.current) void writeSave(makeSave(game, Date.now()));
+      if (!game || paused.current) return;
+      try {
+        void writeSave(makeSave(game, Date.now())).catch((e: unknown) => reportOnce('save write', e));
+      } catch (e) {
+        reportOnce('save', e);
+      }
     };
     const timer = setInterval(save, SAVE.intervalSeconds * 1000);
     // Phones kill background apps without warning: save the moment we leave the foreground.
@@ -200,7 +223,14 @@ export function usePoll<T>(gameRef: { current: GameState | null }, read: (s: Gam
       // Same as last time (field by field): no new render. Late in the game a render of a big
       // screen twice a second for nothing was felt as a hitch.
       if (gameRef.current) {
-        const next = readRef.current(gameRef.current);
+        // A screen's read failing keeps its last value (and the app) rather than throwing from a timer.
+        let next: T;
+        try {
+          next = readRef.current(gameRef.current);
+        } catch (e) {
+          reportOnce('poll', e);
+          return;
+        }
         setValue((prev) => (prev !== null && sameShallow(prev, next) ? prev : next));
       }
     };

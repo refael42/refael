@@ -261,6 +261,8 @@ export function sendHome(s: GameState, c: Customer): void {
   c.bubble = Bubble.None;
   c.patience = -1;
   c.held = Held.None;
+  // Sent off from inside a restroom stall (the place closing for building work): seen again.
+  c.hidden = false;
   setState(c, CustomerState.Leaving);
 }
 

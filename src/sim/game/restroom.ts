@@ -148,6 +148,12 @@ export function updateRestroomJob(s: GameState, st: Staff, dt: number, walkTo: (
 
 /** The worker mopping it left (fired, quit, moved): someone else can take it. */
 export function releaseRestroom(s: GameState): void {
+  // A stall whose guest left another way (sent home when the place closed) is free again.
+  const stalls = s.restroom.stalls;
+  for (let i = 0; i < stalls.length; i++) {
+    const id = stalls[i]!;
+    if (id >= 0 && !s.customers.some((c) => c.id === id && c.state === CustomerState.Restroom)) stalls[i] = -1;
+  }
   if (s.restroom.cleaner >= 0 && !s.staff.some((st) => st.id === s.restroom.cleaner && st.job?.kind === 'restroom' && !st.leaving)) s.restroom.cleaner = -1;
 }
 

@@ -885,6 +885,21 @@ rasterization. **Not yet measured on a phone** — the owner should check the FP
 
 ## Known issues / not verified
 
+- Crash pass (owner: "a few crashes"; no device here, so by reading and stress testing): each
+  new building baked a new ~40 MB background and the old one was left to the garbage collector,
+  which on a phone does not see that memory: a few buildings or branches in, the app could run
+  out of memory. The old bake is now freed 4 s after the new one takes over, and a bake happens
+  only when the building changes (not on a screen-size change). The background's vectors are
+  freed right after baking on phones too (they never leave the JS thread). An error in the sim
+  loop, a screen's poll, the autosave or a purchase payout is caught and logged once instead of
+  closing the app; a screen that fails to draw shows "something went wrong — continue" and
+  restarts from the save (src/ui/Safe.tsx). A guest sent home from inside a restroom stall
+  (building work) is visible again and frees the stall. Reminders are not loaded in Expo Go at
+  all. tests/soak.test.ts plays every building for four minutes with random taps and commands,
+  saves and loads, and fails on any error or NaN (also run with four more seeds, ten minutes each).
+- Not touched: the per-frame pictures on phones are still left to the garbage collector (freeing
+  them by hand crashed before); if crashes go on after long play, that is the next suspect.
+
 - Not run on a physical Android/iOS device by me (sandbox has no device or emulator). The
   first-touch crash on the owner's phone is fixed (touches moved off gesture-handler worklets
   to plain React Native touches) — confirmed by the owner.

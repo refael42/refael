@@ -832,6 +832,9 @@ export const en = {
   'notify.place': 'your restaurant',
   'notify.miss.title': '😢 Your guests are asking about you',
   'notify.miss.body': '{name} is waiting for its manager. Come and see what happened while you were away',
+  'safe.title': 'Oops, something went wrong',
+  'safe.text': 'The screen stopped for a moment. Your progress is saved; carry on from where you were.',
+  'safe.go': 'Continue',
 } as const;
 
 export type TKey = keyof typeof en;

@@ -49,12 +49,20 @@ export function usePurchases(gameRef: { current: GameState | null }, paused: { c
       if (!game || paused.current || owed.current.length === 0) return;
       const grants = owed.current.splice(0);
       let gems = 0;
-      for (const g of grants) if (grantPurchase(game, g.product, g.transaction, g.time)) gems += ((SHOP_BY_ID[g.product] ?? OFFER_BY_ID[g.product]) as { gems?: number } | undefined)?.gems ?? 0;
+      let save: ReturnType<typeof makeSave>;
+      try {
+        for (const g of grants) if (grantPurchase(game, g.product, g.transaction, g.time)) gems += ((SHOP_BY_ID[g.product] ?? OFFER_BY_ID[g.product]) as { gems?: number } | undefined)?.gems ?? 0;
+        save = makeSave(game, Date.now());
+      } catch (e) {
+        // Not paid out: the store sends it again at the next start (nothing was confirmed to it).
+        console.warn('Purchase payout failed', e);
+        return;
+      }
       if (gems > 0 && alive) setNote({ kind: 'paid', gems });
-      void writeSave(makeSave(game, Date.now())).then(() => {
+      void writeSave(save).then(() => {
         // Only what the saved game shows as paid (an unknown product is left to the store, which refunds it).
         for (const g of grants) if (purchasePaid(game, g.transaction)) void store.finish(g).catch((e: unknown) => console.warn('Store finish failed', e));
-      });
+      }).catch((e: unknown) => console.warn('Save after a purchase failed', e));
     }, PAY_EVERY_MS);
     return () => {
       alive = false;

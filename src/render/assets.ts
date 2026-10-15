@@ -1,7 +1,6 @@
 import { RARITY } from '../data/rarity';
 import { BlendMode, Skia, type SkColor, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 import { HAIR_COLORS, PANTS_COLORS, SHIRT_COLORS, SKIN_TONES } from '../data/looks';
-import { Platform } from 'react-native';
 import { bakeAtlas, type Atlas, type Rect } from './atlas';
 import { recordBackground, type BackgroundDef } from './art/background';
 import { isoBounds } from './iso';
@@ -218,9 +217,9 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
   const background = recordBackground(def);
   const world = isoBounds(def.width, def.height, def.building ? 90 : 20);
   const backgroundTiles = bakeBackground(background, world);
-  // Baked: the vectors are not needed any more (web never frees them by itself; on phones a
-  // hand-freed Skia object can still be in use on the UI thread, so there we let it be).
-  if (Platform.OS === 'web') background.dispose();
+  // Baked: the vectors are not needed any more. They never left this thread (only the baked
+  // tiles go to the UI thread), so they are freed on phones too.
+  background.dispose();
   return {
     image: atlas.image,
     src: atlas.src,

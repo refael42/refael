@@ -15,6 +15,22 @@ import { isoX, isoY } from './iso';
 import { touchEnd, touchMove, touchStart, type Finger, type TouchTracker } from './touches';
 
 const DISPOSE_PICTURES = Platform.OS === 'web';
+/**
+ * Old baked assets are freed this long after the new ones took over: by then the UI thread
+ * draws only the new ones (it picks them up on its next frame), so nothing can still hold them.
+ */
+const RELEASE_AFTER_MS = 4000;
+
+/** Frees a building's baked background (the atlas is shared and stays). */
+function releaseAssets(a: RenderAssets): void {
+  for (const tile of a.backgroundTiles) {
+    try {
+      tile.image.dispose();
+    } catch {
+      // Already freed: nothing to do.
+    }
+  }
+}
 /** Nothing selected (no prop outlined). */
 const NO_SELECTION: number[] = [];
 /** Pictures kept alive after they leave the screen (web only). */
@@ -133,18 +149,36 @@ export const SceneCanvas = memo(function SceneCanvas({ snapshot, background, foc
 
   const readyRef = useRef(onReady);
   readyRef.current = onReady;
+  const baked = useRef<RenderAssets | null>(null);
+  const sized = W > 0;
   useEffect(() => {
-    if (W === 0) return;
+    if (!sized) return;
     trace(`canvas ${Math.round(W)}x${Math.round(H)}`);
-    // Bake after first paint; crisp up to the max zoom (capped to keep the texture small).
+    // Bake after first paint; crisp up to the max zoom (capped to keep the texture small). Only
+    // when the building changes: the bake does not depend on the screen's size.
     const id = setTimeout(() => {
       const started = Date.now();
-      setAssets(buildRenderAssets(background, Math.min(5, PixelRatio.get() * 2), PixelRatio.get()));
+      const next = buildRenderAssets(background, Math.min(5, PixelRatio.get() * 2), PixelRatio.get());
+      const old = baked.current;
+      baked.current = next;
+      setAssets(next);
+      // The last building's baked background (some 40 MB) is freed once nothing draws it any
+      // more: left to the garbage collector, a few new buildings ran a phone out of memory (owner: "a few crashes").
+      if (old) setTimeout(() => releaseAssets(old), RELEASE_AFTER_MS);
       trace(`assets baked in ${Date.now() - started} ms`);
       readyRef.current?.();
     }, 0);
     return () => clearTimeout(id);
-  }, [background, W, H]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- W/H only matter for the first bake.
+  }, [background, sized]);
+  // Leaving the game: its baked images go too.
+  useEffect(
+    () => () => {
+      const last = baked.current;
+      if (last) setTimeout(() => releaseAssets(last), RELEASE_AFTER_MS);
+    },
+    [],
+  );
 
   // Everything the touch handlers read lives in refs, so the handlers never change.
   const cam = useRef<Cam>({ x: 0, y: 0, zoom: 1 });

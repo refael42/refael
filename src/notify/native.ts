@@ -3,15 +3,16 @@ import { Platform } from 'react-native';
 import { noNotifier, type Notifier } from './types';
 
 // The phone's own local notifications (expo-notifications): planned on the phone, nothing is
-// sent to or through any server. On Android, Expo Go throws as soon as the library loads (Expo
-// removed push from it in SDK 53), so there it is not loaded at all; a real build has it.
+// sent to or through any server. In Expo Go it is not loaded at all: on Android it throws as
+// soon as it loads (Expo removed push from it in SDK 53), and on an iPhone it only warns, but
+// reminders only matter in the real build anyway (the owner tests in Expo Go: nothing to risk).
 
 type Lib = typeof import('expo-notifications');
 
 const CHANNEL = 'reminders';
 
 function load(): Lib | null {
-  if (Platform.OS === 'android' && isRunningInExpoGo()) return null;
+  if (isRunningInExpoGo()) return null;
   try {
     return require('expo-notifications') as Lib;
   } catch {
