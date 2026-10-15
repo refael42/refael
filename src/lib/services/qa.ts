@@ -16,11 +16,12 @@ import { fmtDate, fmtDateTime, localDate, t } from "../i18n";
 import { canSeeConversation, isPM } from "./access";
 import type { ProjectSession } from "./auth-types";
 import { areaLabel, areaSubtree, type ProjectSnapshot } from "./snapshot";
+import { areaEvents } from "./area-view";
 import { contractorLabel, describeBlocking } from "./views";
 
 export interface Source {
   ref: string;
-  kind: "task" | "message" | "blocker";
+  kind: "task" | "message" | "blocker" | "update";
   id: string;
   href: string;
   label: string;
@@ -30,6 +31,8 @@ export interface Source {
   brief: string;
   /** an actionable root cause (not merely affected) */
   root?: boolean;
+  /** a task's effective state, for grouping the local answer */
+  state?: string;
 }
 
 export interface Answer {
@@ -42,7 +45,7 @@ export interface Answer {
 type Kind = "blockers" | "asked" | "promised" | "before" | "general";
 
 const RX = {
-  blockers: /(תוקע|תוקעת|מעכב|מעכבת|חוסם|חוסמת|למה .*לא|מה עוצר|מחזיק|holding|blocking|stuck)/i,
+  blockers: /(תוקע|תוקעת|מעכב|מעכבת|חוסם|חוסמת|מונע|מונעת|להשלמת|לסיים את|למה .*לא|מה עוצר|מחזיק|holding|blocking|stuck)/i,
   asked: /(ביקשתי|אמרתי ל|שלחתי ל|כתבתי ל|מה ביקשתי|asked|told)/i,
   promised: /(הבטחתי|לבדוק|בדקתי|אבדוק|promise|check)/i,
   before: /(לפני ש|לפני ש?אפשר|מה צריך לקרות|מה חסר כדי|להזמין את|before)/i,
@@ -67,8 +70,8 @@ export function classify(q: string): Kind {
 class Collector {
   list: Source[] = [];
   private seen = new Set<string>();
-  private n = { task: 0, message: 0, blocker: 0 };
-  add(kind: Source["kind"], id: string, href: string, label: string, text: string, brief: string, root = false) {
+  private n = { task: 0, message: 0, blocker: 0, update: 0 };
+  add(kind: Source["kind"], id: string, href: string, label: string, text: string, brief: string, root = false, state?: string) {
     const key = `${kind}:${id}`;
     const existing = this.list.find((x) => `${x.kind}:${x.id}` === key);
     if (existing) {
@@ -77,8 +80,8 @@ class Collector {
     }
     if (this.list.length >= 40) return;
     this.seen.add(key);
-    const prefix = kind === "task" ? "T" : kind === "message" ? "M" : "B";
-    this.list.push({ ref: `${prefix}${++this.n[kind]}`, kind, id, href, label, text, brief, root });
+    const prefix = kind === "task" ? "T" : kind === "message" ? "M" : kind === "update" ? "U" : "B";
+    this.list.push({ ref: `${prefix}${++this.n[kind]}`, kind, id, href, label, text, brief, root, state });
   }
 }
 
@@ -113,7 +116,8 @@ export async function retrieve(store: Store, s: ProjectSession, snap: ProjectSna
     const late = a.effective !== "done" && task.planned_end && task.planned_end < localDate(snap.now) ? ` · ${t.tasks.overdue}` : "";
     return `${task.title} — ${t.effective[a.effective]} · ${who}${late}${a.blocksTransitive ? ` · חוסם ${a.blocksTransitive}` : ""}`;
   };
-  const addTask = (task: Task, root = false) => c.add("task", task.id, `/tasks/${task.id}`, task.title, taskFacts(task), taskBrief(task), root);
+  const addTask = (task: Task, root = false) =>
+    c.add("task", task.id, `/tasks/${task.id}`, task.title, taskFacts(task), taskBrief(task), root, snap.analysis.byTask[task.id].effective);
   const addBlocker = (id: string) => {
     const b = snap.blockerById.get(id);
     if (!b) return;
@@ -161,6 +165,21 @@ export async function retrieve(store: Store, s: ProjectSession, snap: ProjectSna
         else addTask(snap.taskById.get(b.id)!);
       }
     if (area) for (const m of messages.filter((m) => m.text && m.text.includes(area.name)).slice(0, 5)) addMessage(m);
+    // what the WhatsApp chats said about the area (managers only)
+    if (area && (s.role === "pm" || s.role === "viewer")) {
+      const said = await areaEvents(store, snap, area.id, 8).catch(() => []);
+      for (const e of said) {
+        const status = t.area.eventStatus[e.status];
+        c.add(
+          "update",
+          e.id,
+          e.sourceId ? `/sources/${e.sourceId}` : "/updates",
+          e.summary,
+          `${fmtDateTime(e.at)} · ${e.author} (${e.sourceTitle}): "${e.quote ?? ""}" → ${e.summary} · ${status}`,
+          `${fmtDateTime(e.at)} ${e.author}: ״${e.quote ?? e.summary}״ (${status})`,
+        );
+      }
+    }
   } else if (kind === "asked") {
     const pmIds = isPM(s) ? [s.profile.id] : snap.members.filter((m) => m.role === "pm").map((m) => m.profile_id);
     for (const ctr of contractors.length ? contractors : snap.contractors) {
@@ -216,12 +235,13 @@ export async function retrieve(store: Store, s: ProjectSession, snap: ProjectSna
     for (const ctr of contractors) for (const task of snap.tasks.filter((x) => x.contractor_id === ctr.id && x.status !== "done").slice(0, 8)) addTask(task);
   }
 
-  return { kind, area, contractors, sources: c.list };
+  const openInArea = areaTasks.filter((x) => snap.analysis.byTask[x.id].effective !== "done").length;
+  return { kind, area, contractors, sources: c.list, openInArea };
 }
 
-const SYSTEM = `You are the memory of a construction project. Answer the project manager's question in Hebrew, briefly and concretely (who, what, where, what must happen next), using ONLY the records provided. Cite every fact with the record reference in square brackets, e.g. [T3] or [M1]. If the records do not contain the answer, say so plainly. Do not invent tasks, people or dates.`;
+const SYSTEM = `You are the memory of a construction project. Answer the project manager's question in Hebrew, briefly and concretely (who, what, where, what must happen next), using ONLY the records provided. Cite every fact with the record reference in square brackets, e.g. [T3], [M1] or [U2] (U = an update read from a WhatsApp chat). If the records do not contain the answer, say so plainly. Do not invent tasks, people or dates.`;
 
-function localAnswer(kind: Kind, question: string, sources: Source[], ctx: { area: string | null; contractor: string | null }): string {
+function localAnswer(kind: Kind, question: string, sources: Source[], ctx: { area: string | null; contractor: string | null; openInArea: number }): string {
   if (!sources.length) return t.ask.nothing;
   const tasks = sources.filter((x) => x.kind === "task");
   const msgs = sources.filter((x) => x.kind === "message");
@@ -231,7 +251,20 @@ function localAnswer(kind: Kind, question: string, sources: Source[], ctx: { are
   switch (kind) {
     case "blockers": {
       const affected = tasks.filter((x) => !x.root);
-      lines.push(ctx.area ? `${ctx.area}: ${affected.length} משימות פתוחות, וזה מה שמחזיק אותן:` : "מה שמחזיק את הפרויקט כרגע:");
+      if (ctx.area) {
+        // an area: open work by who has to act, then what the chats said
+        const open = affected.filter((x) => x.state !== "done");
+        lines.push(ctx.openInArea ? `${ctx.area}: ${ctx.openInArea} משימות פתוחות.` : `${ctx.area}: אין משימות פתוחות.`);
+        const group = (title: string, list: Source[]) => list.length && lines.push("", title, ...list.map(line));
+        group("מה שתוקע ושצריך לשחרר קודם:", roots);
+        group("חסום:", open.filter((x) => x.state === "blocked"));
+        group("בוצע, מחכה לבדיקה שלך:", open.filter((x) => x.state === "awaiting_approval"));
+        group("מוכן – מחכה שהקבלן יתחיל:", open.filter((x) => x.state === "ready"));
+        group("בביצוע:", open.filter((x) => x.state === "in_progress"));
+        group("מה נאמר בשיחות:", sources.filter((x) => x.kind === "update"));
+        break;
+      }
+      lines.push("מה שמחזיק את הפרויקט כרגע:");
       lines.push(...roots.map(line));
       if (affected.length) lines.push("", "המשימות שנפגעות:", ...affected.map(line));
       break;
@@ -258,7 +291,7 @@ function localAnswer(kind: Kind, question: string, sources: Source[], ctx: { are
 export async function askProject(store: Store, s: ProjectSession, snap: ProjectSnapshot, question: string): Promise<Answer> {
   const q = question.trim().slice(0, 500);
   const r = await retrieve(store, s, snap, q);
-  const ctx = { area: r.area?.name ?? null, contractor: r.contractors.at(-1)?.name ?? null };
+  const ctx = { area: r.area?.name ?? null, contractor: r.contractors.at(-1)?.name ?? null, openInArea: r.openInArea };
 
   if (claudeAvailable() && r.sources.length) {
     try {
@@ -279,7 +312,7 @@ export async function askProject(store: Store, s: ProjectSession, snap: ProjectS
       if (response.stop_reason !== "refusal") {
         const text = response.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n").trim();
         if (text) {
-          const cited = new Set([...text.matchAll(/\[([TMB]\d+)\]/g)].map((m) => m[1]));
+          const cited = new Set([...text.matchAll(/\[([TMBU]\d+)\]/g)].map((m) => m[1]));
           return { question: q, answer: text, sources: r.sources.filter((x) => cited.has(x.ref)), engine: "claude" };
         }
       }
@@ -288,6 +321,6 @@ export async function askProject(store: Store, s: ProjectSession, snap: ProjectS
     }
   }
   const answer = localAnswer(r.kind, q, r.sources, ctx);
-  const cited = new Set([...answer.matchAll(/\[([TMB]\d+)\]/g)].map((m) => m[1]));
+  const cited = new Set([...answer.matchAll(/\[([TMBU]\d+)\]/g)].map((m) => m[1]));
   return { question: q, answer, sources: r.sources.filter((x) => cited.has(x.ref)), engine: "local" };
 }
