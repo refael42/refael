@@ -18,6 +18,8 @@ export const en = {
   'art.plant': 'Palm',
   'ui.upgrades': 'Upgrades',
   'ui.lv': 'Lv',
+  'ui.tableFull': 'No free spot',
+  'ui.noRoomHint': 'Move a decor piece in build mode',
   'ui.max': 'MAX',
   'ui.crewsBusy': 'Crews busy',
   'ui.capLocked': 'Restaurant Lv',

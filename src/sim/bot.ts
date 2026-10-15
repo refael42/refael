@@ -6,7 +6,7 @@ import { costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
 import { planBuy } from './economy/works';
 import { crewsOf } from './game/works';
 import { signingFee } from './game/applicants';
-import { autoTile } from './game/build';
+import { autoTile, nextTableSpot } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
 import { cookPosts, hasRoom, headcount } from './game/workers';
@@ -205,8 +205,9 @@ export function createBot(options: BotOptions): Bot {
     }
     const item = cheapestAffordable(s, budget, noRoom);
     if (!item) return;
-    // Decor goes on the first free tile, like a player who does not mind where; with none left, stop trying.
-    if (upgradeDef(item).build && !autoTile(s)) noRoom.add(item);
+    // Decor goes on the first free tile, like a player who does not mind where; with none left
+    // (or no spot for another table), stop trying in this building.
+    if ((upgradeDef(item).build && !autoTile(s)) || (upgradeDef(item).effect.stat === 'tables' && !nextTableSpot(s))) noRoom.add(item);
     else buy(s, item);
   };
   return { act, purchases, hires };

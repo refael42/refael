@@ -34,10 +34,12 @@ export interface Wallet {
   gems: number;
   /** The next branch in a new city (prestige). */
   branch: BranchView;
+  /** Is there a spot for another table (decor or a joined table can take the last one)? */
+  tableRoom: boolean;
 }
 
 /** Can one level of this be bought right now (the crews and the building allowing)? */
-export const canBuyNow = (def: UpgradeDef, w: Wallet): boolean => planBuy(def, w.levels, w.coins, w.map, w.crews, 1).status === 'ok';
+export const canBuyNow = (def: UpgradeDef, w: Wallet): boolean => (def.effect.stat !== 'tables' || w.tableRoom) && planBuy(def, w.levels, w.coins, w.map, w.crews, 1).status === 'ok';
 
 interface Props {
   wallet: Wallet;
@@ -238,6 +240,12 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
         <Text style={styles.max}>{t('ui.max')}</Text>
       ) : work ? (
         <WorkBox total={work.total} left={work.left} gems={wallet.gems} onFinish={() => onFinish(work.id)} />
+      ) : def.effect.stat === 'tables' && !wallet.tableRoom ? (
+        // Bought tables all have a place, the next has none: a piece of decor or a moved table is in the way.
+        <View style={styles.needs}>
+          <Text style={styles.needsText}>{t('ui.tableFull')}</Text>
+          <Text style={styles.needsText}>{t('ui.noRoomHint')}</Text>
+        </View>
       ) : plan.status === 'noCrew' ? (
         <View style={[styles.buy, styles.buyOff, styles.busy]}>
           <Text style={styles.busyText}>{'👷'}</Text>

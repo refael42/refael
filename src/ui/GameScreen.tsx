@@ -18,7 +18,7 @@ import { TEST_MONEY } from '../data/economy';
 import { big, toSave } from '../sim/big';
 import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
 import { crewCount } from '../sim/economy/works';
-import { buildableTiles, tableAnchors } from '../sim/game/build';
+import { buildableTiles, tableAnchors, nextTableSpot } from '../sim/game/build';
 import { joinCandidate, joinedFits, tableIsFree } from '../sim/game/create';
 import { pieceAt, type KitchenPiece } from '../sim/game/kitchenLayout';
 import { fullSeats } from '../data/tables';
@@ -150,6 +150,7 @@ const readWallet = (s: GameState) => ({
   gems: s.gems,
   crews: { works: s.works.map((w) => ({ id: w.id, item: w.item, total: w.total, left: w.left })), crews: crewCount(s.perks) },
   branch: readBranch(s),
+  tableRoom: nextTableSpot(s) !== null,
 });
 const readCity = (s: GameState) => s.city;
 

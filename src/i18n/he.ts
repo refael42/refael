@@ -20,6 +20,8 @@ export const he: Record<TKey, string> = {
   'art.plant': 'דקל',
   'ui.upgrades': 'שדרוגים',
   'ui.lv': 'רמה',
+  'ui.tableFull': 'אין מקום פנוי',
+  'ui.noRoomHint': 'הזיזו קישוט במצב בנייה',
   'ui.max': 'מקסימום',
   'ui.crewsBusy': 'הצוותים עסוקים',
   'ui.capLocked': 'רמת מסעדה',
