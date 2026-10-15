@@ -34,6 +34,10 @@ export const he = {
     readOnly: "צפייה בלבד",
     saved: "נשמר",
     install: "התקן כאפליקציה",
+    installIosHint: "באייפון מוסיפים את SiteFlow למסך הבית דרך תפריט השיתוף (הכי פשוט מתוך Safari):",
+    installIos1: "לחץ למטה על כפתור השיתוף",
+    installIos2: "גלול ובחר \"הוספה למסך הבית\"",
+    installIos3: "לחץ \"הוסף\" – האייקון של SiteFlow יופיע במסך הבית",
   },
 
   nav: {
