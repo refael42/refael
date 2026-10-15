@@ -1,7 +1,7 @@
 import { Dish } from '../../data/dishes';
 import type { Look } from '../../data/looks';
 import { NAMES } from '../../data/names';
-import { COMMON_FIRST_HIRES, RARITIES, RARITY, type Rarity } from '../../data/rarity';
+import { APPLICANT_RARITIES as RARITIES, COMMON_FIRST_HIRES, RARITY, type Rarity } from '../../data/rarity';
 import { APPLICANTS, DAY, ROLES, RUSH, SHIFT, STAFF, STAT_IDS, type Role, type StatId } from '../../data/staff';
 import { TRAIT_FX, TRAIT_LIST, TRAITS, type TraitId } from '../../data/traits';
 import type { Big } from '../big';

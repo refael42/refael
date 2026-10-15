@@ -1,3 +1,4 @@
+import { HERO, HEROES } from '../../data/offers';
 import { BAR_STAGES } from '../../data/bar';
 import { TIERS } from '../../data/buildings';
 import { HUB } from '../../data/delivery';
@@ -229,6 +230,12 @@ export function computeMods(levels: Levels, perks: Perks = {}, trophies = 0): Mo
     if (item.kind !== 'perk' || !perks[item.id]) continue;
     if (item.stat === 'price') m.price = m.price.map((p) => p * item.mult);
     else m[item.stat] *= item.mult;
+  }
+  // Heroes from the paid offers (src/data/offers.ts): each lifts one thing, everywhere, for good.
+  for (const h of HEROES) {
+    if (!perks[HERO.perkPrefix + h.id]) continue;
+    if (h.bonus.stat === 'price') m.price = m.price.map((p) => p * h.bonus.mult);
+    else m[h.bonus.stat] *= h.bonus.mult;
   }
   if (trophies > 0) m.price = m.price.map((p) => p * trophyBonus(trophies));
   return m;

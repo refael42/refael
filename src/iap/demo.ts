@@ -1,3 +1,4 @@
+import { OFFERS } from '../data/offers';
 import { GEM_PACKS } from '../data/shop';
 import type { Store, StoreGrant } from './types';
 
@@ -9,7 +10,7 @@ const FAKE_PAYMENT_MS = 450;
 export function demoStore(): Store {
   let onGrant: ((g: StoreGrant) => void) | null = null;
   let seq = 0;
-  const prices = Object.fromEntries(GEM_PACKS.map((p) => [p.id, p.price]));
+  const prices = Object.fromEntries([...GEM_PACKS, ...OFFERS].map((p) => [p.id, p.price]));
   return {
     mode: 'demo',
     start: async (cb) => {
@@ -19,7 +20,7 @@ export function demoStore(): Store {
     buy: (product) =>
       new Promise((resolve) => {
         setTimeout(() => {
-          onGrant?.({ product, transaction: `demo-${Date.now()}-${++seq}` });
+          onGrant?.({ product, transaction: `demo-${Date.now()}-${++seq}`, time: Date.now() });
           resolve('ok');
         }, FAKE_PAYMENT_MS);
       }),

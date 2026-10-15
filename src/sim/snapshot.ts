@@ -7,7 +7,7 @@ import { EntityType } from './types';
  */
 export const STRIDE = 26;
 
-const RARITY_INDEX = { common: 0, rare: 1, epic: 2, legendary: 3 } as const;
+const RARITY_INDEX = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 } as const;
 
 /** Fields shared by every record. */
 export const F = { type: 0, x: 1, y: 2, px: 3, py: 4, id: 5 } as const;
@@ -104,6 +104,13 @@ interface SortItem {
   id: number;
   character?: CharacterView;
   prop?: PropView;
+}
+
+/** One character on its own (a portrait drawn off screen). */
+export function packCharacter(c: CharacterView): Packed {
+  const d: Packed = new Float64Array(STRIDE);
+  writeCharacter(d, 0, c);
+  return d;
 }
 
 function writeCharacter(d: Packed, o: number, c: CharacterView): void {

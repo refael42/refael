@@ -38,7 +38,7 @@ export interface RenderAssets {
     barLow: SkPaint;
     ripple: SkPaint;
     ring: SkPaint;
-    /** Rarity rings at a worker's feet: rare, epic, legendary (src/data/rarity.ts). */
+    /** Rarity rings at a worker's feet: rare, epic, legendary, mythic (src/data/rarity.ts). */
     rarity: SkPaint[];
     /** Sprite silhouette: the selection outline (white). */
     outline: SkPaint;
@@ -161,6 +161,58 @@ function bakeBackground(picture: SkPicture, world: RenderAssets['world']): Rende
   return tiles;
 }
 
+/** Every paint the drawing code uses (tints, rings, the night light...). */
+function makePaints(): RenderAssets['paints'] {
+  return {
+    plain: plainPaint(),
+    // Pearl and rose gold (level 75), royal purple and gold (150), diamond (200): src/render/draw/drawProp.ts.
+    finish: [finish('#C29A8C', '#FFFAF4', 0.6), finish('#4A1A6A', '#FFE07A', 0.6), finish('#6FA8E8', '#FFFFFF', 0.62)],
+    tile: (() => {
+      const p = Skia.Paint();
+      p.setAntiAlias(false);
+      return p;
+    })(),
+    fade: plainPaint(),
+    skin: SKIN_TONES.map(tint),
+    hair: HAIR_COLORS.map(tint),
+    shirt: SHIRT_COLORS.map(tint),
+    pants: PANTS_COLORS.map(tint),
+    white: tint('#FFFFFF'),
+    glove: tint('#F7D046'),
+    gold: tint('#FFD23F'),
+    green: tint('#7CF07A'),
+    red: tint('#FF5A4E'),
+    orange: tint('#FF9A2E'),
+    barBack: solid('#1A0E22', 0.7),
+    barGood: solid('#5CD66E'),
+    barMid: solid('#F4C542'),
+    barLow: solid('#F0443A'),
+    ripple: strokePaint('#FFFFFF', 2.5),
+    ring: strokePaint('#FFFFFF', 3),
+    rarity: [RARITY.rare.color, RARITY.epic.color, RARITY.legendary.color, RARITY.mythic.color].map((hex) => strokePaint(hex, 2.4, 0.9)),
+    outline: silhouette('#FFFFFF'),
+    evening: solid('#FF7A2A', 0),
+    night: solid('#12123F', 0),
+    redText: tint('#FF6A5E'),
+    dust: tint('#FFF3DC'),
+    rain: strokePaint('#E2F0FF', 1.7, 0.55),
+    overcast: solid('#3A4A6A', 0),
+  };
+}
+
+let portraits: RenderAssets | null = null;
+
+/**
+ * Enough of the assets to draw a single character off screen (the offers' hero portraits,
+ * src/render/icons.ts): the shared atlas and the paints, no background.
+ */
+export function portraitAssets(): RenderAssets {
+  if (portraits) return portraits;
+  const atlas = getAtlas(sharedAtlas?.scale ?? 1);
+  portraits = { image: atlas.image, src: atlas.src, dst: atlas.dst, S, L: LAYERS, paints: makePaints(), backgroundTiles: [], pixelRatio: 1, backdrop: Skia.Color('#1A1022'), world: { minX: 0, maxX: 0, minY: 0, maxY: 0 } };
+  return portraits;
+}
+
 export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelRatio: number): RenderAssets {
   const atlas = getAtlas(atlasScale);
   const background = recordBackground(def);
@@ -175,41 +227,7 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
     dst: atlas.dst,
     S,
     L: LAYERS,
-    paints: {
-      plain: plainPaint(),
-      // Pearl and rose gold (level 75), royal purple and gold (150), diamond (200): src/render/draw/drawProp.ts.
-      finish: [finish('#C29A8C', '#FFFAF4', 0.6), finish('#4A1A6A', '#FFE07A', 0.6), finish('#6FA8E8', '#FFFFFF', 0.62)],
-      tile: (() => {
-        const p = Skia.Paint();
-        p.setAntiAlias(false);
-        return p;
-      })(),
-      fade: plainPaint(),
-      skin: SKIN_TONES.map(tint),
-      hair: HAIR_COLORS.map(tint),
-      shirt: SHIRT_COLORS.map(tint),
-      pants: PANTS_COLORS.map(tint),
-      white: tint('#FFFFFF'),
-      glove: tint('#F7D046'),
-      gold: tint('#FFD23F'),
-      green: tint('#7CF07A'),
-      red: tint('#FF5A4E'),
-      orange: tint('#FF9A2E'),
-      barBack: solid('#1A0E22', 0.7),
-      barGood: solid('#5CD66E'),
-      barMid: solid('#F4C542'),
-      barLow: solid('#F0443A'),
-      ripple: strokePaint('#FFFFFF', 2.5),
-      ring: strokePaint('#FFFFFF', 3),
-      rarity: [RARITY.rare.color, RARITY.epic.color, RARITY.legendary.color].map((hex) => strokePaint(hex, 2.4, 0.9)),
-      outline: silhouette('#FFFFFF'),
-      evening: solid('#FF7A2A', 0),
-      night: solid('#12123F', 0),
-      redText: tint('#FF6A5E'),
-      dust: tint('#FFF3DC'),
-      rain: strokePaint('#E2F0FF', 1.7, 0.55),
-      overcast: solid('#3A4A6A', 0),
-    },
+    paints: makePaints(),
     backgroundTiles,
     pixelRatio,
     backdrop: Skia.Color('#1A1022'),

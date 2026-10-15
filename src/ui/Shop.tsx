@@ -163,6 +163,8 @@ interface Props {
   onClose: () => void;
   purchases: Purchases;
   initialTab?: Tab;
+  /** Opens the paid offers (heroes with gems): a banner on the gems tab. */
+  onOffers?: () => void;
 }
 
 /** What the last gem purchase came to, in words. */
@@ -170,7 +172,7 @@ function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>
   return note.kind === 'paid' ? `💎 +${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
 }
 
-export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boosts' }: Props) {
+export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boosts', onOffers }: Props) {
   const t = useT();
   const [tab, setTab] = useState<Tab>(initialTab);
   const data = usePoll(gameRef, readShop, 4);
@@ -196,6 +198,11 @@ export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boo
             </Pressable>
           ))}
         </View>
+        {tab === 'gems' && onOffers && (
+          <Pressable accessibilityRole="button" onPress={onOffers} style={styles.offersBanner}>
+            <Text style={styles.offersText}>{`🔥 ${t('offer.title')} · 👑 ${t('rarity.mythic')} + 💎  ›`}</Text>
+          </Pressable>
+        )}
         {tab === 'gems' && purchases.mode === 'demo' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
         {tab === 'gems' && purchases.mode === 'off' && <Text style={styles.demo}>{t('shop.off')}</Text>}
         {purchases.note && (
@@ -306,6 +313,8 @@ const styles = StyleSheet.create({
   tabText: { color: '#E8D7F0', fontWeight: '800', fontSize: 13 },
   tabTextOn: { color: '#2A1530' },
   demo: { color: '#9CF5A8', fontSize: 12, fontWeight: '800', marginTop: 6 },
+  offersBanner: { marginTop: 8, borderRadius: 12, paddingVertical: 7, alignItems: 'center', backgroundColor: '#7A1E6A', borderWidth: 2, borderColor: '#FF4FD8' },
+  offersText: { color: '#FFFFFF', fontSize: 14, fontWeight: '900' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 8 },
   item: {
     width: 140,

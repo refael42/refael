@@ -41,8 +41,9 @@ export function capacity(s: GameState, role: Role): number {
   return ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0) + bought;
 }
 
+/** Heroes (paid offers) come on top of a job's places: they never take one. */
 export function headcount(s: GameState, role: Role): number {
-  return s.staff.filter((st) => st.role === role && !st.leaving).length + s.staff.filter((st) => st.pendingRole === role).length;
+  return s.staff.filter((st) => st.role === role && !st.leaving && !st.hero).length + s.staff.filter((st) => st.pendingRole === role).length;
 }
 
 export const hasRoom = (s: GameState, role: Role) => headcount(s, role) < capacity(s, role);
@@ -131,6 +132,8 @@ function payday(s: GameState): void {
   }
   for (const st of team) {
     st.morale = clamp01(st.morale);
+    // A hero never leaves (they were paid for) and never asks for more.
+    if (st.hero) continue;
     if (st.morale < m.quit || st.unpaidDays >= m.unpaidDaysToQuit) {
       quit(s, st, st.unpaidDays > 0);
       continue;
@@ -206,9 +209,14 @@ export function updateWorkers(s: GameState, dt: number): void {
 // ---------- manager actions ----------
 
 const worker = (s: GameState, id: number) => s.staff.find((st) => st.id === id && !st.leaving);
+/** Anyone but a hero (a hero cannot be fired, moved or trained: they are paid for, and work for free). */
+const plainWorker = (s: GameState, id: number) => {
+  const st = worker(s, id);
+  return st && !st.hero ? st : undefined;
+};
 
 export function fire(s: GameState, id: number): void {
-  const st = worker(s, id);
+  const st = plainWorker(s, id);
   if (st) leave(s, st, false);
 }
 
@@ -246,7 +254,7 @@ export function trainingPlan(st: Pick<Staff, 'wage' | 'level'>, coins: Big, step
 
 /** Paid training: `step` levels up on the spot, if the coins cover all of them. */
 export function train(s: GameState, id: number, step: BulkStep = 1): void {
-  const st = worker(s, id);
+  const st = plainWorker(s, id);
   if (!st) return;
   const plan = trainingPlan(st, s.coins, step);
   if (s.coins.lt(plan.cost)) return;
@@ -267,7 +275,7 @@ export function scold(s: GameState, id: number): void {
 
 /** Moves someone to another job (as soon as they finish what they hold), if there is room. */
 export function reassign(s: GameState, id: number, role: Role): void {
-  const st = worker(s, id);
+  const st = plainWorker(s, id);
   if (st && st.role !== role && hasRoom(s, role)) st.pendingRole = role;
 }
 

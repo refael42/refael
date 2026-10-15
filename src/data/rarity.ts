@@ -3,8 +3,11 @@
 // rarity; it lifts their stats and level, they learn faster, and they ask for more. Bigger
 // buildings draw better people: the rare kinds come more often there.
 
-export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
-export const RARITIES: readonly Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+export type Rarity = 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+/** What applicants roll. */
+export const APPLICANT_RARITIES: readonly Rarity[] = ['common', 'rare', 'epic', 'legendary'];
+/** Every rarity there is: mythic is the heroes' own (src/data/offers.ts), never an applicant's. */
+export const RARITIES: readonly Rarity[] = [...APPLICANT_RARITIES, 'mythic'];
 
 export interface RarityDef {
   /** How often applicants have it (relative) at the first diner. */
@@ -30,4 +33,5 @@ export const RARITY: Record<Rarity, RarityDef> = {
   rare: { weight: 25, perTier: 2, stats: 1, levels: 1, xp: 1.15, wage: 1.1, color: '#4FA3FF' },
   epic: { weight: 9, perTier: 1.5, stats: 2, levels: 2, xp: 1.3, wage: 1.25, color: '#B45CFF' },
   legendary: { weight: 2, perTier: 0.8, stats: 3, levels: 3, xp: 1.6, wage: 1.45, color: '#FFC233' },
+  mythic: { weight: 0, perTier: 0, stats: 4, levels: 5, xp: 2, wage: 0, color: '#FF4FD8' },
 };

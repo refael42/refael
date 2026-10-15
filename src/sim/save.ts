@@ -1,3 +1,5 @@
+import { HERO, HERO_BY_ID } from '../data/offers';
+import { newOffers } from './offers';
 import { isTableStyle } from '../data/tables';
 import type { TableSpot } from './game/build';
 import { HAIR_COLORS, HAIR_STYLE_COUNT, SKIN_TONES, type Look } from '../data/looks';
@@ -12,7 +14,7 @@ import { RANK, UPGRADE_BY_ID } from '../data/upgrades';
 import { fromSave, toSave, ZERO, type Big } from './big';
 import { capOf, costOf, isCappedTrack, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
-import type { GameState, PlacedDecor, QuestState, Review } from './game/types';
+import type { GameState, OffersState, PlacedDecor, QuestState, Review } from './game/types';
 import { questLevel } from './quests';
 import { GEMS, PURCHASE_LOG, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
@@ -27,7 +29,7 @@ import { kitchenSave, type SavedKitchen } from './game/kitchenLayout';
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
 // Changing the format = bump SAVE_VERSION and add a migration from the previous version.
 
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 /** A worker in the save: everything about them, wage as a Big string. */
 export interface WorkerData extends Omit<SavedWorker, 'wage'> {
@@ -78,6 +80,8 @@ export interface SaveData {
   reviewSeq: number;
   /** Store purchases already paid out (transaction ids), so one the store sends again pays once. */
   purchases: string[];
+  /** The paid offers: the starter's clock, packs taken, the turn's hero, the last card shown (M34). */
+  offers: OffersState;
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
   guide: SavedGuide;
   /** The kitchen as the player laid it out in build mode (owner M30; older saves: the building's own). */
@@ -151,6 +155,8 @@ export const MIGRATIONS: Readonly<Record<number, Migration>> = {
   // carpet aisles now (owner M33: "I really don't like how the tables are arranged"): the
   // tables bought stay bought, the map lays them out on the plan once (joined ones come apart).
   14: (old) => ({ ...old, tables: undefined }),
+  // v15 had no paid offers (owner M34): nothing seen or taken yet.
+  15: (old) => ({ ...old, offers: newOffers() }),
 };
 
 /** Placed decor, tables and work sites, moved with the site by `d` tiles. */
@@ -213,6 +219,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     reviews: s.reviews.map((r) => ({ ...r, bonus: toSave(r.bonus) })),
     reviewSeq: s.reviewSeq,
     purchases: [...s.purchases],
+    offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null },
     kitchen: kitchenSave(s),
   };
@@ -265,6 +272,7 @@ const index = (v: unknown, size: number, fallback: number) => (finite(v) && v >=
 function cleanWorker(raw: unknown): WorkerData | null {
   if (!isRecord(raw) || !ROLE_LIST.includes(raw.role as Role) || !bigText(raw.wage) || !isRecord(raw.stats)) return null;
   const role = raw.role as Role;
+  const hero = typeof raw.hero === 'string' ? HERO_BY_ID[raw.hero] : undefined;
   const stats = {} as WorkerData['stats'];
   for (const k of STAT_IDS) stats[k] = Math.max(STAFF.stat.min, Math.min(STAFF.stat.max, finite(raw.stats[k]) ? Math.round(raw.stats[k]) : 5));
   const look: Look = { ...ROLES[role].look };
@@ -288,6 +296,20 @@ function cleanWorker(raw: unknown): WorkerData | null {
     hiredDay: finite(raw.hiredDay) ? raw.hiredDay : 1,
     lastRaiseDay: finite(raw.lastRaiseDay) ? raw.lastRaiseDay : 1,
     trial: raw.trial === true,
+    // A hero (paid offer) keeps their own look and stays mythic.
+    ...(hero ? { hero: hero.id, look: { ...hero.look }, rarity: 'mythic' as const } : {}),
+  };
+}
+
+/** The paid offers as saved (anything odd: as if nothing was seen yet). */
+function cleanOffers(raw: unknown): OffersState {
+  if (!isRecord(raw)) return newOffers();
+  const pick = isRecord(raw.pick) && finite(raw.pick.turn) && typeof raw.pick.hero === 'string' && HERO_BY_ID[raw.pick.hero] ? { turn: Math.floor(raw.pick.turn), hero: raw.pick.hero } : null;
+  return {
+    starterSeen: finite(raw.starterSeen) && raw.starterSeen > 0 ? raw.starterSeen : 0,
+    bought: Array.isArray(raw.bought) ? raw.bought.filter((b): b is string => typeof b === 'string').slice(-31) : [],
+    pick,
+    shown: finite(raw.shown) ? Math.floor(raw.shown) : -1,
   };
 }
 
@@ -333,8 +355,8 @@ function validate(o: Record<string, unknown>): SaveData | null {
     bestCombo: count(o.bestCombo),
     delivered: count(o.delivered),
     gems: count(o.gems),
-    // Only perks the shop still sells.
-    perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk' || SHOP_BY_ID[id]?.kind === 'crew').map((id) => [id, 1])),
+    // Only perks the shop still sells, and heroes there still are.
+    perks: Object.fromEntries(Object.keys(isRecord(o.perks) ? o.perks : {}).filter((id) => SHOP_BY_ID[id]?.kind === 'perk' || SHOP_BY_ID[id]?.kind === 'crew' || (id.startsWith(HERO.perkPrefix) && HERO_BY_ID[id.slice(HERO.perkPrefix.length)])).map((id) => [id, 1])),
     works: cleanWorks(o.works, levels),
     city: count(o.city),
     trophies: count(o.trophies),
@@ -348,6 +370,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     guide: cleanGuide(o.guide),
     ...(cleanKitchen(o.kitchen) ? { kitchen: cleanKitchen(o.kitchen)! } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
+    offers: cleanOffers(o.offers),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -494,6 +517,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     reviews: save.reviews.map((r) => ({ ...r, bonus: fromSave(r.bonus) })),
     reviewSeq: save.reviewSeq,
     purchases: save.purchases,
+    offers: save.offers,
     guide: save.guide,
     kitchen: save.kitchen,
   });

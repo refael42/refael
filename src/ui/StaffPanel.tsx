@@ -6,7 +6,7 @@ import { RARITY, type Rarity } from '../data/rarity';
 import { ROLE_LIST, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { TRAITS, type TraitId } from '../data/traits';
 import { useT } from '../i18n';
-import { spriteIcon } from '../render/icons';
+import { heroIcon, spriteIcon } from '../render/icons';
 import type { SpriteName } from '../render/sprites';
 import { usePoll } from '../render/useSimulation';
 import type { Big } from '../sim/big';
@@ -33,6 +33,9 @@ interface Props {
 const ROLE_ICON: Record<Role, SpriteName> = { cook: 'hatToqueF', waiter: 'trayFull', washer: 'plateStack', host: 'seat', cleaner: 'clean', manager: 'clipboard', promoter: 'flyers', courier: 'bag', checker: 'checkBadge', packer: 'packBox', bartender: 'shaker' };
 const ICON_PX = 36;
 const roleIcon = (role: Role) => spriteIcon(ROLE_ICON[role], Math.round(ICON_PX * PixelRatio.get()));
+/** A hero (paid offer) shows their portrait and their own name; anyone else their job's icon and a name from the list. */
+const personIcon = (p: { role: Role; hero?: string }) => (p.hero ? heroIcon(p.hero, Math.round(ICON_PX * 1.4 * PixelRatio.get())) : roleIcon(p.role));
+const personName = (p: { name: number; hero?: string }, lang: 'he' | 'en', t: (k: string) => string) => (p.hero ? t(`hero.${p.hero}`) : NAMES[p.name]![lang]);
 
 interface PersonRow extends Person {
   id: number;
@@ -152,7 +155,7 @@ function RarityTag({ rarity }: { rarity: Rarity }) {
   );
 }
 
-const RARITY_ICON: Record<Rarity, string> = { common: '●', rare: '◆', epic: '✦', legendary: '★' };
+const RARITY_ICON: Record<Rarity, string> = { common: '●', rare: '◆', epic: '✦', legendary: '★', mythic: '👑' };
 /** A frame in the rarity's color (none for common). */
 const frame = (rarity: Rarity) => (rarity === 'common' ? null : { borderWidth: 2, borderColor: RARITY[rarity].color });
 
@@ -161,10 +164,10 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
   const lang = useSettings((s) => s.lang);
   return (
     <Pressable onPress={onPress} style={[styles.row, frame(p.rarity)]}>
-      <Image source={{ uri: roleIcon(p.role) }} style={styles.icon} />
+      <Image source={{ uri: personIcon(p) }} style={styles.icon} />
       <View style={styles.rowBody}>
         <View style={styles.line}>
-          <Text style={styles.name}>{NAMES[p.name]![lang]}</Text>
+          <Text style={styles.name}>{personName(p, lang, t)}</Text>
           <Text style={styles.role}>{t(`role.${p.role}`)}</Text>
           <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
           <Text style={styles.lv}>{p.level}</Text>
@@ -202,9 +205,9 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
   return (
     <View style={[styles.card, frame(p.rarity)]}>
       <View style={styles.line}>
-        <Image source={{ uri: roleIcon(p.role) }} style={styles.iconBig} />
+        <Image source={{ uri: personIcon(p) }} style={styles.iconBig} />
         <View style={styles.rowBody}>
-          <Text style={styles.cardName}>{NAMES[p.name]![lang]}</Text>
+          <Text style={styles.cardName}>{personName(p, lang, t)}</Text>
           <View style={styles.line}>
             <Text style={styles.role}>{t(`role.${p.role}`)}</Text>
             <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
@@ -247,7 +250,9 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
             <Bar value={p.morale} color="#FF6FA8" label={t('ui.morale')} />
             <Bar value={p.energy} color="#5CD66E" label={t('ui.energy')} />
           </View>
-          {p.leaving ? (
+          {p.hero ? (
+            <Text style={styles.tagPick}>{`👑 ${t('staff.heroFree')}`}</Text>
+          ) : p.leaving ? (
             <Text style={styles.tagBad}>{t('ui.leaving')}</Text>
           ) : (
             <>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { OFFER_BY_ID } from '../data/offers';
 import { SHOP_BY_ID } from '../data/shop';
 import type { GameState } from '../sim/game/types';
 import { makeSave } from '../sim/save';
@@ -11,7 +12,7 @@ const PAY_EVERY_MS = 300;
 
 export interface Purchases {
   mode: 'store' | 'demo' | 'off';
-  /** The store's price text per gem pack (local currency). */
+  /** The store's price text per gem pack and paid offer (local currency). */
   prices: Readonly<Record<string, string>>;
   /** The pack being paid for right now (one at a time). */
   busy: string | null;
@@ -48,7 +49,7 @@ export function usePurchases(gameRef: { current: GameState | null }, paused: { c
       if (!game || paused.current || owed.current.length === 0) return;
       const grants = owed.current.splice(0);
       let gems = 0;
-      for (const g of grants) if (grantPurchase(game, g.product, g.transaction)) gems += (SHOP_BY_ID[g.product] as { gems?: number } | undefined)?.gems ?? 0;
+      for (const g of grants) if (grantPurchase(game, g.product, g.transaction, g.time)) gems += ((SHOP_BY_ID[g.product] ?? OFFER_BY_ID[g.product]) as { gems?: number } | undefined)?.gems ?? 0;
       if (gems > 0 && alive) setNote({ kind: 'paid', gems });
       void writeSave(makeSave(game, Date.now())).then(() => {
         // Only what the saved game shows as paid (an unknown product is left to the store, which refunds it).

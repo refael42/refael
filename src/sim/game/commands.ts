@@ -22,6 +22,7 @@ import { claimQuest } from '../quests';
 import { buyDeal, buyShopItem, grantCoins } from '../shop';
 import { claimFestival, syncFestival } from '../festival';
 import { startBus } from './bus';
+import { markShown, seeOffers } from '../offers';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
@@ -150,6 +151,10 @@ function apply(s: GameState, cmd: Command): void {
     case 'deal':
       buyDeal(s, cmd.now);
       return;
+    case 'offers':
+      return seeOffers(s, cmd.now);
+    case 'offerShown':
+      return markShown(s, cmd.turn);
     case 'testBus':
       return startBus(s);
     case 'review':

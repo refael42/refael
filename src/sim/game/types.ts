@@ -213,6 +213,10 @@ export type Command =
   | { type: 'festivalClaim' }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
+  /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
+  | { type: 'offers'; now: number }
+  /** The offers' big card popped up by itself for this hero turn. */
+  | { type: 'offerShown'; turn: number }
   /** Buy the shop's flash deal (`now`: which deal is on). */
   | { type: 'deal'; now: number }
   /** Spin the lucky wheel (`now` = the phone's clock in ms, for the free spin), then take its prize. */
@@ -284,6 +288,17 @@ export type Job =
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */
+export interface OffersState {
+  /** When the player first saw the starter pack (phone clock, ms; 0 = not yet). */
+  starterSeen: number;
+  /** Packs taken: 'starter', or the kind and the hero turn ('hero@12', 'mega@12'). */
+  bought: string[];
+  /** The hero of a turn, picked once when the turn is first seen (so it stays put). */
+  pick: { turn: number; hero: string } | null;
+  /** The last turn whose big card popped up by itself. */
+  shown: number;
+}
+
 export interface Person {
   /** Index into NAMES. */
   name: number;
@@ -292,8 +307,10 @@ export interface Person {
   level: number;
   /** Coins per day. */
   wage: Big;
-  /** Common, rare, epic or legendary (src/data/rarity.ts). */
+  /** Common, rare, epic or legendary (src/data/rarity.ts); mythic for a hero. */
   rarity: Rarity;
+  /** A hero from a paid offer (src/data/offers.ts): their id. No wage, never leaves. */
+  hero?: string;
 }
 
 export interface Staff extends CharacterView, Person {
@@ -524,6 +541,8 @@ export interface GameState {
   guide: GuideState;
   /** Store purchases already paid out (their transaction ids, the latest few): a purchase the store reports twice pays once. */
   purchases: string[];
+  /** The paid offers (src/sim/offers.ts). */
+  offers: OffersState;
   /** Strollers across the road counted apart from everything else (their ids, their dice). */
   ambientSeq: number;
   /** When the next delivery order comes in (sim time). */

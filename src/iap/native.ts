@@ -1,5 +1,6 @@
 import { requireOptionalNativeModule } from 'expo';
 import type { Product, Purchase } from 'expo-iap';
+import { OFFERS } from '../data/offers';
 import { GEM_PACKS } from '../data/shop';
 import type { BuyResult, Store, StoreGrant } from './types';
 
@@ -48,7 +49,7 @@ export function nativeStore(): Store | null {
       const take = (p: Purchase) => {
         if (p.purchaseState === 'pending') return answer(p.productId, 'pending');
         if (p.purchaseState !== 'purchased') return;
-        const grant: StoreGrant = { product: p.productId, transaction: txOf(p) };
+        const grant: StoreGrant = { product: p.productId, transaction: txOf(p), time: Number(p.transactionDate) || Date.now() };
         open.set(grant.transaction, p);
         onGrant(grant);
         answer(p.productId, 'ok');
@@ -58,7 +59,7 @@ export function nativeStore(): Store | null {
         iap.purchaseErrorListener((e) => answer(e.productId, e.code === iap.ErrorCode.UserCancelled ? 'cancelled' : e.code === iap.ErrorCode.Pending || e.code === iap.ErrorCode.DeferredPayment ? 'pending' : 'failed')),
       ];
       await iap.initConnection();
-      const products = ((await iap.fetchProducts({ skus: GEM_PACKS.map((g) => g.id), type: 'in-app' })) ?? []) as Product[];
+      const products = ((await iap.fetchProducts({ skus: [...GEM_PACKS.map((g) => g.id), ...OFFERS.map((o) => o.id)], type: 'in-app' })) ?? []) as Product[];
       for (const p of products) prices[p.id] = p.displayPrice;
       // Paid before but never finished (the app closed in between): pay them out now.
       for (const p of (await iap.getAvailablePurchases()) ?? []) take(p);

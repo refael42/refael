@@ -282,18 +282,35 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     P.ring.setAlphaf(1);
   }
   if (rarity > 0) {
-    // A rare, epic or legendary worker (or applicant): a colored ring at their feet; the
-    // legendary ones also glow and glitter.
+    // A rare, epic, legendary or mythic worker (or applicant): a colored ring at their feet;
+    // the legendary and mythic ones also glow and glitter.
     const ring = P.rarity[rarity - 1]!;
     ring.setAlphaf(0.55 + Math.sin(t * 3 + phase) * 0.25);
     c.save();
     c.scale(1, 0.5);
     c.drawCircle(0, 0, 12 + rarity, ring);
     c.restore();
-    if (rarity === 3 && detail) {
-      sprFade(c, A, S.glowHalo, 0, -14, 0.9, 0.35 + Math.sin(t * 3.4 + phase) * 0.15);
+    if (rarity >= 3 && detail) {
+      sprFade(c, A, S.glowHalo, 0, -14, rarity === 4 ? 1.25 : 0.9, 0.35 + Math.sin(t * 3.4 + phase) * 0.15);
       const sp = fract(t * 0.8 + phase);
       sprFade(c, A, S.sparkle, Math.sin(phase * 7 + Math.floor(t * 0.8 + phase)) * 12, -12 - sp * 34, 0.5 + sp * 0.3, 1 - sp);
+    }
+    if (rarity === 4) {
+      // A hero (src/data/offers.ts): a second, gold ring turning the other way, and two sparkles
+      // circling them, so a paid hero stands out at any zoom.
+      const gold = P.rarity[2]!;
+      gold.setAlphaf(0.7 + Math.sin(t * 2.2 + phase) * 0.2);
+      c.save();
+      c.scale(1, 0.5);
+      c.drawCircle(0, 0, 19 + Math.sin(t * 2.6 + phase) * 1.2, gold);
+      c.restore();
+      gold.setAlphaf(0.9);
+      if (detail) {
+        for (let k = 0; k < 2; k++) {
+          const a = t * 1.7 + phase + k * Math.PI;
+          sprFade(c, A, S.sparkle, Math.cos(a) * 17, -20 + Math.sin(a) * 8, 0.45, 0.6 + Math.sin(a) * 0.4);
+        }
+      }
     }
   }
   if (showLegs) {

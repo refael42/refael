@@ -1,3 +1,4 @@
+import { heroesJoin } from '../offers';
 import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { nextTableSpot } from './build';
@@ -72,6 +73,8 @@ export function stepGame(s: GameState, dt: number): void {
   updateBus(s);
   updateWalkers(s, dt);
   updateCrew(s, dt);
+  // Heroes the player owns walk in wherever they are missing (a new branch, a new building).
+  if (s.tick % 60 === 0) heroesJoin(s);
   for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants, ...s.crew]) tickTimers(c, dt);
   pruneEvents(s);
 }

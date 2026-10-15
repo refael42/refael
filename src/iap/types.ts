@@ -7,6 +7,8 @@
 export interface StoreGrant {
   product: string;
   transaction: string;
+  /** When it was bought (ms): a paid offer gives the hero of that moment's turn. */
+  time: number;
 }
 
 /** How a tap on "buy" ended. The gems themselves come through `onGrant`, never from here. */

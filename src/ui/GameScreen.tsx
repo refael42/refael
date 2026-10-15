@@ -48,6 +48,7 @@ import { RushButton } from './RushButton';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { DealChip, GemPill, Shop } from './Shop';
 import { FestivalChip, FestivalPanel, useFestivalClock } from './Festival';
+import { OfferChip, OffersPanel, readOfferPopup, useOffersClock } from './Offers';
 import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
@@ -319,6 +320,17 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const editionCard = edition && edition.id !== shownEdition && edition.id >= 0 ? edition : null;
   const [festival, setFestival] = useState(false);
   useFestivalClock(command, true);
+  // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
+  // hero turn, when nothing else is on screen.
+  const [offers, setOffers] = useState(false);
+  useOffersClock(command, true);
+  const offerPopup = usePoll(gameRef, readOfferPopup, 0.5);
+  const anythingOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || editionCard || offers);
+  useEffect(() => {
+    if (offerPopup === null || anythingOpen || onboarding || welcome || newsDue || tutorial < TUTORIAL_STEPS.length) return;
+    command({ type: 'offerShown', turn: offerPopup });
+    setOffers(true);
+  }, [offerPopup, anythingOpen, onboarding, welcome, newsDue, tutorial, command]);
   // Today's gift opens by itself once, when the first screens are done (not during the tutorial).
   const dailyShown = useRef(false);
   useEffect(() => {
@@ -499,6 +511,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!onboarding && (
         <View style={[styles.sideRow, { right: Math.max(0, width - hud.right) - 6, top: hud.top + HUD.height + 8 }]} pointerEvents="box-none">
           {/* Round buttons in a row under the rating (owner M33: a calmer screen); each opens its page. */}
+          {tutorial >= TUTORIAL_STEPS.length && <OfferChip gameRef={gameRef} onPress={() => setOffers(true)} style={styles.inColumn} />}
           {tutorial >= TUTORIAL_STEPS.length && <FestivalChip gameRef={gameRef} onPress={() => setFestival(true)} style={styles.inColumn} />}
           {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
           <ReviewsChip gameRef={gameRef} onPress={() => setReviews(true)} style={styles.inColumn} />
@@ -524,10 +537,22 @@ function GameRunner({ boot }: { boot: GameBoot }) {
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
-      {shop && <Shop gameRef={gameRef} onCommand={command} onClose={() => setShop(false)} purchases={purchases} />}
+      {shop && (
+        <Shop
+          gameRef={gameRef}
+          onCommand={command}
+          onClose={() => setShop(false)}
+          purchases={purchases}
+          onOffers={() => {
+            setShop(false);
+            setOffers(true);
+          }}
+        />
+      )}
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {offers && <OffersPanel gameRef={gameRef} onClose={() => setOffers(false)} purchases={purchases} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
       {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} onClose={() => setShownEdition(editionCard.id)} />}

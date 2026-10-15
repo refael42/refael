@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
-import { COMMON_FIRST_HIRES, RARITIES, RARITY, type Rarity } from '../src/data/rarity';
+import { APPLICANT_RARITIES as RARITIES, COMMON_FIRST_HIRES, RARITY, type Rarity } from '../src/data/rarity';
 import { STAT_IDS } from '../src/data/staff';
 import { createGame } from '../src/sim/game/create';
 import { generatePerson, rollRarity } from '../src/sim/game/people';

@@ -21,6 +21,7 @@ import { restoreKitchen, type SavedKitchen } from './kitchenLayout';
 import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
 import { spawnFarWalker, spawnPedestrian } from './walkers';
 import { makeCrew } from './crew';
+import { newOffers } from '../offers';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
 const FIRST_ARRIVAL_SECONDS = 1.5;
@@ -428,6 +429,7 @@ export function workerOf(st: Staff): SavedWorker {
     hiredDay: st.hiredDay,
     lastRaiseDay: st.lastRaiseDay,
     trial: st.trial,
+    ...(st.hero ? { hero: st.hero } : {}),
   };
 }
 
@@ -474,6 +476,8 @@ export interface GameSetup {
   reviewSeq?: number;
   /** Store purchases already paid out (transaction ids). */
   purchases?: readonly string[];
+  /** The paid offers seen and taken. */
+  offers?: GameState['offers'];
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -572,6 +576,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     festival: setup.festival ? { ...setup.festival, trophies: [...setup.festival.trophies] } : newFestival(),
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
     purchases: [...(setup.purchases ?? [])],
+    offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),
     guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),
     bus: null,
     nextBus: 0,

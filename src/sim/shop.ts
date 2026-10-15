@@ -1,4 +1,6 @@
 import { FLASH } from '../data/events';
+import { OFFER_BY_ID } from '../data/offers';
+import { grantOffer } from './offers';
 import { NAMES } from '../data/names';
 import { GEMS, PURCHASE_LOG, SHOP_BY_ID, STAR, WARP_MIN_PER_SECOND, type ShopItem } from '../data/shop';
 import { ROLES, STAT_IDS, type StatId } from '../data/staff';
@@ -156,11 +158,13 @@ export function addGems(s: GameState, amount: number): void {
 }
 
 /**
- * A gem pack paid for in the store. Stores may report one purchase more than once (the app was
+ * A gem pack (or a paid offer: `time` = when it was bought) paid for in the store. Stores may report one purchase more than once (the app was
  * closed before it was confirmed, a restart): it pays once per transaction id. Returns whether
  * gems were added.
  */
-export function grantPurchase(s: GameState, product: string, transaction: string): boolean {
+export function grantPurchase(s: GameState, product: string, transaction: string, time = 0): boolean {
+  // A paid offer (a hero with gems): src/sim/offers.ts.
+  if (OFFER_BY_ID[product]) return grantOffer(s, product, transaction, time);
   const item = SHOP_BY_ID[product];
   if (!item || item.kind !== 'gems' || !transaction || s.purchases.includes(transaction)) return false;
   s.purchases = [...s.purchases.slice(-(PURCHASE_LOG - 1)), transaction];
