@@ -215,6 +215,16 @@ function Card({ card, canDecide }: { card: EventCard; canDecide: boolean }) {
   );
 }
 
+/** List lines in the order they were written. */
+function inMessageOrder(cards: EventCard[]): EventCard[] {
+  const text = flat(cards[0].text);
+  const at = (c: EventCard) => {
+    const i = text.indexOf(flat(c.event.quote));
+    return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+  };
+  return [...cards].sort((a, b) => at(a) - at(b));
+}
+
 export function EventCards({ cards, canDecide }: { cards: EventCard[]; canDecide: boolean }) {
   // lines of one message that need no task picking are shown together
   const groups = new Map<string, EventCard[]>();
@@ -224,7 +234,7 @@ export function EventCards({ cards, canDecide }: { cards: EventCard[]; canDecide
   }
   return (
     <div className="flex flex-col gap-3">
-      {[...groups.values()].map((g) =>
+      {[...groups.values()].map((g) => (g.length > 1 ? inMessageOrder(g) : g)).map((g) =>
         g.length > 1 ? <ListCard key={g[0].event.id} cards={g} canDecide={canDecide} /> : <Card key={g[0].event.id} card={g[0]} canDecide={canDecide} />,
       )}
     </div>
