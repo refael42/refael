@@ -100,6 +100,7 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
   audit_log: () => ({ from_value: null, to_value: null, actor_profile_id: null, meta: null, project_id: null }),
   sources: () => ({ is_group: false, speakers: {}, since: null, last_import_at: null, created_by: null }),
   source_items: () => ({ author: null, author_profile_id: null, kind: "text", text: null, media_url: null, media_name: null, status: "new" }),
+  project_events: () => ({ source_item_id: null, quote: null, extracted: {}, resolved: {}, confidence: 0.5, status: "proposed", note: null, decided_by: null, decided_at: null }),
 };
 
 const UNIQUE: { [K in TableName]?: Array<Array<keyof Tables[K] & string>> } = {
@@ -145,6 +146,7 @@ export function emptyData(): MemoryData {
     wa_inbound: [],
     sources: [],
     source_items: [],
+    project_events: [],
   };
 }
 
