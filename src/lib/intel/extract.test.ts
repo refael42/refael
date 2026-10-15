@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { contractorId, sid } from "@/lib/seed/demo";
 import { demoStore, NOW } from "@/test/fixtures";
-import { areasIn, clauses, dateFrom, extractEvents, matchTasks, type ProjectFacts, type Speaker } from "./extract";
+import { areasIn, clauses, dateFrom, extractEvents, listItems, matchTasks, type ProjectFacts, type Speaker } from "./extract";
+import { Learner } from "./learn";
 
 function factsOf(store = demoStore()): ProjectFacts {
   const d = store.data;
@@ -97,5 +98,57 @@ describe("real chat noise (Imber 16 export)", () => {
   it("still reads real updates", () => {
     expect(extractEvents("זה לא תקין, יש סדק בריצוף בדירה 9", opts(ido, f))[0].type).toBe("defect");
     expect(extractEvents("בדקתי את החשמל בדירה 14, תקין", opts(ido, f))[0].type).toBe("inspected_ok");
+  });
+});
+
+describe("punch lists and learning", () => {
+  const f = factsOf();
+  const ido: Speaker = { name: "עידו", role: "pm", contractorId: null };
+  const LIST = [
+    "בוקר טוב עז",
+    "ביקשת רשימה למג'ד:",
+    "",
+    "דירה 3",
+    "* השירותים נוזלים לקומה מתחת",
+    "*אני אתאם ואעדכן בהתאם*",
+    "",
+    "דירה 14",
+    "* ספרינקלרים לסיים + חבק בממ\"ד",
+    "* תיקון צנרת מזגן ממ\"ד",
+    "* דירה 15: ניקיון ניקוזים",
+    "* יש תמונה אם צריך*",
+    "",
+    "שטחים משותפים",
+    "* בדיקת צנרת כיבוי אש",
+    "<This message was edited>",
+  ].join("\n");
+  const name = (id: string) => f.areas.find((a) => a.id === id)!.name;
+
+  it("splits a list under apartment headings into one task per line, in its apartment", () => {
+    const events = extractEvents(LIST, opts(ido, f));
+    expect(events.map((e) => [e.type, e.areaIds.map(name).join(), e.quote])).toEqual([
+      ["new_task", "דירה 3", "השירותים נוזלים לקומה מתחת"],
+      ["new_task", "דירה 14", 'ספרינקלרים לסיים + חבק בממד'],
+      ["new_task", "דירה 14", 'תיקון צנרת מזגן ממד'],
+      ["new_task", "דירה 15", "ניקיון ניקוזים"],
+    ]);
+  });
+
+  it("does not take two plain reports for a list", () => {
+    expect(listItems("סיימתי דירה 14\nסיימתי דירה 15", f.areas)).toBeNull();
+  });
+
+  it("uses what the PM approved or dismissed", () => {
+    const yossi = f.contractors.find((c) => c.id === contractorId("yossi"))!;
+    const ctx = { ...opts(ido, f), counterpart: yossi };
+    // the rules miss this one…
+    expect(extractEvents("המשקוף בדירה 15 זז ממקומו לגמרי", ctx)).toEqual([]);
+    // …until the PM marked a similar message by hand
+    const learner = new Learner([{ id: "m1", type: "defect", text: "המשקוף בדירה 9 זז ממקומו", positive: true }]);
+    const [e] = extractEvents("המשקוף בדירה 15 זז ממקומו לגמרי", { ...ctx, learner });
+    expect(e).toMatchObject({ type: "defect", learnedFrom: "m1" });
+    // a rule hit that reads like something dismissed is dropped
+    const no = new Learner([{ id: "d1", type: "new_task", text: "אני רוצה להזמין דלת ומשקוף לממד", positive: false }]);
+    expect(extractEvents("אני רוצה להזמין דלת ומשקוף לממ״ד דירה 15", { ...ctx, learner: no })).toEqual([]);
   });
 });

@@ -61,6 +61,8 @@ function Card({ card, canDecide }: { card: EventCard; canDecide: boolean }) {
       </div>
 
       {needsInfo && e.note && <p className="text-sm text-amber-800 dark:text-amber-300">{e.note}</p>}
+      {e.extracted?.engine === "learned" && <p className="text-xs text-muted-foreground">{t.intel.learned}</p>}
+      {e.extracted?.engine === "manual" && <p className="text-xs text-muted-foreground">{t.intel.manual}</p>}
 
       {card.tasks.length > 0 && (
         <div className="flex flex-col gap-1">
