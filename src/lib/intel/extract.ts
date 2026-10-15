@@ -70,6 +70,9 @@ const RX = {
   // "אחרי שהוא סיים…", "אם לא נעשה מחר…", "כשתסיים…" describe a condition, not a fact
   conditional: /(^|\s)(אם|אחרי ש|לאחר ש|ברגע ש|לפני ש|עד ש|כש|כאשר|במידה ו|ברגע שהוא|אחרי שהם)/,
   // WhatsApp markers that are not part of what was said
+  openCondition: /(^|\s)(אם|במידה ו?|כש|ברגע ש|אחרי ש|לפני ש)\s*$/,
+  money: words(["תשלום", "בתשלום", "לשלם", "שילמת", "שילמו", "כסף", "שקל", "שקלים", "ש״ח", "₪", "חשבונית", "משכורת", "מקדמה"], "[ובל]?"),
+  ask: /(^|\s)(תעדכן|תעדכני|תגיד לי|תודיע|תבדוק|תשאל|מה|מי|איפה|מתי|למה|כמה|האם)(\s|$)/,
   marker: /<\s*(this message was edited|ההודעה נערכה|הודעה זו נערכה)\s*>/gi,
 };
 
@@ -149,7 +152,9 @@ export function clauses(text: string): string[] {
   for (const line of text.split(/\n+/)) {
     const l = line.trim();
     if (!l) continue;
-    if (parts.length && RX.except.test(l.slice(0, 8))) parts[parts.length - 1] += ` ${l}`;
+    const prev = parts[parts.length - 1];
+    // "חוץ מ…" belongs to the line above; so does a line that finishes an "אם…"
+    if (prev && (RX.except.test(l.slice(0, 8)) || RX.openCondition.test(prev))) parts[parts.length - 1] += ` ${l}`;
     else parts.push(...l.split(/(?<=[.!])\s+/).map((s) => s.trim()).filter(Boolean));
   }
   return parts;
@@ -157,16 +162,16 @@ export function clauses(text: string): string[] {
 
 function typeOf(c: string, speaker: Speaker): EventType | null {
   if (/\?/.test(c) || c.length > MAX_CLAUSE) return null;
-  if (RX.conditional.test(c) && !RX.except.test(c)) {
-    // a condition can still carry a real problem ("אם לא יגיע החומר…" is not one)
-    if (RX.defect.test(c)) return "defect";
-    return null;
-  }
+  // "אם…", "אחרי ש…" talk about what may happen, not about what happened
+  if (RX.conditional.test(c) && !RX.except.test(c)) return null;
+  // money between people is not a site update; asking "מה חסר" is not a report
+  if (RX.money.test(c) || RX.ask.test(c)) return null;
   if (RX.defect.test(c)) return "defect";
   if (RX.inspected.test(c) && speaker.role !== "contractor") return "inspected_ok";
   if (RX.approval.test(c)) return "approval_missing";
-  if (RX.material.test(c)) return "material_missing";
-  if (RX.blocker.test(c)) return "blocker";
+  const short = c.split(/\s+/).length < 3;
+  if (RX.material.test(c) && !short) return "material_missing";
+  if (RX.blocker.test(c) && !short) return "blocker";
   if (RX.done.test(c)) return "reported_done";
   if (RX.started.test(c)) return "started";
   if (RX.future.test(c) && RX.commitWord.test(c)) return "commitment";

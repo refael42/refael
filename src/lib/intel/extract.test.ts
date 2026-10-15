@@ -74,6 +74,14 @@ describe("real chat noise (Imber 16 export)", () => {
     none("עז, בדקתי את מה שסיפרת לי היום ".repeat(30));
   });
 
+  it("skips money, requests to update, and a condition that ends the line above", () => {
+    const toYossi = (text: string) => expect(extractEvents(text, { ...opts(ido, f), counterpart: f.contractors.find((c) => c.id === contractorId("yossi"))! })).toEqual([]);
+    toYossi("חסר. לי בתשלום הקודם 130 אין לי מאיפה לשלם החודש הזה");
+    toYossi("אני אביא לאתר היום את הפלאנגים של הממ״ד 8 צול\n\nתעדכן אותי מה חסר לך");
+    toYossi("המסגר מגיע היום. אשמח שיתחיל עם הסולמות, זה הדחוף ביותר. אם\nחסר לו חומר או שהוא צריך משהו, שידבר איתי ישירות.");
+    toYossi("אני אבוא לצלם קודם, נראה אם צריך לתקן בכלל");
+  });
+
   it("still reads real updates", () => {
     expect(extractEvents("זה לא תקין, יש סדק בריצוף בדירה 9", opts(ido, f))[0].type).toBe("defect");
     expect(extractEvents("בדקתי את החשמל בדירה 14, תקין", opts(ido, f))[0].type).toBe("inspected_ok");
