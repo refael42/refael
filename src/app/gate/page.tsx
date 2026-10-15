@@ -1,4 +1,6 @@
 import { Lock } from "lucide-react";
+import Link from "next/link";
+import { t } from "@/lib/i18n";
 import { GateForm } from "./gate-form";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +15,9 @@ export default function GatePage({ searchParams }: { searchParams: { next?: stri
         </div>
       </div>
       <GateForm next={searchParams.next ?? "/"} />
+      <Link href="/auth/link" className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline">
+        {t.auth.haveCode}
+      </Link>
     </main>
   );
 }

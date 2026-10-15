@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contractorProfileId } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
-import { createLoginLink, type LinkAuth } from "./login-link";
+import { accountForPhone, createLoginLink, createOwnCode, type LinkAuth } from "./login-link";
 
 /** In-memory stand-in for the Supabase Auth admin API. */
 function fakeAuth(users: Record<string, string | null> = {}): LinkAuth & { users: Record<string, string | null> } {
@@ -16,7 +16,7 @@ function fakeAuth(users: Record<string, string | null> = {}): LinkAuth & { users
     async magicLink(email) {
       const id = Object.keys(users).find((k) => users[k] === email) ?? `auth-${email}`;
       users[id] = email;
-      return { userId: id, hashedToken: `tok-${id}` };
+      return { userId: id, hashedToken: `tok-${id}`, otp: "123456" };
     },
   };
 }
@@ -50,5 +50,19 @@ describe("login link", () => {
     await expect(createLoginLink(pm, fakeAuth(), stranger.id)).rejects.toThrow();
     const viewer = await ctxFor("viewer", store);
     await expect(createLoginLink(viewer, fakeAuth(), contractorProfileId("paz"))).rejects.toThrow();
+  });
+
+  it("gives a 6-digit code with the link, and anyone a code for themselves; a phone finds the account", async () => {
+    const store = demoStore();
+    const pm = await ctxFor("pm", store);
+    const auth = fakeAuth();
+    const id = contractorProfileId("shor");
+    expect((await createLoginLink(pm, auth, id)).code).toBe("123456");
+    const shor = await ctxFor("shor", store);
+    const own = await createOwnCode(shor, auth);
+    expect(own.code).toBe("123456");
+    const phone = (await store.byId("profiles", id))!.phone!;
+    expect(await accountForPhone({ store }, auth, phone.replace("+972", "0"))).toBe("shor@siteflow.demo");
+    expect(await accountForPhone({ store }, auth, "050-0000000")).toBeNull();
   });
 });

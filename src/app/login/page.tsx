@@ -1,4 +1,5 @@
 import { HardHat } from "lucide-react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { demoLogin, resetDemo } from "@/app/actions/auth";
 import { LoginForm } from "@/components/auth/login-form";
@@ -35,7 +36,16 @@ export default async function LoginPage({ searchParams }: { searchParams: { noac
       )}
       {searchParams.reset && <p className="rounded-md bg-emerald-100 p-3 text-sm text-emerald-900">{t.auth.resetDone}</p>}
 
-      {isSupabaseMode() ? <LoginForm /> : <DemoPicker />}
+      {isSupabaseMode() ? (
+        <>
+          <LoginForm />
+          <Link href="/auth/link" className="text-center text-sm text-muted-foreground underline-offset-4 hover:underline">
+            {t.auth.haveCode}
+          </Link>
+        </>
+      ) : (
+        <DemoPicker />
+      )}
     </main>
   );
 }
