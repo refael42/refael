@@ -278,6 +278,8 @@ export interface CompletionReport {
   created_at: ISODateTime;
 }
 
+export type PlanDiscipline = "architecture" | "structure" | "electrical" | "plumbing" | "hvac" | "fire" | "landscape" | "other";
+
 export interface PlanFile {
   id: UUID;
   project_id: UUID;
@@ -286,6 +288,24 @@ export interface PlanFile {
   floor_area_id: UUID | null;
   created_by: UUID | null;
   created_at: ISODateTime;
+  discipline: PlanDiscipline | null;
+  /** sheet number from the title block ("A-101") */
+  sheet: string | null;
+  /** the designer's revision mark ("ג", "C", "3") */
+  revision: string | null;
+  /** 1, 2, 3… in this project, along the supersedes chain */
+  version: number;
+  /** the version this one replaced */
+  supersedes_id: UUID | null;
+  /** false once a newer version was uploaded */
+  is_current: boolean;
+  /** areas the plan covers (apartments, floors, common areas) */
+  area_ids: UUID[];
+  page_count: number | null;
+  /** text read from the PDF (search, "what changed") */
+  text_index: string | null;
+  /** what the PM wrote about this version */
+  change_note: string | null;
 }
 
 export interface PlanPin {

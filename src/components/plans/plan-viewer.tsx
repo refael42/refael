@@ -66,7 +66,7 @@ export function PlanViewer({
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem-4.5rem)] flex-col lg:h-[calc(100dvh-3.5rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b p-2">
         <Button variant="outline" size="icon" disabled={page <= 1} onClick={() => setPage(page - 1)} aria-label={t.plans.prev}>
           <ChevronRight />
