@@ -36,7 +36,8 @@ export function capacity(s: GameState, role: Role): number {
   // One dishwasher per sink.
   if (role === 'washer') return ROLES.washer.cap + s.map.extraSinks.length;
   // "More couriers" (the fleet upgrade) adds places on top of the building's.
-  const bought = role === 'courier' ? s.mods.couriers : 0;
+  // The delivery hub's counters add packers' posts (src/data/delivery.ts HUB).
+  const bought = role === 'courier' ? s.mods.couriers : role === 'packer' && s.map.packing ? Math.min(s.mods.packers, s.map.packing.spots.length - 3) : 0;
   return ROLES[role].cap + (TIERS[s.map.tier]?.staff[role] ?? 0) + bought;
 }
 

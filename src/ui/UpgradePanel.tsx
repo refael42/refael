@@ -6,6 +6,7 @@ import { TIERS } from '../data/buildings';
 import { mapForTier, type MapDef } from '../data/maps';
 import { ROLES } from '../data/staff';
 import { CATEGORIES, COUNT_STATS, EXPAND, RANK, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
+import { HUB, hubStage } from '../data/delivery';
 import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
@@ -196,6 +197,7 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
           </View>
         )}
         {def.unlocksDish !== undefined && level === 0 && <Text style={styles.note}>{t('ui.unlocksDish')}</Text>}
+        {def.id === 'packStation' && <HubLine level={level} />}
         {def.id === RANK.id && <Text style={styles.note}>{`${t('ui.rankOpens')} ${levelCap(wallet.levels) + RANK.levels}`}</Text>}
         {def.milestone && (
           <View style={styles.line}>
@@ -243,6 +245,22 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
         <BuyButton cost={plan.cost} affordable={plan.status === 'ok'} count={plan.count} seconds={plan.seconds} onPress={() => onBuy(def.id, bulk)} />
       )}
     </View>
+  );
+}
+
+/**
+ * The delivery hub on the packing station's row (owner M30): how many of its pieces are open,
+ * and the next one, at which level, and what it brings.
+ */
+function HubLine({ level }: { level: number }) {
+  const t = useT();
+  const open = hubStage(level);
+  const next = HUB[open];
+  return (
+    <Text style={styles.hub} numberOfLines={2}>
+      {`🚚 ${t('hub.title')} ${open}/${HUB.length}`}
+      {next ? ` · ${t('ui.lv')} ${next.level}: ${t(next.name)} (${t(next.gives)})` : ` · ${t('hub.done')}`}
+    </Text>
   );
 }
 
@@ -419,6 +437,7 @@ const styles = StyleSheet.create({
   barFill: { height: 7, backgroundColor: gold },
   milestone: { color: '#E8C76A', fontSize: 11, fontWeight: '800' },
   expands: { color: '#FFB347', fontSize: 11, fontWeight: '900' },
+  hub: { color: '#FFB347', fontSize: 11, fontWeight: '800', marginTop: 2 },
   buy: {
     minWidth: 84,
     height: 44,

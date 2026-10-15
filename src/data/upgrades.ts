@@ -65,7 +65,7 @@ export interface UpgradeDef {
  * Milestone levels: the listed ones, then one every `every` levels forever. Each gives a big
  * multiplier and (up to `visualTiers`) a new look for the item.
  */
-export const MILESTONES = { levels: [10, 25, 50, 75, 100], every: 50, visualTiers: 5 } as const;
+export const MILESTONES = { levels: [10, 25, 50, 75, 100], every: 50, visualTiers: 7 } as const;
 
 /**
  * Looks by milestone tier: 1-3 new looks, 4 a golden aura, and at 5 (level 100) the stations

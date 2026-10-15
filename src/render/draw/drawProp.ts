@@ -11,6 +11,7 @@ import { BUS } from '../../data/events';
 import { DELIVERY } from '../../data/delivery';
 import { SEAT_LAYOUTS, TOP_MIDDLE } from '../../data/tables';
 import { drawBack, drawStation } from './drawKitchen';
+import { drawHub } from './drawHub';
 
 const EXPAND_TIER = EXPAND.tier;
 const BUS_DRIVE = BUS.driveSeconds;
@@ -39,6 +40,17 @@ export interface PropLooks {
 const AURA_TIER = 4;
 
 /** The sprite for a milestone tier: the last of the four looks, or the expanded model from level 100. */
+/**
+ * From these looks on an item also gets a finish (owner M30: "more design levels"): pearl and
+ * rose gold (level 75, and the bigger model at 100), royal purple and gold (150), diamond (200).
+ */
+const FINISH_TIER = 4;
+export function bodyPaint(A: RenderAssets, tier: number): SkPaint {
+  'worklet';
+  if (tier < FINISH_TIER) return A.paints.plain;
+  return A.paints.finish[tier >= FINISH_TIER + 3 ? 2 : tier >= FINISH_TIER + 2 ? 1 : 0]!;
+}
+
 function look(L: number[], tier: number): number {
   'worklet';
   if (tier >= EXPAND_TIER && L.length > LOOKS) return L[LOOKS]!;
@@ -153,7 +165,7 @@ function hint(c: SkCanvas, A: RenderAssets, x: number, y: number, icon: number, 
 function drawSink(c: SkCanvas, A: RenderAssets, active: boolean, t: number, tier: number): void {
   'worklet';
   const S = A.S;
-  spr(c, A, look(A.L.look.sink, tier), 0, 0, A.paints.plain);
+  spr(c, A, look(A.L.look.sink, tier), 0, 0, bodyPaint(A, tier));
   if (!active) return;
   const x = ox(0, 0);
   const y = oy(0, 0, 23);
@@ -178,7 +190,7 @@ function drawTable(c: SkCanvas, A: RenderAssets, variant: number, level: number,
   'worklet';
   const S = A.S;
   const plain = A.paints.plain;
-  spr(c, A, tableSprite(A, style, full, back, tier), 0, 0, plain);
+  spr(c, A, tableSprite(A, style, full, back, tier), 0, 0, bodyPaint(A, tier));
   const top = oy(0, 0, 17);
   // `drinks` packs each chair's drink (+1, 0 = none) in base 8: it stands where the water glass would.
   let seatNo = 0;
@@ -248,6 +260,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     c.scale(1 - k, 1 + k);
   }
   const base = baseSprite(A, kind, variant, tier, active, style);
+  const body = bodyPaint(A, tier);
   // Chairs come by the dozen right next to their glowing table: they keep no aura of their own.
   const seat = kind === PropKind.Chair || kind === PropKind.Booth;
   const crowd = seat || kind === PropKind.Table || kind === PropKind.TableBack;
@@ -265,11 +278,12 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   if (kind === PropKind.Stove) {
     // A kitchen station (variant: its kind): the fire and the food while a dish cooks, the plate being dressed.
     const dish = d[o + PF.extra]! - 1;
-    drawStation(c, A, variant % 10, tier, active, d[o + PF.level]! === 1, dish, d[o + PF.progress]!, dish >= 0 ? (looks.dishTiers[dish] ?? 0) : 0, t, seed);
+    drawStation(c, A, variant % 10, tier, active, d[o + PF.level]! === 1, dish, d[o + PF.progress]!, dish >= 0 ? (looks.dishTiers[dish] ?? 0) : 0, t, seed, body);
   } else if (kind === PropKind.Prep) {
     spr(c, A, A.L.prep[variant] ?? A.S.plateStack, 0, 0, plain);
     drawBack(c, A, variant, t, seed);
   }
+  else if (kind === PropKind.HubPiece) drawHub(c, A, variant, d[o + PF.level]! === 1, active, d[o + PF.progress]!, d[o + PF.extra]!, d[o + PF.since]!, t, seed);
   else if (kind === PropKind.GuidePlaque) {
     // The guide's plaque: a glint now and then, a soft glow for the stars.
     if (variant > 0) sprFade(c, A, S.glowHalo, 0, -40, 0.7, 0.35 + Math.sin(t * 2) * 0.12);
@@ -279,9 +293,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   else if (kind === PropKind.Sink) drawSink(c, A, active, t, tier);
   else if (kind === PropKind.Table || kind === PropKind.TableBack) {
     drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, d[o + PF.bubble]!, t, tier, looks.dishTiers, active, looks.detail, style, kind === PropKind.TableBack, d[o + PF.extra]!);
-  } else if (kind === PropKind.Booth || kind === PropKind.BarStool) spr(c, A, base, 0, 0, plain);
+  } else if (kind === PropKind.Booth || kind === PropKind.BarStool) spr(c, A, base, 0, 0, body);
   else if (kind === PropKind.BarCounter) {
-    spr(c, A, base, 0, 0, plain);
+    spr(c, A, base, 0, 0, body);
     // Where ready drinks wait for the waiters: a rubber mat.
     if (variant >= 10) spr(c, A, S.barMat, 0, 0, plain);
   } else if (kind === PropKind.Drink) {
@@ -296,7 +310,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   }
   else if (kind === PropKind.Chair) {
     // 0: the first chair; 1: the seat of the chair opposite; 2: its backrest (drawn over the sitter).
-    spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, plain);
+    spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, body);
   }
   else if (kind === PropKind.Pass) {
     // The pass under its brass heat lamps (owner M29: "Michelin level").
@@ -325,11 +339,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const age = t - d[o + PF.since]!;
     const pop = age < 0 ? 0 : age < 0.4 ? easeOutBack(clamp01(age / 0.4)) : 1;
     if (pop > 0) sprXf(c, A, variant === 1 ? S.scaffoldY : S.scaffoldX, 0, 0, 0, 1, pop, plain);
-  } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, plain);
-  else if (kind === PropKind.Flowers) sprXf(c, A, look(A.L.look.flowers, tier), 0, 0, Math.sin(t * 1.3 + seed) * 1.2, 1, 1, plain);
-  else if (kind === PropKind.FloorLamp || kind === PropKind.Statue || kind === PropKind.Fountain || kind === PropKind.Piano) spr(c, A, base, 0, 0, plain);
+  } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, body);
+  else if (kind === PropKind.Flowers) sprXf(c, A, look(A.L.look.flowers, tier), 0, 0, Math.sin(t * 1.3 + seed) * 1.2, 1, 1, body);
+  else if (kind === PropKind.FloorLamp || kind === PropKind.Statue || kind === PropKind.Fountain || kind === PropKind.Piano) spr(c, A, base, 0, 0, body);
   else if (kind === PropKind.Aquarium) {
-    spr(c, A, base, 0, 0, plain);
+    spr(c, A, base, 0, 0, body);
     // Two fish swim back and forth along the glass, turning at the ends.
     for (let k = 0; k < 2; k++) {
       const phase = t * (0.35 + k * 0.12) + seed + k * 2;
@@ -385,8 +399,8 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
       c.drawRect({ x: -4.4, y: 14.8, width: 8 * progress, height: 1.6 }, A.paints.barGood);
     }
     c.restore();
-  } else if (kind === PropKind.Fridge) spr(c, A, look(A.L.look.fridge, tier), 0, 0, plain);
-  else if (kind === PropKind.Plant) sprXf(c, A, look(variant === 1 ? A.L.look.plantBush : A.L.look.plantPalm, tier), 0, 0, Math.sin(t * 1.1 + seed) * 1.4, 1, 1, plain);
+  } else if (kind === PropKind.Fridge) spr(c, A, look(A.L.look.fridge, tier), 0, 0, body);
+  else if (kind === PropKind.Plant) sprXf(c, A, look(variant === 1 ? A.L.look.plantBush : A.L.look.plantPalm, tier), 0, 0, Math.sin(t * 1.1 + seed) * 1.4, 1, 1, body);
   else if (kind === PropKind.Tree) sprXf(c, A, A.L.trees[looks.city * 2 + (variant === 1 ? 1 : 0)] ?? S.treePalm, 0, 0, Math.sin(t * 0.8 + seed) * 1.2, 1, 1, plain);
   else if (kind === PropKind.Lamp) {
     spr(c, A, S.lamp, 0, 0, plain);
@@ -416,8 +430,8 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     // The scooters' upgrades (owner: "upgrade the couriers") show as a new delivery box.
     const box = tier >= 3 ? S.scooterBox3 : tier === 2 ? S.scooterBox2 : tier === 1 ? S.scooterBox1 : -1;
     if (!active) {
-      spr(c, A, A.L.scooter[slot]!, 0, 0, plain);
-      if (box >= 0) spr(c, A, box, 0, 0, plain);
+      spr(c, A, A.L.scooter[slot]!, 0, 0, body);
+      if (box >= 0) spr(c, A, box, 0, 0, body);
     } else {
       // Rides off the curb and up the road, fading out; comes back the same way when the trip ends.
       const left = t - d[o + PF.since]!;
@@ -444,7 +458,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   else if (kind === PropKind.PackTable) {
     // The packing counter; the packed bags wait on the window sill (level = how many), and
     // a few sparkles while someone packs.
-    spr(c, A, look(A.L.look.packTable, tier), 0, 0, plain);
+    spr(c, A, look(A.L.look.packTable, tier), 0, 0, body);
     const bags = d[o + PF.level]!;
     for (let i = 0; i < bags; i++) {
       const bx = -0.33 + i * 0.22;
@@ -500,13 +514,13 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     if (variant === 0 && Math.sin(t * 7 + seed) > 0) sprFade(c, A, S.glowHalo, ox(0.36, 0), oy(0.36, 0, 24), 0.35, 0.9);
   }
   else if (kind === PropKind.Neon) {
-    spr(c, A, look(A.L.look.neonBoard, tier), 0, 0, plain);
+    spr(c, A, look(A.L.look.neonBoard, tier), 0, 0, body);
     // Mostly on, with the occasional cheap-neon stutter (fancier signs stutter less).
     const stutter = Math.sin(t * 31) * Math.sin(t * 7.7 + seed) > 0.82 + tier * 0.05;
     sprFade(c, A, look(A.L.look.neonLit, tier), 0, 0, 1, stutter ? 0.25 : 0.92 + Math.sin(t * 9) * 0.08);
   }
   // Top-tier stations twinkle (not every chair: there are dozens of them).
-  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot && kind !== PropKind.Chair && (looks.detail || !crowd)) sparkles(c, A, 0, -28, t, 14, seed, kind === PropKind.Table ? 1 : 2);
+  if (base >= 0 && tier >= 3 && kind !== PropKind.TableSlot && kind !== PropKind.StoveSlot && kind !== PropKind.Chair && (looks.detail || !crowd)) sparkles(c, A, 0, -28, t, 14, seed, kind === PropKind.Table ? 1 : tier >= FINISH_TIER + 3 ? 5 : tier >= FINISH_TIER + 2 ? 3 : 2);
   c.restore();
 }
 

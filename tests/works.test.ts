@@ -30,7 +30,11 @@ describe('big upgrades take time', () => {
     expect(workSeconds(upgradeDef('fries'), 5)).toBe(0);
     expect(workSeconds(upgradeDef('fries'), 9)).toBe(WORKS.milestone[0]);
     expect(workSeconds(upgradeDef('fries'), 24)).toBe(WORKS.milestone[1]);
-    expect(workSeconds(upgradeDef('fries'), 149)).toBe(WORKS.laterMilestone);
+    expect(workSeconds(upgradeDef('fries'), 149)).toBe(WORKS.later.first);
+    // The higher the level, the longer the wait (owner M30), up to the cap.
+    expect(workSeconds(upgradeDef('fries'), 199)).toBeGreaterThan(workSeconds(upgradeDef('fries'), 149));
+    expect(workSeconds(upgradeDef('fries'), 99)).toBeGreaterThan(workSeconds(upgradeDef('fries'), 74));
+    expect(workSeconds(upgradeDef('fries'), 5000 - 1)).toBe(WORKS.later.max);
     expect(workSeconds(upgradeDef('burger'), 0)).toBe(WORKS.recipe[1]);
     expect(workSeconds(upgradeDef('burger'), 3)).toBe(0);
     expect(workSeconds(upgradeDef('building'), 0)).toBe(WORKS.building[1]);

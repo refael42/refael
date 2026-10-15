@@ -15,7 +15,7 @@ import { CustomerState, OrderState, TableState, type Customer, type GameState, t
 import { gainXp, walkOut } from './workers';
 import { updateCourier } from './delivery';
 import { updateChecker } from './checker';
-import { freeDeliverySlot, packersOn, packingProgress, parking, slotPoint, updatePacker } from './packing';
+import { freeDeliverySlot, packersOn, packingProgress, parking, postOf, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
 import { readyDrink, updateBartender, updateDrinkRun } from './bar';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
@@ -47,10 +47,9 @@ export function homeOf(s: GameState, st: Staff): Point {
       return parking(s, st.slot, true);
     case 'checker':
       return s.map.checkerSpot;
-    case 'packer': {
-      const spots = s.map.packing?.spots ?? [s.map.washerSpot];
-      return spots[st.slot % spots.length]!;
-    }
+    case 'packer':
+      // The main counter's posts, then the delivery hub's counters (src/sim/game/packing.ts postOf).
+      return s.map.packing ? s.map.packing.spots[postOf(s, st)]! : s.map.washerSpot;
     case 'bartender':
       // Behind the counter, the first one by the pass.
       return s.map.bar.stations[st.slot % s.map.bar.stations.length]!;

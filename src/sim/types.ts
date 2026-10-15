@@ -137,6 +137,11 @@ export const PropKind = {
   Prep: 46,
   /** The guide's plaque by the street sign (variant: stars, 0 = the plate, "recommended"). */
   GuidePlaque: 47,
+  /**
+   * A piece of the delivery hub (variant: which, src/data/delivery.ts HubPiece; level 1 = opened,
+   * 0 = its faint outline; active / progress: at work; extra: what it shows, orders or bags).
+   */
+  HubPiece: 48,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

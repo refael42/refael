@@ -1,4 +1,4 @@
-import type { SkCanvas } from '@shopify/react-native-skia';
+import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import type { RenderAssets } from '../assets';
 import { clamp01, fract, spr, sprFade, sprXf } from './primitives';
 
@@ -51,12 +51,13 @@ function bubbles(c: SkCanvas, A: RenderAssets, x: number, y: number, t: number, 
  * One station. `type`: its kind; `tier`: its look; `cooking`: a dish on the fire; `plating`: the
  * dish being dressed; `dish`: which (-1 none); `progress`: how far along; `dishTier`: the plated look.
  */
-export function drawStation(c: SkCanvas, A: RenderAssets, type: number, tier: number, cooking: boolean, plating: boolean, dish: number, progress: number, dishTier: number, t: number, seed: number): void {
+export function drawStation(c: SkCanvas, A: RenderAssets, type: number, tier: number, cooking: boolean, plating: boolean, dish: number, progress: number, dishTier: number, t: number, seed: number, body: SkPaint): void {
   'worklet';
   const S = A.S;
   const P = A.paints.plain;
   const looks = A.L.station[type] ?? A.L.station[0]!;
-  spr(c, A, looks[Math.min(LOOKS - 1, looks.length - 1, tier)]!, 0, 0, P);
+  // The station in its look (and finish, from level 75: src/render/draw/drawProp.ts bodyPaint).
+  spr(c, A, looks[Math.min(LOOKS - 1, looks.length - 1, tier)]!, 0, 0, body);
   const food = dish >= 0 ? (A.L.cooking[dish] ?? -1) : -1;
   // Hotter flames as the kitchen is upgraded.
   const heat = 1 + Math.min(tier, 4) * 0.1;

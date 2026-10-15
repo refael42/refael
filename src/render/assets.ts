@@ -16,6 +16,8 @@ export interface RenderAssets {
   L: Layers;
   paints: {
     plain: SkPaint;
+    /** The finishes over the top looks, by finish (see `finish`). */
+    finish: SkPaint[];
     /** Background tiles: no edge smoothing (smoothed edges let a hairline show between tiles). */
     tile: SkPaint;
     /** Reused for anything that fades; its alpha is set right before each draw. */
@@ -73,6 +75,21 @@ function plainPaint(): SkPaint {
 function tint(hex: string): SkPaint {
   const p = plainPaint();
   p.setColorFilter(Skia.ColorFilter.MakeBlend(Skia.Color(hex), BlendMode.Modulate));
+  return p;
+}
+
+/**
+ * A finish over a look (owner M30: "more design levels"): the colors pulled toward a two-tone
+ * ramp (`dark` in the shadows, `light` in the highlights) by `mix`, so the shapes and details of
+ * the look stay and its material changes. No new sprites: the atlas is full.
+ */
+function finish(dark: string, light: string, mix: number): SkPaint {
+  const p = plainPaint();
+  const d = Skia.Color(dark);
+  const l = Skia.Color(light);
+  const lum = [0.3, 0.59, 0.11];
+  const row = (ch: number) => [0, 1, 2].map((k) => (k === ch ? 1 - mix : 0) + mix * (l[ch]! - d[ch]!) * lum[k]!).concat([0, mix * d[ch]!]);
+  p.setColorFilter(Skia.ColorFilter.MakeMatrix([...row(0), ...row(1), ...row(2), 0, 0, 0, 1, 0]));
   return p;
 }
 
@@ -160,6 +177,8 @@ export function buildRenderAssets(def: BackgroundDef, atlasScale: number, pixelR
     L: LAYERS,
     paints: {
       plain: plainPaint(),
+      // Pearl and rose gold (level 75), royal purple and gold (150), diamond (200): src/render/draw/drawProp.ts.
+      finish: [finish('#C29A8C', '#FFFAF4', 0.6), finish('#4A1A6A', '#FFE07A', 0.6), finish('#6FA8E8', '#FFFFFF', 0.62)],
       tile: (() => {
         const p = Skia.Paint();
         p.setAntiAlias(false);

@@ -1,4 +1,6 @@
+import { TIERS } from '../../data/buildings';
 import { PACKING } from '../../data/delivery';
+import { ROLES } from '../../data/staff';
 import { facingFor, setPose } from '../movement';
 import { Facing, Held, Pose } from '../types';
 import { emit, Ev } from './events';
@@ -35,10 +37,43 @@ export function freeDeliverySlot(s: GameState): number {
 /** Packed orders on the window shelf that no courier has taken yet. */
 export const onShelf = (s: GameState): Order[] => s.orders.filter((o) => o.delivery && o.packed && o.waiter < 0);
 
-/** How far the packing at the counter is (0..1, 0 = nobody packing): the counter shows the stages. */
-export function packingProgress(s: GameState): number {
+/** The packers' posts at the main counter; the posts after them pack at the hub's own counters. */
+export const MAIN_POSTS = 3;
+
+/** Packers the building itself has room for: they work the main counter. */
+const mainPosts = (s: GameState): number => Math.max(1, Math.min(MAIN_POSTS, ROLES.packer.cap + (TIERS[s.map.tier]?.staff.packer ?? 0)));
+
+/**
+ * A packer's post (an index of the map's packing spots): the building's own packers at the main
+ * counter, the ones the delivery hub made room for at its counters (src/data/delivery.ts HUB).
+ */
+export function postOf(s: GameState, st: Staff): number {
+  const corner = s.map.packing;
+  if (!corner) return 0;
+  const main = mainPosts(s);
+  if (st.slot < main) return st.slot;
+  const extra = st.slot - main;
+  return extra < corner.spots.length - MAIN_POSTS ? MAIN_POSTS + extra : st.slot % MAIN_POSTS;
+}
+
+/** The counter a packer packs at (their post's: src/data/maps.ts packing.counters). */
+export function counterOf(s: GameState, st: Staff): { x: number; y: number } {
+  const corner = s.map.packing!;
+  return corner.counters[postOf(s, st)] ?? corner.table;
+}
+
+/**
+ * How far the packing at a counter is (0..1, 0 = nobody packing): the counter shows the stages.
+ * `post` -1 = the main counter (its three posts), else that hub post.
+ */
+export function packingProgress(s: GameState, post = -1): number {
   let best = 0;
-  for (const st of s.staff) if (st.job?.kind === 'pack' && st.job.phase === 'packing') best = Math.max(best, Math.min(1, st.jobTime / PACKING.seconds));
+  for (const st of s.staff) {
+    if (st.role !== 'packer' || st.job?.kind !== 'pack' || st.job.phase !== 'packing') continue;
+    const at = postOf(s, st);
+    if (post < 0 ? at >= MAIN_POSTS : at !== post) continue;
+    best = Math.max(best, Math.min(1, st.jobTime / PACKING.seconds));
+  }
   return best;
 }
 
@@ -64,7 +99,8 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
     if (!next) {
       if (walkTo(home)) {
         setPose(st, Pose.Idle);
-        st.facing = facingFor(corner.table.x - st.x, corner.table.y - st.y, st.facing);
+        const at = counterOf(s, st);
+        st.facing = facingFor(at.x - st.x, at.y - st.y, st.facing);
       }
       return false;
     }
@@ -133,7 +169,8 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
   if (job.phase === 'toTable') {
     if (!walkTo(home)) return true;
     // The box goes down on the counter (the counter shows it going into a bag).
-    st.facing = facingFor(corner.table.x - st.x, corner.table.y - st.y, st.facing);
+    const at = counterOf(s, st);
+    st.facing = facingFor(at.x - st.x, at.y - st.y, st.facing);
     st.held = Held.None;
     st.job = { ...job, phase: 'packing' };
     st.jobTime = 0;
@@ -149,7 +186,8 @@ export function updatePacker(s: GameState, st: Staff, dt: number, walkTo: (to: {
   order.since = s.time;
   st.held = Held.None;
   setPose(st, Pose.Idle);
-  emit(s, Ev.Packed, corner.table.x, corner.table.y);
+  const at = counterOf(s, st);
+  emit(s, Ev.Packed, at.x, at.y);
   gainXp(s, st);
   st.job = null;
   st.jobTime = 0;

@@ -1,4 +1,5 @@
 import { TIERS } from '../../data/buildings';
+import { HUB } from '../../data/delivery';
 import { DISHES } from '../../data/dishes';
 import type { MapDef } from '../../data/maps';
 import { SHOP } from '../../data/shop';
@@ -33,6 +34,9 @@ export interface Mods {
   tripSpeed: number;
   deliveryPrice: number;
   packSpeed: number;
+  /** The delivery hub (src/data/delivery.ts HUB): more packers' posts, and more delivery orders. */
+  packers: number;
+  deliveryDemand: number;
   /** The bar: how fast drinks are made, and what they sell for. */
   mixSpeed: number;
   drinkPrice: number;
@@ -150,6 +154,8 @@ function emptyMods(): Mods {
     tripSpeed: 1,
     deliveryPrice: 1,
     packSpeed: 1,
+    packers: 0,
+    deliveryDemand: 1,
     mixSpeed: 1,
     drinkPrice: 1,
     price: DISHES.map(() => 1),
@@ -189,6 +195,16 @@ export function computeMods(levels: Levels, perks: Perks = {}, trophies = 0): Mo
     else m[stat] *= 1 + value;
   }
   priceAdd.forEach((value, dish) => (m.price[dish]! *= 1 + value));
+  // The delivery hub's pieces, each with what it brings, open with the packing station's levels.
+  const hubLevel = levelOf(levels, 'packStation');
+  for (const h of HUB) {
+    if (hubLevel < h.level) break;
+    m.packers += h.perk.packers ?? 0;
+    m.couriers += h.perk.couriers ?? 0;
+    m.deliveryPrice *= h.perk.deliveryPrice ?? 1;
+    m.deliveryDemand *= h.perk.deliveryDemand ?? 1;
+    m.tripSpeed *= h.perk.tripSpeed ?? 1;
+  }
   // A bigger, fancier place draws more people and charges more for everything.
   const tier = TIERS[Math.min(m.building, TIERS.length - 1)]!;
   m.arrivals *= tier.arrivals;

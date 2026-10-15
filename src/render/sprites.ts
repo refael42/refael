@@ -6,6 +6,7 @@ import { decorSprites } from './art/decorArt';
 import { dishSprites } from './art/dishArt';
 import { moreDishSprites } from './art/dishArt2';
 import { crewSprites } from './art/crewArt';
+import { HUB_SPRITES, hubSprites, SCREEN_ROWS } from './art/hubArt';
 import { workSprites } from './art/workArt';
 import { eventSprites } from './art/eventArt';
 import { deliverySprites, SCOOTER_COLORS } from './art/deliveryArt';
@@ -22,7 +23,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -61,7 +62,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -154,6 +155,9 @@ export const LAYERS = {
   station: STATION_SPRITES.map((name) => looks(name)),
   prep: [...Array.from({ length: PREP_KINDS }, (_, i) => INDEX[`prep${i}`]!), ...Array.from({ length: BACK_KINDS }, (_, i) => INDEX[`back${i}`]!)],
   plaque: [0, 1, 2, 3].map((i) => INDEX[`guidePlaque${i}`]!),
+  /** The delivery hub's pieces (src/data/delivery.ts HubPiece order). */
+  hub: HUB_SPRITES.map((name) => INDEX[name]!),
+  hubRow: SCREEN_ROWS.map((_, i) => INDEX[`hubRow${i}`]!),
   cooking: DISH_ICONS.map((_, i) => INDEX[`cook${i}`]!),
   /** Station looks by milestone tier. */
   look: {

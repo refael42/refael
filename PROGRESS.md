@@ -28,8 +28,9 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M30 | Owner: more design levels for every object, a grander delivery station that really grows and opens more as it levels, big upgrades that take longer the higher the level; the payment library (expo-iap) and the splash screen installed (owner approved) | ✅ Done |
 | M29 | Owner: throw out the old kitchen: a huge open kitchen at Michelin level, every dish on its own equipment (fryer, plancha, wok, sushi counter, cold line, range, wood-fired oven), animations for everything, every cook carries the plate to the pass; Michelin-style stars earned the way they are in real life | ✅ Done |
-| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Next (paused while M29 was built) |
+| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Payments wired (expo-iap 6.0.2, needs a native build to test); store texts and release steps next |
 | M27 | Owner: a bar from day one that grows with the buildings (straight → L → three sides open to the kitchen), bartenders who shake cocktails and pour drinks, drinks on the bar's pass for the waiters, guests on bar stools served by the bartenders | ✅ Done |
 | M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
@@ -75,6 +76,40 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M30 (owner: "I approve installing; also add more design levels for the tools /
+  objects in the game, with an emphasis on deliveries: a grander station that really grows, and
+  more things open as you go up in levels; and make the time an upgrade takes to finish longer
+  the higher the levels"):
+  - **Installed** (owner approved): `expo-iap` 6.0.2 (pinned) and `expo-splash-screen` (the
+    splash image from M14, plum background). `src/iap/native.ts` is the real App Store / Google
+    Play store: connects, loads the gem packs' prices in local currency, opens the store's sheet,
+    pays out purchases (also ones the store still owed from before), then finishes them as
+    consumables. Expo Go and the browser have no store module (`native.web.ts`, a check for the
+    native module): they keep the demo store. A real purchase needs a development or store build
+    (EAS) and the products set up in App Store Connect / Play Console.
+  - **More design levels** for every object with looks: on top of the four looks (and the bigger
+    model at level 100), three finishes: pearl and rose gold (level 75), royal purple and gold
+    (150), diamond (200), each with more sparkle. They are color filters over the top look
+    (`finish` in `src/render/assets.ts`, `bodyPaint` in `src/render/draw/drawProp.ts`): the
+    sprite atlas is full (621 sprites already scaled to fit), so new materials cost no atlas
+    room. `MILESTONES.visualTiers` 5 → 7.
+  - **The delivery hub** (`HUB` in `src/data/delivery.ts`): the packing station's levels open a
+    piece at a time, inside along the kitchen's front row (its room is kept from the start, the
+    pieces still to come show as faint outlines with a gold padlock), then out front. Level 10 a
+    second packing counter (one more packer, who packs there), 25 a thermal bag wall (deliveries
+    +15%), 50 a live orders screen (+25% orders, a row per order, the new one flashes), 75 a black
+    and gold counter (one more packer), 100 a lit pylon sign (+20% orders, +10% price), 150
+    scooter chargers by the parking spots (couriers 25% faster), 200 pickup lockers (one more
+    courier, +15% price). Packers beyond the building's own go to the hub's counters
+    (`postOf` in `src/sim/game/packing.ts`). Art: `src/render/art/hubArt.ts`; motion:
+    `src/render/draw/drawHub.ts`. The packing station's row in the upgrades shows the hub
+    "2/7 · level 50: a live orders screen (25% more orders)". Tap a hub piece to open it.
+  - **Longer builds at higher levels** (`src/data/works.ts`): milestones 10, 30, 60, 120, 240 s,
+    then each later one 1.3 times the last (360 s at level 150) up to an hour; the next building
+    up to 30 min; restaurant levels up to 40 min.
+  - Tests: `tests/hub.test.ts` (stages and perks, the room kept and everyone still reaching
+    everything, the extra packer at the hub's counter, outlines and outside pieces), works and
+    tiers updated. Balance: bistro 40:49, grand 58:12, no dead zones.
 - Done in M29 (owner: "fix the kitchen, I'm tired of everything looking the same; build a huge
   kitchen, invest at Michelin level; add Michelin logic, stars you get like in real life; a full
   kitchen: a wok with a tossing animation for pad thai, a sushi man cutting sushi, a cold line for

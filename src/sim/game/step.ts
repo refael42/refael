@@ -23,7 +23,8 @@ import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
 import { syncFamilyTables } from './create';
-import { parking, slotPoint } from './packing';
+import { MAIN_POSTS, onShelf, packingProgress, parking, slotPoint } from './packing';
+import { HUB, HubPiece } from '../../data/delivery';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
@@ -168,6 +169,7 @@ function dynamicProps(s: GameState): PropView[] {
     const sign = s.map.decor.find((f) => f.kind === PropKind.StreetSign);
     if (sign) out.push(prop(SYNTH - 52, PropKind.GuidePlaque, sign.x - 0.9, sign.y, { variant: s.guide.stars }));
   }
+  out.push(...hubProps(s));
   // A present on the sidewalk, waiting for a tap (`since`: when it goes).
   if (s.gift) out.push(prop(SYNTH - 50, PropKind.Gift, s.gift.x, s.gift.y, { since: s.gift.until }));
   // The tourist bus: drawn where it stops, the renderer drives it in and out (`since` = it set
@@ -254,4 +256,44 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
     }),
     ...upgradeViews(s),
   });
+}
+
+/**
+ * The delivery hub's pieces (owner M30, src/data/delivery.ts HUB): the opened ones at work, the
+ * ones still to come inside the kitchen as faint outlines (outside, nothing until they open).
+ */
+export function hubProps(s: GameState): PropView[] {
+  const corner = s.map.packing;
+  if (!corner) return [];
+  const level = levelOf(s.levels, 'packStation');
+  const out: PropView[] = [];
+  const couriers = s.staff.filter((st) => st.role === 'courier' && !st.leaving).length;
+  const waiting = s.orders.filter((o) => o.delivery && (o.state === OrderState.Queued || o.state === OrderState.Cooking));
+  const newest = waiting.reduce((a, o) => Math.max(a, o.since), -10);
+  const shelf = onShelf(s).length;
+  let post = MAIN_POSTS;
+  HUB.forEach((h, i) => {
+    const at = corner.hub[i]!;
+    const open = level >= h.level;
+    const counter = h.perk.packers ? post++ : -1;
+    if (!open && !at.blocks) return;
+    const id = SYNTH - 500 - i * 8;
+    if (h.piece === HubPiece.Chargers) {
+      // One charger behind each of the first parking spots, lit while a scooter waits on it.
+      (at.at ?? [at]).forEach((p, k) => out.push(prop(id - k, PropKind.HubPiece, p.x, p.y, { variant: h.piece, level: 1, active: k < couriers })));
+      return;
+    }
+    const progress = counter >= 0 && open ? packingProgress(s, counter) : 0;
+    out.push(
+      prop(id, PropKind.HubPiece, at.x, at.y, {
+        variant: h.piece,
+        level: open ? 1 : 0,
+        active: progress > 0 || (h.piece === HubPiece.BagWall && shelf > 0),
+        progress,
+        extra: h.piece === HubPiece.OrderScreen ? waiting.length : h.piece === HubPiece.Lockers ? shelf : 0,
+        since: newest,
+      }),
+    );
+  });
+  return out;
 }

@@ -59,7 +59,10 @@ describe('milestones', () => {
     expect(tierOf(9)).toBe(0);
     expect(tierOf(50)).toBe(3);
     expect(tierOf(75)).toBe(4);
-    expect(tierOf(5000)).toBe(5);
+    // Finishes at 150 and 200 (owner M30: more design levels), then no more.
+    expect(tierOf(150)).toBe(6);
+    expect(tierOf(200)).toBe(7);
+    expect(tierOf(5000)).toBe(7);
   });
 
   it('multiply the item value', () => {

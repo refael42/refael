@@ -33,7 +33,10 @@ export function workSeconds(def: UpgradeDef, level: number): number {
   if (!def.milestone && !def.restyle) return 0;
   const reached = milestonesReached(level + 1);
   if (reached === milestonesReached(level)) return 0;
-  return WORKS.milestone[reached - 1] ?? WORKS.laterMilestone;
+  const fixed = WORKS.milestone[reached - 1];
+  if (fixed !== undefined) return fixed;
+  const later = WORKS.later;
+  return Math.round(Math.min(later.max, later.first * later.growth ** (reached - 1 - WORKS.milestone.length)));
 }
 
 /** Gems to finish a job right now. */

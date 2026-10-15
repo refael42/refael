@@ -35,6 +35,8 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
     return next ? [next.cook] : [];
   }
   if (kind === PropKind.PlatesClean) return [s.map.cleanStack];
+  // The packing counter, and the delivery hub's pieces inside (they open its upgrades too).
+  if (kind === PropKind.PackTable && s.map.packing) return [s.map.packing.table, ...s.map.packing.hub.filter((h) => h.blocks)];
   // The couriers' scooters by the curb (none to tap before there is a courier).
   if (kind === PropKind.Scooter) return s.staff.filter((st) => st.role === 'courier' && !st.leaving).map((st) => parking(s, st.slot, false));
   return s.props.filter((p) => p.kind === kind).map((p) => ({ x: p.x, y: p.y }));

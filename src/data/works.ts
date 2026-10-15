@@ -8,19 +8,23 @@ import type { DecorId } from './decor';
 export const WORKS = {
   /** Jobs that can run at the same time from the start (the shop sells one more crew). */
   crews: 2,
-  /** Seconds per milestone by its number (1st = level 10, then 25, 50, 75, 100), and every later one. */
-  milestone: [10, 30, 60, 120, 180],
-  laterMilestone: 240,
+  /**
+   * Seconds per milestone by its number (1st = level 10, then 25, 50, 75, 100). After that the
+   * owner wants the wait to keep growing with the level (M30: "the higher you go, the longer an
+   * upgrade takes"): every later milestone takes `later.growth` times the one before, up to `later.max`.
+   */
+  milestone: [10, 30, 60, 120, 240],
+  later: { first: 360, growth: 1.3, max: 3600 },
   /** A new recipe, by dish id (fries is on the menu from the start). */
   recipe: [0, 20, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480, 600, 10, 110],
   /** The next building, by the tier it opens. */
-  building: [0, 120, 300, 480, 600, 720, 900],
+  building: [0, 120, 300, 600, 900, 1200, 1500, 1800],
   /** Decor placed by a crew (the small pieces go down at once). */
   place: { aquarium: 30, statue: 45, fountain: 90, piano: 120 } as Partial<Record<DecorId, number>>,
   /** The second stove. */
   stove: 20,
   /** The next restaurant level: `base` plus `per` for every level already reached, at most `max`. */
-  rank: { base: 180, per: 120, max: 900 },
+  rank: { base: 180, per: 150, max: 2400 },
   /** A tap on the work site takes off this share of the whole job (at least `tapMin` seconds)... */
   tapShare: 0.004,
   tapMin: 0.5,

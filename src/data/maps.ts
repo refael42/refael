@@ -1,4 +1,5 @@
 import { Facing, PropKind as K, type PropKind } from '../sim/types';
+import { HUB, HubPiece } from './delivery';
 import { TIERS, type DiningFloor, type Grow } from './buildings';
 import { UNLOCK_TIER } from './unlocks';
 import { BAR } from './bar';
@@ -123,6 +124,14 @@ export interface MapDef {
     /** The drinks fridge: a can goes into every bag; the packer stands at `fridgeSpot`. */
     fridge: Furniture;
     fridgeSpot: Point;
+    /** The counter each packer's post packs at (same index as `spots`): the first three the main one, then the hub's. */
+    counters: Point[];
+    /**
+     * The delivery hub's pieces (src/data/delivery.ts HUB, same order): where each stands (the
+     * chargers: one by each of the first parking spots). The ones inside block their tile from
+     * the start (the room is kept for them).
+     */
+    hub: { x: number; y: number; blocks: boolean; at?: Point[] }[];
   } | null;
   /**
    * The bar (src/data/bar.ts): by the waiters' lane, open toward the kitchen. A straight counter
@@ -304,6 +313,27 @@ const scatterK = (a: number, b: number): number => {
   const h = Math.sin(a * 91.3 + b * 47.9) * 24634.6345;
   return h - Math.floor(h);
 };
+
+/**
+ * The delivery hub's pieces (owner M30, src/data/delivery.ts HUB): inside, along the kitchen's
+ * front row past the drinks fridge (`inside` tiles on); outside, the sign beside the takeaway
+ * window's path, the lockers on the front wall, a charger behind each of the parking spots by the window.
+ */
+function hubOf(KX: number, y1: number, scooterX: (i: number) => number): { counters: Point[]; hub: NonNullable<MapDef['packing']>['hub'] } {
+  const front = y1 - 0.5;
+  const table = { x: KX - 1.5, y: front };
+  const hub = HUB.map((h) => {
+    if (h.inside) return { x: KX - 4.5 - h.inside, y: front, blocks: true };
+    if (h.piece === HubPiece.Sign) return { x: KX - 2.6, y: y1 + 0.45, blocks: false };
+    // Past the hub's last piece inside, so they hide nothing behind them.
+    if (h.piece === HubPiece.Lockers) return { x: KX - 10.3, y: y1 + 0.3, blocks: false };
+    // Along the inner edge of the sidewalk, one behind each of the four spots by the window.
+    const at = Array.from({ length: 4 }, (_, i) => ({ x: scooterX(i), y: STREET_Y + 0.3 }));
+    return { x: at[0]!.x, y: at[0]!.y, blocks: false, at };
+  });
+  const counters = [table, table, table, ...HUB.filter((h) => h.perk.packers).map((h) => ({ x: KX - 4.5 - h.inside!, y: front }))];
+  return { counters, hub };
+}
 
 /** Prep tables come in this many setups (src/render/art/kitchenArt.ts). */
 export const PREP_KINDS = 6;
@@ -572,6 +602,8 @@ function buildMap(tier: number): MapDef {
             { x: KX - 1.5, y: y1 - 1.45 },
             { x: KX - 2.6, y: y1 - 1.6 },
             { x: KX - 3.6, y: y1 - 1.6 },
+            // The hub's two counters' packers (src/data/delivery.ts HUB).
+            ...HUB.filter((h) => h.perk.packers).map((h) => ({ x: KX - 4.5 - h.inside!, y: y1 - 1.45 })),
           ],
           window: { x: KX - 1.5, y: y1 + 0.55 },
           // While packers work here the scooters park by the window (the bags come out there),
@@ -584,6 +616,7 @@ function buildMap(tier: number): MapDef {
           passTop: 22,
           fridge: { kind: K.DrinksFridge, x: KX - 4.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
           fridgeSpot: { x: KX - 4.5, y: y1 - 1.45 },
+          ...hubOf(KX, y1, windowScooterX),
         }
       : null;
   if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
