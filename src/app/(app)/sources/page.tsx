@@ -2,6 +2,7 @@ import { Inbox, Users } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ImportChat } from "@/components/sources/import-chat";
+import { ReadAll } from "@/components/sources/read-all";
 import { Badge } from "@/components/ui/badge";
 import { getStore } from "@/lib/db";
 import { fmtDateTime, t } from "@/lib/i18n";
@@ -22,6 +23,7 @@ export default async function SourcesPage() {
         <p className="text-sm text-muted-foreground">{t.sources.hint}</p>
       </div>
       {isPM(s) && <ImportChat />}
+      {isPM(s) && <ReadAll sources={sources.map((x) => ({ id: x.id, title: x.title, waiting: x.waiting }))} />}
       {sources.length === 0 && <p className="py-10 text-center text-muted-foreground">{t.sources.none}</p>}
       <div className="grid gap-3 sm:grid-cols-2">
         {sources.map((src) => (
