@@ -12,6 +12,31 @@ async function ask(q: string) {
 const ids = (a: Awaited<ReturnType<typeof ask>>) => a.sources.map((s) => s.id);
 
 describe("ask the project (local engine)", () => {
+  it("what prevents finishing apt 17 → open work by who acts, plus what the chats said, all cited", async () => {
+    const ctx = await ctxFor("pm");
+    const apt = ctx.store.data.areas.find((a) => a.name === "דירה 17")!;
+    await ctx.store.insert("project_events", {
+      project_id: ctx.s.project.id,
+      source_item_id: null,
+      type: "defect",
+      summary: "ליקוי – דירה 17",
+      quote: "יש סדק בריצוף בדירה 17",
+      extracted: {},
+      resolved: { task_ids: [], area_ids: [apt.id] },
+      confidence: 0.8,
+      status: "proposed",
+      note: null,
+      occurred_at: NOW.toISOString(),
+    });
+    const snap = await loadSnapshot(ctx.store, ctx.s.project.id, NOW);
+    const a = await askProject(ctx.store, ctx.s, snap, "מה מונע כרגע את השלמת דירה 17?");
+    expect(a.answer).toMatch(/^דירה 17: \d+ משימות פתוחות/);
+    expect(a.answer).toContain("מה נאמר בשיחות:");
+    expect(a.answer).toMatch(/יש סדק בריצוף בדירה 17.*\[U1\]/);
+    expect(a.sources.some((x) => x.kind === "update")).toBe(true);
+    expect(ids(a)).toEqual(expect.arrayContaining([T("PL17"), T("ST4")]));
+  });
+
   it("what is holding up apt 17 → its tasks and the root causes", async () => {
     const a = await ask("מה תוקע כרגע את דירה 17?");
     expect(a.engine).toBe("local");

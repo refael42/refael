@@ -1,5 +1,5 @@
 "use client";
-import { CornerDownLeft, Loader2, MessageCircle, ShieldAlert, Sparkles, SquareCheckBig } from "lucide-react";
+import { CornerDownLeft, Inbox, Loader2, MessageCircle, ShieldAlert, Sparkles, SquareCheckBig } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -10,15 +10,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { t } from "@/lib/i18n";
 import type { Answer, Source } from "@/lib/services/qa";
 
-const ICON = { task: SquareCheckBig, message: MessageCircle, blocker: ShieldAlert } as const;
+const ICON = { task: SquareCheckBig, message: MessageCircle, blocker: ShieldAlert, update: Inbox } as const;
 
 function AnswerText({ answer, sources }: { answer: Answer["answer"]; sources: Source[] }) {
   const byRef = new Map(sources.map((s) => [s.ref, s]));
-  const pieces = answer.split(/(\[[TMB]\d+\])/g);
+  const pieces = answer.split(/(\[[TMBU]\d+\])/g);
   return (
     <p className="whitespace-pre-wrap leading-relaxed">
       {pieces.map((p, i) => {
-        const m = p.match(/^\[([TMB]\d+)\]$/);
+        const m = p.match(/^\[([TMBU]\d+)\]$/);
         const src = m ? byRef.get(m[1]) : null;
         if (!m) return <Fragment key={i}>{p}</Fragment>;
         return src ? (
