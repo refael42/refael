@@ -20,6 +20,7 @@ export function ImportPlanCard() {
   const [building, setBuilding] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [withDeps, setWithDeps] = useState(true);
+  const [confirmed, setConfirmed] = useState(false);
   const { call, pending } = useAction();
 
   const form = () => {
@@ -51,6 +52,7 @@ export function ImportPlanCard() {
             setFile(f);
             setPreview(null);
             setWarnings([]);
+            setConfirmed(false);
             if (!f) return;
             const fd = new FormData();
             fd.set("file", f);
@@ -70,6 +72,30 @@ export function ImportPlanCard() {
             {preview.title && <span className="font-semibold">{preview.title}</span>}
             <span>{t.importPlan.preview(preview.tasks, preview.people)}</span>
             <span className="text-muted-foreground">{t.importPlan.statuses(preview.done, preview.inProgress, preview.blocked)}</span>
+            {preview.reimport.existing > 0 && (
+              <div className="flex flex-col gap-0.5">
+                <span className="font-medium">{t.importPlan.reimport(preview.reimport.update, preview.reimport.created)}</span>
+                {preview.reimport.missing > 0 && <span className="text-xs text-muted-foreground">{t.importPlan.reimportMissing(preview.reimport.missing)}</span>}
+                <span className="text-xs text-muted-foreground">{t.importPlan.reimportKeeps}</span>
+              </div>
+            )}
+            {preview.reimport.suspicious && (
+              <div className="flex flex-col gap-1.5 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+                <span className="font-semibold">{t.importPlan.suspiciousTitle}</span>
+                <span className="text-xs">{t.importPlan.suspiciousHint}</span>
+                {preview.reimport.renamed.length > 0 && (
+                  <ul className="list-inside list-disc text-xs">
+                    {preview.reimport.renamed.map((r) => (
+                      <li key={r.number}>{t.importPlan.renamedExample(r.number, r.before, r.after)}</li>
+                    ))}
+                  </ul>
+                )}
+                <label className="flex items-center gap-2 text-xs font-medium">
+                  <Checkbox id="plan-confirm" checked={confirmed} onCheckedChange={(v) => setConfirmed(!!v)} />
+                  {t.importPlan.confirmAnyway}
+                </label>
+              </div>
+            )}
             {preview.dependencyList.length > 0 && (
               <details className="text-xs">
                 <summary className="cursor-pointer text-sm text-muted-foreground">{t.importPlan.deps(preview.dependencies)}</summary>
@@ -112,7 +138,7 @@ export function ImportPlanCard() {
             </Field>
             <Button
               className="self-start"
-              disabled={pending}
+              disabled={pending || (preview.reimport.suspicious && !confirmed)}
               onClick={async () => {
                 const r = await call(() => importPlanAction(form()), (x) => t.importPlan.done(x.created, x.updated, x.dependencies, x.removedDependencies));
                 if (r) {
