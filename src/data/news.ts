@@ -3,5 +3,5 @@
 
 export const NEWS = {
   version: 33,
-  items: ['news.heroes', 'news.offers', 'news.signs', 'news.dining', 'news.calm', 'news.funny'] as const,
+  items: ['news.heroes', 'news.offers', 'news.reminders', 'news.signs', 'news.dining', 'news.calm'] as const,
 };

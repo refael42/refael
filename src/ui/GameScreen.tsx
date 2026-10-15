@@ -49,6 +49,7 @@ import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { DealChip, GemPill, Shop } from './Shop';
 import { FestivalChip, FestivalPanel, useFestivalClock } from './Festival';
 import { OfferChip, OffersPanel, readOfferPopup, useOffersClock } from './Offers';
+import { useReminders } from '../notify/useReminders';
 import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
 import { Welcome } from './Welcome';
@@ -324,6 +325,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // hero turn, when nothing else is on screen.
   const [offers, setOffers] = useState(false);
   useOffersClock(command, true);
+  // Phone reminders while the game is closed (owner M35), once the first screens are done.
+  useReminders(gameRef, !onboarding && !welcome && tutorial >= TUTORIAL_STEPS.length);
   const offerPopup = usePoll(gameRef, readOfferPopup, 0.5);
   const anythingOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || editionCard || offers);
   useEffect(() => {
