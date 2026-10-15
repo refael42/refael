@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEMO_IDS, sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
 import { listConversations } from "./chat";
-import { addMember, createAreas, createContractor, deleteArea, expandNames, normalizePhone, updateContractor } from "./settings";
+import { addMember, createAreas, createContractor, deleteArea, expandNames, normalizePhone, updateContractor, updateMember } from "./settings";
 
 describe("project setup", () => {
   it("expands ranges and normalises phones", () => {
@@ -69,5 +69,17 @@ describe("promoting a contractor", () => {
     await addMember(pm, { name: "עידו", email: "ido@example.com", role: "pm" });
     const m = store.data.project_members.find((x) => x.profile_id === c.profile_id && x.project_id === pm.s.project.id)!;
     expect(m.role).toBe("pm");
+  });
+
+  it("PM corrects a team member's phone; the number can't belong to someone else", async () => {
+    const store = demoStore();
+    const pm = await ctxFor("pm", store);
+    const p = await addMember(pm, { name: "עידו", phone: "050-1111111", role: "pm" });
+    await updateMember(pm, p.id, { phone: "055-7242018", email: "ido@example.com" });
+    expect(await store.byId("profiles", p.id)).toMatchObject({ phone: "+972557242018", email: "ido@example.com" });
+    const other = store.data.profiles.find((x) => x.phone && x.id !== p.id)!;
+    await expect(updateMember(pm, p.id, { phone: other.phone })).rejects.toThrow();
+    await expect(updateMember(pm, p.id, { phone: "abc" })).rejects.toThrow();
+    await expect(updateMember(await ctxFor("shor", store), p.id, { name: "x" })).rejects.toThrow();
   });
 });

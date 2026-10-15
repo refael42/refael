@@ -27,6 +27,9 @@ export async function updateContractorAction(id: string, input: Partial<svc.Cont
 export async function addMemberAction(input: { name: string; phone?: string | null; email?: string | null; role: Exclude<MemberRole, "contractor"> }) {
   return run(async (ctx) => (await svc.addMember(ctx, input)).id);
 }
+export async function updateMemberAction(profileId: string, input: { name?: string; phone?: string | null; email?: string | null }) {
+  return run((ctx) => svc.updateMember(ctx, profileId, input));
+}
 export async function setMemberRoleAction(profileId: string, role: MemberRole) {
   return run(async (ctx) => {
     await svc.setMemberRole(ctx, profileId, role);

@@ -42,7 +42,15 @@ export default async function SettingsPage({ searchParams }: { searchParams: { t
   const members: MemberRow[] = snap.members
     .map((m) => {
       const p = snap.profileById.get(m.profile_id);
-      return { profileId: m.profile_id, name: p?.full_name ?? "", role: m.role, contact: p?.phone ?? p?.email ?? null, isMe: m.profile_id === s.profile.id };
+      return {
+        profileId: m.profile_id,
+        name: p?.full_name ?? "",
+        role: m.role,
+        contact: p?.phone ?? p?.email ?? null,
+        phone: p?.phone ?? null,
+        email: p?.email ?? null,
+        isMe: m.profile_id === s.profile.id,
+      };
     })
     .sort((a, b) => order[a.role] - order[b.role] || a.name.localeCompare(b.name, "he"));
 

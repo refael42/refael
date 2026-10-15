@@ -3,7 +3,7 @@
  * A contractor is a person (profile) + a contractor row + project membership;
  * when he first logs in with that phone/email, the auth trigger links him.
  */
-import type { Area, AreaType, MemberRole } from "../db/types";
+import type { Area, AreaType, MemberRole, Profile } from "../db/types";
 import { he } from "../i18n/he";
 import { assertPM } from "./access";
 import { AccessError } from "./auth-types";
@@ -221,6 +221,33 @@ export async function addMember(ctx: Ctx, input: { name: string; phone?: string 
   await ctx.store.insert("project_members", { project_id: ctx.s.project.id, profile_id: profile.id, role: input.role });
   await directConversation(ctx.store, ctx.s.project.id, ctx.s.profile.id, profile.id);
   return profile;
+}
+
+/** Correct a team member's name, phone or email (e.g. a new phone number). */
+export async function updateMember(ctx: Ctx, profileId: string, input: { name?: string; phone?: string | null; email?: string | null }) {
+  assertPM(ctx.s);
+  const member = await ctx.store.first("project_members", { where: { project_id: ctx.s.project.id, profile_id: profileId } });
+  const profile = member ? await ctx.store.byId("profiles", profileId) : null;
+  if (!profile) throw new AccessError(he.errors.notFound, 404);
+  const patch: Partial<Profile> = {};
+  if (input.name !== undefined) {
+    if (!input.name.trim()) throw new ServiceError(he.errors.invalid);
+    patch.full_name = input.name.trim();
+  }
+  if (input.phone !== undefined) {
+    const phone = normalizePhone(input.phone);
+    if (input.phone?.trim() && !phone) throw new ServiceError(he.errors.invalid);
+    if (phone) {
+      const other = await ctx.store.first("profiles", { where: { phone } });
+      if (other && other.id !== profile.id) throw new ServiceError(he.settings.phoneTaken);
+    }
+    patch.phone = phone;
+  }
+  if (input.email !== undefined) patch.email = cleanEmail(input.email);
+  if (!(patch.phone ?? profile.phone) && !(patch.email ?? profile.email) && !profile.auth_user_id) throw new ServiceError(he.settings.needPhoneOrEmail);
+  await ctx.store.update("profiles", { id: profile.id }, patch);
+  // the same person as a contractor keeps the same number
+  if (patch.phone !== undefined) await ctx.store.update("contractors", { profile_id: profile.id }, { phone: patch.phone });
 }
 
 export async function setMemberRole(ctx: Ctx, profileId: string, role: MemberRole) {
