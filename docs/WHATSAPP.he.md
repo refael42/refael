@@ -17,7 +17,7 @@
 2. ב-**WhatsApp ← API Setup**:
    - **Phone number ID**: זה הערך של `WHATSAPP_PHONE_NUMBER_ID`.
    - **To**: מוסיפים את המספרים של מי שבודק (אתה, עידו). זה נדרש רק כשעובדים עם מספר הבדיקה.
-3. **טוקן קבוע**: ב-business.facebook.com ← Settings ← Users ← **System users** ← Add (Admin) ← Generate token עם ההרשאות `whatsapp_business_messaging` ו-`whatsapp_business_management`. הטוקן הוא הערך של `WHATSAPP_TOKEN`. הטוקן הזמני מ-API Setup פג אחרי 24 שעות.
+3. **טוקן קבוע**: ב-business.facebook.com ← Settings ← Users ← **System users** ← Add (Admin) ← Assign assets (האפליקציה + חשבון הוואטסאפ, Full control) ← Generate token (תוקף: Never) עם ההרשאות `whatsapp_business_messaging` ו-`whatsapp_business_management`. הטוקן הוא הערך של `WHATSAPP_TOKEN`. הטוקן הזמני מ-API Setup פג אחרי 24 שעות.
 4. **App secret**: בהגדרות האפליקציה ← App settings ← Basic ← **App secret**. זה הערך של `WHATSAPP_APP_SECRET`.
 5. **Verify token**: ממציאים מילה סודית כלשהי. זה הערך של `WHATSAPP_VERIFY_TOKEN`.
 6. מכניסים את 4 הערכים ב-**Vercel ← Settings ← Environment Variables** ועושים Redeploy.
@@ -25,7 +25,12 @@
    - Callback URL: הכתובת שמופיעה באפליקציה בהגדרות ← קבלנים ← כרטיס "וואטסאפ" (`https://<האתר>/api/whatsapp`)
    - Verify token: אותה מילה מסעיף 5.
    - אחרי Verify and save לוחצים Manage ומסמנים **messages**.
-8. **תבנית הודעה**: ב-WhatsApp Manager ← Message templates ← Create:
+8. **לחבר את חשבון הוואטסאפ לאפליקציה** (בלי זה Meta לא מעבירה הודעות אמיתיות לאתר, רק הודעות בדיקה):
+   - developers.facebook.com/tools/explorer ← Meta App: האפליקציה שלנו ← Access Token: הטוקן הקבוע
+   - POST ← `<WhatsApp Business account ID>/subscribed_apps` ← Submit ← צריך לחזור `{"success": true}`
+   - את ה-ID רואים ב-API Setup ליד **WhatsApp Business account ID**
+   - גם האפליקציה חייבת להיות **Published** (App settings ← Basic: Privacy policy URL = `/privacy`)
+9. **תבנית הודעה**: ב-WhatsApp Manager ← Message templates ← Create:
    - שם: `siteflow_update`, קטגוריה **Utility**, שפה **Hebrew**
    - גוף ההודעה:
      ```

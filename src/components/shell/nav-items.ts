@@ -16,7 +16,8 @@ export type NavKey =
   | "notifications"
   | "settings"
   | "report"
-  | "flow";
+  | "flow"
+  | "sources";
 
 export interface NavItem {
   key: NavKey;
@@ -43,15 +44,16 @@ const ALL: Record<NavKey, NavItem> = {
   settings: { key: "settings", href: "/settings", label: t.nav.settings },
   report: { key: "report", href: "/report", label: t.nav.report },
   flow: { key: "flow", href: "/flow", label: t.nav.flow },
+  sources: { key: "sources", href: "/sources", label: t.nav.sources },
 };
 
 const BY_ROLE: Record<MemberRole, { primary: NavKey[]; rest: NavKey[] }> = {
   pm: {
     primary: ["home", "chat", "approvals", "graph"],
-    rest: ["flow", "overview", "report", "tasks", "plans", "ask", "gantt", "templates", "notifications", "settings"],
+    rest: ["flow", "overview", "report", "tasks", "plans", "sources", "ask", "gantt", "templates", "notifications", "settings"],
   },
   contractor: { primary: ["my", "chat", "notifications"], rest: [] },
-  viewer: { primary: ["home", "overview", "graph", "chat"], rest: ["flow", "report", "tasks", "plans", "ask", "gantt", "notifications"] },
+  viewer: { primary: ["home", "overview", "graph", "chat"], rest: ["flow", "report", "tasks", "plans", "sources", "ask", "gantt", "notifications"] },
 };
 
 export function navFor(role: MemberRole) {

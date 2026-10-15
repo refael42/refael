@@ -345,6 +345,42 @@ export interface PushSubscriptionRow {
   created_at: ISODateTime;
 }
 
+export type SourceKind = "whatsapp_export" | "whatsapp_coexistence" | "manual";
+export type SourceItemKind = "text" | "image" | "voice" | "file" | "system";
+export type SourceItemStatus = "new" | "processed" | "skipped" | "error";
+
+/** One outside conversation (a WhatsApp chat export, later Coexistence). */
+export interface Source {
+  id: UUID;
+  project_id: UUID;
+  kind: SourceKind;
+  title: string;
+  is_group: boolean;
+  /** export display name → who it is (or ignore) */
+  speakers: Record<string, { profile_id: UUID | null; ignore?: boolean; auto?: boolean }>;
+  since: ISODateTime | null;
+  last_import_at: ISODateTime | null;
+  created_by: UUID | null;
+  created_at: ISODateTime;
+}
+
+/** A message exactly as received from a source — the evidence later updates point to. */
+export interface SourceItem {
+  id: UUID;
+  project_id: UUID;
+  source_id: UUID;
+  external_id: string;
+  sent_at: ISODateTime;
+  author: string | null;
+  author_profile_id: UUID | null;
+  kind: SourceItemKind;
+  text: string | null;
+  media_url: string | null;
+  media_name: string | null;
+  status: SourceItemStatus;
+  created_at: ISODateTime;
+}
+
 /** A WhatsApp webhook message already handled (Meta retries deliveries). */
 export interface WaInbound {
   id: string;
@@ -401,6 +437,8 @@ export interface Tables {
   audit_log: AuditEntry;
   flow_templates: FlowTemplate;
   wa_inbound: WaInbound;
+  sources: Source;
+  source_items: SourceItem;
 }
 
 export type TableName = keyof Tables;
