@@ -42,23 +42,43 @@ export interface ExtractedEvent {
 
 const ACK = /^(אוקי|אוקיי|ok|סבבה|תודה|תודה רבה|מעולה|יופי|בסדר|קיבלתי|טוב|כן|לא|👍|🙏|👌|✅|\p{Emoji}+)[.!\s]*$/iu;
 
+/**
+ * Whole words only, optionally after "ו" — so "תקין" never matches inside
+ * "להתקין" / "מתקין", nor "התחיל" inside "להתחיל".
+ */
+function words(list: string[], prefix = "ו?"): RegExp {
+  return new RegExp(`(?<![\\p{L}])${prefix}(?:${list.join("|")})(?![\\p{L}])`, "u");
+}
+
 const RX = {
-  inspected: /(בדקתי|נבדק|נבדקה|עבר בדיקה|עברה בדיקה|עברו בדיקה|בדיקת לחץ (עברה|תקינה)|תקין|תקינה|תקינים|אושר על ידי|המפקח אישר|קיבלתי את העבודה)/,
-  defect: /(ליקוי|ליקויים|סדק|סדקים|נזילה|נוזל|רטיבות|שבור|שבורה|פגום|פגומה|עקום|עקומה|לא ישר|לא מפולס|נזק|נפגע|לא תקין|צריך לתקן|לתקן את|תיקון של)/,
-  approval: /(מחכה לאישור|מחכים לאישור|ממתין לאישור|ממתינים לאישור|צריך אישור|לא אושר|אין אישור)/,
-  material: /(חסר|חסרה|חסרים|חסרות|לא הגיע|לא הגיעה|לא הגיעו|אין (לי |לנו )?(חומר|סחורה|צנרת|אריחים|ראשים|ברגים|פרופילים)|מחכה ל(חומר|סחורה|משלוח|הספקה)|מחכים ל(חומר|סחורה|משלוח|הספקה))/,
-  blocker: /(אי אפשר|אי-אפשר|לא ניתן|לא יכול להתחיל|לא יכולים להתחיל|תקוע|תקועים|נתקענו|מחכה ל|מחכים ל|ממתין ל|ממתינים ל|אין חשמל|אין מים|אין גישה|חסום|חסומה)/,
-  done: /(^|\s)(סיימתי|סיימנו|סיים|סיימה|סיימו|גמרתי|גמרנו|גמר|גמרו|הסתיים|הסתיימה|הסתיימו|הושלם|הושלמה|הושלמו|בוצע|בוצעה|בוצעו|מוכן לבדיקה|מוכנה לבדיקה|מוכנות לבדיקה)(?=\s|$|[.,!])/,
-  started: /(התחלתי|התחלנו|התחיל|התחילה|התחילו|אני בדירה|אנחנו בדירה|עובד עכשיו ב|עובדים עכשיו ב|נכנסנו ל|נכנסתי ל)/,
+  inspected: words(["בדקתי", "בדקנו", "נבדק", "נבדקה", "נבדקו", "עבר בדיקה", "עברה בדיקה", "עברו בדיקה", "בדיקת לחץ עברה", "תקין", "תקינה", "תקינים", "תקינות", "המפקח אישר", "קיבלתי את העבודה"]),
+  defect: words(["ליקוי", "ליקויים", "סדק", "סדקים", "נזילה", "נזילות", "רטיבות", "שבור", "שבורה", "שבורים", "פגום", "פגומה", "פגומים", "עקום", "עקומה", "לא ישר", "לא מפולס", "לא מפולסת", "נזק", "לא תקין", "לא תקינה"], "[וב]?"),
+  approval: words(["מחכה לאישור", "מחכים לאישור", "ממתין לאישור", "ממתינים לאישור", "צריך אישור", "לא אושר", "לא אושרה", "אין אישור"]),
+  material: words(["חסר", "חסרה", "חסרים", "חסרות", "לא הגיע", "לא הגיעה", "לא הגיעו", "אין חומר", "אין לי חומר", "אין לנו חומר", "מחכה לחומר", "מחכים לחומר", "מחכה למשלוח", "מחכים למשלוח", "נגמר החומר"]),
+  blocker: words(["אי אפשר", "אי-אפשר", "לא ניתן", "לא יכול להתחיל", "לא יכולים להתחיל", "תקוע", "תקועים", "נתקענו", "אין חשמל", "אין מים", "אין גישה", "חסום", "חסומה"]),
+  done: words(["סיימתי", "סיימנו", "סיים", "סיימה", "סיימו", "גמרתי", "גמרנו", "גמר", "גמרו", "הסתיים", "הסתיימה", "הסתיימו", "הושלם", "הושלמה", "הושלמו", "מוכן לבדיקה", "מוכנה לבדיקה", "מוכנות לבדיקה"]),
+  started: words(["התחלתי", "התחלנו", "התחיל", "התחילה", "התחילו", "אני בדירה", "אנחנו בדירה", "עובד עכשיו", "עובדים עכשיו", "נכנסנו", "נכנסתי"]),
   future: /(מחר|מחרתיים|ביום (ראשון|שני|שלישי|רביעי|חמישי|שישי)|בשבוע הבא|ב-?\s?\d{1,2}[./]\d{1,2})/,
-  commitWord: /(אגיע|נגיע|יגיע|יגיעו|אתחיל|נתחיל|יתחיל|יתחילו|אסיים|נסיים|יסיים|יסיימו|אהיה|נהיה|אבוא|נבוא|יבוא|יבואו|אעשה|נעשה)/,
-  finishWord: /(אסיים|נסיים|יסיים|יסיימו|יהיה מוכן|תהיה מוכנה|יהיו מוכנים)/,
-  change: /(שינוי|לשנות|שונה|האדריכל ביקש|המתכנן ביקש|הלקוח ביקש|הדייר ביקש|להזיז|להעביר את|במקום ה|לבטל את|בוטל|מבטלים)/,
-  newTask: /^(צריך|צריכה|צריכים|יש ל|חייב|חייבים|נא ל|תבצע|תעשה|תתקין|תסמן|תבדוק|תסגור|תתקן|תזמין|לבצע|להזמין|להתקין|לסגור|לבדוק)/,
+  commitWord: words(["אגיע", "נגיע", "אתחיל", "נתחיל", "אסיים", "נסיים", "אהיה", "נהיה", "אבוא", "נבוא", "אעשה", "נעשה", "יגיע", "יגיעו", "יתחיל", "יתחילו", "יסיים", "יסיימו"]),
+  finishWord: words(["אסיים", "נסיים", "יסיים", "יסיימו", "יהיה מוכן", "תהיה מוכנה", "יהיו מוכנים"]),
+  // an explicit change of plan, not an everyday instruction ("להזיז את הפלנים" is a task)
+  change: words(["שינוי בתוכנית", "שינוי תוכנית", "שינוי בתכנית", "האדריכל ביקש", "המתכנן ביקש", "הקונסטרוקטור ביקש", "הלקוח ביקש", "הדייר ביקש", "הדיירים ביקשו", "לבטל את", "בוטל", "בוטלה", "מבטלים"]),
+  newTask: /^(צריך|צריכה|צריכים|יש ל|חייב|חייבים|נא ל|תבצע|תעשה|תתקין|תסמן|תבדוק|תסגור|תתקן|לבצע|להתקין|לסגור|לבדוק|לתקן)/,
   all: /(^|\s)(כל ה|בכל ה|את כל|לכל ה|כולם|כולן|הכל|הכול)/,
-  except: /(חוץ מ|חוץ מה|מלבד|פרט ל|למעט|בלי )/,
+  except: /(חוץ מ|חוץ מה|מלבד|פרט ל|למעט)/,
   firstPerson: /(סיימתי|סיימנו|גמרתי|גמרנו|התחלתי|התחלנו|אגיע|נגיע|אתחיל|נתחיל|אסיים|נסיים|אני |אנחנו |בדקתי|אהיה|נהיה|אבוא|נבוא)/,
+  // "אחרי שהוא סיים…", "אם לא נעשה מחר…", "כשתסיים…" describe a condition, not a fact
+  conditional: /(^|\s)(אם|אחרי ש|לאחר ש|ברגע ש|לפני ש|עד ש|כש|כאשר|במידה ו|ברגע שהוא|אחרי שהם)/,
+  // WhatsApp markers that are not part of what was said
+  openCondition: /(^|\s)(אם|במידה ו?|כש|ברגע ש|אחרי ש|לפני ש)\s*$/,
+  money: words(["תשלום", "בתשלום", "לשלם", "שילמת", "שילמו", "כסף", "שקל", "שקלים", "ש״ח", "₪", "חשבונית", "משכורת", "מקדמה"], "[ובל]?"),
+  ask: /(^|\s)(תעדכן|תעדכני|תגיד לי|תודיע|תבדוק|תשאל|מה|מי|איפה|מתי|למה|כמה|האם)(\s|$)/,
+  marker: /<\s*(this message was edited|ההודעה נערכה|הודעה זו נערכה)\s*>/gi,
 };
+
+/** Clauses longer than this are conversation, not site updates. */
+const MAX_CLAUSE = 220;
+
 
 const WEEKDAY: Record<string, number> = { ראשון: 0, שני: 1, שלישי: 2, רביעי: 3, חמישי: 4, שישי: 5 };
 
@@ -132,24 +152,31 @@ export function clauses(text: string): string[] {
   for (const line of text.split(/\n+/)) {
     const l = line.trim();
     if (!l) continue;
-    if (parts.length && RX.except.test(l.slice(0, 8))) parts[parts.length - 1] += ` ${l}`;
+    const prev = parts[parts.length - 1];
+    // "חוץ מ…" belongs to the line above; so does a line that finishes an "אם…"
+    if (prev && (RX.except.test(l.slice(0, 8)) || RX.openCondition.test(prev))) parts[parts.length - 1] += ` ${l}`;
     else parts.push(...l.split(/(?<=[.!])\s+/).map((s) => s.trim()).filter(Boolean));
   }
   return parts;
 }
 
 function typeOf(c: string, speaker: Speaker): EventType | null {
-  if (/\?\s*$/.test(c)) return null;
-  if (RX.inspected.test(c) && speaker.role !== "contractor") return "inspected_ok";
+  if (/\?/.test(c) || c.length > MAX_CLAUSE) return null;
+  // "אם…", "אחרי ש…" talk about what may happen, not about what happened
+  if (RX.conditional.test(c) && !RX.except.test(c)) return null;
+  // money between people is not a site update; asking "מה חסר" is not a report
+  if (RX.money.test(c) || RX.ask.test(c)) return null;
   if (RX.defect.test(c)) return "defect";
+  if (RX.inspected.test(c) && speaker.role !== "contractor") return "inspected_ok";
   if (RX.approval.test(c)) return "approval_missing";
-  if (RX.material.test(c)) return "material_missing";
-  if (RX.blocker.test(c)) return "blocker";
+  const short = c.split(/\s+/).length < 3;
+  if (RX.material.test(c) && !short) return "material_missing";
+  if (RX.blocker.test(c) && !short) return "blocker";
   if (RX.done.test(c)) return "reported_done";
   if (RX.started.test(c)) return "started";
   if (RX.future.test(c) && RX.commitWord.test(c)) return "commitment";
   if (RX.change.test(c) && speaker.role !== "contractor") return "instruction_change";
-  if (RX.newTask.test(c) && speaker.role === "pm") return "new_task";
+  if (RX.newTask.test(c) && speaker.role === "pm" && c.split(" ").length >= 4) return "new_task";
   return null;
 }
 
@@ -161,11 +188,13 @@ export function extractEvents(
   rawText: string,
   ctx: { speaker: Speaker; counterpart: Contractor | null; sentAt: Date; timeZone: string; facts: ProjectFacts },
 ): ExtractedEvent[] {
-  const text = normalize(rawText);
-  if (text.length < 5 || ACK.test(text)) return [];
+  const cleanText = rawText.replace(RX.marker, " ").trim();
+  const text = normalize(cleanText);
+  // long chatty messages (a story, a link, a debate) are not site updates
+  if (text.length < 5 || ACK.test(text) || text.length > 700) return [];
   const { facts, speaker } = ctx;
   const out: ExtractedEvent[] = [];
-  for (const clause of clauses(rawText).map(normalize)) {
+  for (const clause of clauses(cleanText).map(normalize)) {
     const type = typeOf(clause, speaker);
     if (!type) continue;
     const ex = clause.match(RX.except);
@@ -184,6 +213,9 @@ export function extractEvents(
     const except = rest ? areasIn(rest, facts.areas) : [];
     const all = RX.all.test(main) && areas.length === 0;
     const date = type === "commitment" ? dateFrom(clause, ctx.sentAt, ctx.timeZone) : null;
+    // nothing to tie it to (no one, no trade, no place) → it is chatter, not an update
+    if (!contractor && !tradeKey && !areas.length && !all) continue;
+    if (type === "commitment" && !date) continue;
 
     let confidence = 0.55;
     if (areas.length || all) confidence += 0.15;

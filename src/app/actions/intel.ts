@@ -5,6 +5,9 @@ import { run } from "./_run";
 export async function processSourceAction(sourceId: string) {
   return run((ctx) => svc.processSource(ctx, sourceId));
 }
+export async function reprocessSourceAction(sourceId: string) {
+  return run((ctx) => svc.reprocessSource(ctx, sourceId));
+}
 export async function applyEventAction(eventId: string, taskIds?: string[]) {
   return run((ctx) => svc.applyEvent(ctx, eventId, { taskIds }));
 }
