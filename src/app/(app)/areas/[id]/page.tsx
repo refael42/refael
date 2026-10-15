@@ -2,6 +2,7 @@ import { ArrowRight, CheckCircle2, Inbox, MapPin, MessageCircle, MessageSquareQu
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AreaTile } from "@/components/overview/area-tile";
+import { PlanCard } from "@/components/plans/plan-card";
 import { StateBadge } from "@/components/tasks/state-badge";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
 import { TaskRow } from "@/components/tasks/task-row";
@@ -13,6 +14,7 @@ import type { EffectiveState } from "@/lib/engine/types";
 import { fmtDateTime, t } from "@/lib/i18n";
 import { isPM } from "@/lib/services/access";
 import { areaBreadcrumb, areaEvents, areaMessages, whatPrevents, type PreventLine } from "@/lib/services/area-view";
+import { plansForArea } from "@/lib/services/plans";
 import { requireProjectSession } from "@/lib/services/session";
 import { areaSubtree, loadSnapshot } from "@/lib/services/snapshot";
 import { areaProgress, findArea, formOptions, taskCard } from "@/lib/services/views";
@@ -32,11 +34,14 @@ export default async function AreaPage({ params }: { params: { id: string } }) {
   const cards = snap.tasks.filter((x) => x.area_id && inArea.has(x.area_id)).map((x) => taskCard(snap, x.id));
   const prevents = whatPrevents(snap, area.id);
   const blockers = prevents.blocked;
-  const [messages, pins, events] = await Promise.all([
+  const [messages, pins, events, plans] = await Promise.all([
     areaMessages(store, s, snap, area.id),
     store.select("plan_pins", { where: { area_id: area.id } }),
     areaEvents(store, snap, area.id).catch(() => []),
+    plansForArea({ store, s }, area.id),
   ]);
+  // marked points of current plans only (older versions keep their own copies)
+  const currentPins = pins.filter((p) => plans.some((x) => x.id === p.plan_file_id));
   const waitingUpdates = events.filter((e) => e.status === "proposed" || e.status === "needs_info").length;
   const senders = new Map(snap.profiles.map((p) => [p.id, p.full_name]));
   const pct = progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
@@ -150,12 +155,23 @@ export default async function AreaPage({ params }: { params: { id: string } }) {
         })}
       </section>
 
-      {pins.length > 0 && (
+      {plans.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="font-semibold">{t.plans.plansHere}</h2>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {plans.map((p) => (
+              <PlanCard key={p.id} plan={p} floor={null} pins={pins.filter((x) => x.plan_file_id === p.id).length} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {currentPins.length > 0 && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-2 p-4 text-sm">
             <MapPin className="h-4 w-4" />
             <span className="font-medium">{t.area.onPlans}:</span>
-            {pins.map((p) => (
+            {currentPins.map((p) => (
               <Link key={p.id} href={`/plans/${p.plan_file_id}?pin=${p.id}`} className="text-primary hover:underline">
                 {p.label ?? area.name}
               </Link>

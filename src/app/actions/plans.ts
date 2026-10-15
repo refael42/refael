@@ -3,8 +3,11 @@ import * as svc from "@/lib/services/plans";
 import { updateTask } from "@/lib/services/tasks";
 import { run } from "./_run";
 
-export async function createPlanAction(input: { title: string; fileKey: string; floorAreaId?: string | null }) {
+export async function createPlanAction(input: svc.NewPlan) {
   return run(async (ctx) => (await svc.createPlan(ctx, input)).id);
+}
+export async function updatePlanAction(planId: string, patch: Parameters<typeof svc.updatePlan>[2]) {
+  return run((ctx) => svc.updatePlan(ctx, planId, patch));
 }
 export async function addPinAction(input: { planId: string; page: number; x: number; y: number; areaId: string | null; label?: string | null }) {
   return run(async (ctx) => (await svc.addPin(ctx, input)).id);

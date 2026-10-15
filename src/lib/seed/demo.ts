@@ -855,6 +855,16 @@ export function buildDemoData(now: Date = new Date()): MemoryData {
     floor_area_id: A("floor4"),
     created_by: DEMO_IDS.pm,
     created_at: ago(24 * 30),
+    discipline: "architecture",
+    sheet: "A-104",
+    revision: "ב",
+    version: 1,
+    supersedes_id: null,
+    is_current: true,
+    area_ids: [A("floor4")],
+    page_count: 1,
+    text_index: null,
+    change_note: null,
   });
   for (const apt of PLAN_APARTMENTS) {
     const c = normCentre(apt);

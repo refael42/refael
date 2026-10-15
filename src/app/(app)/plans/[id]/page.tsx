@@ -1,10 +1,12 @@
 import { notFound, redirect } from "next/navigation";
+import { PlanDetails } from "@/components/plans/plan-details";
 import { PlanViewer } from "@/components/plans/plan-viewer";
 import type { PinAreaVM } from "@/components/plans/types";
 import { getStore } from "@/lib/db";
 import { mediaSrc } from "@/lib/media";
 import { isPM } from "@/lib/services/access";
 import { areaMessages } from "@/lib/services/area-view";
+import { planVersions } from "@/lib/services/plans";
 import { requireProjectSession } from "@/lib/services/session";
 import { areaLabel, areaSubtree, loadSnapshot } from "@/lib/services/snapshot";
 import { areaProgress, findArea, formOptions, taskCard } from "@/lib/services/views";
@@ -50,15 +52,39 @@ export default async function PlanPage({ params, searchParams }: { params: { id:
     };
   }
 
+  const versions = await planVersions({ store, s }, plan.id);
+  const idx = versions.findIndex((v) => v.id === plan.id);
+  const options = formOptions(snap).areas;
   return (
+    <div className="flex h-[calc(100dvh-3.5rem-4.5rem)] flex-col lg:h-[calc(100dvh-3.5rem)]">
+      <PlanDetails
+        canEdit={isPM(s)}
+        areas={options}
+        plan={{
+          id: plan.id,
+          title: plan.title,
+          discipline: plan.discipline ?? null,
+          sheet: plan.sheet ?? null,
+          revision: plan.revision ?? null,
+          version: plan.version ?? 1,
+          isCurrent: plan.is_current !== false,
+          currentId: versions.find((v) => v.is_current !== false)?.id ?? null,
+          previousId: versions[idx + 1]?.id ?? null,
+          changeNote: plan.change_note ?? null,
+          areaIds: plan.area_ids ?? [],
+          createdAt: plan.created_at,
+          versions: versions.map((v) => ({ id: v.id, version: v.version ?? 1, revision: v.revision ?? null, createdAt: v.created_at, isCurrent: v.is_current !== false })),
+        }}
+      />
     <PlanViewer
       planId={plan.id}
       url={mediaSrc(plan.file_url)}
       pins={pins.map((p) => ({ id: p.id, page: p.page, x: p.x, y: p.y, areaId: p.area_id, label: p.label }))}
       areas={areas}
-      areaOptions={formOptions(snap).areas}
+      areaOptions={options}
       canEdit={isPM(s)}
       initialPin={searchParams.pin ?? null}
     />
+    </div>
   );
 }
