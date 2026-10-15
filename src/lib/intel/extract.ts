@@ -211,11 +211,18 @@ export function listItems(text: string, areas: Area[]): Array<{ text: string; ar
     const head = colon > 0 && colon <= 30 ? line.slice(0, colon) : null;
     const headAreas = head ? areasIn(head, areas) : [];
     if (head && headAreas.length) {
-      // "דירה 3: השירותים נוזלים"
+      // "דירה 3: השירותים נוזלים" — the place is for this line only
       anchors++;
-      current = headAreas;
+      current = [];
       const rest = line.slice(colon + 1).trim();
       if (rest) items.push({ text: rest, areas: headAreas });
+      continue;
+    }
+    if (head) {
+      // "גגות חדרי המדרגות: …" names its own subject: not the apartment above
+      current = [];
+      const rest = line.slice(colon + 1).trim();
+      if (rest) items.push({ text: rest, areas: areasIn(rest, areas) });
       continue;
     }
     const own = areasIn(line, areas);
@@ -287,7 +294,7 @@ export function extractEvents(rawText: string, ctx: ReadContext): ExtractedEvent
       const e = build(clause, type, ctx, item.areas);
       if (e) out.push({ ...e, learnedFrom });
     }
-    return out;
+    return unique(out);
   }
 
   // long chatty messages (a story, a link, a debate) are not site updates
@@ -304,7 +311,18 @@ export function extractEvents(rawText: string, ctx: ReadContext): ExtractedEvent
     const e = build(clause, type, ctx, null);
     if (e) out.push({ ...e, learnedFrom });
   }
-  return out;
+  return unique(out);
+}
+
+/** The same line twice in a message is one update. */
+function unique(events: ExtractedEvent[]): ExtractedEvent[] {
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    const key = `${e.type}|${e.areaIds.join()}|${e.quote}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Tie one clause to who / what / where; null when it cannot be tied to anything. */

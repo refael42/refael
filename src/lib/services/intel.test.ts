@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { exportMessageKeys, parseWhatsAppExport } from "@/lib/import/whatsapp-export";
 import { contractorProfileId, sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
-import { applyEvent, dismissEvent, listEvents, markAsEvent, processSource, reprocessSource } from "./intel";
+import { applyEvent, decideEvents, dismissEvent, listEvents, markAsEvent, processSource, reprocessSource } from "./intel";
 import { importChatChunk, setSpeaker } from "./sources";
 
 const CHAT = [
@@ -113,5 +113,24 @@ describe("events from chat", () => {
     expect((await processSource(pm, sourceId)).events).toBe(1);
     const learned = store.data.project_events.find((e) => e.quote?.includes("דירה 12"))!;
     expect(learned).toMatchObject({ type: "defect", extracted: { engine: "learned", like: eventId } });
+  });
+
+  it("a punch list is decided at once: checked lines become tasks, the rest are dismissed", async () => {
+    const { store, pm, sourceId } = await imported();
+    const said = parseWhatsAppExport(["06.10.2026, 09:40 - רפאל כהן: * דירה 3: שפכטל וצבע סביב חלון המרפסת.", "* דירה 4: סיתות המעבר והשלמת החיפוי.", "* דירה 8: צבע בחלון ובדלת הממ\"ד."].join("\n")).messages;
+    await importChatChunk(pm, {
+      title: "יוסי חשמל",
+      isGroup: false,
+      since: null,
+      messages: said.map((m, i) => ({ key: exportMessageKeys(said)[i], sentAt: m.sentAt.toISOString(), author: m.author!, text: m.text, kind: "text" as const, attachment: null, mediaUrl: null })),
+    });
+    await processSource(pm, sourceId);
+    const list = store.data.project_events.filter((e) => e.type === "new_task" && e.occurred_at.startsWith("2026-10-06"));
+    expect(list).toHaveLength(3);
+    const tasksBefore = store.data.tasks.length;
+    await decideEvents(pm, { apply: [list[0].id, list[1].id], dismiss: [list[2].id] });
+    expect(store.data.tasks.length).toBe(tasksBefore + 2);
+    expect(store.data.project_events.filter((e) => list.some((l) => l.id === e.id)).map((e) => e.status).sort()).toEqual(["applied", "applied", "dismissed"]);
+    await expect(decideEvents(await ctxFor("viewer", store), { apply: [], dismiss: [list[2].id] })).rejects.toThrow();
   });
 });

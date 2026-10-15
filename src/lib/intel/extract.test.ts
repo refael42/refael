@@ -151,4 +151,21 @@ describe("punch lists and learning", () => {
     const no = new Learner([{ id: "d1", type: "new_task", text: "אני רוצה להזמין דלת ומשקוף לממד", positive: false }]);
     expect(extractEvents("אני רוצה להזמין דלת ומשקוף לממ״ד דירה 15", { ...ctx, learner: no })).toEqual([]);
   });
+
+  it("reads '* דירה N: …' lines (the real list), skipping duplicates and the edited marker", () => {
+    const text = [
+      "* דירה 3: שפכטל וצבע סביב חלון המרפסת.",
+      "* דירה 4: סיתות המעבר והשלמת החיפוי.",
+      "* דירה 8: צבע בחלון ובדלת הממ\"ד.",
+      "* דירה 8: צבע בחלון ובדלת הממ\"ד.",
+      "* גגות חדרי המדרגות: פתחים בגודל 60×60 ס\"מ.",
+      "* חומה הפרדה - קופינג <This message was edited>",
+    ].join("\n");
+    const events = extractEvents(text, opts(ido, f));
+    expect(events.map((e) => [e.areaIds.map(name).join(), e.quote])).toEqual([
+      ["דירה 3", "שפכטל וצבע סביב חלון המרפסת."],
+      ["דירה 4", "סיתות המעבר והשלמת החיפוי."],
+      ["דירה 8", "צבע בחלון ובדלת הממד."],
+    ]);
+  });
 });
