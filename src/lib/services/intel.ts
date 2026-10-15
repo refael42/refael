@@ -119,6 +119,27 @@ export async function processSource(ctx: Ctx, sourceId: string): Promise<{ proce
   return { processed: batch.length, events, remaining: waiting.length - batch.length };
 }
 
+/**
+ * Read a chat again from scratch: suggestions the PM has not decided on are
+ * dropped and their messages go back to waiting. Decided ones (applied or
+ * dismissed) stay as they are, and so do their messages.
+ */
+export async function reprocessSource(ctx: Ctx, sourceId: string): Promise<{ removed: number; waiting: number }> {
+  assertPM(ctx.s);
+  const src = await ctx.store.byId("sources", sourceId);
+  if (!src || src.project_id !== ctx.s.project.id) throw new AccessError(he.errors.notFound, 404);
+  const items = await ctx.store.select("source_items", { where: { source_id: src.id, status: "processed" } });
+  if (!items.length) return { removed: 0, waiting: 0 };
+  const ids = items.map((i) => i.id);
+  const events = await ctx.store.select("project_events", { where: { source_item_id: { in: ids } } });
+  const decided = new Set(events.filter((e) => e.status === "applied" || e.status === "dismissed").map((e) => e.source_item_id));
+  const open = events.filter((e) => e.status === "proposed" || e.status === "needs_info");
+  if (open.length) await ctx.store.remove("project_events", { id: { in: open.map((e) => e.id) } });
+  const back = ids.filter((id) => !decided.has(id));
+  for (let i = 0; i < back.length; i += 500) await ctx.store.update("source_items", { id: { in: back.slice(i, i + 500) } }, { status: "new" });
+  return { removed: open.length, waiting: back.length };
+}
+
 export interface EventCard {
   event: ProjectEvent;
   author: string;

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { exportMessageKeys, parseWhatsAppExport } from "@/lib/import/whatsapp-export";
 import { contractorProfileId, sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
-import { applyEvent, dismissEvent, listEvents, processSource } from "./intel";
+import { applyEvent, dismissEvent, listEvents, processSource, reprocessSource } from "./intel";
 import { importChatChunk, setSpeaker } from "./sources";
 
 const CHAT = [
@@ -74,5 +74,21 @@ describe("events from chat", () => {
     await expect(applyEvent(viewer, ok.event.id)).rejects.toThrow();
     await applyEvent(pm, ok.event.id, { taskIds: [sid("task:E14")] });
     expect((await store.byId("tasks", sid("task:E14")))!.status).toBe("done");
+  });
+
+  it("reading again drops undecided suggestions and keeps the decided ones", async () => {
+    const { store, pm, sourceId } = await imported();
+    await processSource(pm, sourceId);
+    const [first] = await listEvents(pm);
+    await dismissEvent(pm, first.event.id);
+    const before = store.data.project_events.length;
+    const r = await reprocessSource(pm, sourceId);
+    expect(r.removed).toBe(before - 1);
+    expect(store.data.project_events.map((e) => e.id)).toEqual([first.event.id]);
+    expect(store.data.source_items.filter((i) => i.status === "processed").map((i) => i.id)).toEqual([first.event.source_item_id]);
+    const again = await processSource(pm, sourceId);
+    expect(again.processed).toBe(3);
+    expect(store.data.project_events.length).toBe(before);
+    await expect(reprocessSource(await ctxFor("viewer", store), sourceId)).rejects.toThrow();
   });
 });

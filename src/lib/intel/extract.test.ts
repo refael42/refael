@@ -50,3 +50,32 @@ describe("local event reading", () => {
     expect(clauses("סיימתי בדירה 4. מחר אני בדירה 5")).toEqual(["סיימתי בדירה 4.", "מחר אני בדירה 5"]);
   });
 });
+
+describe("real chat noise (Imber 16 export)", () => {
+  const f = factsOf();
+  const ido: Speaker = { name: "עידו", role: "pm", contractorId: null };
+  const none = (text: string, who = ido) => expect(extractEvents(text, opts(who, f))).toEqual([]);
+
+  it("does not read 'להתקין' / 'מתקין' as 'תקין', nor 'להתחיל' as 'התחיל'", () => {
+    none("צריך להתקין דלת ממ״ד, תבדוק כמה זה עולה");
+    none("יום ראשון מגיע מתקין עומר נתקין גם אותו");
+    none("עז מחר יגיעו להתקין את הפלנים הסולארים");
+    none("יוסי שמתקין את הציוד ממ״דים מגיע ברביעי.");
+    none("צריך גם להתחיל חגורות מסביב למעליות");
+  });
+
+  it("skips conditions, questions, plain orders, edited markers and long chatter", () => {
+    none("ולאחר מכן התקנת כל מאחז היד ושימדוד לי אחרי שהוא סיים כמה חומר הוא עוד צריך.");
+    none("אם לא נעשה את זה מחר");
+    none("להזיז את האבנים את הפלנים וכו");
+    none("תזמין D400");
+    none("להזמין חתך או שאתה חותך במקום? אני שוב מוודא");
+    none("בוקר טוב עז, <This message was edited>");
+    none("עז, בדקתי את מה שסיפרת לי היום ".repeat(30));
+  });
+
+  it("still reads real updates", () => {
+    expect(extractEvents("זה לא תקין, יש סדק בריצוף בדירה 9", opts(ido, f))[0].type).toBe("defect");
+    expect(extractEvents("בדקתי את החשמל בדירה 14, תקין", opts(ido, f))[0].type).toBe("inspected_ok");
+  });
+});

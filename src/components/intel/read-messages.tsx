@@ -1,19 +1,19 @@
 "use client";
-import { ScanText } from "lucide-react";
+import { RotateCcw, ScanText } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { processSourceAction } from "@/app/actions/intel";
+import { processSourceAction, reprocessSourceAction } from "@/app/actions/intel";
 import { Button } from "@/components/ui/button";
 import { t } from "@/lib/i18n";
 
 /** Reads the waiting messages of one chat, batch after batch, and reports what it found. */
-export function ReadMessages({ sourceId, waiting }: { sourceId: string; waiting: number }) {
+export function ReadMessages({ sourceId, waiting, processed = 0 }: { sourceId: string; waiting: number; processed?: number }) {
   const router = useRouter();
   const [progress, setProgress] = useState<string | null>(null);
   const [found, setFound] = useState<number | null>(null);
-  if (!waiting && found === null) return null;
+  if (!waiting && !processed && found === null) return null;
   return (
     <div className="flex flex-wrap items-center gap-3">
       {waiting > 0 && (
@@ -44,6 +44,27 @@ export function ReadMessages({ sourceId, waiting }: { sourceId: string; waiting:
         >
           <ScanText />
           {t.intel.read(waiting)}
+        </Button>
+      )}
+      {waiting === 0 && processed > 0 && (
+        <Button
+          variant="outline"
+          disabled={!!progress}
+          onClick={async () => {
+            if (!window.confirm(t.intel.rereadConfirm)) return;
+            setProgress(t.intel.reading(0, processed));
+            const r = await reprocessSourceAction(sourceId);
+            setProgress(null);
+            if (!r.ok) {
+              toast.error(r.error);
+              return;
+            }
+            setFound(null);
+            router.refresh();
+          }}
+        >
+          <RotateCcw />
+          {t.intel.reread}
         </Button>
       )}
       {progress && <span className="text-sm text-muted-foreground">{progress}</span>}

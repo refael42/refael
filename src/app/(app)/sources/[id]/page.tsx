@@ -37,7 +37,7 @@ export default async function SourcePage({ params }: { params: { id: string } })
         {d.canEdit && <DeleteSource sourceId={d.source.id} />}
       </div>
 
-      {d.canEdit && <ReadMessages sourceId={d.source.id} waiting={d.items.length ? d.waiting : 0} />}
+      {d.canEdit && <ReadMessages sourceId={d.source.id} waiting={d.items.length ? d.waiting : 0} processed={d.processed} />}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">{t.sources.speakers}</h2>

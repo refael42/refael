@@ -200,6 +200,8 @@ export interface SourceDetail {
   total: number;
   /** messages not read into events yet */
   waiting: number;
+  /** messages already read (can be read again) */
+  processed: number;
   people: Array<{ id: string; name: string }>;
   canEdit: boolean;
 }
@@ -217,6 +219,7 @@ export async function sourceDetail(ctx: Ctx, sourceId: string, limit = 200): Pro
     items: items.slice(0, limit),
     total: items.length,
     waiting: items.filter((i) => i.status === "new").length,
+    processed: items.filter((i) => i.status === "processed").length,
     people: people.map((p) => ({ id: p.id, name: p.full_name })).sort((a, b) => a.name.localeCompare(b.name, "he")),
     canEdit: isPM(ctx.s),
   };
