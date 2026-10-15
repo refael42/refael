@@ -115,7 +115,7 @@ export interface MemberRow {
 export function MembersPanel({ rows }: { rows: MemberRow[] }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", phone: "", email: "", role: "viewer" as "pm" | "viewer" });
-  const [link, setLink] = useState<{ url: string; phone: string | null; name: string } | null>(null);
+  const [link, setLink] = useState<LinkVM | null>(null);
   const { call, pending } = useAction();
   const roles: Option[] = [
     { value: "pm", label: t.roles.pm },
@@ -215,8 +215,16 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
   );
 }
 
-function LoginLinkDialog({ link, onClose }: { link: { url: string; phone: string | null; name: string }; onClose: () => void }) {
-  const message = t.settings.loginLinkMessage(link.url);
+interface LinkVM {
+  url: string;
+  code: string;
+  site: string;
+  phone: string | null;
+  name: string;
+}
+
+function LoginLinkDialog({ link, onClose }: { link: LinkVM; onClose: () => void }) {
+  const message = t.settings.loginLinkMessage(link.url, link.code, link.site);
   const digits = link.phone?.replace(/\D/g, "") ?? "";
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -226,6 +234,12 @@ function LoginLinkDialog({ link, onClose }: { link: { url: string; phone: string
           <DialogDescription>{t.settings.loginLinkHint}</DialogDescription>
         </DialogHeader>
         <Input dir="ltr" readOnly value={link.url} onFocus={(e) => e.target.select()} />
+        <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+          <span className="text-muted-foreground">{t.settings.loginCodeLabel}</span>
+          <span className="num text-lg font-bold tracking-widest" dir="ltr">
+            {link.code}
+          </span>
+        </div>
         <DialogFooter className="gap-2">
           <Button
             variant="outline"

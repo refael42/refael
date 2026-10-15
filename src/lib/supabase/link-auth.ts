@@ -24,7 +24,7 @@ export function supabaseLinkAuth(admin: SupabaseClient): LinkAuth {
         r = await generate(email);
         if (r.error) throw r.error;
       }
-      return { userId: r.data.user.id, hashedToken: r.data.properties.hashed_token };
+      return { userId: r.data.user.id, hashedToken: r.data.properties.hashed_token, otp: r.data.properties.email_otp };
     },
   };
 }

@@ -1,5 +1,7 @@
 import { HardHat } from "lucide-react";
 import { t } from "@/lib/i18n";
+import Link from "next/link";
+import { CodeForm } from "./code-form";
 import { LinkForm } from "./link-form";
 
 export const dynamic = "force-dynamic";
@@ -13,9 +15,18 @@ export default function LoginLinkPage({ searchParams }: { searchParams: { t?: st
           <HardHat className="h-6 w-6" />
         </div>
         <h1 className="text-lg font-bold">{t.auth.title}</h1>
-        <p className="text-sm text-muted-foreground">{t.auth.linkHint}</p>
+        <p className="text-sm text-muted-foreground">{searchParams.t ? t.auth.linkHint : t.auth.codeHint}</p>
       </div>
-      <LinkForm token={searchParams.t ?? ""} />
+      {searchParams.t ? (
+        <>
+          <LinkForm token={searchParams.t} />
+          <Link href="/auth/link" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+            {t.auth.haveCode}
+          </Link>
+        </>
+      ) : (
+        <CodeForm />
+      )}
     </main>
   );
 }
