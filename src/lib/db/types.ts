@@ -381,6 +381,51 @@ export interface SourceItem {
   created_at: ISODateTime;
 }
 
+export type EventType =
+  | "reported_done"
+  | "started"
+  | "inspected_ok"
+  | "defect"
+  | "commitment"
+  | "blocker"
+  | "material_missing"
+  | "approval_missing"
+  | "instruction_change"
+  | "new_task"
+  | "dependency_hint";
+export type EventStatus = "proposed" | "needs_info" | "applied" | "dismissed";
+
+/** What the server matched an event to. */
+export interface EventResolution {
+  task_ids?: UUID[];
+  area_ids?: UUID[];
+  contractor_id?: UUID | null;
+  trade_id?: UUID | null;
+  date?: ISODate | null;
+  /** tasks actually changed when applied */
+  applied_task_ids?: UUID[];
+  blocker_id?: UUID | null;
+}
+
+/** One operational fact read from a message — changes nothing until the PM applies it. */
+export interface ProjectEvent {
+  id: UUID;
+  project_id: UUID;
+  source_item_id: UUID | null;
+  type: EventType;
+  summary: string;
+  quote: string | null;
+  extracted: Record<string, unknown>;
+  resolved: EventResolution;
+  confidence: number;
+  status: EventStatus;
+  note: string | null;
+  decided_by: UUID | null;
+  decided_at: ISODateTime | null;
+  occurred_at: ISODateTime;
+  created_at: ISODateTime;
+}
+
 /** A WhatsApp webhook message already handled (Meta retries deliveries). */
 export interface WaInbound {
   id: string;
@@ -439,6 +484,7 @@ export interface Tables {
   wa_inbound: WaInbound;
   sources: Source;
   source_items: SourceItem;
+  project_events: ProjectEvent;
 }
 
 export type TableName = keyof Tables;

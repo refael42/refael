@@ -198,6 +198,8 @@ export interface SourceDetail {
   speakers: Array<{ author: string; profileId: string | null; ignore: boolean; auto: boolean; count: number }>;
   items: SourceItem[];
   total: number;
+  /** messages not read into events yet */
+  waiting: number;
   people: Array<{ id: string; name: string }>;
   canEdit: boolean;
 }
@@ -214,6 +216,7 @@ export async function sourceDetail(ctx: Ctx, sourceId: string, limit = 200): Pro
       .sort((a, b) => b.count - a.count),
     items: items.slice(0, limit),
     total: items.length,
+    waiting: items.filter((i) => i.status === "new").length,
     people: people.map((p) => ({ id: p.id, name: p.full_name })).sort((a, b) => a.name.localeCompare(b.name, "he")),
     canEdit: isPM(ctx.s),
   };

@@ -1,6 +1,7 @@
 import { ArrowRight, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ReadMessages } from "@/components/intel/read-messages";
 import { DeleteSource, SpeakersPanel } from "@/components/sources/speakers-panel";
 import { Badge } from "@/components/ui/badge";
 import { getStore } from "@/lib/db";
@@ -35,6 +36,8 @@ export default async function SourcePage({ params }: { params: { id: string } })
         </div>
         {d.canEdit && <DeleteSource sourceId={d.source.id} />}
       </div>
+
+      {d.canEdit && <ReadMessages sourceId={d.source.id} waiting={d.items.length ? d.waiting : 0} />}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-semibold">{t.sources.speakers}</h2>
