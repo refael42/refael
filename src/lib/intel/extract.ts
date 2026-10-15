@@ -72,7 +72,13 @@ const RX = {
   // WhatsApp markers that are not part of what was said
   openCondition: /(^|\s)(אם|במידה ו?|כש|ברגע ש|אחרי ש|לפני ש)\s*$/,
   money: words(["תשלום", "בתשלום", "לשלם", "שילמת", "שילמו", "כסף", "שקל", "שקלים", "ש״ח", "₪", "חשבונית", "משכורת", "מקדמה"], "[ובל]?"),
-  ask: /(^|\s)(תעדכן|תעדכני|תגיד לי|תודיע|תבדוק|תשאל|מה|מי|איפה|מתי|למה|כמה|האם)(\s|$)/,
+  ask: /(^|\s)(תעדכן|תעדכני|תגיד לי|תודיע|תשאל|מה|מי|איפה|מתי|למה|כמה|האם)(\s|$)/,
+  // a PM's instruction anywhere in the sentence: "עז אני צריך להחליף משקוף בדירה 15", "תסיים לי את התפסנות בממ״ד דירה 14"
+  order: words([
+    "צריך", "צריכים", "חייב", "חייבים", "רוצה ל\\p{L}+", "נא ל\\p{L}+", "יש ל\\p{L}+",
+    "תסיים", "תסגור", "תתקן", "תתקין", "תבצע", "תעשה", "תסמן", "תבדוק", "תפרק", "תחליף", "תזיז", "תנקה", "תצבע", "תכין", "תשלים", "תוסיף", "תוריד", "תיישר", "תאטום", "תיצוק", "תחזק", "תזמין",
+    "לסיים", "לסגור", "לתקן", "להתקין", "לבצע", "לעשות", "לסמן", "לבדוק", "לפרק", "להחליף", "להזיז", "לנקות", "לצבוע", "להכין", "להשלים", "להוסיף", "להוריד", "ליישר", "לאטום", "לצקת", "להזמין",
+  ]),
   marker: /<\s*(this message was edited|ההודעה נערכה|הודעה זו נערכה)\s*>/gi,
 };
 
@@ -176,7 +182,7 @@ function typeOf(c: string, speaker: Speaker): EventType | null {
   if (RX.started.test(c)) return "started";
   if (RX.future.test(c) && RX.commitWord.test(c)) return "commitment";
   if (RX.change.test(c) && speaker.role !== "contractor") return "instruction_change";
-  if (RX.newTask.test(c) && speaker.role === "pm" && c.split(" ").length >= 4) return "new_task";
+  if ((RX.newTask.test(c) || RX.order.test(c)) && speaker.role === "pm" && c.split(" ").length >= 4) return "new_task";
   return null;
 }
 
@@ -215,7 +221,10 @@ export function extractEvents(
     const date = type === "commitment" ? dateFrom(clause, ctx.sentAt, ctx.timeZone) : null;
     // nothing to tie it to (no one, no trade, no place) → it is chatter, not an update
     if (!contractor && !tradeKey && !areas.length && !all) continue;
-    if (type === "commitment" && !date) continue;
+    // a date is someone's promise only when they said it, or were named ("מחר יגיעו…" to the chat partner is not)
+    if (type === "commitment" && (!date || (!named.length && speaker.role !== "contractor"))) continue;
+    // a new task or a defect is only useful with a place
+    if ((type === "new_task" || type === "defect") && !areas.length && !all) continue;
 
     let confidence = 0.55;
     if (areas.length || all) confidence += 0.15;

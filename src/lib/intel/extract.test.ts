@@ -82,6 +82,18 @@ describe("real chat noise (Imber 16 export)", () => {
     toYossi("אני אבוא לצלם קודם, נראה אם צריך לתקן בכלל");
   });
 
+  it("a PM's instruction with an apartment becomes a new task; without one, or a price request, it does not", () => {
+    const toYossi = (text: string) => extractEvents(text, { ...opts(ido, f), counterpart: f.contractors.find((c) => c.id === contractorId("yossi"))! });
+    for (const t of ["עז אני צריך להחליף משקוף בדירה 15", "תסיים לי בבקשה את התפסנות בממ״ד דירה 14 🙏", "בוקר טוב.\nאני רוצה להזמין דלת ומשקוף לממ״ד דירה 15"]) {
+      const [e] = toYossi(t);
+      expect(e?.type, t).toBe("new_task");
+      expect(e.areaIds).toHaveLength(1);
+    }
+    expect(toYossi("תעדכן אותי מחיר להחלפת משקוף בדירה 15")).toEqual([]);
+    expect(toYossi("צריך גם להתחיל חגורות מסביב למעליות")).toEqual([]);
+    expect(toYossi("עז מחר יגיעו להתקין את הפלנים הסולארים")).toEqual([]);
+  });
+
   it("still reads real updates", () => {
     expect(extractEvents("זה לא תקין, יש סדק בריצוף בדירה 9", opts(ido, f))[0].type).toBe("defect");
     expect(extractEvents("בדקתי את החשמל בדירה 14, תקין", opts(ido, f))[0].type).toBe("inspected_ok");
