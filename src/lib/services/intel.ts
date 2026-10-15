@@ -381,6 +381,16 @@ export async function dismissEvent(ctx: Ctx, id: string) {
   await ctx.store.update("project_events", { id: e.id }, { status: "dismissed", decided_by: ctx.s.profile.id, decided_at: (ctx.now ?? new Date()).toISOString() });
 }
 
+/** One decision for a whole list: approve the checked lines, dismiss the rest. */
+export async function decideEvents(ctx: Ctx, input: { apply: string[]; dismiss: string[] }): Promise<{ changed: number }> {
+  assertPM(ctx.s);
+  if (input.apply.length + input.dismiss.length > 200) throw new ServiceError(he.errors.invalid);
+  let changed = 0;
+  for (const id of input.apply) changed += (await applyEvent(ctx, id)).changed;
+  for (const id of input.dismiss) await dismissEvent(ctx, id);
+  return { changed };
+}
+
 /** Waiting messages per source (for the "read messages" button). */
 export async function waitingCount(ctx: Ctx, sourceId: string): Promise<number> {
   return (await ctx.store.select("source_items", { where: { source_id: sourceId, status: "new" } })).length;

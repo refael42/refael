@@ -14,6 +14,9 @@ export async function markAsEventAction(itemId: string, input: Parameters<typeof
 export async function applyEventAction(eventId: string, taskIds?: string[]) {
   return run((ctx) => svc.applyEvent(ctx, eventId, { taskIds }));
 }
+export async function decideEventsAction(apply: string[], dismiss: string[]) {
+  return run((ctx) => svc.decideEvents(ctx, { apply, dismiss }));
+}
 export async function dismissEventAction(eventId: string) {
   return run((ctx) => svc.dismissEvent(ctx, eventId));
 }
