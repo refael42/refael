@@ -88,7 +88,8 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
 }
 
 /** A room's wall between two tiles side by side (a diagonal pair never has one: see the diagonal checks). */
-function walled(g: Grid, a: number, b: number): boolean {
+/** Is there a wall on the edge between neighbouring tiles `a` and `b` (indexes)? */
+export function walled(g: Grid, a: number, b: number): boolean {
   const d = b - a;
   if (d === 1) return (g.edges[a]! & 1) !== 0;
   if (d === -1) return (g.edges[b]! & 1) !== 0;
@@ -230,7 +231,8 @@ export function canReach(g: Grid, reach: Uint8Array, p: Point): boolean {
   if (g.walk[tileIndex(g, tx, ty)]) return false;
   for (const [dx, dy] of DIRS) {
     if (dx !== 0 && dy !== 0) continue;
-    if (inBounds(g, tx + dx, ty + dy) && reach[tileIndex(g, tx + dx, ty + dy)]) return true;
+    // Not across a wall (the restroom's, owner M36): a chair there is not reached from inside it.
+    if (inBounds(g, tx + dx, ty + dy) && reach[tileIndex(g, tx + dx, ty + dy)] && !walled(g, tileIndex(g, tx, ty), tileIndex(g, tx + dx, ty + dy))) return true;
   }
   return false;
 }

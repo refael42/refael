@@ -63,7 +63,8 @@ describe('the kitchen in rooms (owner M32)', () => {
       if (m.tier === 0) expect(m.rooms.find((r) => r.kind === 'cold')!.freezerX).toBeDefined();
     }
     const crown = maps[maps.length - 1]!;
-    expect(new Set(crown.rooms.map((r) => r.kind))).toEqual(new Set(ROOM_KINDS));
+    // Every kitchen room (the restroom is the dining room's, owner M36).
+    expect(new Set(crown.rooms.map((r) => r.kind))).toEqual(new Set(ROOM_KINDS.filter((k) => k !== 'restroom')));
     const office = crown.rooms.find((r) => r.kind === 'office')!;
     expect(crown.decor.some((f) => f.kind === PropKind.RoomPiece && f.variant === RoomItem.Desk && inRect(f, office))).toBe(true);
   });

@@ -24,6 +24,8 @@ export const CustomerState = {
   Eating: 5,
   Paying: 6,
   Leaving: 7,
+  /** On the way out, a visit to the restroom first (owner M36, src/sim/game/restroom.ts). */
+  Restroom: 8,
 } as const;
 export type CustomerState = (typeof CustomerState)[keyof typeof CustomerState];
 
@@ -74,6 +76,10 @@ export interface Customer extends CharacterView {
   /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
   inspector?: boolean;
   inspectScore?: number;
+  /** A restroom visit (owner M36): where they are in it, their stall, when this part ends (sim time). */
+  wc?: { step: 'toDoor' | 'wait' | 'toStall' | 'inside' | 'toSink' | 'wash'; stall: number; until: number };
+  /** In a stall with the door shut: not drawn. */
+  hidden?: boolean;
 }
 
 export interface Table {
@@ -285,6 +291,8 @@ export type Job =
   | { kind: 'drinkRun'; drink: number; phase: 'toBar' | 'handoff' | 'toTable' | 'serve' }
   /** A packer takes a delivery off the pass, packs it at the counter, leaves it on the window shelf. */
   | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toFridge' | 'fridge' | 'toTable' | 'packing' }
+  /** A cleaner (or, with none on the team, a waiter) mops the restroom (owner M36). */
+  | { kind: 'restroom'; phase: 'toRoom' | 'mop' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */
@@ -543,6 +551,11 @@ export interface GameState {
   purchases: string[];
   /** The paid offers (src/sim/offers.ts). */
   offers: OffersState;
+  /**
+   * The restroom (owner M36, src/sim/game/restroom.ts): how dirty (0-1), who is in each stall
+   * (customer id, -1 free), who is mopping it (staff id, -1 nobody). Not saved: a fresh start is clean.
+   */
+  restroom: { dirt: number; stalls: number[]; cleaner: number };
   /** Strollers across the road counted apart from everything else (their ids, their dice). */
   ambientSeq: number;
   /** When the next delivery order comes in (sim time). */

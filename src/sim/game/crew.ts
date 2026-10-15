@@ -1,3 +1,4 @@
+import { CustomerState } from './types';
 import { CREW, RoomItem, type Room } from '../../data/kitchenRooms';
 import { Hat, Outfit, type Look } from '../../data/looks';
 import type { Point } from '../../data/maps';
@@ -177,7 +178,11 @@ export function updateCrew(s: GameState, dt: number): void {
   for (const p of s.props) {
     if (p.kind === PropKind.RoomDoor) {
       const alongY = p.variant >= 10;
-      p.active = s.crew.some((c) => inDoorway(p.x, p.y, alongY, c.x, c.y)) || s.staff.some((st) => !st.away && inDoorway(p.x, p.y, alongY, st.x, st.y));
+      p.active =
+        s.crew.some((c) => inDoorway(p.x, p.y, alongY, c.x, c.y)) ||
+        s.staff.some((st) => !st.away && inDoorway(p.x, p.y, alongY, st.x, st.y)) ||
+        // Guests through the restroom's door (owner M36).
+        s.customers.some((c) => c.state === CustomerState.Restroom && inDoorway(p.x, p.y, alongY, c.x, c.y));
     } else if (p.kind === PropKind.RoomPiece) p.active = s.crew.some((c) => c.piece === p.id && c.phase === 'work');
   }
 }

@@ -192,7 +192,9 @@ export function createBot(options: BotOptions): Bot {
     if (applicant) {
       // A cook is urgent: a free trial shift rather than waiting for the fee.
       const trial = applicant.role === 'cook' && headcount(s, 'cook') === 0;
-      if (trial || s.coins.sub(wages).gte(signingFee(applicant))) {
+      // The fee now; close to payday, the newcomer's own first wage too (or payday bounces).
+      const late = s.dayTime / DAY.seconds > PAYDAY_SAVING;
+      if (trial || s.coins.sub(wages).sub(late ? applicant.wage : 0).gte(signingFee(applicant))) {
         hires.push({ time: s.time, role: applicant.role });
         queueCommand(s, { type: 'hire', applicant: applicant.id, trial });
       }

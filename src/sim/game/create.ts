@@ -577,6 +577,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
     purchases: [...(setup.purchases ?? [])],
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),
+    restroom: { dirt: 0, stalls: map.restroom.stalls.map(() => -1), cleaner: -1 },
     guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),
     bus: null,
     nextBus: 0,

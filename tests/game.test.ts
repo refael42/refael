@@ -79,7 +79,8 @@ describe('customer lifecycle (manager taps)', () => {
     expect(s.events.some((e) => e.type === Ev.Burst)).toBe(true);
     expect(s.stats.served).toBe(1);
 
-    runUntil(s, () => !s.customers.some((c) => c.id === id), 30);
+    // (A stop at the restroom on the way out takes a little longer, owner M36.)
+    runUntil(s, () => !s.customers.some((c) => c.id === id), 60);
   });
 
   it('extra taps speed up cleaning', () => {

@@ -6,7 +6,8 @@ import { BAR, BAR_STAGES, BarPiece } from './bar';
 import type { TableSpot } from './tables';
 import { designTables, reservedTiles } from '../sim/layout';
 import { KITCHEN_STATIONS, Station } from './kitchen';
-import { planRooms, ROOM_FLOOR, ROOM_KINDS, SIGN_COLD, SIGN_HOT, type Room, type RoomDoor, type RoomFloor, type RoomWall } from './kitchenRooms';
+import { DoorKind, planRooms, ROOM_FLOOR, ROOM_KINDS, SIGN_COLD, SIGN_HOT, WallStyle, type Room, type RoomDoor, type RoomFloor, type RoomWall } from './kitchenRooms';
+import { RESTROOM } from './restroom';
 
 // Maps are in TILE units on the floor plane: +x runs down-right on screen, +y runs down-left
 // (isometric). A tile's center is (i + 0.5, j + 0.5).
@@ -193,6 +194,12 @@ export interface MapDef {
    * rows' groups start a section (just behind a carpet band). src/sim/layout.ts lays tables on it.
    */
   dining: { cols: number[]; blocks: number[]; rows: { y: number; segment: number; k: number }[] };
+  /**
+   * The restroom (owner M36, src/data/restroom.ts) in the dining room's back corner: its tiles,
+   * where a guest stands in each stall and at the sink, the spot inside its door, where guests
+   * wait outside for a stall, where the cleaner mops.
+   */
+  restroom: { x0: number; y0: number; x1: number; y1: number; stalls: Point[]; sink: Point; door: Point; wait: Point; mop: Point };
   /** Order tickets hang along this line above the pass (kitchen side). */
   ticketRail: { x: number; y0: number; step: number; lift: number; max: number };
   decor: Furniture[];
@@ -669,6 +676,45 @@ function roomFurniture(walls: readonly RoomWall[], doors: readonly RoomDoor[]): 
   ];
 }
 
+/**
+ * The restroom (owner M36): in the dining room's back corner, the stalls along the back wall and
+ * the sink at the end, the way along in front of them, a wall with the door toward the room
+ * (the door at the sink's end) and one toward the kitchen; the building's own walls close the
+ * rest. A bigger building has more stalls.
+ */
+function restroomOf(tier: number, r: Rect): { room: MapDef['restroom']; walls: RoomWall[]; door: RoomDoor; area: Area; pieces: Furniture[] } {
+  const stalls = RESTROOM.stalls[tier] ?? RESTROOM.stalls[RESTROOM.stalls.length - 1]!;
+  const x1 = r.x1;
+  const x0 = x1 - stalls - 1;
+  const y0 = r.y0;
+  const y1 = y0 + RESTROOM.depth;
+  const walls: RoomWall[] = [];
+  for (let x = x0; x < x1 - 1; x++) walls.push({ x, y: y1, along: 'x', style: WallStyle.Tile });
+  for (let y = y0; y < y1; y++) walls.push({ x: x0, y, along: 'y', style: WallStyle.Tile });
+  const door: RoomDoor = { x: x1 - 1, y: y1, along: 'x', kind: DoorKind.Swing, room: 'restroom' };
+  const pieces: Furniture[] = [
+    ...Array.from({ length: stalls }, (_, i): Furniture => ({ kind: K.WcStall, x: x0 + i + 0.5, y: y0 + 0.5, w: 1, d: 1, blocks: false })),
+    { kind: K.WcSink, x: x1 - 0.5, y: y0 + 0.5, w: 1, d: 1, blocks: false },
+  ];
+  return {
+    room: {
+      x0,
+      y0,
+      x1,
+      y1,
+      stalls: Array.from({ length: stalls }, (_, i) => ({ x: x0 + i + 0.5, y: y0 + 0.62 })),
+      sink: { x: x1 - 0.5, y: y0 + 1.3 },
+      door: { x: x1 - 0.5, y: y1 - 0.5 },
+      wait: { x: x1 - 0.5, y: y1 + 0.55 },
+      mop: { x: x0 + (stalls + 1) / 2, y: y0 + 1.5 },
+    },
+    walls,
+    door,
+    area: { x0, y0, x1, y1, floor: 'restroom', walkable: true },
+    pieces,
+  };
+}
+
 function buildMap(tier: number): MapDef {
   const t = TIERS[tier]!;
   const r = tierRect(tier);
@@ -746,6 +792,7 @@ function buildMap(tier: number): MapDef {
   if (packing && y1 < STREET_Y) path.push({ x0: KX - 2, y0: y1, x1: KX - 1, y1: STREET_Y, floor: 'path', walkable: true });
   const bar = barOf(tier, y1);
   const dining = diningOf(r);
+  const wc = restroomOf(tier, r);
   return {
     id: t.id,
     tier,
@@ -766,6 +813,7 @@ function buildMap(tier: number): MapDef {
       }),
       { x0: KX, y0: r.y0, x1, y1, floor: t.dining, walkable: true },
       ...dining.runners,
+      wc.area,
       ...path,
     ],
     building: { ...r },
@@ -866,22 +914,24 @@ function buildMap(tier: number): MapDef {
     sinkTop: 22,
     dining: dining.plan,
     rooms: rooms.rooms,
-    walls: rooms.walls,
-    roomDoors: rooms.doors,
+    walls: [...rooms.walls, ...wc.walls],
+    roomDoors: [...rooms.doors, wc.door],
+    restroom: wc.room,
     ticketRail: { x: KX - 1.9, y0: r.y0 + 1.2, step: 0.42, lift: 52, max: deep ? 10 : 7 },
     decor: [
       rooms.fridge,
       ...kitchen.prep,
       ...kitchen.signs,
       ...rooms.pieces,
-      ...roomFurniture(rooms.walls, rooms.doors),
+      ...roomFurniture([...rooms.walls, ...wc.walls], [...rooms.doors, wc.door]),
+      ...wc.pieces,
       ...(packing ? [packing.table, packing.pass, packing.fridge] : []),
       ...bar.counters,
       ...bar.stools.map((st) => ({ kind: K.BarStool, ...st.at, w: 1, d: 1, blocks: true, variant: st.facing })),
       { kind: K.Plant, x: KX + 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true },
-      { kind: K.Plant, x: x1 - 0.5, y: r.y0 + 0.5, w: 1, d: 1, blocks: true, variant: 1 },
       { kind: K.Plant, x: KX + 0.5, y: y1 - 0.5, w: 1, d: 1, blocks: true },
-      ...Array.from({ length: blocks + 1 }, (_, b) => ({ kind: K.Neon, x: KX + 4 + b * BLOCK, y: r.y0, w: 0, d: 0, blocks: false, lift: 44 })),
+      // Neon on the back wall, not over the restroom.
+      ...Array.from({ length: blocks + 1 }, (_, b) => ({ kind: K.Neon, x: KX + 4 + b * BLOCK, y: r.y0, w: 0, d: 0, blocks: false, lift: 44 })).filter((n) => n.x < wc.room.x0 - 0.5),
       ...ACROSS.decor,
       ...Array.from({ length: Math.ceil((width - 7) / 10) }, (_, i) => ({ kind: K.Lamp, x: 7 + i * 10, y: STREET_Y + 1.8, w: 0, d: 0, blocks: false })),
       // The next building's land is for sale (tap the sign); the land after it is locked.

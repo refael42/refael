@@ -1,4 +1,5 @@
 import { heroesJoin } from '../offers';
+import { releaseRestroom, updateRestroomProps } from './restroom';
 import { DISHES } from '../../data/dishes';
 import { EMOTE_SECONDS } from '../../data/sim';
 import { nextTableSpot } from './build';
@@ -75,6 +76,9 @@ export function stepGame(s: GameState, dt: number): void {
   updateCrew(s, dt);
   // Heroes the player owns walk in wherever they are missing (a new branch, a new building).
   if (s.tick % 60 === 0) heroesJoin(s);
+  // The restroom: a mop nobody holds any more is free again; its pieces show who is in and the dirt.
+  releaseRestroom(s);
+  if (s.tick % 3 === 0) updateRestroomProps(s);
   for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants, ...s.crew]) tickTimers(c, dt);
   pruneEvents(s);
 }
@@ -255,7 +259,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
   // The "for sale" sign comes down while the lot is being built on.
   const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
   // A courier out on a ride is on the scooter, not on the map.
-  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants, ...s.crew], props, seq, s.time, {
+  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers.filter((c) => !c.hidden), ...s.walkers, ...s.applicants, ...s.crew], props, seq, s.time, {
     events: packEvents(s),
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.

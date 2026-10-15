@@ -115,3 +115,40 @@ export function drawRoomSign(c: SkCanvas, A: RenderAssets, variant: number, t: n
   if (variant >= A.L.roomSign.length - 2) sprXf(c, A, i, 0, 0, Math.sin(t * 0.9 + seed) * 1.6, 1, 1, A.paints.plain);
   else spr(c, A, i, 0, 0, A.paints.plain);
 }
+
+/**
+ * The restroom's pieces (owner M36): a stall (shut while someone is in), the sink (the tap runs
+ * while someone washes). `level`: how dirty it is (0-100): from half, flies circle and a green
+ * smell rises; spotless, the sink glints now and then.
+ */
+export function drawWc(c: SkCanvas, A: RenderAssets, sink: boolean, active: boolean, level: number, t: number, seed: number): void {
+  'worklet';
+  const L = A.L.wc;
+  spr(c, A, (sink ? L[2] : active ? L[1] : L[0]) ?? -1, 0, 0, A.paints.plain);
+  if (sink && active) {
+    for (let i = 0; i < 3; i++) {
+      const age = fract(t * 2.4 + i / 3);
+      sprFade(c, A, A.S.sparkle, ox(0, -0.42), oy(0, -0.42, 29 - age * 7), 0.16, 1 - age);
+    }
+  }
+  if (level >= 50) {
+    const bad = Math.min(1, (level - 50) / 40);
+    // The smell: green wisps rising.
+    const green = A.paints.green;
+    for (let i = 0; i < 2; i++) {
+      const age = fract(t * 0.35 + i / 2 + seed);
+      green.setAlphaf(Math.sin(age * Math.PI) * (0.35 + bad * 0.35));
+      sprXf(c, A, A.S.steam, Math.sin(age * 5 + i + seed) * 6, -20 - age * 34, 0, 0.7 + age * 0.8, 0.7 + age * 0.8, green);
+    }
+    green.setAlphaf(1);
+    // Flies, more of them the dirtier it is.
+    const flies = 2 + Math.round(bad * 3);
+    for (let i = 0; i < flies; i++) {
+      const a = t * (4 + i) + seed * 3 + i * 2.1;
+      c.drawCircle(Math.cos(a) * (8 + i * 2), -46 + Math.sin(a * 1.3) * 6 - i * 3, 1.1, A.paints.barBack);
+    }
+  } else if (sink && level < 5) {
+    const g = fract(t * 0.25 + seed);
+    if (g < 0.25) sprFade(c, A, A.S.sparkle, ox(-0.2, -0.3), oy(-0.2, -0.3, 30), 0.4, Math.sin((g / 0.25) * Math.PI));
+  }
+}

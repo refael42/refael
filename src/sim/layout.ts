@@ -1,6 +1,6 @@
 import type { MapDef, Point } from '../data/maps';
 import { footprint, serveSpot, sideTiles, styleDef, TABLE_STYLE_DEFS, tableLength, type TableSpot, type TableStyle } from '../data/tables';
-import { canReach, gridWith, reachableInside, type Grid } from './grid';
+import { canReach, gridWith, reachableInside, walled, type Grid } from './grid';
 
 /** Table rows to a section of the dining room (src/data/maps.ts diningOf). */
 const SECTION_ROWS = 4;
@@ -30,12 +30,28 @@ export const barSpots = (map: MapDef): Point[] => [...map.bar.stations, map.bar.
 /** Tiles kept free in building `map` (`maps`: every building, smallest first): its people's and the bar's, and the people's of every bigger building. */
 export function reservedTiles(maps: readonly MapDef[], tier: number): Set<number> {
   const out = new Set<number>();
-  for (let t = tier; t < maps.length; t++) for (const p of staffSpots(maps[t]!)) out.add(tileKey(p.x, p.y));
+  for (let t = tier; t < maps.length; t++) {
+    const m = maps[t]!;
+    for (const p of staffSpots(m)) out.add(tileKey(p.x, p.y));
+    // A bigger building's restroom stands where it stands from the start (owner M36).
+    const r = m.restroom;
+    for (let y = r.y0; y < r.y1; y++) for (let x = r.x0; x < r.x1; x++) out.add(tileKey(x + 0.5, y + 0.5));
+    out.add(tileKey(r.wait.x, r.wait.y));
+  }
   for (const p of barSpots(maps[tier]!)) out.add(tileKey(p.x, p.y));
   return out;
 }
 
+/** The restroom's tiles and the one in front of its door (owner M36): no table or decor there. */
+export function inRestroom(map: MapDef, x: number, y: number): boolean {
+  const r = map.restroom;
+  const tx = Math.floor(x);
+  const ty = Math.floor(y);
+  return (tx >= r.x0 && tx < r.x1 && ty >= r.y0 && ty < r.y1) || (tx === Math.floor(r.wait.x) && ty === Math.floor(r.wait.y));
+}
+
 export function isDiningFloor(map: MapDef, x: number, y: number): boolean {
+  if (inRestroom(map, x, y)) return false;
   return map.areas.some((a) => DINING_FLOORS.includes(a.floor) && x >= a.x0 && x < a.x1 && y >= a.y0 && y < a.y1);
 }
 
@@ -146,7 +162,15 @@ function localCheck(g: Grid, near: Near, idx: readonly number[], tops: number, f
   const reached = (i: number) => open(i) && near.reach[i] === 1;
   // Its own front and chairs: the front reached, each chair with a free side.
   if (!near.reach[front]) return false;
-  const side = (i: number) => STRAIGHT.some(([dx, dy]) => reached(i + dy * g.w + dx));
+  // Walls (the restroom's, owner M36) stand on tile edges: a step across one does not count.
+  const step = (i: number, dx: number, dy: number) => {
+    const j = i + dy * g.w + dx;
+    return walled(g, i, j) ? -1 : j;
+  };
+  const side = (i: number) => STRAIGHT.some(([dx, dy]) => {
+    const j = step(i, dx, dy);
+    return j >= 0 && reached(j);
+  });
   if (!idx.slice(tops).every(side)) return false;
   // Everything else that needs a way in, around the table.
   let x0 = Infinity;
@@ -169,8 +193,8 @@ function localCheck(g: Grid, near: Near, idx: readonly number[], tops: number, f
   const ring: number[] = [];
   for (const i of idx) {
     for (const [dx, dy] of STRAIGHT) {
-      const j = i + dy * g.w + dx;
-      if (reached(j) && !ring.includes(j)) ring.push(j);
+      const j = step(i, dx, dy);
+      if (j >= 0 && reached(j) && !ring.includes(j)) ring.push(j);
     }
   }
   if (ring.length <= 1) return true;
@@ -185,7 +209,7 @@ function localCheck(g: Grid, near: Near, idx: readonly number[], tops: number, f
       const ny = cy + dy;
       if (nx < x0 - AROUND || nx > x1 + AROUND || ny < y0 - AROUND || ny > y1 + AROUND) continue;
       const j = ny * g.w + nx;
-      if (seen.has(j) || !open(j)) continue;
+      if (seen.has(j) || !open(j) || walled(g, cur, j)) continue;
       seen.add(j);
       queue.push(j);
     }
@@ -197,7 +221,14 @@ function localCheck(g: Grid, near: Near, idx: readonly number[], tops: number, f
   const all = reachableInside(g, near.door);
   for (const i of idx) g.walk[i] = 1;
   const got = (i: number) => g.walk[i] === 1 && !under.has(i) && all[i] === 1;
-  const reachedNow = (i: number) => got(i) || (!g.walk[i] || under.has(i) ? STRAIGHT.some(([dx, dy]) => got(i + dy * g.w + dx)) : false);
+  const reachedNow = (i: number) =>
+    got(i) ||
+    (!g.walk[i] || under.has(i)
+      ? STRAIGHT.some(([dx, dy]) => {
+          const j = step(i, dx, dy);
+          return j >= 0 && got(j);
+        })
+      : false);
   return reachedNow(front) && idx.slice(tops).every(reachedNow) && near.must.every(reachedNow);
 }
 

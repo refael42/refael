@@ -8,12 +8,15 @@ import { PropKind as K, type PropKind } from '../sim/types';
 // a corridor, bands of rooms with walls and doors; the bigger the building, the more rooms.
 // Walls stand on tile edges (people only cross at the doors); the rooms' furniture blocks tiles.
 
-export type RoomKind = 'dish' | 'cold' | 'veg' | 'office' | 'prep' | 'stores' | 'pastry' | 'butchery';
-/** By index: the rooms' signs and floors are drawn by it (src/render). */
-export const ROOM_KINDS: readonly RoomKind[] = ['dish', 'cold', 'veg', 'office', 'prep', 'stores', 'pastry', 'butchery'];
+export type RoomKind = 'dish' | 'cold' | 'veg' | 'office' | 'prep' | 'stores' | 'pastry' | 'butchery' | 'restroom';
+/**
+ * By index: the rooms' signs and floors are drawn by it (src/render). The restroom is the dining
+ * room's (src/data/restroom.ts, owner M36), never planned with the kitchen's.
+ */
+export const ROOM_KINDS: readonly RoomKind[] = ['dish', 'cold', 'veg', 'office', 'prep', 'stores', 'pastry', 'butchery', 'restroom'];
 
 /** Each room's floor (src/render/art/background.ts), and the two sections of the line room's. */
-export type RoomFloor = 'lineHot' | 'lineCold' | 'dishRoom' | 'coldRoom' | 'freezer' | 'vegRoom' | 'office' | 'prepRoom' | 'stores' | 'pastry' | 'butchery';
+export type RoomFloor = 'lineHot' | 'lineCold' | 'dishRoom' | 'coldRoom' | 'freezer' | 'vegRoom' | 'office' | 'prepRoom' | 'stores' | 'pastry' | 'butchery' | 'restroom';
 export const ROOM_FLOOR: Record<RoomKind, RoomFloor> = {
   dish: 'dishRoom',
   cold: 'coldRoom',
@@ -23,6 +26,7 @@ export const ROOM_FLOOR: Record<RoomKind, RoomFloor> = {
   stores: 'stores',
   pastry: 'pastry',
   butchery: 'butchery',
+  restroom: 'restroom',
 };
 /** The line room's signs, after the rooms' (RoomSign variant). */
 export const SIGN_HOT = ROOM_KINDS.length;
@@ -91,6 +95,7 @@ const ITEMS: Record<RoomKind, readonly number[]> = {
   stores: [RoomItem.Stores, RoomItem.Rack, RoomItem.Stores, RoomItem.Fridge, RoomItem.Stores],
   pastry: [RoomItem.Pastry, RoomItem.Dough, RoomItem.Rack, RoomItem.Pastry, RoomItem.Fridge],
   butchery: [RoomItem.Butcher, RoomItem.Fridge, RoomItem.Butcher, RoomItem.Stores],
+  restroom: [],
 };
 /** What whoever works in each room works at, best first. */
 const WORK: Record<RoomKind, readonly number[]> = {
@@ -102,6 +107,7 @@ const WORK: Record<RoomKind, readonly number[]> = {
   stores: [RoomItem.Stores, RoomItem.Rack],
   pastry: [RoomItem.Pastry, RoomItem.Dough],
   butchery: [RoomItem.Butcher],
+  restroom: [],
 };
 const FREEZER_ITEMS = [RoomItem.FreezerShelf, RoomItem.IceChest, RoomItem.FreezerShelf];
 

@@ -1,3 +1,4 @@
+import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
@@ -245,7 +246,7 @@ export function emote(c: { emote: Emote; emoteTime: number }, e: Emote): void {
   c.emoteTime = 0;
 }
 
-function changeRating(s: GameState, delta: number, at: Point): void {
+export function changeRating(s: GameState, delta: number, at: Point): void {
   const r = ECONOMY.rating;
   s.rating = Math.max(r.min, Math.min(r.max, s.rating + delta));
   emit(s, Ev.Rating, at.x, at.y, delta);
@@ -535,12 +536,16 @@ export function updateCustomers(s: GameState, dt: number): void {
         if (t.party.every((id) => id < 0 || done(id))) {
           const party = t.party.map((id) => s.customers.find((o) => o.id === id)).filter((m): m is Customer => m !== undefined);
           vacate(s, t);
-          for (const m of party) sendHome(s, m);
+          // Home, or the restroom first (owner M36).
+          for (const m of party) leaveAfterMeal(s, m);
         }
         break;
       }
       case CustomerState.Leaving:
         followPath(c, c.path, c.walkSpeed, dt);
+        break;
+      case CustomerState.Restroom:
+        updateRestroomGuest(s, c, dt);
         break;
     }
   }

@@ -20,7 +20,7 @@ import { LOOKS, stationSprites } from './art/stationArt';
 import { RUG_COLORS, tableSprites } from './art/tableArt';
 import { barSprites, DRINK_SPRITES } from './art/barArt';
 import { kitchenSprites, STATION_SPRITES } from './art/kitchenArt';
-import { ROOM_PIECE_SPRITES, roomSprites, SIGN_COUNT, WALL_STYLES } from './art/roomArt';
+import { ROOM_PIECE_SPRITES, roomSprites, SIGN_COUNT, WALL_STYLES, WC_SPRITES } from './art/roomArt';
 import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
@@ -169,6 +169,8 @@ export const LAYERS = {
   door: [0, 1, 2].map((i) => INDEX[`door${i}`]!),
   doorOpen: [0, 1, 2].map((i) => INDEX[`door${i}Open`]!),
   roomSign: Array.from({ length: SIGN_COUNT }, (_, i) => INDEX[`roomSign${i}`]!),
+  /** The restroom (owner M36): a free stall, a shut one, the sink. */
+  wc: WC_SPRITES.map((name) => INDEX[name]!),
   /** The bar's pieces (src/data/bar.ts BarPiece order). */
   barDecor: BAR_DECOR_SPRITES.map((name) => INDEX[name]!),
   cooking: DISH_ICONS.map((_, i) => INDEX[`cook${i}`]!),

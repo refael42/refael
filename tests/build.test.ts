@@ -143,7 +143,9 @@ describe('build mode', () => {
 describe('moving decor', () => {
   it('carries a placed piece to another free tile; the old one is free again', () => {
     const s = rich(createGame(STAND_MAP, 30));
-    const [a, b] = buildableTiles(s);
+    // Two tiles far apart (side by side, one can be the only way to a chair once the other is taken).
+    const tiles = buildableTiles(s);
+    const [a, b] = [tiles[0], tiles[tiles.length - 1]];
     buyUpgrade(s, 'place_flowers', a);
     queueCommand(s, { type: 'move', from: a!, to: b! });
     stepGame(s, STEP_SEC);

@@ -1,3 +1,4 @@
+import { restroomJob, takeRestroom, updateRestroomJob } from './restroom';
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import type { Point } from '../../data/maps';
@@ -358,6 +359,8 @@ function patienceOf(s: GameState, o: Order): number {
 }
 
 function findJob(s: GameState, st: Staff): void {
+  // The restroom (owner M36): the cleaners' first job once it is dirty; a waiter's only when there is no cleaner and it is bad.
+  if (restroomJob(s, st)) return takeRestroom(s, st);
   if (st.role === 'waiter') {
     const manager = managerOnShift(s);
     const ready = s.orders.filter((o) => o.state === OrderState.Ready && o.waiter < 0 && !o.delivery);
@@ -507,6 +510,7 @@ function updateRunner(s: GameState, st: Staff, dt: number): boolean {
   }
   if (job.kind === 'pickup') updatePickup(s, st, s.orders.find((o) => o.id === job.order), dt);
   else if (job.kind === 'buss') updateBuss(s, st, dt);
+  else if (job.kind === 'restroom' && !updateRestroomJob(s, st, dt, (to) => walkTo(s, st, to, dt), workRate(s, st))) release(st);
   else if (job.kind === 'drinkRun' && !updateDrinkRun(s, st, dt, (to) => walkTo(s, st, to, dt), besideTable)) {
     // Done, or the drink is gone (its guest left, the player tossed it): free for the next.
     const d = s.drinks.find((x) => x.id === job.drink);

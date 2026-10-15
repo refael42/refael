@@ -539,6 +539,19 @@ const SIGNS: { color: string; draw: (c: SkCanvas) => void }[] = [
     c.drawCircle(-2.8, -8.8, 0.7, fill('#A8323A'));
     c.drawRect(Skia.XYWHRect(1.6, -8.2, 3.2, 1.4), fill('#5A3820'));
   } },
+  // The restroom (owner M36): a man and a woman, the way every restroom door says it.
+  { color: '#2F6FB8', draw: (c) => {
+    const white = fill('#FFFFFF');
+    c.drawCircle(-2.6, -10.6, 1.1, white);
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-3.7, -9.2, 2.2, 4.2), 0.6, 0.6), white);
+    c.drawRect(Skia.XYWHRect(-3.4, -5.2, 0.7, 2.6), white);
+    c.drawRect(Skia.XYWHRect(-2.5, -5.2, 0.7, 2.6), white);
+    c.drawCircle(2.6, -10.6, 1.1, white);
+    c.drawPath(path.poly([[2.6, -9.3], [4.4, -4.2], [0.8, -4.2]]), white);
+    c.drawRect(Skia.XYWHRect(1.7, -4.2, 0.7, 1.6), white);
+    c.drawRect(Skia.XYWHRect(2.8, -4.2, 0.7, 1.6), white);
+    c.drawLine(0, -11.6, 0, -2.6, stroke('#FFFFFF', 0.5, 0.8));
+  } },
   // The hot line: a flame.
   { color: '#8C1C1C', draw: (c) => {
     c.drawPath(path.smooth([[0, -2.4], [-3.6, -5], [-2.2, -9], [0, -12], [0.6, -8.4], [2.6, -10.4], [3.4, -5.6], [0, -2.4]], true), fill('#F28A12'));
@@ -566,6 +579,82 @@ function plaque(c: SkCanvas, i: number) {
   c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-w / 2 + 0.8, -13.2, w - 1.6, 10.4), 1.6, 1.6), stroke('#FFFFFF', 0.5, 0.55));
   s.draw(c);
 }
+
+// ---------- the restroom (owner M36) ----------
+
+const LAMINATE = '#D9E2EA';
+const PORCELAIN = '#F7FAFC';
+
+/**
+ * A stall against the back wall: laminate partitions on both sides on little steel feet, the
+ * toilet (tank, bowl, seat), the paper on its holder; `shut`: someone is in, the door is closed
+ * with the red "occupied" mark on its lock. Free, the door stands open against the right side.
+ */
+function stall(c: SkCanvas, shut: boolean) {
+  floorShadow(c, 0, -0.05, 0.62, 0.22);
+  // The toilet: the tank at the back, the bowl, the seat and its lid up against the tank.
+  box(c, { x: 0, y: -0.38, z: 11, w: 0.4, d: 0.16, h: 20, color: PORCELAIN, rim: true });
+  box(c, { x: 0.2, y: -0.36, z: 27, w: 0.05, d: 0.04, h: 1.6, color: '#AEB8C4' });
+  box(c, { x: 0, y: -0.14, w: 0.2, d: 0.22, h: 10, color: '#E2EAF0' });
+  cylinder(c, 0, -0.1, 0.2, 10, 3.4, PORCELAIN, '#E2EAF0');
+  onTop(c, 13.4, () => c.drawOval(Skia.XYWHRect(-0.12, -0.22, 0.24, 0.26), fill('#A8D0E4')));
+  box(c, { x: 0, y: -0.29, z: 13, w: 0.36, d: 0.03, h: 14, color: '#EEF3F6' });
+  // The partitions (the left one, then the right one with the paper), off the floor on steel feet.
+  // Frosted, so the stall's toilet shows through the one beside it (the camera looks across them).
+  for (const x of [-0.47, 0.47]) {
+    for (const y of [-0.42, 0.18]) box(c, { x, y, w: 0.04, d: 0.04, h: 4, color: '#9AA6B4' });
+    box(c, { x, y: -0.14, z: 4, w: 0.04, d: 0.72, h: 36, color: LAMINATE, rim: true, alpha: 0.5 });
+    box(c, { x, y: -0.14, z: 40, w: 0.05, d: 0.74, h: 1.6, color: '#9AA6B4' });
+  }
+  onFaceX(c, -0.45, 0.1, () => {
+    rectIn(c, 0.02, 26, 0.1, 3, '#9AA6B4');
+    rectIn(c, 0.0, 22, 0.14, 4, '#FFFFFF');
+  });
+  if (shut) {
+    // The door, shut: across the front, a gap under it, the lock showing red.
+    box(c, { x: 0, y: 0.22, z: 4, w: 0.9, d: 0.04, h: 36, color: lighten(LAMINATE, 0.02), rim: true });
+    onFaceY(c, 0.24, -0.45, () => {
+      rectIn(c, 0.05, 6, 0.8, 30, lighten(LAMINATE, 0.06));
+      dot(c, 0.76, 22, 2, '#E5483B');
+      rectIn(c, 0.71, 21.4, 0.1, 1.2, '#FFFFFF');
+    });
+  } else {
+    // Open: the door swung in against the right partition, the lock green.
+    box(c, { x: 0.41, y: 0.36, z: 4, w: 0.04, d: 0.36, h: 36, color: darken(LAMINATE, 0.04), alpha: 0.7 });
+    onFaceX(c, 0.43, 0.54, () => dot(c, 0.06, 22, 1.8, '#59E07A'));
+  }
+}
+
+/** The vanity: a stone top on a wooden cabinet, a round basin, the tap, soap; the mirror on the wall with its light. */
+function wcSink(c: SkCanvas) {
+  floorShadow(c, 0, -0.1, 0.6, 0.24);
+  box(c, { x: 0, y: -0.24, w: 0.86, d: 0.48, h: 20, color: WOOD, rim: true });
+  onFaceY(c, 0.0, -0.43, () => {
+    rectIn(c, 0.06, 3, 0.36, 14, darken(WOOD, 0.08));
+    rectIn(c, 0.48, 3, 0.36, 14, darken(WOOD, 0.08));
+    rectIn(c, 0.36, 10, 0.08, 1.2, GOLD);
+    rectIn(c, 0.48, 10, 0.08, 1.2, GOLD);
+  });
+  box(c, { x: 0, y: -0.24, z: 20, w: 0.9, d: 0.52, h: 2.4, color: '#E8E2D8', rim: true });
+  onTop(c, 22.4, () => {
+    c.drawOval(Skia.XYWHRect(-0.2, -0.36, 0.4, 0.26), fill('#FFFFFF'));
+    c.drawOval(Skia.XYWHRect(-0.15, -0.32, 0.3, 0.18), fill('#CFE6F0'));
+  });
+  box(c, { x: 0, y: -0.46, z: 22, w: 0.04, d: 0.04, h: 8, color: '#E4E9EE' });
+  box(c, { x: 0, y: -0.4, z: 29, w: 0.04, d: 0.14, h: 1.6, color: '#E4E9EE' });
+  cylinder(c, 0.3, -0.36, 0.05, 22.4, 7, '#7FD3E8', '#5BB0C8');
+  // The mirror on the back wall, a light over it, a paper towel box beside it.
+  onFaceY(c, -0.5, -0.4, () => {
+    rectIn(c, 0.08, 34, 0.64, 26, '#C8A060');
+    rectIn(c, 0.11, 35.5, 0.58, 23, '#BFE6F5');
+    for (let k = 0; k < 3; k++) rectIn(c, 0.18 + k * 0.08, 46 + k * 3, 0.03, 9, '#FFFFFF', 0.7);
+    rectIn(c, 0.2, 61, 0.4, 2, '#FFE07A');
+  });
+  box(c, { x: 0.38, y: -0.47, z: 30, w: 0.14, d: 0.06, h: 14, color: '#E4E9EE', rim: true });
+}
+
+/** The restroom's pieces (src/render/draw/drawRoom.ts drawWc): a free stall, a shut one, the sink. */
+export const WC_SPRITES = ['wcStall', 'wcStallShut', 'wcSink'] as const;
 
 /** The rooms' own pieces (src/data/kitchenRooms.ts RoomItem from ROOM_OWN on; the plant is the dining room's). */
 export const ROOM_PIECE_SPRITES = ['roomDishMachine', 'roomDryingRack', 'roomCoolerShelf', 'roomFreezerShelf', 'roomIceChest', 'roomDesk', 'roomSafe', 'roomCoffee', 'roomBookshelf', 'roomVegSink'] as const;
@@ -596,4 +685,7 @@ export const roomSprites: Record<string, SpriteDef> = {
     ]),
   ),
   ...Object.fromEntries(SIGNS.map((_, i) => [`roomSign${i}`, sprite([-12, -42, 12, 0], (c) => plaque(c, i))])),
+  wcStall: sprite([-38, -96, 38, 20], (c) => stall(c, false)),
+  wcStallShut: sprite([-38, -96, 38, 20], (c) => stall(c, true)),
+  wcSink: sprite([-38, -100, 38, 18], wcSink),
 };

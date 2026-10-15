@@ -228,6 +228,12 @@ function roomFloor(c: SkCanvas, a: Area, onRed: boolean): boolean {
       grid(c, a, 0.5, ['#E2EEF4', '#CFE2EC'], '#9FB8C8');
       edge('#5BC0EB', 0.05);
       return true;
+    case 'restroom':
+      // Small white and pale blue hexagon-ish tiles (a checker of half tiles), a drain in the middle.
+      grid(c, a, 0.25, ['#F4F8FB', '#DCEAF2'], '#B8CCD8', 0.01);
+      edge('#5B8EDB', 0.05);
+      drain(c, a.x0 + w / 2, a.y0 + h / 2);
+      return true;
     case 'dishRoom':
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#8E9AA6'));
       for (let ty = a.y0; ty < a.y1; ty++) {

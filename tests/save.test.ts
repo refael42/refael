@@ -48,7 +48,8 @@ describe('save format', () => {
   it('drops removed upgrades and clamps capped ones', () => {
     const save = { ...savedGame(), levels: { fries: 3.7, gone: 9, tables: 99, sink: -2 } };
     const loaded = parseSave(JSON.stringify(save));
-    expect(loaded.ok && loaded.save.levels).toEqual({ fries: 3, tables: 4 });
+    // Tables: as many as the first diner has room for beyond the ones it opens with.
+    expect(loaded.ok && loaded.save.levels).toEqual({ fries: 3, tables: STAND_MAP.tables.length - STAND_MAP.startTables });
   });
 
   it('migrates old versions step by step', () => {

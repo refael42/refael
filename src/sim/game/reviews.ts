@@ -91,6 +91,16 @@ export function walkoutReview(s: GameState, c: Customer): void {
   addReview(s, { stars: 1, kind: 'walkout', line, name, dish: c.dish, bonus: big(0) });
 }
 
+/** A guest who found the restroom dirty may say so (owner M36; by their id: the dice are left alone). */
+export function restroomReview(s: GameState, c: Customer): void {
+  if (s.stats.served < REVIEW.afterServed || s.time - s.lastReviewTime < REVIEW.minGapSeconds) return;
+  if (hash01(c.id * 4.271 + 0.61) >= REVIEW.restroomChance) return;
+  s.lastReviewTime = s.time;
+  const line = Math.floor(hash01(c.id * 6.11 + 0.2) * REVIEW_LINES.restroom);
+  const name = Math.floor(hash01(c.id * 1.97 + 0.33) * NAMES.length);
+  addReview(s, { stars: 2, kind: 'restroom', line, name, dish: c.dish, bonus: big(0) });
+}
+
 /** Coins waiting on the reviews page. */
 export function unclaimedBonus(s: GameState): Big {
   let sum = big(0);

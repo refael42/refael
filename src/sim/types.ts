@@ -156,6 +156,13 @@ export const PropKind = {
   Wall: 52,
   RoomDoor: 53,
   RoomSign: 54,
+  /**
+   * The restroom (owner M36, src/data/restroom.ts): a stall against the back wall (active: taken,
+   * its door shut; level: how dirty the room is, 0-100) and the sink with its mirror (active:
+   * someone washing; level: the same dirt).
+   */
+  WcStall: 55,
+  WcSink: 56,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

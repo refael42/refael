@@ -7,7 +7,7 @@ import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'dining' | 'rooms' | 'walls' | 'roomDoors' | 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
+const HAND_MADE: Omit<MapDef, 'dining' | 'rooms' | 'walls' | 'roomDoors' | 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar' | 'restroom'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -87,7 +87,7 @@ const HAND_MADE: Omit<MapDef, 'dining' | 'rooms' | 'walls' | 'roomDoors' | 'kitc
   decor: [
     { kind: K.Fridge, x: 2.5, y: 10.5, w: 1, d: 1, blocks: true },
     { kind: K.Plant, x: 6.5, y: 2.5, w: 1, d: 1, blocks: true },
-    { kind: K.Plant, x: 13.5, y: 2.5, w: 1, d: 1, blocks: true, variant: 1 },
+    // (The plant in the back right corner made way for the restroom, owner M36.)
     { kind: K.Plant, x: 6.5, y: 11.5, w: 1, d: 1, blocks: true },
     { kind: K.Neon, x: 10, y: 2, w: 0, d: 0, blocks: false, lift: 44 },
     { kind: K.Tree, x: 16, y: 1.2, w: 1, d: 1, blocks: false, variant: 1 },
@@ -190,7 +190,7 @@ describe('map generator', () => {
       expect(new Set(tables.map((s) => s.style)).size, `tier ${t}`).toBeGreaterThanOrEqual(t === 0 ? 2 : 3);
       if (t >= 2) expect(tables.some((s) => s.style === 'long'), `tier ${t}`).toBe(true);
       // About as many tables as before the carpets (the economy counts on them).
-      expect(tables.length, `tier ${t}`).toBeGreaterThanOrEqual([7, 16, 28, 38, 62, 78, 100, 118][t]!);
+      expect(tables.length, `tier ${t}`).toBeGreaterThanOrEqual([6, 16, 28, 38, 62, 78, 100, 118][t]!);
     });
   });
 
