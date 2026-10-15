@@ -1,6 +1,8 @@
+import { FileSpreadsheet } from "lucide-react";
 import { TaskFilters } from "@/components/tasks/task-filters";
 import { BulkTaskDialog, type AreaGroup } from "@/components/tasks/bulk-task-dialog";
 import { TaskFormDialog } from "@/components/tasks/task-form-dialog";
+import { Button } from "@/components/ui/button";
 import { TaskRow } from "@/components/tasks/task-row";
 import { getStore } from "@/lib/db";
 import type { EffectiveState } from "@/lib/engine/types";
@@ -52,10 +54,20 @@ export default async function TasksPage({
           <h1 className="text-xl font-bold">{t.tasks.title}</h1>
           <p className="text-sm text-muted-foreground">{t.tasks.count(cards.length)}</p>
         </div>
-        {isPM(s) && (
+        {s.role !== "contractor" && (
           <div className="flex flex-wrap gap-2">
-            <BulkTaskDialog options={opts} groups={bulkGroups(snap)} />
-            <TaskFormDialog options={opts} defaultAreaId={searchParams.area ?? null} />
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/export/plan">
+                <FileSpreadsheet />
+                {t.exportPlan.button}
+              </a>
+            </Button>
+            {isPM(s) && (
+              <>
+                <BulkTaskDialog options={opts} groups={bulkGroups(snap)} />
+                <TaskFormDialog options={opts} defaultAreaId={searchParams.area ?? null} />
+              </>
+            )}
           </div>
         )}
       </div>
