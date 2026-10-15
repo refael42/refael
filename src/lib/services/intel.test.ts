@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { exportMessageKeys, parseWhatsAppExport } from "@/lib/import/whatsapp-export";
 import { contractorProfileId, sid } from "@/lib/seed/demo";
 import { ctxFor, demoStore } from "@/test/fixtures";
-import { applyEvent, dismissEvent, listEvents, processSource, reprocessSource } from "./intel";
+import { applyEvent, dismissEvent, listEvents, markAsEvent, processSource, reprocessSource } from "./intel";
 import { importChatChunk, setSpeaker } from "./sources";
 
 const CHAT = [
@@ -76,19 +76,42 @@ describe("events from chat", () => {
     expect((await store.byId("tasks", sid("task:E14")))!.status).toBe("done");
   });
 
-  it("reading again drops undecided suggestions and keeps the decided ones", async () => {
+  it("reading again drops undecided suggestions, keeps decisions and does not repeat them", async () => {
     const { store, pm, sourceId } = await imported();
     await processSource(pm, sourceId);
     const [first] = await listEvents(pm);
     await dismissEvent(pm, first.event.id);
     const before = store.data.project_events.length;
     const r = await reprocessSource(pm, sourceId);
-    expect(r.removed).toBe(before - 1);
+    expect(r).toEqual({ removed: before - 1, waiting: 4 });
     expect(store.data.project_events.map((e) => e.id)).toEqual([first.event.id]);
-    expect(store.data.source_items.filter((i) => i.status === "processed").map((i) => i.id)).toEqual([first.event.source_item_id]);
     const again = await processSource(pm, sourceId);
-    expect(again.processed).toBe(3);
+    expect(again.processed).toBe(4);
+    // the dismissed one is not proposed a second time
     expect(store.data.project_events.length).toBe(before);
     await expect(reprocessSource(await ctxFor("viewer", store), sourceId)).rejects.toThrow();
+  });
+
+  it("a message marked by hand becomes an update and teaches the reader", async () => {
+    const { store, pm, sourceId } = await imported();
+    await processSource(pm, sourceId);
+    const item = store.data.source_items.find((i) => i.text === "סבבה")!;
+    const apt = store.data.areas.find((a) => a.name === "דירה 9")!;
+    const { eventId } = await markAsEvent(pm, item.id, { type: "defect", areaIds: [apt.id], contractorId: null, quote: "המשקוף בדירה 9 זז ממקומו" });
+    const ev = store.data.project_events.find((e) => e.id === eventId)!;
+    expect(ev).toMatchObject({ type: "defect", quote: "המשקוף בדירה 9 זז ממקומו", status: "proposed", extracted: { engine: "manual" } });
+    await expect(markAsEvent(await ctxFor("viewer", store), item.id, { type: "defect", areaIds: [], contractorId: null, quote: "x" })).rejects.toThrow();
+
+    // a similar message imported later is proposed thanks to the example
+    const said = parseWhatsAppExport("05.10.2026, 08:00 - רפאל כהן: המשקוף בדירה 12 זז ממקומו לגמרי").messages;
+    await importChatChunk(pm, {
+      title: "יוסי חשמל",
+      isGroup: false,
+      since: null,
+      messages: said.map((m, i) => ({ key: exportMessageKeys(said)[i], sentAt: m.sentAt.toISOString(), author: m.author!, text: m.text, kind: "text" as const, attachment: null, mediaUrl: null })),
+    });
+    expect((await processSource(pm, sourceId)).events).toBe(1);
+    const learned = store.data.project_events.find((e) => e.quote?.includes("דירה 12"))!;
+    expect(learned).toMatchObject({ type: "defect", extracted: { engine: "learned", like: eventId } });
   });
 });

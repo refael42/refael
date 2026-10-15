@@ -9,7 +9,8 @@
 import type { Area, Contractor, EventType, ProjectEvent, Source, SourceItem, Task } from "../db/types";
 import { TIME_ZONE } from "../i18n";
 import { he } from "../i18n/he";
-import { extractEvents, matchTasks, NEEDS_TASKS, type ExtractedEvent, type ProjectFacts, type Speaker } from "../intel/extract";
+import { dateFrom, extractEvents, matchTasks, NEEDS_TASKS, type ExtractedEvent, type ProjectFacts, type Speaker } from "../intel/extract";
+import { Learner, type Example } from "../intel/learn";
 import { assertPM } from "./access";
 import { audit } from "./audit";
 import { AccessError } from "./auth-types";
@@ -44,6 +45,19 @@ function counterpartOf(src: Source, contractors: Contractor[]): Contractor | nul
   const ids = Object.values(src.speakers).filter((v) => !v.ignore && v.profile_id).map((v) => v.profile_id!);
   const cs = contractors.filter((c) => c.profile_id && ids.includes(c.profile_id));
   return cs.length === 1 ? cs[0] : null;
+}
+
+/** The PM's past decisions as examples: approved / hand-marked = "yes", dismissed = "no". */
+async function learnerFor(ctx: Ctx): Promise<Learner> {
+  const events = await ctx.store.select("project_events", { where: { project_id: ctx.s.project.id }, order: [["created_at", "desc"]] });
+  const examples: Example[] = [];
+  for (const e of events.slice(0, 3000)) {
+    if (!e.quote) continue;
+    const manual = e.extracted?.engine === "manual";
+    if (e.status === "applied" || (manual && e.status !== "dismissed")) examples.push({ id: e.id, type: e.type, text: e.quote, positive: true });
+    else if (e.status === "dismissed" && !manual) examples.push({ id: e.id, type: e.type, text: e.quote, positive: false });
+  }
+  return new Learner(examples);
 }
 
 function resolve(e: ExtractedEvent, f: ProjectFacts) {
@@ -87,11 +101,18 @@ export async function processSource(ctx: Ctx, sourceId: string): Promise<{ proce
   const f = await facts(ctx);
   const counterpart = counterpartOf(src, f.contractors);
   const speakers = new Map<string, Speaker>();
+  const learner = await learnerFor(ctx);
+  // a message read again keeps what the PM already decided: no second card of the same kind
+  const ids = batch.map((i) => i.id);
+  const before = ids.length ? await ctx.store.select("project_events", { where: { source_item_id: { in: ids } } }) : [];
+  const decided = new Set(before.map((e) => `${e.source_item_id}|${e.type}`));
   let events = 0;
   for (const item of batch) {
     const key = item.author_profile_id ?? `?${item.author}`;
     if (!speakers.has(key)) speakers.set(key, await speakerOf(ctx, item, f.contractors));
-    const found = item.text ? extractEvents(item.text, { speaker: speakers.get(key)!, counterpart, sentAt: new Date(item.sent_at), timeZone: TIME_ZONE, facts: f }) : [];
+    const found = (
+      item.text ? extractEvents(item.text, { speaker: speakers.get(key)!, counterpart, sentAt: new Date(item.sent_at), timeZone: TIME_ZONE, facts: f, learner }) : []
+    ).filter((e) => !decided.has(`${item.id}|${e.type}`));
     if (found.length) {
       await ctx.store.insert(
         "project_events",
@@ -103,7 +124,7 @@ export async function processSource(ctx: Ctx, sourceId: string): Promise<{ proce
             type: e.type,
             summary: summarize(e, f),
             quote: e.quote,
-            extracted: { all: e.all, except_area_ids: e.exceptAreaIds, commit: e.commit, engine: "local" },
+            extracted: { all: e.all, except_area_ids: e.exceptAreaIds, commit: e.commit, engine: e.learnedFrom ? "learned" : "local", like: e.learnedFrom ?? null },
             resolved: r.resolved,
             confidence: e.confidence,
             status: r.status,
@@ -132,12 +153,61 @@ export async function reprocessSource(ctx: Ctx, sourceId: string): Promise<{ rem
   if (!items.length) return { removed: 0, waiting: 0 };
   const ids = items.map((i) => i.id);
   const events = await ctx.store.select("project_events", { where: { source_item_id: { in: ids } } });
-  const decided = new Set(events.filter((e) => e.status === "applied" || e.status === "dismissed").map((e) => e.source_item_id));
-  const open = events.filter((e) => e.status === "proposed" || e.status === "needs_info");
+  // undecided suggestions go; hand-marked ones and decisions stay (reading again won't repeat them)
+  const open = events.filter((e) => (e.status === "proposed" || e.status === "needs_info") && e.extracted?.engine !== "manual");
   if (open.length) await ctx.store.remove("project_events", { id: { in: open.map((e) => e.id) } });
-  const back = ids.filter((id) => !decided.has(id));
-  for (let i = 0; i < back.length; i += 500) await ctx.store.update("source_items", { id: { in: back.slice(i, i + 500) } }, { status: "new" });
-  return { removed: open.length, waiting: back.length };
+  for (let i = 0; i < ids.length; i += 500) await ctx.store.update("source_items", { id: { in: ids.slice(i, i + 500) } }, { status: "new" });
+  return { removed: open.length, waiting: ids.length };
+}
+
+/**
+ * The PM marks a message the reader missed as an update. It lands in the
+ * updates queue like any other (nothing changes until approved) and teaches
+ * the reader: similar messages will be proposed from now on.
+ */
+export async function markAsEvent(
+  ctx: Ctx,
+  itemId: string,
+  input: { type: EventType; areaIds: string[]; contractorId: string | null; quote: string | null },
+): Promise<{ eventId: string }> {
+  assertPM(ctx.s);
+  const item = await ctx.store.byId("source_items", itemId);
+  if (!item || item.project_id !== ctx.s.project.id) throw new AccessError(he.errors.notFound, 404);
+  if (!(input.type in he.intel.type)) throw new ServiceError(he.errors.invalid);
+  const f = await facts(ctx);
+  const areaIds = input.areaIds.filter((id) => f.areas.some((a) => a.id === id));
+  const contractor = input.contractorId ? f.contractors.find((c) => c.id === input.contractorId) ?? null : null;
+  if (input.contractorId && !contractor) throw new AccessError(he.errors.notFound, 404);
+  const quote = (input.quote ?? item.text ?? "").trim().slice(0, 500);
+  if (!quote) throw new ServiceError(he.errors.invalid);
+  const e: ExtractedEvent = {
+    type: input.type,
+    quote,
+    contractorId: contractor?.id ?? null,
+    tradeId: contractor?.trade_id ?? null,
+    areaIds,
+    all: false,
+    exceptAreaIds: [],
+    date: input.type === "commitment" ? dateFrom(quote, new Date(item.sent_at), TIME_ZONE) : null,
+    commit: input.type === "commitment" ? "finish" : null,
+    confidence: 1,
+  };
+  const r = resolve(e, f);
+  const [row] = await ctx.store.insert("project_events", {
+    project_id: ctx.s.project.id,
+    source_item_id: item.id,
+    type: e.type,
+    summary: summarize(e, f),
+    quote,
+    extracted: { all: false, except_area_ids: [], commit: e.commit, engine: "manual", by: ctx.s.profile.id },
+    resolved: r.resolved,
+    confidence: 1,
+    status: r.status,
+    note: r.note,
+    occurred_at: item.sent_at,
+  });
+  if (item.status === "new") await ctx.store.update("source_items", { id: item.id }, { status: "processed" });
+  return { eventId: row.id };
 }
 
 export interface EventCard {

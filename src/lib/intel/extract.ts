@@ -11,6 +11,7 @@
 import { findContractors, findTradeKey } from "../ai/heuristic";
 import { hasWord, normalize } from "../ai/text";
 import type { Area, Contractor, EventType, Task, Trade } from "../db/types";
+import type { Learner } from "./learn";
 
 export interface Speaker {
   name: string;
@@ -38,6 +39,8 @@ export interface ExtractedEvent {
   date: string | null;
   commit: "start" | "finish" | null;
   confidence: number;
+  /** proposed because it reads like an update the PM approved or marked before */
+  learnedFrom?: string | null;
 }
 
 const ACK = /^(אוקי|אוקיי|ok|סבבה|תודה|תודה רבה|מעולה|יופי|בסדר|קיבלתי|טוב|כן|לא|👍|🙏|👌|✅|\p{Emoji}+)[.!\s]*$/iu;
@@ -166,12 +169,17 @@ export function clauses(text: string): string[] {
   return parts;
 }
 
-function typeOf(c: string, speaker: Speaker): EventType | null {
-  if (/\?/.test(c) || c.length > MAX_CLAUSE) return null;
+/** Questions, conditions, money talk and requests to report back are never updates. */
+function isNoise(c: string): boolean {
+  if (/\?/.test(c) || c.length > MAX_CLAUSE) return true;
   // "אם…", "אחרי ש…" talk about what may happen, not about what happened
-  if (RX.conditional.test(c) && !RX.except.test(c)) return null;
+  if (RX.conditional.test(c) && !RX.except.test(c)) return true;
   // money between people is not a site update; asking "מה חסר" is not a report
-  if (RX.money.test(c) || RX.ask.test(c)) return null;
+  return RX.money.test(c) || RX.ask.test(c);
+}
+
+function typeOf(c: string, speaker: Speaker): EventType | null {
+  if (isNoise(c)) return null;
   if (RX.defect.test(c)) return "defect";
   if (RX.inspected.test(c) && speaker.role !== "contractor") return "inspected_ok";
   if (RX.approval.test(c)) return "approval_missing";
@@ -187,63 +195,161 @@ function typeOf(c: string, speaker: Speaker): EventType | null {
 }
 
 /**
+ * A punch list: lines under (or starting with) an apartment / floor / named
+ * area — "דירה 14\n* ספרינקלרים…" or "* דירה 3: השירותים נוזלים". Each line
+ * becomes an item tied to its area. Null when the message is not such a list.
+ */
+export function listItems(text: string, areas: Area[]): Array<{ text: string; areas: Area[] }> | null {
+  const items: Array<{ text: string; areas: Area[] }> = [];
+  let current: Area[] = [];
+  let anchors = 0;
+  for (const raw of text.split(/\n+/)) {
+    const bullet = /^\s*(?:[*•·\-–]|\d+[.)])/.test(raw);
+    const line = raw.replace(/^\s*(?:[*•·\-–]+|\d+[.)])\s*/, "").replace(/\*+/g, "").trim();
+    if (!line) continue;
+    const colon = line.indexOf(":");
+    const head = colon > 0 && colon <= 30 ? line.slice(0, colon) : null;
+    const headAreas = head ? areasIn(head, areas) : [];
+    if (head && headAreas.length) {
+      // "דירה 3: השירותים נוזלים"
+      anchors++;
+      current = headAreas;
+      const rest = line.slice(colon + 1).trim();
+      if (rest) items.push({ text: rest, areas: headAreas });
+      continue;
+    }
+    const own = areasIn(line, areas);
+    if (!bullet && line.length <= 30) {
+      // a heading: "דירה 14", "דירה 21 (מרפסת)", "קומה 7 לובי" sets the area…
+      if (own.length && isAreaHeading(line, own)) {
+        anchors++;
+        current = own;
+        continue;
+      }
+      // …"שטחים משותפים", "בוקר טוב עז", "טופס 4:" end it
+      if (!own.length && line.split(/\s+/).length <= 4) {
+        current = [];
+        continue;
+      }
+    }
+    items.push({ text: line, areas: own.length ? own : current });
+  }
+  return anchors >= 2 && items.length >= 2 ? items.filter((i) => i.areas.length) : null;
+}
+
+/** "דירה 21 (מרפסת)" is a heading; "סיימתי דירה 14" is not. */
+function isAreaHeading(line: string, own: Area[]): boolean {
+  const names = own.flatMap((a) => a.name.split(/\s+/));
+  const rest = line
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/(דירה|דירת|דירות|קומה|קומות)\s+[\d\s,\-–ו]+/g, " ")
+    .replace(/[^\p{L}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !names.includes(w));
+  return rest.length === 0;
+}
+
+export interface ReadContext {
+  speaker: Speaker;
+  counterpart: Contractor | null;
+  sentAt: Date;
+  timeZone: string;
+  facts: ProjectFacts;
+  /** what the PM approved, dismissed or marked before */
+  learner?: Learner | null;
+}
+
+/**
  * Events in one message. `counterpart` is the other side of a 1:1 chat (the
  * contractor the PM is talking to), used when the PM writes "סיים" without a name.
  */
-export function extractEvents(
-  rawText: string,
-  ctx: { speaker: Speaker; counterpart: Contractor | null; sentAt: Date; timeZone: string; facts: ProjectFacts },
-): ExtractedEvent[] {
+export function extractEvents(rawText: string, ctx: ReadContext): ExtractedEvent[] {
   const cleanText = rawText.replace(RX.marker, " ").trim();
   const text = normalize(cleanText);
-  // long chatty messages (a story, a link, a debate) are not site updates
-  if (text.length < 5 || ACK.test(text) || text.length > 700) return [];
-  const { facts, speaker } = ctx;
+  if (text.length < 5 || ACK.test(text)) return [];
+  const { facts, speaker, learner } = ctx;
   const out: ExtractedEvent[] = [];
+
+  // a punch list: every line is a task in its area (or what the line itself says)
+  const list = text.length <= 6000 ? listItems(cleanText, facts.areas) : null;
+  if (list) {
+    for (const item of list) {
+      const clause = normalize(item.text);
+      // the PM's own notes inside the list ("אני אתאם ואעדכן") are not tasks
+      if (isNoise(clause) || /^אני\s/.test(clause) || clause.split(/\s+/).length < 2) continue;
+      let type = typeOf(clause, speaker) ?? (speaker.role === "pm" ? "new_task" : null);
+      let learnedFrom: string | null = null;
+      if (!type && learner) {
+        const g = learner.guess(clause);
+        if (g) [type, learnedFrom] = [g.type, g.exampleId];
+      }
+      if (!type || (learner && !learnedFrom && learner.vetoes(clause, type))) continue;
+      const e = build(clause, type, ctx, item.areas);
+      if (e) out.push({ ...e, learnedFrom });
+    }
+    return out;
+  }
+
+  // long chatty messages (a story, a link, a debate) are not site updates
+  if (text.length > 700) return [];
   for (const clause of clauses(cleanText).map(normalize)) {
-    const type = typeOf(clause, speaker);
+    let type = typeOf(clause, speaker);
+    let learnedFrom: string | null = null;
+    if (type && learner?.vetoes(clause, type)) continue;
+    if (!type && learner && !isNoise(clause)) {
+      const g = learner.guess(clause);
+      if (g) [type, learnedFrom] = [g.type, g.exampleId];
+    }
     if (!type) continue;
-    const ex = clause.match(RX.except);
-    const main = ex ? clause.slice(0, ex.index) : clause;
-    const rest = ex ? clause.slice(ex.index! + ex[0].length) : "";
-
-    const named = findContractors(main, facts.contractors);
-    const own = speaker.contractorId ? facts.contractors.find((c) => c.id === speaker.contractorId) ?? null : null;
-    const contractor =
-      named[0] ??
-      (speaker.role === "contractor" && (RX.firstPerson.test(main) || type !== "new_task") ? own : null) ??
-      (speaker.role === "pm" ? ctx.counterpart : null);
-    const tradeKey = findTradeKey(main);
-    const tradeId = tradeIdOf(facts.trades, tradeKey) ?? contractor?.trade_id ?? null;
-    const areas = areasIn(main, facts.areas);
-    const except = rest ? areasIn(rest, facts.areas) : [];
-    const all = RX.all.test(main) && areas.length === 0;
-    const date = type === "commitment" ? dateFrom(clause, ctx.sentAt, ctx.timeZone) : null;
-    // nothing to tie it to (no one, no trade, no place) → it is chatter, not an update
-    if (!contractor && !tradeKey && !areas.length && !all) continue;
-    // a date is someone's promise only when they said it, or were named ("מחר יגיעו…" to the chat partner is not)
-    if (type === "commitment" && (!date || (!named.length && speaker.role !== "contractor"))) continue;
-    // a new task or a defect is only useful with a place
-    if ((type === "new_task" || type === "defect") && !areas.length && !all) continue;
-
-    let confidence = 0.55;
-    if (areas.length || all) confidence += 0.15;
-    if (contractor) confidence += 0.1;
-    if (tradeKey) confidence += 0.05;
-    out.push({
-      type,
-      quote: clause,
-      contractorId: contractor?.id ?? null,
-      tradeId,
-      areaIds: areas.map((a) => a.id),
-      all,
-      exceptAreaIds: except.map((a) => a.id),
-      date,
-      commit: type === "commitment" ? (RX.finishWord.test(clause) ? "finish" : "start") : null,
-      confidence: Math.min(0.9, confidence),
-    });
+    const e = build(clause, type, ctx, null);
+    if (e) out.push({ ...e, learnedFrom });
   }
   return out;
+}
+
+/** Tie one clause to who / what / where; null when it cannot be tied to anything. */
+function build(clause: string, type: EventType, ctx: ReadContext, listAreas: Area[] | null): ExtractedEvent | null {
+  const { facts, speaker } = ctx;
+  const ex = clause.match(RX.except);
+  const main = ex ? clause.slice(0, ex.index) : clause;
+  const rest = ex ? clause.slice(ex.index! + ex[0].length) : "";
+
+  const named = findContractors(main, facts.contractors);
+  const own = speaker.contractorId ? facts.contractors.find((c) => c.id === speaker.contractorId) ?? null : null;
+  const contractor =
+    named[0] ??
+    (speaker.role === "contractor" && (RX.firstPerson.test(main) || type !== "new_task") ? own : null) ??
+    (speaker.role === "pm" ? ctx.counterpart : null);
+  const tradeKey = findTradeKey(main);
+  const tradeId = tradeIdOf(facts.trades, tradeKey) ?? contractor?.trade_id ?? null;
+  const inText = areasIn(main, facts.areas);
+  const areas = inText.length ? inText : listAreas ?? [];
+  const except = rest ? areasIn(rest, facts.areas) : [];
+  const all = RX.all.test(main) && areas.length === 0;
+  const date = type === "commitment" ? dateFrom(clause, ctx.sentAt, ctx.timeZone) : null;
+  // nothing to tie it to (no one, no trade, no place) → it is chatter, not an update
+  if (!contractor && !tradeKey && !areas.length && !all) return null;
+  // a date is someone's promise only when they said it, or were named ("מחר יגיעו…" to the chat partner is not)
+  if (type === "commitment" && (!date || (!named.length && speaker.role !== "contractor"))) return null;
+  // a new task or a defect is only useful with a place
+  if ((type === "new_task" || type === "defect") && !areas.length && !all) return null;
+
+  let confidence = 0.55;
+  if (areas.length || all) confidence += 0.15;
+  if (contractor) confidence += 0.1;
+  if (tradeKey) confidence += 0.05;
+  return {
+    type,
+    quote: clause,
+    contractorId: contractor?.id ?? null,
+    tradeId,
+    areaIds: areas.map((a) => a.id),
+    all,
+    exceptAreaIds: except.map((a) => a.id),
+    date,
+    commit: type === "commitment" ? (RX.finishWord.test(clause) ? "finish" : "start") : null,
+    confidence: Math.min(0.9, confidence),
+  };
 }
 
 /** Event types that act on existing tasks, and therefore need them. */

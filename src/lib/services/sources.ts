@@ -204,6 +204,31 @@ export interface SourceDetail {
   processed: number;
   people: Array<{ id: string; name: string }>;
   canEdit: boolean;
+  /** for marking a message as an update by hand (PM only) */
+  areas: Array<{ id: string; name: string }>;
+  contractors: Array<{ id: string; name: string }>;
+  /** the contractor on the other side of a 1:1 chat */
+  defaultContractorId: string | null;
+}
+
+const AREA_ORDER = ["apartment", "floor", "common", "building", "room"];
+
+async function markOptions(ctx: Ctx, source: Source) {
+  if (!isPM(ctx.s)) return { areas: [], contractors: [], defaultContractorId: null };
+  const [areas, contractors] = await Promise.all([
+    ctx.store.select("areas", { where: { project_id: ctx.s.project.id } }),
+    ctx.store.select("contractors", { where: { organization_id: ctx.s.project.organization_id } }),
+  ]);
+  const ids = Object.values(source.speakers).filter((v) => !v.ignore && v.profile_id).map((v) => v.profile_id);
+  const inChat = contractors.filter((c) => c.profile_id && ids.includes(c.profile_id));
+  return {
+    areas: areas
+      .filter((a) => a.type !== "room")
+      .sort((a, b) => AREA_ORDER.indexOf(a.type) - AREA_ORDER.indexOf(b.type) || a.name.localeCompare(b.name, "he", { numeric: true }))
+      .map((a) => ({ id: a.id, name: a.name })),
+    contractors: contractors.map((c) => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name, "he")),
+    defaultContractorId: !source.is_group && inChat.length === 1 ? inChat[0].id : null,
+  };
 }
 
 export async function sourceDetail(ctx: Ctx, sourceId: string, limit = 200): Promise<SourceDetail> {
@@ -222,5 +247,6 @@ export async function sourceDetail(ctx: Ctx, sourceId: string, limit = 200): Pro
     processed: items.filter((i) => i.status === "processed").length,
     people: people.map((p) => ({ id: p.id, name: p.full_name })).sort((a, b) => a.name.localeCompare(b.name, "he")),
     canEdit: isPM(ctx.s),
+    ...(await markOptions(ctx, source)),
   };
 }
