@@ -98,12 +98,16 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
   plan_files: () => ({ floor_area_id: null, created_by: null }),
   plan_pins: () => ({ page: 1, area_id: null, label: null }),
   audit_log: () => ({ from_value: null, to_value: null, actor_profile_id: null, meta: null, project_id: null }),
+  sources: () => ({ is_group: false, speakers: {}, since: null, last_import_at: null, created_by: null }),
+  source_items: () => ({ author: null, author_profile_id: null, kind: "text", text: null, media_url: null, media_name: null, status: "new" }),
 };
 
 const UNIQUE: { [K in TableName]?: Array<Array<keyof Tables[K] & string>> } = {
   reminders: [["dedupe_key"]],
   push_subscriptions: [["endpoint"]],
   trades: [["key"]],
+  sources: [["project_id", "kind", "title"]],
+  source_items: [["source_id", "external_id"]],
 };
 
 export { StoreError };
@@ -139,6 +143,8 @@ export function emptyData(): MemoryData {
     audit_log: [],
     flow_templates: [],
     wa_inbound: [],
+    sources: [],
+    source_items: [],
   };
 }
 

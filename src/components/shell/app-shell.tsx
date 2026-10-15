@@ -9,6 +9,7 @@ import {
   FileText,
   HardHat,
   Home,
+  Inbox,
   LayoutDashboard,
   ListChecks,
   LogOut,
@@ -57,6 +58,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   settings: Settings,
   report: FileBarChart,
   flow: Workflow,
+  sources: Inbox,
 };
 
 export interface ShellProps {
