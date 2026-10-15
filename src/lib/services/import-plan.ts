@@ -64,6 +64,25 @@ export interface ReimportCheck {
   suspicious: boolean;
 }
 
+/**
+ * Which existing task each sheet row is: by the "מזהה" column when the sheet
+ * came from SiteFlow (renumbering is harmless then), otherwise by tab + number.
+ */
+export function matchRows(plan: Plan, tasks: Task[]): Map<string, Task | undefined> {
+  const byId = new Map(tasks.map((t) => [t.id, t] as const));
+  const byRef = new Map(tasks.filter((t) => t.external_ref).map((t) => [t.external_ref!, t] as const));
+  const match = new Map<string, Task | undefined>();
+  for (const t of plan.tasks) if (t.id && byId.has(t.id)) match.set(t.ref, byId.get(t.id));
+  const claimed = new Set([...match.values()].map((x) => x!.id));
+  for (const t of plan.tasks) {
+    if (match.has(t.ref)) continue;
+    const byNumber = byRef.get(t.ref);
+    // the number now belongs to a row that carries another task's id → this row is new
+    match.set(t.ref, byNumber && !claimed.has(byNumber.id) ? byNumber : undefined);
+  }
+  return match;
+}
+
 const flatTitle = (x: string) => x.replace(/[^\p{L}\p{N}]/gu, "");
 
 /**
@@ -71,24 +90,28 @@ const flatTitle = (x: string) => x.replace(/[^\p{L}\p{N}]/gu, "");
  * are new, and whether the rows seem renumbered (same number, other task).
  */
 export function checkReimport(plan: Plan, tasks: Task[]): ReimportCheck {
-  const imported = new Map(tasks.filter((t) => t.external_ref).map((t) => [t.external_ref!, t] as const));
-  const refs = new Set(plan.tasks.map((t) => t.ref));
-  const matched = plan.tasks.filter((t) => imported.has(t.ref));
+  const match = matchRows(plan, tasks);
+  const known = new Set(tasks.filter((t) => t.external_ref).map((t) => t.id));
+  const matched = plan.tasks.filter((t) => match.get(t.ref));
+  // a row matched by its id may be renamed on purpose; only number matches hint at renumbering
   const renamed = matched
+    .filter((t) => !t.id)
     .filter((t) => {
-      const a = flatTitle(imported.get(t.ref)!.title);
+      const a = flatTitle(match.get(t.ref)!.title);
       const b = flatTitle(t.title.slice(0, 300));
       return a !== b && !a.includes(b) && !b.includes(a);
     })
-    .map((t) => ({ number: t.number, before: imported.get(t.ref)!.title, after: t.title }));
-  const existing = imported.size;
+    .map((t) => ({ number: t.number, before: match.get(t.ref)!.title, after: t.title }));
+  const hit = new Set(matched.map((t) => match.get(t.ref)!.id));
+  const existing = known.size;
+  const byId = matched.some((t) => t.id);
   return {
     existing,
     update: matched.length,
     created: plan.tasks.length - matched.length,
-    missing: [...imported.keys()].filter((r) => !refs.has(r)).length,
+    missing: [...known].filter((id) => !hit.has(id)).length,
     renamed: renamed.slice(0, 8),
-    suspicious: existing > 0 && (matched.length < existing * 0.5 || renamed.length > Math.max(2, matched.length * 0.2)),
+    suspicious: !byId && existing > 0 && (matched.length < existing * 0.5 || renamed.length > Math.max(2, matched.length * 0.2)),
   };
 }
 
@@ -187,16 +210,26 @@ export async function importPlan(
   };
 
   // ── tasks ──
-  const existing = new Map(
-    (await store.select("tasks", { where: { project_id: s.project.id } })).filter((t) => t.external_ref).map((t) => [t.external_ref!, t] as const),
-  );
+  const projectTasks = await store.select("tasks", { where: { project_id: s.project.id } });
+  const matchOf = matchRows(plan, projectTasks);
+  // tasks whose sheet number changed give up their old number first (two rows may swap numbers)
+  const moving = plan.tasks.filter((t) => matchOf.get(t.ref) && matchOf.get(t.ref)!.external_ref !== t.ref).map((t) => matchOf.get(t.ref)!);
+  const movingIds = new Set(moving.map((m) => m.id));
+  const freed = moving.filter((m) => m.external_ref).map((m) => m.id);
+  if (freed.length) await store.update("tasks", { id: { in: freed } }, { external_ref: null });
+  const heldRefs = new Set(projectTasks.filter((t) => t.external_ref && !movingIds.has(t.id)).map((t) => t.external_ref!));
+  const flat = (x: string) => x.replace(/[^\p{L}\p{N}]/gu, "");
   const byRef = new Map<string, Task>();
   const iso = (d: string | null) => (d ? `${d}T12:00:00.000Z` : null);
   for (const t of plan.tasks) {
-    const area = await areaFor(t);
+    const prev = matchOf.get(t.ref);
+    // an unchanged location / work type keeps the task where it is (no look-alike areas or trades)
+    const prevArea = prev?.area_id ? areas.find((a) => a.id === prev.area_id) : undefined;
+    const area = prevArea && t.location && flat(t.location).includes(flat(prevArea.name)) ? prevArea : await areaFor(t);
     const people = splitResponsible(t.responsible);
     const contractor_id = await contractorFor(people[0] ?? "", t.workType);
-    const trade_id = await tradeFor(t.workType);
+    const prevTrade = prev?.trade_id ? trades.find((x) => x.id === prev.trade_id) : undefined;
+    const trade_id = prevTrade && prevTrade.name === t.workType.trim() ? prevTrade.id : await tradeFor(t.workType);
     const lines = [
       t.note,
       t.location && t.location !== area.name ? `${he.importPlan.location}: ${t.location}` : "",
@@ -215,7 +248,6 @@ export async function importPlan(
       planned_start: t.start,
       planned_end: t.end,
     };
-    const prev = existing.get(t.ref);
     if (!prev) {
       const [row] = await store.insert("tasks", {
         project_id: s.project.id,
@@ -234,6 +266,15 @@ export async function importPlan(
       // the sheet moves a task forward, never back (work recorded in the app stays)
       const forward = RANK[status] > RANK[prev.status];
       const patch: Partial<Task> = { ...fields, contractor_id: prev.contractor_id ?? contractor_id };
+      // a description written in the app (not by an earlier import) stays
+      if (!prev.description?.includes(`${he.importPlan.sheetNumber}:`)) delete patch.description;
+      if (prev.external_ref !== t.ref) {
+        if (heldRefs.has(t.ref)) res.warnings.push(he.importPlan.refTaken(t.number, t.title));
+        else {
+          patch.external_ref = t.ref;
+          heldRefs.add(t.ref);
+        }
+      }
       if (forward) {
         patch.status = status;
         if (status === "in_progress" && !prev.started_at) patch.started_at = iso(t.start) ?? now.toISOString();

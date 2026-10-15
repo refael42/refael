@@ -1,5 +1,5 @@
 "use client";
-import { FileSpreadsheet, Upload } from "lucide-react";
+import { Download, FileSpreadsheet, Upload } from "lucide-react";
 import { useRef, useState } from "react";
 import { importPlanAction, previewPlanAction } from "@/app/actions/import";
 import { Field } from "@/components/common/field";
@@ -41,6 +41,15 @@ export function ImportPlanCard() {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">{t.importPlan.hint}</p>
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/50 p-2 text-xs text-muted-foreground">
+          <Button asChild variant="outline" size="sm">
+            <a href="/api/export/plan">
+              <Download />
+              {t.exportPlan.button}
+            </a>
+          </Button>
+          <span>{t.exportPlan.hint}</span>
+        </div>
         <input
           ref={input}
           id="plan-file"
@@ -72,7 +81,7 @@ export function ImportPlanCard() {
             {preview.title && <span className="font-semibold">{preview.title}</span>}
             <span>{t.importPlan.preview(preview.tasks, preview.people)}</span>
             <span className="text-muted-foreground">{t.importPlan.statuses(preview.done, preview.inProgress, preview.blocked)}</span>
-            {preview.reimport.existing > 0 && (
+            {(preview.reimport.existing > 0 || preview.reimport.update > 0) && (
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">{t.importPlan.reimport(preview.reimport.update, preview.reimport.created)}</span>
                 {preview.reimport.missing > 0 && <span className="text-xs text-muted-foreground">{t.importPlan.reimportMissing(preview.reimport.missing)}</span>}

@@ -35,6 +35,8 @@ export interface PlanTask {
   note: string;
   /** refs of the tasks this one waits for */
   dependsOn: string[];
+  /** the task's id in SiteFlow, when the sheet was exported from it (column "מזהה") */
+  id: string | null;
 }
 
 export interface PlanPerson {
@@ -68,6 +70,7 @@ const HEADERS = {
   deps: ["תלויות", "תלוי ב", "אחרי"],
   note: ["חסם / הערה", "הערה", "הערות", "חסם"],
   approval: ["אישור מנהל", "אישור"],
+  id: ["מזהה", "מזהה מערכת", "id"],
 } as const;
 
 const PEOPLE_HEADERS = {
@@ -214,6 +217,7 @@ export function parseWorkbook(sheets: SheetRows[]): Plan {
           .map((x) => x.trim())
           .filter(Boolean)
           .map((x) => `${sheet}#${x}`),
+        id: /^[0-9a-f-]{36}$/i.test(text(get("id"))) ? text(get("id")).toLowerCase() : null,
       });
     }
     const refs = new Set(tasks.map((t) => t.ref));
