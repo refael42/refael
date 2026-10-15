@@ -45,6 +45,16 @@ const RUG_SECTION = DINING_GRID.section;
 /** Below this zoom the crowd of small furniture is drawn without glows and sparkles. */
 const DETAIL_ZOOM = 0.62;
 
+/**
+ * Drawn after everything else, with the bubbles: things that hang high (order tickets over the
+ * pass, the rooms' signs over their doors). By floor depth the cook's line in front of them
+ * covered them (owner M34).
+ */
+function onTop(kind: number): boolean {
+  'worklet';
+  return kind === PropKind.Ticket || kind === PropKind.RoomSign;
+}
+
 export interface BuildOverlay {
   tiles: number[];
   /** [x, y, prop kind] of the picked tile (and a table's style, for a table), or empty. */
@@ -170,7 +180,7 @@ export function drawScene(
     // The kitchen rooms' walls and furniture, by the hundred in a big kitchen: drawn straight.
     else if (d[o + PF.kind] === PropKind.Wall) drawWall(c, A, d[o + PF.variant]!, px, py);
     else if (d[o + PF.kind] === PropKind.RoomPiece) drawRoomPiece(c, A, d[o + PF.variant]!, d[o + PF.active]! === 1, t, d[o + F.id]! * 0.71, px, py);
-    else drawProp(c, A, d, o, t, looks);
+    else if (!onTop(d[o + PF.kind]!)) drawProp(c, A, d, o, t, looks);
   }
   // ...and the picked tile with a see-through preview of the piece, bobbing a little.
   if (build && build.pick.length >= 3) {
@@ -183,11 +193,13 @@ export function drawScene(
   }
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;
-    if (d[o + F.type] !== EntityType.Character) continue;
+    const person = d[o + F.type] === EntityType.Character;
+    if (!person && !onTop(d[o + PF.kind]!)) continue;
     const px = isoX(d[o + F.x]!, d[o + F.y]!);
     const py = isoY(d[o + F.x]!, d[o + F.y]!);
     if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
-    drawCharacterOverlay(c, A, d, o, alpha, t);
+    if (person) drawCharacterOverlay(c, A, d, o, alpha, t);
+    else drawProp(c, A, d, o, t, looks);
   }
   drawBadges(c, A, snap.badges, snap.bestBadge, t);
   drawWorks(c, A, snap.works, t);

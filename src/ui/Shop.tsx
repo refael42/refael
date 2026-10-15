@@ -363,9 +363,6 @@ const styles = StyleSheet.create({
   dealSide: { alignItems: 'center', gap: 2 },
   dealWas: { color: '#B9A3C6', fontSize: 12, fontWeight: '800', textDecorationLine: 'line-through' },
   dealTime: { color: '#FFB0A6', fontSize: 11.5, fontWeight: '800' },
-  dealChip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 5, height: 26, paddingHorizontal: 8, borderRadius: 13, backgroundColor: '#C8352B', borderWidth: 1.5, borderColor: '#FFB0A6', boxShadow: '0px 2px 0px rgba(18,8,24,0.85)' },
-  dealChipText: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
-  dealChipTime: { color: '#FFE9A8', fontSize: 11, fontWeight: '800' },
   boost: { backgroundColor: '#FF7A1A', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1, marginEnd: 2 },
   boostText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
 });

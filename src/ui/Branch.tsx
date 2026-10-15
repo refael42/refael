@@ -153,7 +153,4 @@ const styles = StyleSheet.create({
   keep: { color: '#7EE08F', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   reset: { color: '#F2B6A8', fontSize: 13, fontWeight: '800', textAlign: 'center' },
   warn: { color: '#FFD23F', fontSize: 12, fontWeight: '800', textAlign: 'center' },
-  chip: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 6, height: 24, paddingHorizontal: 10, borderRadius: 12, backgroundColor: 'rgba(42,21,48,0.88)', borderWidth: 1.5, borderColor: gold },
-  chipText: { color: '#FFE27A', fontSize: 12, fontWeight: '900' },
-  chipCity: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
 });

@@ -234,5 +234,6 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 | `src/store` | Zustand stores |
 | `src/i18n` | Hebrew + English strings |
 | `tests` | Vitest unit tests |
+| `store` | App Store / Google Play material: texts (he/en), privacy policy, products, questionnaires, release guide in Hebrew, screenshots (`npm run store:check` checks the text lengths) |
 
 See `PROGRESS.md` for milestones, decisions and known issues.

@@ -1,8 +1,6 @@
-import { useEffect } from 'react';
 import { SIDE, SideButton } from './SideButton';
 import { hudIcon } from '../render/icons';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle, PixelRatio } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { DAILY } from '../data/retention';
 import { useT } from '../i18n';
 import { usePoll } from '../render/useSimulation';
@@ -86,9 +84,6 @@ export function DailyPanel({ gameRef, onCommand, onClose }: { gameRef: { current
 
 const styles = StyleSheet.create({
   buttonWrap: { position: 'absolute' },
-  button: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#3A1D40', borderWidth: 2.5, borderColor: gold, alignItems: 'center', justifyContent: 'center', boxShadow: '0px 3px 0px #120818' },
-  buttonIcon: { fontSize: 26 },
-  dot: { position: 'absolute', top: -2, end: -2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#E5483B', borderWidth: 2, borderColor: '#FFF4E3' },
   card: { width: 600, maxWidth: '96%', backgroundColor: panel.bg, borderRadius: 20, borderWidth: 2.5, borderColor: gold, padding: 14, gap: 8, alignItems: 'center' },
   title: { color: '#FFE9A8', fontSize: 21, fontWeight: '900' },
   sub: { color: '#C9B3D6', fontSize: 12, fontWeight: '700', textAlign: 'center' },

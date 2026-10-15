@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { SIDE, SideButton } from './SideButton';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { tapFeedback } from '../audio/sound';
 import { dishDef } from '../data/dishes';
 import { NAMES } from '../data/names';
@@ -131,18 +130,6 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
 const styles = StyleSheet.create({
   on: { color: '#FFD23F' },
   off: { color: '#5A4E66' },
-  chipWrap: { position: 'absolute' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingStart: 6, paddingEnd: 8, height: 40, borderRadius: 14, backgroundColor: 'rgba(42,21,48,0.93)', borderWidth: 2, borderColor: '#8A6A9A', boxShadow: '0px 2px 0px rgba(18,8,24,0.85)' },
-  chipReady: { borderColor: '#7EE08F', backgroundColor: 'rgba(22,70,36,0.95)' },
-  chipIcon: { fontSize: 20 },
-  chipBody: { width: 86, gap: 1 },
-  chipTitle: { color: '#FFE9A8', fontSize: 11.5, fontWeight: '900' },
-  chipAvg: { color: '#FFD23F', fontSize: 11, fontWeight: '900' },
-  chipCoins: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  chipCoin: { width: 13, height: 13 },
-  chipCoinText: { color: '#9CF5A8', fontSize: 11, fontWeight: '900' },
-  badge: { position: 'absolute', top: -7, end: -7, minWidth: 20, height: 20, paddingHorizontal: 4, borderRadius: 10, backgroundColor: '#E5483B', borderWidth: 2, borderColor: '#FFF4E3', alignItems: 'center', justifyContent: 'center' },
-  badgeText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: '900' },
   card: { width: 600, maxWidth: '94%', maxHeight: '92%', backgroundColor: panel.bg, borderRadius: 22, borderWidth: 3, borderColor: gold, padding: 12, gap: 8, boxShadow: '0px 6px 0px #120818' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { color: '#FFE9A8', fontSize: 22, fontWeight: '900', ...textShadow('#120818', 1, 0) },

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { STORE_BUILD } from '../config';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { OFFLINE } from '../data/economy';
@@ -124,7 +125,8 @@ export function WelcomeBack({ earnings, manager, onCollect }: Props) {
           </View>
         ) : (
           <View style={styles.buttons}>
-            {multiplier === 1 && (
+            {/* A stand-in for a real ad: never in a store build (the stores turn down placeholder ads; the game shows none). */}
+            {multiplier === 1 && !STORE_BUILD && (
               <Pressable accessibilityRole="button" onPress={() => setAdLeft(FAKE_AD_SECONDS)} style={[styles.button, styles.adButton]}>
                 <Text style={styles.buttonText}>{t('ui.adDouble')}</Text>
               </Pressable>

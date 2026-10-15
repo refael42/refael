@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test",
     "balance": "node scripts/run-ts.mjs scripts/balance.ts",
-    "postinstall": "setup-skia-web"
+    "postinstall": "setup-skia-web",
+    "store:check": "node scripts/store-check.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",

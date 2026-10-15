@@ -33,7 +33,7 @@
 | M31 | Owner: join tables into a long table for more people, more design levels to unlock for the bar, a kitchen laid out as you like | ✅ Done |
 | M30 | Owner: more design levels for every object, a grander delivery station that really grows and opens more as it levels, big upgrades that take longer the higher the level; the payment library (expo-iap) and the splash screen installed (owner approved) | ✅ Done |
 | M29 | Owner: throw out the old kitchen: a huge open kitchen at Michelin level, every dish on its own equipment (fryer, plancha, wok, sushi counter, cold line, range, wood-fired oven), animations for everything, every cook carries the plate to the pass; Michelin-style stars earned the way they are in real life | ✅ Done |
-| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Payments wired (expo-iap 6.0.2, needs a native build to test); store texts and release steps next |
+| M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Payments wired (expo-iap 6.0.2, needs a native build to test); store texts, privacy policy, questionnaires, release guide and screenshots ready in `store/` (`npm run store:check`); the owner's accounts and EAS build next |
 | M27 | Owner: a bar from day one that grows with the buildings (straight → L → three sides open to the kitchen), bartenders who shake cocktails and pour drinks, drinks on the bar's pass for the waiters, guests on bar stools served by the bartenders | ✅ Done |
 | M26 | Owner: a variety of tables (round, square, long, booths) placed and moved freely in build mode, a room laid out like a restaurant instead of rows (no more symmetry) | ✅ Done |
 | M25 | Owner: a reviews page (claim the money there, good and bad reviews by the service), the delivery station upgrades (more couriers, scooters, app, packing station) with its own pass and drinks fridge, buildings that grow north too, the welcome-back popup fixed, a lighter late game | ✅ Done |
@@ -867,6 +867,7 @@ Headless Chromium, software GL (SwiftShader, **no GPU**), 844×390 @2x:
 | M29 palace kitchen zoomed in (stations, hoods, guide) | 215 | 1.4–2.4 ms draw | 9–11 |
 | M29 crown, back-of-house corners | 812–819 | 1.8–8.5 ms draw | 5–13 |
 | M29 owner's phone (screenshot from the owner) | 690 | 3.6 ms draw | **60 / 60** |
+| Crown snapshot (sim → renderer), 1024 props: before / after keeping the standing props' order between frames | 1024 | 1.72 / 0.89 ms | — |
 
 Frame build (CPU work per frame) is far below the 16.6 ms budget; the low FPS is software
 rasterization. **Not yet measured on a phone** — the owner should check the FPS overlay with

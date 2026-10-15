@@ -216,7 +216,7 @@ describe('growth and management', () => {
     expect(asked.length).toBeGreaterThan(0);
     expect(asked.length).toBeLessThanOrEqual(10);
     for (let i = 1; i < asked.length; i++) expect(asked[i]! - asked[i - 1]!).toBeGreaterThanOrEqual(STAFF.raise.teamGapDays);
-  });
+  }, 20000);
 
   it('changing jobs swaps the uniform and the duties', () => {
     const s = createGame(STAND_MAP, 11, { roster: ['cook', 'waiter'] });

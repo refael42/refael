@@ -135,13 +135,6 @@ export function GuideEdition({ stars, change, plate, onClose }: { stars: number;
 const RED = '#C8102E';
 
 const styles = StyleSheet.create({
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingStart: 6, paddingEnd: 8, height: 40, borderRadius: 14, backgroundColor: 'rgba(42,21,48,0.93)', borderWidth: 2, borderColor: '#8A6A9A', boxShadow: '0px 2px 0px rgba(18,8,24,0.85)' },
-  chipStarred: { borderColor: '#FF6A7A', backgroundColor: 'rgba(90,10,26,0.95)' },
-  chipIcon: { fontSize: 20 },
-  chipBody: { width: 86, gap: 1 },
-  chipTitle: { color: '#FFE9A8', fontSize: 11.5, fontWeight: '900' },
-  chipMark: { color: '#C9B3D6', fontSize: 11, fontWeight: '900' },
-  chipMarkStar: { color: '#FF8A98', fontSize: 14 },
   card: { width: 620, maxWidth: '96%', maxHeight: '94%', backgroundColor: panel.bg, borderRadius: 20, borderWidth: 2.5, borderColor: gold, padding: 12, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { color: '#FFE9A8', fontSize: 20, fontWeight: '900', ...textShadow('#120818', 2, 2) },

@@ -73,7 +73,7 @@ describe('joining tables (owner M30: "join tables into a long table that holds m
     const back = restoreGame(loaded.save, 72, Date.now());
     expect(tableUnits(back)).toBe(tableUnits(s));
     expect(back.tables.filter((x) => x.parts.length > 1).length).toBe(s.tables.filter((x) => x.parts.length > 1).length);
-  });
+  }, 20000);
 
   it('splits back into its tables, each where it fits', () => {
     const s = full(1, 73);

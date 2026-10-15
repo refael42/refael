@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { tapFeedback } from '../audio/sound';
 import { FESTIVAL, FESTIVAL_THEMES, type FestivalReward } from '../data/events';
 import { SIDE, SideButton } from './SideButton';
@@ -12,7 +11,7 @@ import { festivalEnds, rewardCoins, stepsReached, themeIndex } from '../sim/fest
 import { formatBig } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { Overlay, scrollFill } from './Overlay';
-import { gold, panel, textShadow } from './theme';
+import { panel, textShadow } from './theme';
 
 // The food festival (owner request: events and FOMO). A chip under the rating counts down the
 // days and glows when a prize waits; the panel shows the reward track up to the trophy that
@@ -198,17 +197,6 @@ export function FestivalPanel({ gameRef, onCommand, onClose }: { gameRef: { curr
 }
 
 const styles = StyleSheet.create({
-  chipWrap: { position: 'absolute' },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingStart: 4, paddingEnd: 8, height: 44, borderRadius: 14, backgroundColor: 'rgba(42,21,48,0.93)', borderWidth: 2, borderColor: gold, boxShadow: '0px 2px 0px rgba(18,8,24,0.85)' },
-  chipHurry: { borderColor: '#FF5A4A', backgroundColor: 'rgba(80,16,22,0.94)' },
-  chipReady: { borderColor: '#7EE08F', backgroundColor: 'rgba(22,70,36,0.95)' },
-  chipIcon: { width: 32, height: 32 },
-  chipBody: { width: 86, gap: 2 },
-  chipTitle: { color: '#FFE9A8', fontSize: 11.5, fontWeight: '900' },
-  chipTrack: { height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.18)', overflow: 'hidden' },
-  chipFill: { height: '100%', borderRadius: 3, backgroundColor: '#FFB547' },
-  chipTime: { color: '#FFFFFF', fontSize: 10.5, fontWeight: '800' },
-  chipTimeHurry: { color: '#FFB0A6' },
   card: { width: 680, maxWidth: '96%', maxHeight: '94%', backgroundColor: panel.bg, borderRadius: 20, borderWidth: 2.5, overflow: 'hidden', paddingBottom: 10 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 8 },
   headerIcon: { width: 44, height: 44 },

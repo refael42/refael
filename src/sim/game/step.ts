@@ -252,7 +252,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
   // The "for sale" sign comes down while the lot is being built on.
   const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
   // A courier out on a ride is on the scooter, not on the map.
-  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants, ...s.crew], [...props, ...dynamicProps(s)], seq, s.time, {
+  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants, ...s.crew], props, seq, s.time, {
     events: packEvents(s),
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.
@@ -264,7 +264,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
       return [p.x, p.y, w.total > 0 ? 1 - w.left / w.total : 1, Math.max(0, w.left), upgradeDef(w.item).anchor];
     }),
     ...upgradeViews(s),
-  });
+  }, dynamicProps(s));
 }
 
 /**

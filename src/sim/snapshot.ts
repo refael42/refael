@@ -157,6 +157,35 @@ function writeProp(d: Packed, o: number, p: PropView): void {
   d[o + P.extra] = p.extra ?? 0;
 }
 
+const byDepth = (a: SortItem, b: SortItem): number => a.depth - b.depth || a.id - b.id;
+const before = (da: number, ia: number, db: number, ib: number): boolean => da < db || (da === db && ia < ib);
+
+/**
+ * The standing props' painter order, kept while every one of them has the same depth and id as
+ * last time (a new list with the same contents, e.g. while building, keeps it too).
+ */
+let lastKeys = new Float64Array(0);
+let lastOrder: number[] = [];
+
+function staticOrder(props: readonly PropView[]): number[] {
+  const n = props.length;
+  let same = lastKeys.length === n * 2;
+  if (!same) lastKeys = new Float64Array(n * 2);
+  for (let i = 0; i < n; i++) {
+    const p = props[i]!;
+    const depth = p.x + p.y + p.depthBias;
+    if (lastKeys[i * 2] !== depth || lastKeys[i * 2 + 1] !== p.id) {
+      same = false;
+      lastKeys[i * 2] = depth;
+      lastKeys[i * 2 + 1] = p.id;
+    }
+  }
+  if (same) return lastOrder;
+  const keys = lastKeys;
+  lastOrder = Array.from({ length: n }, (_, i) => i).sort((a, b) => keys[a * 2]! - keys[b * 2]! || keys[a * 2 + 1]! - keys[b * 2 + 1]!);
+  return lastOrder;
+}
+
 const packed = (v: readonly number[] | Packed | undefined): Packed => (v instanceof Float64Array ? v : v && v.length > 0 ? Float64Array.from(v) : NONE);
 
 export function packSnapshot(
@@ -165,22 +194,39 @@ export function packSnapshot(
   seq: number,
   time: number,
   extra: SnapshotExtra = {},
+  moving: readonly PropView[] = [],
 ): Snapshot {
-  const items: SortItem[] = [];
   // Isometric painter's order: farther from the camera = smaller x + y. Characters win ties so a
-  // seated customer draws over the chair on the same tile.
-  for (const c of characters) items.push({ depth: c.x + c.y + 0.05, id: c.id, character: c });
-  for (const p of props) items.push({ depth: p.x + p.y + p.depthBias, id: p.id, prop: p });
-  items.sort((a, b) => a.depth - b.depth || a.id - b.id);
-  const data: Packed = new Float64Array(items.length * STRIDE);
-  items.forEach((item, i) => {
-    if (item.character) writeCharacter(data, i * STRIDE, item.character);
-    else writeProp(data, i * STRIDE, item.prop!);
-  });
+  // seated customer draws over the chair on the same tile. `props` mostly stand still (walls,
+  // furniture, tables: a thousand in a big restaurant): their order is kept from the last
+  // snapshot while none of them moved, and only the people and `moving` (dishes, effects) are
+  // sorted and merged in.
+  const order = staticOrder(props);
+  const few: SortItem[] = [];
+  for (const c of characters) few.push({ depth: c.x + c.y + 0.05, id: c.id, character: c });
+  for (const p of moving) few.push({ depth: p.x + p.y + p.depthBias, id: p.id, prop: p });
+  few.sort(byDepth);
+  const count = order.length + few.length;
+  const data: Packed = new Float64Array(count * STRIDE);
+  let i = 0;
+  let k = 0;
+  for (let n = 0; n < count; n++) {
+    const o = n * STRIDE;
+    const sp = i < order.length ? props[order[i]!]! : null;
+    const f = k < few.length ? few[k]! : null;
+    if (sp && (!f || before(sp.x + sp.y + sp.depthBias, sp.id, f.depth, f.id))) {
+      writeProp(data, o, sp);
+      i++;
+    } else {
+      if (f!.character) writeCharacter(data, o, f!.character);
+      else writeProp(data, o, f!.prop!);
+      k++;
+    }
+  }
   return {
     seq,
     time,
-    count: items.length,
+    count,
     data,
     events: packed(extra.events),
     dayPhase: extra.dayPhase ?? 0,
