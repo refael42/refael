@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { TIERS } from '../src/data/buildings';
 import { DISHES } from '../src/data/dishes';
 import { DISH_STATION, Station, stationOf } from '../src/data/kitchen';
-import { BACK_KINDS, mapForTier, PREP_KINDS, STAND_MAP } from '../src/data/maps';
+import { mapForTier, PREP_KINDS, STAND_MAP } from '../src/data/maps';
+import { RoomItem } from '../src/data/kitchenRooms';
 import { STEP_SEC } from '../src/data/sim';
 import { UNLOCK_TIER } from '../src/data/unlocks';
 import { UPGRADES } from '../src/data/upgrades';
@@ -115,10 +116,11 @@ describe('the kitchen (owner M29: "every dish on its own equipment, an open kitc
     const carried = s.staff.reduce((n, st) => n + (st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop') ? (st.job.plates ?? 0) : 0), 0);
     expect(s.cleanPlates + s.dirtyPlates + onTables + inOrders + carried).toBe(total);
   });
-  it('a big kitchen is more than rows of the same table: corners of stores, fridges, stock pots, butchery, pastry', () => {
+  it('a big kitchen is more than rows of the same table: rooms of stores, fridges, stock pots, butchery, pastry', () => {
     const map = mapForTier(TIERS.length - 1);
-    const back = map.decor.filter((f) => f.kind === PropKind.Prep && (f.variant ?? 0) >= PREP_KINDS);
-    for (const f of back) expect(f.variant!).toBeLessThan(PREP_KINDS + BACK_KINDS);
-    expect(new Set(back.map((f) => f.variant)).size).toBe(BACK_KINDS);
+    const pieces = new Set(map.decor.filter((f) => f.kind === PropKind.RoomPiece).map((f) => f.variant));
+    for (const item of [RoomItem.Stores, RoomItem.Fridge, RoomItem.StockPots, RoomItem.Butcher, RoomItem.Pastry, RoomItem.Rack]) expect(pieces.has(item), `item ${item}`).toBe(true);
+    // The line room's spare places are prep tables, in their own looks.
+    for (const f of map.decor.filter((f) => f.kind === PropKind.Prep)) expect(f.variant!).toBeLessThan(PREP_KINDS);
   });
 });

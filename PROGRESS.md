@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M32 | Owner: the kitchen in rooms: the line room split into a hot and a cold line, a dish room, a walk-in cooler and freezer with doors, vegetable, prep, stores, pastry and butchery rooms, and a small, detailed manager's office | ✅ Done |
 | M31 | Owner: join tables into a long table for more people, more design levels to unlock for the bar, a kitchen laid out as you like | ✅ Done |
 | M30 | Owner: more design levels for every object, a grander delivery station that really grows and opens more as it levels, big upgrades that take longer the higher the level; the payment library (expo-iap) and the splash screen installed (owner approved) | ✅ Done |
 | M29 | Owner: throw out the old kitchen: a huge open kitchen at Michelin level, every dish on its own equipment (fryer, plancha, wok, sushi counter, cold line, range, wood-fired oven), animations for everything, every cook carries the plate to the pass; Michelin-style stars earned the way they are in real life | ✅ Done |
@@ -77,6 +78,39 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M32 (owner: "divide the kitchen into sections: kitchen, dishwashing, vegetable cutting,
+  service prep, cold line, hot line, all divided into rooms; the kitchen itself is a room with its
+  lines; dishwashing a room of its own, vegetables, prep, a fridge and freezer room with doors,
+  and a small manager's office, very detailed"):
+  - **The line room** (`lineRoomOf` in `src/data/maps.ts`): open to the pass as before; hot
+    stations first, nearest the pass, the cold line (salads, sushi) on a line of its own behind
+    them (the room grows a row or two for it), on blue-white tiles and under its own hanging
+    sign; the hot section on red quarry tiles. Spare places are prep tables (still swappable).
+  - **The rooms** (`src/data/kitchenRooms.ts`): below the line room, off a corridor, in bands of
+    4-6 rows; each band is filled east to west (the dish room first, by the waiters' lane, its door
+    in the lane at the top so the waiters' walk stayed as short as before). Which rooms a building
+    has: dish and walk-in from the diner, vegetables and the office from the grand restaurant,
+    prep and stores from the palace, pastry from the empire, butchery from the resort; the crown
+    has 16 rooms. A walk-in of four tiles or more has a freezer behind an inner door.
+  - **Walls on tile edges** (`edges` in `src/sim/grid.ts`): nobody steps, cuts a corner or
+    smooths a path through a wall; only the doors are gaps. Walls are glass over white tiles,
+    insulated panels for the cold rooms, wood and glass for the office; doors swing open while
+    someone is in the doorway (swing doors with round windows, the walk-in's heavy door with
+    its strip curtain, the office's wooden one); a sign with the room's pictogram over each door.
+  - **The rooms' own pieces** (`src/render/art/roomArt.ts`): dish machine and pre-rinse sprayer,
+    drying racks, cooler and frosted freezer shelving, an ice machine, a vegetable sink, and in
+    the office a desk (monitor with the day's chart, banker's lamp, invoices, name plate, chair),
+    a safe on a filing cabinet under a notice board with the rota and a clock, a coffee corner
+    with a water cooler, a bookcase with the guide's plates and a gold cup. Each room has its
+    own floor (wet epoxy and a drain, diamond plate, frosted plate, terrazzo, parquet and a rug...).
+  - **The crew** (`src/sim/game/crew.ts`): someone works in each room (vegetables, prep, pastry,
+    butchery, stores) and goes now and then to the nearest walk-in or store for a crate; the
+    manager sits at the office desk, goes for coffee or out to watch the line. Not hired, not
+    paid, not saved, with dice of their own (a test checks the game rolls the same with them).
+  - Old saves: a saved kitchen layout from before is not this building's tiles any more, so
+    the kitchen starts from the new layout (tables, decor and staff stay).
+  - Performance: walls and room pieces are drawn straight in the scene loop (no canvas
+    transform); the crown's frame draw went from 6.4 ms to 7.1 ms with ~370 more pieces.
 - Done in M31 (owner: "then an option to join tables into a long table that holds more people,
   improve the bar with more design levels to unlock, the kitchen much more open to design,
   placed however you want"):

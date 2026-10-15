@@ -20,6 +20,7 @@ import { autoTile, canPlaceAt, canPlaceTable, layoutWorks, nextTableSpot, tableA
 import { restoreKitchen, type SavedKitchen } from './kitchenLayout';
 import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
 import { spawnFarWalker, spawnPedestrian } from './walkers';
+import { makeCrew } from './crew';
 
 /** First customer shows up almost immediately: the first seconds must never feel empty. */
 const FIRST_ARRIVAL_SECONDS = 1.5;
@@ -522,6 +523,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     barSeats: map.bar.stools.map(() => -1),
     staff: [],
     walkers: [],
+    crew: [],
     cleanPlates: KITCHEN.plates + mods.plates,
     dirtyPlates: 0,
     washProgress: 0,
@@ -613,5 +615,6 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   }
   for (let i = 0; i < AMBIENT.pedestrians; i++) spawnPedestrian(s, true);
   for (let i = 0; i < AMBIENT.farPedestrians; i++) spawnFarWalker(s, true);
+  s.crew = makeCrew(s);
   return s;
 }

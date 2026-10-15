@@ -12,6 +12,11 @@ export interface Grid {
   inside: Uint8Array;
   /** Pairs of tile indices that may cross the building boundary (both directions). */
   doorLinks: Set<string>;
+  /**
+   * The kitchen rooms' walls on tile edges (owner M32): per tile, bit 1 = a wall on its +x side,
+   * bit 2 = on its +y side. Their doors are gaps in them.
+   */
+  edges: Uint8Array;
 }
 
 const key = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
@@ -43,6 +48,7 @@ export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[
     walk: new Uint8Array(map.width * map.height),
     inside: new Uint8Array(map.width * map.height),
     doorLinks: new Set(),
+    edges: new Uint8Array(map.width * map.height),
   };
   for (const a of map.areas) {
     for (let ty = a.y0; ty < a.y1; ty++) {
@@ -59,6 +65,11 @@ export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[
   for (const h of map.packing?.hub ?? []) if (h.blocks) markFootprint(g, h.x, h.y, 1, 1);
   for (const p of taken) markFootprint(g, p.x, p.y, 1, 1);
   for (const p of placed) markFootprint(g, p.x, p.y, 1, 1);
+  // A wall along x at y = Y stands between rows Y - 1 and Y; along y at x = X, between columns X - 1 and X.
+  for (const w of map.walls) {
+    if (w.along === 'x' && inBounds(g, w.x, w.y - 1)) g.edges[tileIndex(g, w.x, w.y - 1)]! |= 2;
+    if (w.along === 'y' && inBounds(g, w.x - 1, w.y)) g.edges[tileIndex(g, w.x - 1, w.y)]! |= 1;
+  }
   for (const door of map.doors) {
     const a = tileIndex(g, Math.floor(door.inside.x), Math.floor(door.inside.y));
     const c = tileIndex(g, Math.floor(door.outside.x), Math.floor(door.outside.y));
@@ -76,11 +87,26 @@ export function buildGrid(map: MapDef, tableCount: number = map.startTables, sto
   return gridWith(map, stoveCount, taken, placed);
 }
 
+/** A room's wall between two tiles side by side (a diagonal pair never has one: see the diagonal checks). */
+function walled(g: Grid, a: number, b: number): boolean {
+  const d = b - a;
+  if (d === 1) return (g.edges[a]! & 1) !== 0;
+  if (d === -1) return (g.edges[b]! & 1) !== 0;
+  if (d === g.w) return (g.edges[a]! & 2) !== 0;
+  if (d === -g.w) return (g.edges[b]! & 2) !== 0;
+  return false;
+}
+
 /** Can a walker step between two neighboring tiles (walls and door rules included)? */
 function canStep(g: Grid, a: number, b: number, goal: number): boolean {
   if (!g.walk[b] && b !== goal) return false;
   if (g.inside[a] !== g.inside[b]) return g.doorLinks.has(key(a, b));
-  return true;
+  return !walled(g, a, b);
+}
+
+/** A diagonal step from `a` past its two sides to `b`: no corner cut past furniture, and no wall on either way round. */
+function diagonalOk(g: Grid, a: number, sideA: number, sideB: number, b: number): boolean {
+  return canStep(g, a, sideA, -1) && canStep(g, a, sideB, -1) && !walled(g, sideA, b) && !walled(g, sideB, b);
 }
 
 const DIRS: readonly [number, number, number][] = [
@@ -159,7 +185,7 @@ export function reachableFrom(g: Grid, from: Point): Uint8Array {
       if (!inBounds(g, nx, ny)) continue;
       const nb = tileIndex(g, nx, ny);
       if (seen[nb] || !canStep(g, cur, nb, -1)) continue;
-      if (dx !== 0 && dy !== 0 && (!canStep(g, cur, tileIndex(g, cx + dx, cy), -1) || !canStep(g, cur, tileIndex(g, cx, cy + dy), -1))) continue;
+      if (dx !== 0 && dy !== 0 && !diagonalOk(g, cur, tileIndex(g, cx + dx, cy), tileIndex(g, cx, cy + dy), nb)) continue;
       seen[nb] = 1;
       queue.push(nb);
     }
@@ -187,7 +213,7 @@ export function reachableInside(g: Grid, from: Point): Uint8Array {
       if (!inBounds(g, nx, ny)) continue;
       const nb = tileIndex(g, nx, ny);
       if (seen[nb] || !g.inside[nb] || !canStep(g, cur, nb, -1)) continue;
-      if (dx !== 0 && dy !== 0 && (!canStep(g, cur, tileIndex(g, cx + dx, cy), -1) || !canStep(g, cur, tileIndex(g, cx, cy + dy), -1))) continue;
+      if (dx !== 0 && dy !== 0 && !diagonalOk(g, cur, tileIndex(g, cx + dx, cy), tileIndex(g, cx, cy + dy), nb)) continue;
       seen[nb] = 1;
       queue.push(nb);
     }
@@ -319,9 +345,7 @@ function aStar(g: Grid, start: number, goal: number): number[] | null {
       if (closed[nb] || !canStep(g, cur, nb, goal)) continue;
       // No diagonal corner-cutting past blocked tiles or walls.
       if (dx !== 0 && dy !== 0) {
-        const sideA = tileIndex(g, cx + dx, cy);
-        const sideB = tileIndex(g, cx, cy + dy);
-        if (!canStep(g, cur, sideA, -1) || !canStep(g, cur, sideB, -1)) continue;
+        if (!diagonalOk(g, cur, tileIndex(g, cx + dx, cy), tileIndex(g, cx, cy + dy), nb)) continue;
       }
       const tentative = gScore[cur]! + cost;
       if (tentative < gScore[nb]!) {
@@ -341,13 +365,27 @@ const SMOOTH_AHEAD = 16;
 /** Where a straight line is sampled across its width: the middle and a walker's shoulders. */
 const LINE_SAMPLES: readonly (readonly [number, number])[] = [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]];
 
+/** Does a step between two touching tiles (side by side or corner to corner) cross a room's wall? */
+function crossesWall(g: Grid, a: number, b: number): boolean {
+  const ax = a % g.w;
+  const bx = b % g.w;
+  if (ax === bx || Math.floor(a / g.w) === Math.floor(b / g.w)) return walled(g, a, b);
+  // Corner to corner: both ways round must be clear.
+  const sideA = Math.floor(a / g.w) * g.w + bx;
+  const sideB = Math.floor(b / g.w) * g.w + ax;
+  return walled(g, a, sideA) || walled(g, sideA, b) || walled(g, a, sideB) || walled(g, sideB, b);
+}
+
 /** Straight line between two points stays on walkable tiles without crossing walls? */
 function clearLine(g: Grid, a: Point, b: Point, goal: number): boolean {
   const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.2);
-  let prev = tileIndex(g, Math.floor(a.x), Math.floor(a.y));
+  // Where each sample was a step ago: a sample crossing a room's wall (the shoulders too, so
+  // nobody brushes through a door frame) or the building's walls away from a door fails it.
+  const prev = LINE_SAMPLES.map(([ox, oy]) => (inBounds(g, Math.floor(a.x + ox), Math.floor(a.y + oy)) ? tileIndex(g, Math.floor(a.x + ox), Math.floor(a.y + oy)) : -1));
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
-    for (const [ox, oy] of LINE_SAMPLES) {
+    for (let k = 0; k < LINE_SAMPLES.length; k++) {
+      const [ox, oy] = LINE_SAMPLES[k]!;
       const px = a.x + (b.x - a.x) * t + ox;
       const py = a.y + (b.y - a.y) * t + oy;
       const tx = Math.floor(px);
@@ -355,10 +393,12 @@ function clearLine(g: Grid, a: Point, b: Point, goal: number): boolean {
       if (!inBounds(g, tx, ty)) return false;
       const idx = tileIndex(g, tx, ty);
       if (!g.walk[idx] && idx !== goal) return false;
-      if (ox === 0 && oy === 0) {
-        if (idx !== prev && g.inside[idx] !== g.inside[prev] && !g.doorLinks.has(key(idx, prev))) return false;
-        prev = idx;
+      const was = prev[k]!;
+      if (was >= 0 && idx !== was) {
+        if (k === 0 && g.inside[idx] !== g.inside[was] && !g.doorLinks.has(key(idx, was))) return false;
+        if (crossesWall(g, was, idx)) return false;
       }
+      prev[k] = idx;
     }
   }
   return true;

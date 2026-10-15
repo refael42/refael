@@ -20,11 +20,12 @@ import { LOOKS, stationSprites } from './art/stationArt';
 import { RUG_COLORS, tableSprites } from './art/tableArt';
 import { barSprites, DRINK_SPRITES } from './art/barArt';
 import { kitchenSprites, STATION_SPRITES } from './art/kitchenArt';
+import { ROOM_PIECE_SPRITES, roomSprites, SIGN_COUNT, WALL_STYLES } from './art/roomArt';
 import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -159,6 +160,15 @@ export const LAYERS = {
   /** The delivery hub's pieces (src/data/delivery.ts HubPiece order). */
   hub: HUB_SPRITES.map((name) => INDEX[name]!),
   hubRow: SCREEN_ROWS.map((_, i) => INDEX[`hubRow${i}`]!),
+  /**
+   * The kitchen's rooms (src/render/art/roomArt.ts): their own pieces (RoomItem from ROOM_OWN),
+   * walls by style (then the same along y), doors by kind shut and open, the signs.
+   */
+  room: ROOM_PIECE_SPRITES.map((name) => INDEX[name]!),
+  wall: (['X', 'Y'] as const).flatMap((along) => Array.from({ length: WALL_STYLES }, (_, i) => INDEX[`wall${along}${i}`]!)),
+  door: [0, 1, 2].map((i) => INDEX[`door${i}`]!),
+  doorOpen: [0, 1, 2].map((i) => INDEX[`door${i}Open`]!),
+  roomSign: Array.from({ length: SIGN_COUNT }, (_, i) => INDEX[`roomSign${i}`]!),
   /** The bar's pieces (src/data/bar.ts BarPiece order). */
   barDecor: BAR_DECOR_SPRITES.map((name) => INDEX[name]!),
   cooking: DISH_ICONS.map((_, i) => INDEX[`cook${i}`]!),

@@ -358,6 +358,25 @@ export interface Walker extends CharacterView {
   flyer?: boolean;
 }
 
+/**
+ * Someone working in one of the kitchen's rooms (owner M32, src/sim/game/crew.ts): the vegetable
+ * cook at the board, the prep cook, the pastry chef, the butcher, the storekeeper, the manager at
+ * the desk. Not hired, not paid, not saved: they come with the rooms.
+ */
+export interface Crew extends CharacterView {
+  /** Their room (index in the map's rooms). */
+  room: number;
+  phase: 'work' | 'go' | 'stop' | 'back';
+  /** Where an errand takes them. */
+  errand: 'fetch' | 'coffee' | 'rounds' | 'stretch';
+  path: Point[];
+  timer: number;
+  /** The piece they work at (its prop id, -1 none): it shows them at work. */
+  piece: number;
+  /** Their own dice (seeded by their room): the crew changes nothing else the game rolls. */
+  rng: Rng;
+}
+
 /** A review a customer wrote about the restaurant (newest last), on the reviews page. */
 export interface Review {
   /** Its own counter (saved), so ids stay unique across sessions. */
@@ -440,6 +459,8 @@ export interface GameState {
   barSeats: number[];
   staff: Staff[];
   walkers: Walker[];
+  /** The kitchen rooms' crew (src/sim/game/crew.ts). */
+  crew: Crew[];
   cleanPlates: number;
   dirtyPlates: number;
   /** 0..1 progress on the plate currently being washed. */

@@ -5,6 +5,7 @@ import { EntityType, PropKind } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { drawCharacter, drawCharacterOverlay } from './drawCharacter';
 import { drawBadges, drawProp, drawWorks, type PropLooks } from './drawProp';
+import { drawRoomPiece, drawWall } from './drawRoom';
 import { drawScreenFx, drawWorldFx, processEvents, type Camera, type FxState } from './fx';
 import { hudAnchors, type HudLayout } from './hud';
 import { isoX, isoY } from '../iso';
@@ -158,6 +159,9 @@ export function drawScene(
     const py = isoY(d[o + F.x]!, d[o + F.y]!);
     if (px < viewX0 - CULL_SIDE || px > viewX1 + CULL_SIDE || py < viewY0 - CULL_OVER || py > viewY1 + CULL_UNDER) continue;
     if (d[o + F.type] === EntityType.Character) drawCharacter(c, A, d, o, alpha, t, selectedId, looks.detail);
+    // The kitchen rooms' walls and furniture, by the hundred in a big kitchen: drawn straight.
+    else if (d[o + PF.kind] === PropKind.Wall) drawWall(c, A, d[o + PF.variant]!, px, py);
+    else if (d[o + PF.kind] === PropKind.RoomPiece) drawRoomPiece(c, A, d[o + PF.variant]!, d[o + PF.active]! === 1, t, d[o + F.id]! * 0.71, px, py);
     else drawProp(c, A, d, o, t, looks);
   }
   // ...and the picked tile with a see-through preview of the piece, bobbing a little.

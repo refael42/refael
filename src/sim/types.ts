@@ -146,6 +146,16 @@ export const PropKind = {
   TableMid: 49,
   /** A piece of the bar's design levels (variant: which, src/data/bar.ts BarPiece; active: a bartender at work). */
   BarPiece: 50,
+  /**
+   * The kitchen's rooms (owner M32, src/data/kitchenRooms.ts): a piece of a room's furniture
+   * (variant: RoomItem; active: someone at work at it), a unit of wall on a tile edge (variant:
+   * WallStyle, +10 along y), a door (variant: DoorKind, +10 along y; active: open), a sign over
+   * a door or a line (variant: the room's index in ROOM_KINDS, then the hot and the cold line).
+   */
+  RoomPiece: 51,
+  Wall: 52,
+  RoomDoor: 53,
+  RoomSign: 54,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

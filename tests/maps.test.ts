@@ -7,7 +7,7 @@ import { buildGrid, findPath, isWalkable } from '../src/sim/grid';
 
 // The first tier used to be drawn by hand; the generator must reproduce its room exactly (now
 // further into the world, with land around it), so every tuned spot stays where it was.
-const HAND_MADE: Omit<MapDef, 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
+const HAND_MADE: Omit<MapDef, 'rooms' | 'walls' | 'roomDoors' | 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 'focus' | 'hostSpots' | 'busStop' | 'busDoor' | 'trophySpots' | 'scooterSpots' | 'courierSpots' | 'farStreetEnds' | 'checkerSpot' | 'packing' | 'tables' | 'bar'> = {
   id: 'diner',
   tier: 0,
   theme: { dining: 'dining', wall: '#4A1F4E' },
@@ -106,7 +106,7 @@ const HAND_MADE: Omit<MapDef, 'kitchenX' | 'stoves' | 'cookCap' | 'passDrops' | 
 };
 
 describe('map generator', () => {
-  it('tier 0 is the hand-made diner, moved into the world (its kitchen grew, M29)', () => {
+  it('tier 0 is the hand-made diner, moved into the world (its kitchen grew, M29, and is in rooms, M32)', () => {
     // Everything from the pass to the street sits where it was by the kitchen's edge.
     const KX = 6;
     const d = { x: STAND_MAP.kitchenX - KX, y: WORLD_SHIFT.y };
@@ -114,7 +114,8 @@ describe('map generator', () => {
     const m = STAND_MAP;
     expect(mapForTier(0)).toBe(m);
     expect(m.building).toEqual({ x0: m.kitchenX - 7, y0: HAND_MADE.building.y0 + d.y, x1: HAND_MADE.building.x1 + d.x, y1: HAND_MADE.building.y1 + d.y });
-    for (const key of ['pass', 'hostSpot', 'managerSpot', 'sink', 'washerSpot', 'dirtyDrop', 'cleanStack', 'dirtyStack'] as const) expect(m[key], key).toEqual(at(HAND_MADE[key]));
+    // (The sink is in its own room now, tests/kitchenRooms.test.ts.)
+    for (const key of ['pass', 'hostSpot', 'managerSpot'] as const) expect(m[key], key).toEqual(at(HAND_MADE[key]));
     for (const key of ['passSlots', 'pickupSpots', 'waiterIdle', 'cleanerIdle', 'queue'] as const) expect(m[key], key).toEqual(HAND_MADE[key].map(at));
     expect(m.doors.map((x) => x.inside)).toEqual(HAND_MADE.doors.map((x) => at(x.inside)));
     expect(m.ticketRail).toEqual({ ...HAND_MADE.ticketRail, x: HAND_MADE.ticketRail.x + d.x, y0: HAND_MADE.ticketRail.y0 + d.y });

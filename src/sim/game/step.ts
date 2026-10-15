@@ -21,6 +21,7 @@ import { anchorPoints, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
+import { updateCrew } from './crew';
 import { updateWorkers } from './workers';
 import { syncFamilyTables, tableUnits } from './create';
 import { MAIN_POSTS, onShelf, packingProgress, parking, slotPoint } from './packing';
@@ -46,7 +47,7 @@ function tickTimers(c: CharacterView, dt: number): void {
 export function stepGame(s: GameState, dt: number): void {
   s.tick += 1;
   s.time += dt;
-  const everyone = [...s.staff, ...s.customers, ...s.walkers, ...s.applicants];
+  const everyone = [...s.staff, ...s.customers, ...s.walkers, ...s.applicants, ...s.crew];
   for (const c of everyone) {
     c.prevX = c.x;
     c.prevY = c.y;
@@ -70,7 +71,8 @@ export function stepGame(s: GameState, dt: number): void {
   updateGift(s);
   updateBus(s);
   updateWalkers(s, dt);
-  for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants]) tickTimers(c, dt);
+  updateCrew(s, dt);
+  for (const c of [...s.staff, ...s.customers, ...s.walkers, ...s.applicants, ...s.crew]) tickTimers(c, dt);
   pruneEvents(s);
 }
 
@@ -245,7 +247,7 @@ export function gameSnapshot(s: GameState, seq: number): Snapshot {
   // The "for sale" sign comes down while the lot is being built on.
   const props = s.construction ? s.props.filter((p) => p.kind !== PropKind.SaleSign) : s.props;
   // A courier out on a ride is on the scooter, not on the map.
-  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants], [...props, ...dynamicProps(s)], seq, s.time, {
+  return packSnapshot([...s.staff.filter((st) => !st.away), ...s.customers, ...s.walkers, ...s.applicants, ...s.crew], [...props, ...dynamicProps(s)], seq, s.time, {
     events: packEvents(s),
     dayPhase: s.dayTime / DAY.seconds,
     // A copy: in dev builds arrays sent to the UI thread are frozen, and this one keeps changing.

@@ -13,6 +13,7 @@ import { SEAT_LAYOUTS, STYLE_LENGTH, TOP_MIDDLE } from '../../data/tables';
 import { drawBack, drawStation } from './drawKitchen';
 import { drawHub } from './drawHub';
 import { drawBarDecor } from './drawBarDecor';
+import { drawDoor, drawRoomSign } from './drawRoom';
 
 const EXPAND_TIER = EXPAND.tier;
 const BUS_DRIVE = BUS.driveSeconds;
@@ -300,6 +301,8 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     drawBack(c, A, variant, t, seed);
   }
   else if (kind === PropKind.BarPiece) drawBarDecor(c, A, variant, active, t, seed);
+  else if (kind === PropKind.RoomDoor) drawDoor(c, A, variant, active);
+  else if (kind === PropKind.RoomSign) drawRoomSign(c, A, variant, t, seed);
   else if (kind === PropKind.HubPiece) drawHub(c, A, variant, d[o + PF.level]! === 1, active, d[o + PF.progress]!, d[o + PF.extra]!, d[o + PF.since]!, t, seed);
   else if (kind === PropKind.GuidePlaque) {
     // The guide's plaque: a glint now and then, a soft glow for the stars.

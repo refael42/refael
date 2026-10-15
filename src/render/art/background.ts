@@ -1,6 +1,7 @@
 import { Skia, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
 import type { DiningFloor } from '../../data/buildings';
 import type { Area, FloorStyle, Furniture, MapDef } from '../../data/maps';
+import type { RoomFloor } from '../../data/kitchenRooms';
 import { PropKind } from '../../sim/types';
 import { isoBounds, isoX, isoY } from '../iso';
 import { darken, lighten } from './color';
@@ -177,10 +178,123 @@ function gold(c: SkCanvas, a: Area) {
   floorBorder(c, a, border);
 }
 
-function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
+/** Square tiles of `size` (tiles) in two tones, with grout lines between them. */
+function grid(c: SkCanvas, a: Area, size: number, [t0, t1]: [string, string], grout: string, groutWidth = 0.02) {
+  for (let ty = a.y0; ty < a.y1 - 1e-6; ty += size) {
+    for (let tx = a.x0; tx < a.x1 - 1e-6; tx += size) {
+      const k = Math.round((tx - a.x0) / size) + Math.round((ty - a.y0) / size);
+      c.drawRect(Skia.XYWHRect(tx, ty, size, size), fill(k % 2 === 0 ? t0 : t1));
+    }
+  }
+  for (let x = a.x0; x <= a.x1 + 1e-6; x += size) c.drawRect(Skia.XYWHRect(x - groutWidth / 2, a.y0, groutWidth, a.y1 - a.y0), fill(grout, 0.8));
+  for (let y = a.y0; y <= a.y1 + 1e-6; y += size) c.drawRect(Skia.XYWHRect(a.x0, y - groutWidth / 2, a.x1 - a.x0, groutWidth), fill(grout, 0.8));
+}
+
+/** A round floor drain in the middle of a room: wet floors drain to it. */
+function drain(c: SkCanvas, x: number, y: number) {
+  c.drawCircle(x, y, 0.2, fill('#5E6878'));
+  c.drawCircle(x, y, 0.16, fill('#3A3E4B'));
+  for (let k = -2; k <= 2; k++) c.drawRect(Skia.XYWHRect(x + k * 0.06 - 0.015, y - 0.12, 0.03, 0.24), fill('#7E8A98'));
+}
+
+/** Diamond plate steel (the walk-ins' floors): a raised diamond in every quarter tile. */
+function diamondPlate(c: SkCanvas, a: Area, base: string, raised: string) {
+  c.drawRect(Skia.XYWHRect(a.x0, a.y0, a.x1 - a.x0, a.y1 - a.y0), fill(base));
+  for (let ty = a.y0; ty < a.y1; ty += 0.25) {
+    for (let tx = a.x0; tx < a.x1; tx += 0.25) {
+      const odd = Math.round((tx + ty) * 4) % 2 === 0;
+      c.drawLine(tx + 0.06, ty + (odd ? 0.06 : 0.19), tx + 0.19, ty + (odd ? 0.19 : 0.06), stroke(raised, 0.035));
+    }
+  }
+}
+
+/**
+ * The kitchen's rooms (owner M32, src/data/kitchenRooms.ts): the line room's hot section on red
+ * quarry tiles, its cold section on blue-white ones; the dish room's wet epoxy with its drain,
+ * the walk-in's diamond plate (frosted in the freezer), green terrazzo for the vegetables, the
+ * office's parquet and rug, cream tiles for prep, sealed concrete for the stores, pink and white
+ * for pastry, the butchery's dark red tiles.
+ */
+function roomFloor(c: SkCanvas, a: Area): boolean {
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
-  const painters: Record<FloorStyle, () => void> = {
+  const edge = (color: string, width = 0.06) => c.drawRect(Skia.XYWHRect(a.x0 + width / 2, a.y0 + width / 2, w - width, h - width), stroke(color, width));
+  switch (a.floor) {
+    case 'lineHot':
+      grid(c, a, 1, ['#B65A3E', '#A9503A'], '#7A3A28', 0.03);
+      for (let ty = a.y0; ty < a.y1; ty++) for (let tx = a.x0; tx < a.x1; tx++) if (hash(tx, ty) > 0.8) c.drawCircle(tx + hash(ty, tx), ty + hash(tx + 1, ty), 0.05, fill('#8C4430', 0.6));
+      return true;
+    case 'lineCold':
+      grid(c, a, 0.5, ['#E2EEF4', '#CFE2EC'], '#9FB8C8');
+      edge('#5BC0EB', 0.05);
+      return true;
+    case 'dishRoom':
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#8E9AA6'));
+      for (let ty = a.y0; ty < a.y1; ty++) {
+        for (let tx = a.x0; tx < a.x1; tx++) {
+          for (let k = 0; k < 3; k++) c.drawCircle(tx + hash(tx + k, ty), ty + hash(ty, tx + k), 0.03, fill(k ? '#A8B2BE' : '#6E7A88'));
+          // Puddles that shine.
+          if (hash(tx * 3, ty) > 0.75) c.drawOval(Skia.XYWHRect(tx + 0.2, ty + 0.3, 0.5, 0.3), fill('#C8E4F0', 0.35));
+        }
+      }
+      drain(c, a.x0 + w / 2, a.y0 + h / 2);
+      return true;
+    case 'coldRoom':
+      diamondPlate(c, a, '#A8B2BE', '#C9D1D9');
+      return true;
+    case 'freezer':
+      diamondPlate(c, a, '#C8D8E4', '#E8F2F8');
+      for (let ty = a.y0; ty < a.y1; ty++) for (let tx = a.x0; tx < a.x1; tx++) for (let k = 0; k < 4; k++) c.drawCircle(tx + hash(tx + k, ty * 2), ty + hash(ty * 2, tx + k), 0.04, fill('#FFFFFF', 0.8));
+      return true;
+    case 'vegRoom':
+      grid(c, a, 0.5, ['#B4CFA6', '#A6C498'], '#7E9A72');
+      for (let ty = a.y0; ty < a.y1; ty += 0.5) for (let tx = a.x0; tx < a.x1; tx += 0.5) if (hash(tx * 2, ty * 2) > 0.6) c.drawCircle(tx + 0.25, ty + 0.25, 0.03, fill('#FFFFFF', 0.6));
+      drain(c, a.x0 + w / 2, a.y1 - 1);
+      return true;
+    case 'office': {
+      // Oak parquet in a herringbone of planks, a red rug with a gold border.
+      for (let ty = a.y0; ty < a.y1; ty += 0.25) {
+        for (let tx = a.x0; tx < a.x1; tx += 0.5) {
+          const k = Math.round(ty * 4) % 2;
+          c.drawRect(Skia.XYWHRect(tx + k * 0.25, ty, 0.5, 0.25), fill(hash(tx * 4, ty * 4) > 0.5 ? '#9A6638' : '#8A5A30'));
+          c.drawRect(Skia.XYWHRect(tx + k * 0.25, ty, 0.012, 0.25), fill('#5A3820', 0.6));
+        }
+        c.drawRect(Skia.XYWHRect(a.x0, ty, w, 0.012), fill('#5A3820', 0.6));
+      }
+      const r = { x: a.x0 + 0.7, y: a.y0 + 0.6, w: w - 1.2, h: h - 1.2 };
+      c.drawRect(Skia.XYWHRect(r.x, r.y, r.w, r.h), fill('#8C1C2E'));
+      c.drawRect(Skia.XYWHRect(r.x + 0.08, r.y + 0.08, r.w - 0.16, r.h - 0.16), stroke(GOLD, 0.04));
+      c.drawRect(Skia.XYWHRect(r.x + 0.2, r.y + 0.2, r.w - 0.4, r.h - 0.4), stroke('#B83A4A', 0.06));
+      return true;
+    }
+    case 'prepRoom':
+      grid(c, a, 0.5, ['#EADFC8', '#DED1B8'], '#B8AA8E');
+      drain(c, a.x0 + w / 2, a.y1 - 1);
+      return true;
+    case 'stores':
+      c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill('#B8B2A8'));
+      for (let ty = a.y0; ty < a.y1; ty++) for (let tx = a.x0; tx < a.x1; tx++) for (let k = 0; k < 3; k++) c.drawCircle(tx + hash(tx + k, ty), ty + hash(ty, tx + k), 0.025, fill('#9A948A'));
+      // The safety line round the racks, yellow.
+      c.drawRect(Skia.XYWHRect(a.x0 + 0.12, a.y0 + 0.12, w - 0.24, h - 0.24), stroke('#F2C14E', 0.06));
+      return true;
+    case 'pastry':
+      grid(c, a, 0.5, ['#F8E2EA', '#FFFFFF'], '#E8C4D2');
+      return true;
+    case 'butchery':
+      grid(c, a, 1, ['#9A3A34', '#8C322C'], '#E8DCC8', 0.03);
+      for (let ty = a.y0; ty < a.y1; ty++) for (let tx = a.x0; tx < a.x1; tx++) for (let k = 0; k < 3; k++) c.drawCircle(tx + hash(tx + k, ty), ty + hash(ty, tx + k), 0.02, fill('#E8C99A', 0.7));
+      drain(c, a.x0 + w / 2, a.y0 + h / 2);
+      return true;
+    default:
+      return false;
+  }
+}
+
+function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
+  if (roomFloor(c, a)) return;
+  const w = a.x1 - a.x0;
+  const h = a.y1 - a.y0;
+  const painters: Record<Exclude<FloorStyle, RoomFloor>, () => void> = {
     // The outdoors take the city's colors (Jerusalem stone, Eilat sand...).
     grass: () => {
       const [g0, g1, speck] = city.ground;
@@ -290,7 +404,7 @@ function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef) {
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), stroke('#8C6A3E', 0.08));
     },
   };
-  painters[a.floor]();
+  painters[a.floor as Exclude<FloorStyle, RoomFloor>]();
 }
 
 function lotFence(c: SkCanvas, a: Area) {
