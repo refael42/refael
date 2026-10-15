@@ -28,6 +28,7 @@
 | M17 | Owner: raises rare and one at a time; late-game lag (typed snapshots, path search, bulk buys) | ✅ Done |
 | M18 | Owner: the whole map shows from the start (locked land), growth in every direction, a bigger kitchen | ✅ Done |
 | M19 | Owner: hosts walk guests to their table and hand out menus (with a menu animation) | ✅ Done |
+| M31 | Owner: join tables into a long table for more people, more design levels to unlock for the bar, a kitchen laid out as you like | ✅ Done |
 | M30 | Owner: more design levels for every object, a grander delivery station that really grows and opens more as it levels, big upgrades that take longer the higher the level; the payment library (expo-iap) and the splash screen installed (owner approved) | ✅ Done |
 | M29 | Owner: throw out the old kitchen: a huge open kitchen at Michelin level, every dish on its own equipment (fryer, plancha, wok, sushi counter, cold line, range, wood-fired oven), animations for everything, every cook carries the plate to the pass; Michelin-style stars earned the way they are in real life | ✅ Done |
 | M28 | Owner: release on the App Store and Google Play with real purchases (part 1 done: store ids, eas.json, purchase flow with a demo store, save v13 purchase log, privacy screen, testing tools hidden in store builds; the payment library install awaits permission) | 🚧 Payments wired (expo-iap 6.0.2, needs a native build to test); store texts and release steps next |
@@ -76,6 +77,31 @@
   **balance** the game; then make it **pay-to-win**: gems and an **item shop** where gems also
   buy **star workers** ("PTW"). This replaces the brief's "fair monetization" decision. Purchases
   stay simulated (no real payment SDK, store accounts or native build) until the owner says so.
+- Done in M31 (owner: "then an option to join tables into a long table that holds more people,
+  improve the bar with more design levels to unlock, the kitchen much more open to design,
+  placed however you want"):
+  - **Joining tables** (`joinTables` / `splitTable` in `src/sim/game/create.ts`): in build mode,
+    tap a free table, then "Join a table": the nearest free table that fits is pushed onto its
+    back, into a long table two, three or four tiles deep (six, eight or ten chairs: new styles
+    `banquet` and `feast`, only made by joining). A joined table counts for every table in it
+    (the tables bought stay the same), keeps every chair, and "Split table" puts its tables back
+    where they fit. Parties of 7-10 come for joined tables (`PARTY.banquetChance`, more such
+    tables more often). A long table is drawn a tile at a time (front, middle tiles, back half,
+    each with the plates on it) on a rug as long as it. Saved (`parts` on each table).
+  - **The bar's design levels** (`BAR_STAGES` in `src/data/bar.ts`): the bar counter's levels
+    open pieces, each with a perk: a wine glass rack over the counter (10, drinks +10%), beer taps
+    (25, +10% of tables order a drink), a neon sign on the counter (50, more guests sit at the
+    bar), a dry-ice cocktail station (75, bartenders 25% faster), a champagne tower (100, drinks
+    +25%), a crystal chandelier over the guests (150, more guests and drinks). Animated (fog,
+    bubbles, glints, the neon's stutter), and the counter's row in the upgrades shows the next one.
+    The counter itself also has the three new finishes (M30).
+  - **The kitchen as you like it** (`src/sim/game/kitchenLayout.ts`): in build mode tap a station
+    or a prep piece in the kitchen, then another: they trade places (a station keeps its cook
+    behind it, facing the room, and the tiles never change, so every path still works); a prep
+    piece can take any of the 12 prep and back-of-house looks ("Another look"). A busy station
+    waits until its cook is done. Saved with the building (a bigger building starts from its own).
+  - Tests: `tests/join.test.ts`, `tests/barStages.test.ts`, `tests/kitchenLayout.test.ts`.
+    Balance: bistro 40:49, grand 58:41, no dead zones.
 - Done in M30 (owner: "I approve installing; also add more design levels for the tools /
   objects in the game, with an emphasis on deliveries: a grander station that really grows, and
   more things open as you go up in levels; and make the time an upgrade takes to finish longer

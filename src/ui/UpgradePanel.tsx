@@ -7,6 +7,7 @@ import { mapForTier, type MapDef } from '../data/maps';
 import { ROLES } from '../data/staff';
 import { CATEGORIES, COUNT_STATS, EXPAND, RANK, UPGRADES, type Category, type UpgradeDef } from '../data/upgrades';
 import { HUB, hubStage } from '../data/delivery';
+import { BAR_STAGES, barStage } from '../data/bar';
 import { isRTL, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { upgradeIcon } from '../render/upgradeIcons';
@@ -197,7 +198,8 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
           </View>
         )}
         {def.unlocksDish !== undefined && level === 0 && <Text style={styles.note}>{t('ui.unlocksDish')}</Text>}
-        {def.id === 'packStation' && <HubLine level={level} />}
+        {def.id === 'packStation' && <StageLine icon="🚚" title="hub.title" stages={HUB} open={hubStage(level)} />}
+        {def.id === 'barCounter' && <StageLine icon="🍸" title="barStage.title" stages={BAR_STAGES} open={barStage(level)} />}
         {def.id === RANK.id && <Text style={styles.note}>{`${t('ui.rankOpens')} ${levelCap(wallet.levels) + RANK.levels}`}</Text>}
         {def.milestone && (
           <View style={styles.line}>
@@ -249,16 +251,16 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
 }
 
 /**
- * The delivery hub on the packing station's row (owner M30): how many of its pieces are open,
- * and the next one, at which level, and what it brings.
+ * A track whose levels open pieces one at a time (owner M30: the delivery hub on the packing
+ * station's row, the bar's pieces on the bar counter's): how many are open, and the next one, at
+ * which level, and what it brings.
  */
-function HubLine({ level }: { level: number }) {
+function StageLine({ icon, title, stages, open }: { icon: string; title: string; stages: readonly { level: number; name: string; gives: string }[]; open: number }) {
   const t = useT();
-  const open = hubStage(level);
-  const next = HUB[open];
+  const next = stages[open];
   return (
     <Text style={styles.hub} numberOfLines={2}>
-      {`🚚 ${t('hub.title')} ${open}/${HUB.length}`}
+      {`${icon} ${t(title)} ${open}/${stages.length}`}
       {next ? ` · ${t('ui.lv')} ${next.level}: ${t(next.name)} (${t(next.gives)})` : ` · ${t('hub.done')}`}
     </Text>
   );

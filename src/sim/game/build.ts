@@ -31,13 +31,16 @@ const TABLE_ZONE: readonly Set<number>[] = TIERS.map((_, tier) => {
   return out;
 });
 
-const spotsOf = (s: GameState, ignore = -1): TableSpot[] => s.tables.filter((t) => t.index !== ignore).map((t) => ({ x: t.x, y: t.y, style: t.style }));
+/** Tables being moved or joined: their tiles count as free. */
+type Ignore = number | readonly number[];
+const ignored = (ignore: Ignore, i: number): boolean => (typeof ignore === 'number' ? ignore === i : ignore.includes(i));
+const spotsOf = (s: GameState, ignore: Ignore = -1): TableSpot[] => s.tables.filter((t) => !ignored(ignore, t.index)).map((t) => ({ x: t.x, y: t.y, style: t.style }));
 
 /**
  * The worst case: every table with all of its chairs, all decor (and pieces on the way).
  * `ignore`: a table being moved (its tiles count as free).
  */
-function worstCase(s: GameState, ignore = -1): Room {
+function worstCase(s: GameState, ignore: Ignore = -1): Room {
   const pending = s.works.flatMap((w) => (w.at ? [w.at] : []));
   return roomOf(s.map, spotsOf(s, ignore), [...s.placed, ...pending], RESERVED[s.map.tier]!, (tx, ty) => reservedBy(s, tx, ty));
 }
@@ -186,13 +189,13 @@ export function autoTile(s: GameState, near: Point = { x: s.map.building.x0, y: 
  * Can a table of `style` stand with its anchor (front tile) at (x, y)? See tableFits.
  * `ignore`: the table being moved.
  */
-export function canPlaceTable(s: GameState, style: TableStyle, x: number, y: number, ignore = -1): boolean {
+export function canPlaceTable(s: GameState, style: TableStyle, x: number, y: number, ignore: Ignore = -1): boolean {
   if (s.construction) return false;
   return tableFits(worstCase(s, ignore), style, Math.floor(x) + 0.5, Math.floor(y) + 0.5);
 }
 
 /** Every anchor where a table of `style` fits now (tile centers): the green tiles in build mode. */
-export function tableAnchors(s: GameState, style: TableStyle, ignore = -1): Point[] {
+export function tableAnchors(s: GameState, style: TableStyle, ignore: Ignore = -1): Point[] {
   const out: Point[] = [];
   if (s.construction) return out;
   const b = s.map.building;

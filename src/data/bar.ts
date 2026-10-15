@@ -49,3 +49,33 @@ export const BAR = {
 
 /** Drinks on the menu in a building of this tier. */
 export const drinksAt = (tier: number): DrinkDef[] => DRINKS.filter((d) => d.tier <= tier);
+
+/**
+ * The bar's design levels (owner M30: "improve the bar with more design levels you can unlock"):
+ * on top of the counter's looks and finishes, the bar counter's levels open pieces one at a time,
+ * each bringing something. Overhead pieces hang above the bar, the rest stand on the counter.
+ *  - perks: `drinkPrice` and `mixSpeed` multiply, `drinkChance` and `barGuests` add to the
+ *    chance a table orders a drink and a guest alone sits at the bar, `arrivals` multiplies.
+ */
+export const BarPiece = { GlassRack: 0, Taps: 1, Neon: 2, DryIce: 3, Champagne: 4, Chandelier: 5 } as const;
+export type BarPiece = (typeof BarPiece)[keyof typeof BarPiece];
+
+export interface BarStage {
+  piece: BarPiece;
+  level: number;
+  perk: { drinkPrice?: number; mixSpeed?: number; drinkChance?: number; barGuests?: number; arrivals?: number };
+  name: string;
+  gives: string;
+}
+
+export const BAR_STAGES: readonly BarStage[] = [
+  { piece: BarPiece.GlassRack, level: 10, perk: { drinkPrice: 1.1 }, name: 'barStage.rack', gives: 'barStage.rack.gives' },
+  { piece: BarPiece.Taps, level: 25, perk: { drinkChance: 0.1 }, name: 'barStage.taps', gives: 'barStage.taps.gives' },
+  { piece: BarPiece.Neon, level: 50, perk: { barGuests: 0.15 }, name: 'barStage.neon', gives: 'barStage.neon.gives' },
+  { piece: BarPiece.DryIce, level: 75, perk: { mixSpeed: 1.25 }, name: 'barStage.dryIce', gives: 'barStage.dryIce.gives' },
+  { piece: BarPiece.Champagne, level: 100, perk: { drinkPrice: 1.25 }, name: 'barStage.champagne', gives: 'barStage.champagne.gives' },
+  { piece: BarPiece.Chandelier, level: 150, perk: { arrivals: 1.05, drinkChance: 0.1 }, name: 'barStage.chandelier', gives: 'barStage.chandelier.gives' },
+];
+
+/** How many bar pieces a bar counter level has opened. */
+export const barStage = (level: number): number => BAR_STAGES.filter((b) => level >= b.level).length;

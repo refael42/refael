@@ -9,8 +9,8 @@ import { PropKind } from '../types';
 import { startConstruction } from './construction';
 import { DECOR } from '../../data/decor';
 import { autoTile, canPlaceAt, canPlaceTable, nextTableSpot, type TableSpot } from './build';
-import type { TableStyle } from '../../data/tables';
-import { addSeat, addTable, placeDecor, rebuildGrid, syncFamilyTables } from './create';
+import { styleDef, type TableStyle } from '../../data/tables';
+import { addSeat, addTable, placeDecor, rebuildGrid, syncFamilyTables, tableUnits } from './create';
 import { cookPosts } from './workers';
 import { chairOf, route } from './customers';
 import { pathStillClear } from '../grid';
@@ -26,7 +26,7 @@ export const UPGRADE_QUIET = 2;
 export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   if (kind === PropKind.Table) return s.tables.map((t) => ({ x: t.x, y: t.y }));
   if (kind === PropKind.TableSlot) {
-    const next = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
+    const next = tableUnits(s) < s.map.tables.length ? nextTableSpot(s) : null;
     return next ? [next] : [];
   }
   // Room for another cook: the station the next cook calls home.
@@ -70,7 +70,9 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
   const def = upgradeDef(id);
   const tables = def.effect.stat === 'tables';
   // A table needs room first (each one changes where the next fits, so they go one at a time).
-  const spot: TableSpot | null | undefined = tables ? (at && style ? (canPlaceTable(s, style, at.x, at.y) ? { x: at.x, y: at.y, style } : null) : nextTableSpot(s)) : undefined;
+  // A joined style is made by joining tables in build mode, never bought as one.
+  const pickable = style && !styleDef(style).joined;
+  const spot: TableSpot | null | undefined = tables ? (at && style ? (pickable && canPlaceTable(s, style, at.x, at.y) ? { x: at.x, y: at.y, style } : null) : nextTableSpot(s)) : undefined;
   if (spot === null) return false;
   const plan = planBuy(def, s.levels, s.coins, s.map, crewsOf(s), def.build || (tables && at) ? 1 : step);
   if (plan.status !== 'ok') return false;

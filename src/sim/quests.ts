@@ -1,4 +1,5 @@
 import { QUEST_LEVELS, QUESTS, type QuestGoal, type QuestLevel } from '../data/quests';
+import { tableUnits } from './game/create';
 import { GEMS } from '../data/shop';
 import { big } from './big';
 import { levelOf } from './economy/upgrades';
@@ -43,7 +44,7 @@ export function progressOf(goal: QuestGoal, s: GameState): { have: number; need:
     case 'rating':
       return { have: s.rating, need: goal.stars };
     case 'tables':
-      return { have: s.tables.length, need: goal.count };
+      return { have: tableUnits(s), need: goal.count };
     case 'reviews':
       return { have: s.stats.fiveStars, need: goal.count };
     case 'decor':

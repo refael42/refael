@@ -3,7 +3,7 @@ import { buyNow } from './helpers';
 import { CONSTRUCTION, TIERS } from '../src/data/buildings';
 import { mapForTier, STAND_MAP } from '../src/data/maps';
 import { STEP_SEC } from '../src/data/sim';
-import { footprint, fullSeats, serveSpot, sideTiles, TABLE_STYLES, type TableStyle } from '../src/data/tables';
+import { footprint, fullSeats, serveSpot, sideTiles, TABLE_STYLES, PICKABLE_STYLES, type TableStyle } from '../src/data/tables';
 import { big, fromSave } from '../src/sim/big';
 import { costOf, upgradeDef } from '../src/sim/economy/upgrades';
 import { canPlaceTable, nextTableSpot, tableAnchors } from '../src/sim/game/build';
@@ -49,7 +49,7 @@ describe('table styles (owner: "a variety of tables, placed wherever you want")'
   });
 
   it('every style fits somewhere in the first diner, and placing one takes the coins and the spot', () => {
-    for (const style of TABLE_STYLES.filter((st) => st !== 'booth')) {
+    for (const style of PICKABLE_STYLES.filter((st) => st !== 'booth')) {
       const s = createGame(STAND_MAP, 2);
       s.coins = big(1e9);
       const spots = tableAnchors(s, style);
@@ -73,7 +73,7 @@ describe('table styles (owner: "a variety of tables, placed wherever you want")'
     expect(t.style).toBe('long');
     // Family tables go to the first tables for two: only this one has its chairs for two.
     for (const o of s.tables) if (o !== t) o.state = TableState.Occupied;
-    expect(t.backId).toBeGreaterThan(0);
+    expect(t.backIds[0]).toBeGreaterThan(0);
     while (t.seats < 2) buyNow(s, 'seats');
     while (t.seats === 2 && buyNow(s, 'family')) stepGame(s, STEP_SEC);
     expect(t.seats).toBe(fullSeats('long'));

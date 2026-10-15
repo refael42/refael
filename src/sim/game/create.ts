@@ -4,7 +4,7 @@ import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
 import { DECOR, DECOR_BY_ID, placeRow, type DecorId } from '../../data/decor';
 import { BACKREST_SHIFT, type Furniture, type MapDef, type Point } from '../../data/maps';
-import { fullSeats, seatLayout, sideTiles, topTiles, type TableStyle } from '../../data/tables';
+import { fullSeats, joinedStyle, seatLayout, sideTiles, tableLength, topTiles, type TableStyle } from '../../data/tables';
 import { APPLICANTS, KITCHEN, STARTING_STAFF, type Role } from '../../data/staff';
 import { big, ZERO, type Big } from '../big';
 import { GEMS } from '../../data/shop';
@@ -16,7 +16,8 @@ import type { PropView } from '../types';
 import { PropKind } from '../types';
 import { applicantLook, generatePerson, rankOf, uniformLook } from './people';
 import { createStaff } from './staff';
-import { autoTile, canPlaceAt, canPlaceTable, layoutWorks, nextTableSpot, type TableSpot } from './build';
+import { autoTile, canPlaceAt, canPlaceTable, layoutWorks, nextTableSpot, tableAnchors, type TableSpot } from './build';
+import { restoreKitchen, type SavedKitchen } from './kitchenLayout';
 import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
 import { spawnFarWalker, spawnPedestrian } from './walkers';
 
@@ -140,9 +141,14 @@ function furnish(s: GameState, t: Table): void {
   s.props = s.props.filter((p) => !gone.has(p.id));
   t.chairs = [];
   for (let seat = 0; seat < t.seats; seat++) addChair(s, t, seat);
-  // A long table's back half is a piece of its own (it sorts between the chairs along it).
-  if (t.style === 'long' && t.backId < 0) t.backId = s.nextId++;
+  // A long table's tiles behind the front one are pieces of their own (they sort between the chairs along it).
+  while (t.backIds.length < tableLength(t.style) - 1) t.backIds.push(s.nextId++);
+  t.backIds.length = tableLength(t.style) - 1;
 }
+
+/** Tables a table counts for: one, or the tables joined into it. The tables bought are counted this way. */
+export const unitsOf = (t: { parts?: readonly unknown[] }): number => Math.max(1, t.parts?.length ?? 0);
+export const tableUnits = (s: GameState): number => s.tables.reduce((n, t) => n + unitsOf(t), 0);
 
 /**
  * Opens one more table: at `at` (a spot picked in build mode), else where the next one goes
@@ -155,13 +161,16 @@ export function addTable(s: GameState, rebuild = true, at?: TableSpot): Table | 
   // Tables fill up in order: the first `seats` of them have their second chair, and the first
   // `family` of those every chair their style has.
   const style = spot.style;
-  const seats = index < s.mods.family ? fullSeats(style) : index < s.mods.seats ? 2 : 1;
+  const parts = spot.parts && spot.parts.length > 1 ? [...spot.parts] : [];
+  // Joined tables are for big groups: every chair their length has.
+  const seats = parts.length > 1 || index < s.mods.family ? fullSeats(style) : index < s.mods.seats ? 2 : 1;
   const table: Table = {
     index,
     propId: -1,
     style,
     chairs: [],
-    backId: -1,
+    backIds: [],
+    parts,
     x: Math.floor(spot.x) + 0.5,
     y: Math.floor(spot.y) + 0.5,
     state: TableState.Free,
@@ -177,7 +186,7 @@ export function addTable(s: GameState, rebuild = true, at?: TableSpot): Table | 
   // Chairs first, then the table (the order ids were always given out in).
   for (let seat = 0; seat < seats; seat++) addChair(s, table, seat);
   table.propId = s.nextId++;
-  if (style === 'long') table.backId = s.nextId++;
+  for (let k = 1; k < tableLength(style); k++) table.backIds.push(s.nextId++);
   s.tables.push(table);
   if (rebuild) rebuildGrid(s);
   return table;
@@ -241,11 +250,133 @@ export function moveTable(s: GameState, index: number, to: Point, style: TableSt
 }
 
 /**
+ * Takes a table out of the room (it was joined into another): its props go, and every number
+ * that pointed at a table after it moves down one (the list stays in order, nobody sat there).
+ */
+function removeTable(s: GameState, index: number): void {
+  const t = s.tables[index]!;
+  const gone = new Set([...t.chairs, t.propId, ...t.backIds]);
+  s.props = s.props.filter((p) => !gone.has(p.id));
+  s.tables.splice(index, 1);
+  s.tables.forEach((x, i) => (x.index = i));
+  const shift = (i: number) => (i > index ? i - 1 : i);
+  for (const c of s.customers) c.table = shift(c.table);
+  for (const st of s.staff) if (st.job && (st.job.kind === 'buss' || st.job.kind === 'escort')) st.job.table = shift(st.job.table);
+}
+
+/** Tables a table is made of (front first): its parts, or just its own style. */
+const partsOf = (t: Table): TableStyle[] => (t.parts.length > 1 ? [...t.parts] : [t.style]);
+
+/**
+ * Build mode (owner M30: "join tables into a long table that holds more people"): could `other`
+ * be pushed onto the back of `table`? Both free, short enough together, and the longer table
+ * fits where `table` stands (their own tiles count as free). Returns the joined style or null.
+ */
+export function joinedFits(s: GameState, table: number, other: number): TableStyle | null {
+  const a = s.tables[table];
+  const b = s.tables[other];
+  if (!a || !b || a === b || !tableIsFree(a) || !tableIsFree(b) || a.style === 'booth' || b.style === 'booth') return null;
+  const style = joinedStyle(tableLength(a.style) + tableLength(b.style));
+  if (!style || !canPlaceTable(s, style, a.x, a.y, [a.index, b.index])) return null;
+  return style;
+}
+
+/** Tables this close (tiles) are looked at to join, nearest first, at most this many (each check reads the room). */
+const JOIN_NEAR = 8;
+const JOIN_TRIES = 8;
+
+/** The table nearest `table` that can be joined onto it (-1 none). */
+export function joinCandidate(s: GameState, table: number): number {
+  const a = s.tables[table];
+  if (!a || !tableIsFree(a)) return -1;
+  const near = s.tables
+    .filter((b) => b !== a && tableIsFree(b) && Math.hypot(b.x - a.x, b.y - a.y) <= JOIN_NEAR)
+    .sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y))
+    .slice(0, JOIN_TRIES);
+  for (const b of near) if (joinedFits(s, table, b.index)) return b.index;
+  return -1;
+}
+
+/** Joins `other` onto the back of `table`: one long table with every chair, where `table` stood. */
+export function joinTables(s: GameState, table: number, other: number): boolean {
+  const style = joinedFits(s, table, other);
+  if (!style) return false;
+  const a = s.tables[table]!;
+  const parts = [...partsOf(a), ...partsOf(s.tables[other]!)];
+  removeTable(s, other);
+  a.style = style;
+  a.parts = parts;
+  a.seats = fullSeats(style);
+  a.party = new Array<number>(a.seats).fill(-1);
+  a.dishes = new Array<number>(a.seats).fill(-1);
+  a.drinks = new Array<number>(a.seats).fill(-1);
+  a.since = s.time;
+  furnish(s, a);
+  rebuildGrid(s);
+  return true;
+}
+
+/**
+ * Splits a joined table back into its tables: the first stays (in its own style) where the long
+ * one stood, the others go to the free spots nearest it. False if there is no room for them.
+ */
+export function splitTable(s: GameState, table: number): boolean {
+  const a = s.tables[table];
+  if (!a || a.parts.length < 2 || !tableIsFree(a)) return false;
+  const [first, ...rest] = a.parts;
+  const seatsOf = (style: TableStyle) => fullSeats(style);
+  // Check first: every part needs a place (the long table's own tiles are free for them).
+  const before = { style: a.style, parts: a.parts, seats: a.seats };
+  a.style = first!;
+  a.parts = [];
+  a.seats = seatsOf(first!);
+  rebuildGrid(s);
+  const spots: TableSpot[] = [];
+  for (const style of rest) {
+    const free = tableAnchors(s, style).filter((p) => !spots.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 2));
+    let best: Point | null = null;
+    for (const p of free) if (!best || Math.hypot(p.x - a.x, p.y - a.y) < Math.hypot(best.x - a.x, best.y - a.y)) best = p;
+    if (!best) {
+      Object.assign(a, before);
+      rebuildGrid(s);
+      return false;
+    }
+    spots.push({ ...best, style });
+  }
+  a.party = new Array<number>(a.seats).fill(-1);
+  a.dishes = new Array<number>(a.seats).fill(-1);
+  a.drinks = new Array<number>(a.seats).fill(-1);
+  a.since = s.time;
+  furnish(s, a);
+  for (const spot of spots) {
+    const t = addTable(s, true, spot);
+    if (t && t.seats < seatsOf(spot.style)) {
+      // A table split off keeps the chairs it had at the long table.
+      t.seats = seatsOf(spot.style);
+      furnish(s, t);
+      t.party = new Array<number>(t.seats).fill(-1);
+      t.dishes = new Array<number>(t.seats).fill(-1);
+      t.drinks = new Array<number>(t.seats).fill(-1);
+    }
+  }
+  rebuildGrid(s);
+  return true;
+}
+
+/**
  * Tables from a save go back where they were, in their style. One whose spot no longer works
  * (a bigger building needs it) goes where the next table would; the rest open as usual.
  */
 function restoreTables(s: GameState, saved: readonly TableSpot[], count: number): void {
-  const list = saved.slice(0, count).map((t) => ({ ...t, x: Math.floor(t.x) + 0.5, y: Math.floor(t.y) + 0.5 }));
+  // `count` tables bought: a joined table counts for each table in it.
+  const kept: TableSpot[] = [];
+  let units = 0;
+  for (const t of saved) {
+    if (units + unitsOf(t) > count) break;
+    kept.push(t);
+    units += unitsOf(t);
+  }
+  const list = kept.map((t) => ({ ...t, x: Math.floor(t.x) + 0.5, y: Math.floor(t.y) + 0.5 }));
   if (layoutWorks(s, list)) for (const t of list) addTable(s, false, t);
   else {
     for (const t of list) {
@@ -253,7 +384,7 @@ function restoreTables(s: GameState, saved: readonly TableSpot[], count: number)
       if (!addTable(s, false, ok ? t : undefined)) break;
     }
   }
-  while (s.tables.length < count && addTable(s, false));
+  while (tableUnits(s) < count && addTable(s, false));
 }
 
 /** Installs the building's next kitchen station (they all stand from the start, src/data/maps.ts). */
@@ -346,6 +477,8 @@ export interface GameSetup {
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
   /** Where each table stands and its style (older saves: none, the map lays them out). */
   tables?: readonly TableSpot[];
+  /** The kitchen as the player laid it out (src/sim/game/kitchenLayout.ts). */
+  kitchen?: SavedKitchen;
 }
 
 /** A job in progress as the save keeps it. */
@@ -455,14 +588,15 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   rebuildGrid(s);
   // No room for every table bought (a corner case of a changed layout): the levels follow, and
   // the ones that do not fit are paid back.
-  if (s.tables.length < tableCount) {
-    const kept = Math.max(0, s.tables.length - map.startTables);
+  if (tableUnits(s) < tableCount) {
+    const kept = Math.max(0, tableUnits(s) - map.startTables);
     const def = upgradeDef('tables');
     for (let l = kept; l < levelOf(s.levels, 'tables'); l++) s.coins = s.coins.add(costOf(def, l));
     s.levels = { ...s.levels, tables: kept };
     s.mods = computeMods(s.levels, s.perks, s.trophies);
   }
   restoreDecor(s, setup.placed ?? []);
+  restoreKitchen(s, setup.kitchen);
   if (setup.team) {
     for (const w of setup.team) {
       const { role, look, xp, morale, hiredDay, lastRaiseDay, trial, ...person } = w;

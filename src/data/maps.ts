@@ -2,7 +2,7 @@ import { Facing, PropKind as K, type PropKind } from '../sim/types';
 import { HUB, HubPiece } from './delivery';
 import { TIERS, type DiningFloor, type Grow } from './buildings';
 import { UNLOCK_TIER } from './unlocks';
-import { BAR } from './bar';
+import { BAR, BAR_STAGES, BarPiece } from './bar';
 import type { TableSpot } from './tables';
 import { designTables, reservedTiles } from '../sim/layout';
 import { KITCHEN_STATIONS, type Station } from './kitchen';
@@ -148,6 +148,8 @@ export interface MapDef {
     pickup: Point;
     stations: Point[];
     stools: { at: Point; facing: Facing; serve: Point }[];
+    /** Where the bar's pieces go (src/data/bar.ts BAR_STAGES, same order): on the counter (`top`) or hanging over the bar. */
+    pieces: { x: number; y: number; top: boolean }[];
   };
   /** Where idle waiters wait (one spot each), the host's post by the door, idle cleaners. */
   waiterIdle: Point[];
@@ -534,10 +536,29 @@ function barOf(tier: number, y1: number): MapDef['bar'] {
       if (r1 + 2 < y1 - 1) stools.push({ at: { x: ix, y: r1 + 2 }, facing: Facing.BackRight, serve: { x: ix, y: r1 } });
     }
   }
+  // The bar's pieces (src/data/bar.ts BAR_STAGES): on the counter's tiles that are not its pass
+  // (two to a tile when it is short), or hanging over the bar.
+  const tops = counters.filter((c) => c.x === cx && !(c.x === pass.x && c.y === pass.y)).map((c) => c.y);
+  const top = (k: number, dy = 0) => ({ x: cx, y: (tops[Math.min(k, tops.length - 1)] ?? r0) + dy, top: true });
+  const mid = (r0 + r1) / 2;
+  const pieces = BAR_STAGES.map((b) =>
+    b.piece === BarPiece.GlassRack
+      ? { x: cx, y: mid, top: false }
+      : b.piece === BarPiece.Taps
+        ? top(0, -0.18)
+        : b.piece === BarPiece.Neon
+          ? top(0, 0.24)
+          : b.piece === BarPiece.DryIce
+            ? top(1, -0.2)
+            : b.piece === BarPiece.Champagne
+              ? top(tops.length - 1, 0.24)
+              : { x: cx + 0.9, y: mid, top: false },
+  );
   return {
     stage,
     counters,
     pass,
+    pieces,
     passTop: BAR_TOP,
     pickup: stage === 1 ? { x: cx, y: r0 - 1 } : { x: ix - 1, y: r0 - 1 },
     stations: Array.from({ length: len }, (_, k) => ({ x: ix, y: r0 + k })),

@@ -19,7 +19,7 @@ export const BUILD_ITEMS: readonly string[] = ['tables', ...DECOR.map((d) => pla
 const ICON_PX = 34;
 const icon = (id: string) => spriteIcon(upgradeIcon(id, 0), Math.round(ICON_PX * PixelRatio.get()));
 /** Each table design's picture: the table with its chairs (or sofas). */
-const SET_SPRITE = { round: 'setRound', square: 'setSquare', long: 'setLong', booth: 'setBooth' } as const;
+const SET_SPRITE = { round: 'setRound', square: 'setSquare', long: 'setLong', booth: 'setBooth', banquet: 'setLong', feast: 'setLong' } as const;
 const STYLE_PX = 40;
 const styleIcon = (style: TableStyle) => spriteIcon(SET_SPRITE[style], Math.round(STYLE_PX * PixelRatio.get()));
 
@@ -45,6 +45,15 @@ interface Props {
   style: TableStyle | null;
   tier: number;
   onStyle: (style: TableStyle) => void;
+  /** A kitchen piece picked (owner M30): tap another to trade places; a prep piece can change its look. */
+  kitchen: 'station' | 'prep' | null;
+  onRestyle: () => void;
+  /** The picked table can take another onto its back: the chairs the long table would have (null: no). */
+  joinSeats: number | null;
+  /** The picked table is a joined one: it can be split back. */
+  canSplit: boolean;
+  onJoin: () => void;
+  onSplit: () => void;
   onCancelMove: () => void;
   onItem: (item: string) => void;
   onPlace: () => void;
@@ -52,7 +61,7 @@ interface Props {
 }
 
 /** Build mode's bottom bar: pick a piece, tap a green tile, place it. */
-export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable, busy, style, tier, onStyle, onCancelMove, onItem, onPlace, onDone }: Props) {
+export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable, busy, style, tier, onStyle, kitchen, onRestyle, joinSeats, canSplit, onJoin, onSplit, onCancelMove, onItem, onPlace, onDone }: Props) {
   const t = useT();
   const rise = useSharedValue(1);
   useEffect(() => {
@@ -63,7 +72,9 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
   const isDecor = chosen?.build === true;
   const isTable = item === 'tables' || movingTable;
   const affordable = chosen ? canBuyNow(chosen, wallet) : false;
-  const hint = busy
+  const hint = kitchen
+    ? t('ui.kitchenSwapHint')
+    : busy
     ? t('ui.tableBusy')
     : movingTable
       ? freeTiles === 0 ? t('ui.noTableSpot') : t('ui.tableMoveHint')
@@ -91,7 +102,23 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
             <Text style={styles.placeText}>{t('ui.place')}</Text>
           </Pressable>
         )}
-        {(moving || busy) && (
+        {movingTable && joinSeats !== null && (
+          // Owner M30: "join tables into a long table that holds more people".
+          <Pressable onPress={onJoin} style={styles.place}>
+            <Text style={styles.placeText}>{`🔗 ${t('ui.joinTable')} (${joinSeats} ${t('ui.seatsShort')})`}</Text>
+          </Pressable>
+        )}
+        {movingTable && canSplit && (
+          <Pressable onPress={onSplit} style={styles.done}>
+            <Text style={styles.doneText}>{`✂️ ${t('ui.splitTable')}`}</Text>
+          </Pressable>
+        )}
+        {kitchen === 'prep' && (
+          <Pressable onPress={onRestyle} style={styles.place}>
+            <Text style={styles.placeText}>{`🎨 ${t('ui.prepLook')}`}</Text>
+          </Pressable>
+        )}
+        {(moving || busy || kitchen) && (
           <Pressable onPress={onCancelMove} style={styles.done}>
             <Text style={styles.doneText}>{t('ui.cancel')}</Text>
           </Pressable>
@@ -100,9 +127,9 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
           <Text style={styles.doneText}>{t('ui.done')}</Text>
         </Pressable>
       </View>
-      {isTable && style && (
+      {isTable && style && !canSplit && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-          {TABLE_STYLE_DEFS.map((d) => {
+          {TABLE_STYLE_DEFS.filter((d) => !d.joined).map((d) => {
             const open = d.tier <= tier;
             const need = TIERS[d.tier];
             return (

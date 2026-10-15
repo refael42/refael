@@ -22,9 +22,10 @@ import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateWorkers } from './workers';
-import { syncFamilyTables } from './create';
+import { syncFamilyTables, tableUnits } from './create';
 import { MAIN_POSTS, onShelf, packingProgress, parking, slotPoint } from './packing';
 import { HUB, HubPiece } from '../../data/delivery';
+import { BAR_STAGES } from '../../data/bar';
 import { logEarnings } from '../shop';
 import { weatherOn } from '../weather';
 import { updateGift } from '../retention';
@@ -104,8 +105,9 @@ function dynamicProps(s: GameState): PropView[] {
         bubble: t.state === TableState.Dirty && t.waiter < 0 ? Bubble.Clean : 0,
       }),
     );
-    // A long table's back half: the same plates and looks, drawn a tile further back.
-    if (t.backId >= 0 && t.style === 'long') out.push(prop(t.backId, PropKind.TableBack, t.x, t.y - 1, look));
+    // A long table's tiles behind the front one: the middle ones, then its back half, with the
+    // same plates and looks (each draws the plates on its own tile; `bubble` = how many tiles back).
+    t.backIds.forEach((id, k) => out.push(prop(id, k === t.backIds.length - 1 ? PropKind.TableBack : PropKind.TableMid, t.x, t.y - 1 - k, { ...look, bubble: k + 1 })));
   }
   const rail = s.map.ticketRail;
   let ticket = 0;
@@ -161,7 +163,7 @@ function dynamicProps(s: GameState): PropView[] {
   );
   // The next table and stove spots show as ghosts you can buy (variant 1 = affordable now).
   const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins, s.map)) ? 1 : 0);
-  const spot = s.tables.length < s.map.tables.length ? nextTableSpot(s) : null;
+  const spot = tableUnits(s) < s.map.tables.length ? nextTableSpot(s) : null;
   if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4, style: styleIndex(spot.style) }));
   if (s.construction) out.push(...scaffolding(s.construction));
   // The guide's plaque out front, once it has written about the place (its stars, or the plate).
@@ -169,7 +171,7 @@ function dynamicProps(s: GameState): PropView[] {
     const sign = s.map.decor.find((f) => f.kind === PropKind.StreetSign);
     if (sign) out.push(prop(SYNTH - 52, PropKind.GuidePlaque, sign.x - 0.9, sign.y, { variant: s.guide.stars }));
   }
-  out.push(...hubProps(s));
+  out.push(...hubProps(s), ...barProps(s));
   // A present on the sidewalk, waiting for a tap (`since`: when it goes).
   if (s.gift) out.push(prop(SYNTH - 50, PropKind.Gift, s.gift.x, s.gift.y, { since: s.gift.until }));
   // The tourist bus: drawn where it stops, the renderer drives it in and out (`since` = it set
@@ -294,6 +296,20 @@ export function hubProps(s: GameState): PropView[] {
         since: newest,
       }),
     );
+  });
+  return out;
+}
+
+/** The bar's pieces its counter's levels opened (owner M30, src/data/bar.ts BAR_STAGES): on the counter or hanging over it. */
+export function barProps(s: GameState): PropView[] {
+  const level = levelOf(s.levels, 'barCounter');
+  const busy = s.staff.some((st) => st.role === 'bartender' && st.job?.kind === 'mix');
+  const out: PropView[] = [];
+  BAR_STAGES.forEach((b, i) => {
+    if (level < b.level) return;
+    const at = s.map.bar.pieces[i]!;
+    // On the counter it stands on its top; overhead pieces sort just in front of the counter.
+    out.push(prop(SYNTH - 600 - i, PropKind.BarPiece, at.x, at.y, { variant: b.piece, active: busy, lift: at.top ? s.map.bar.passTop : 0, depthBias: at.top ? 1 : 1.5 }));
   });
   return out;
 }

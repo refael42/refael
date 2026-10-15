@@ -142,6 +142,10 @@ export const PropKind = {
    * 0 = its faint outline; active / progress: at work; extra: what it shows, orders or bags).
    */
   HubPiece: 48,
+  /** A long table's tile between its front and its back half (joined tables, owner M30). */
+  TableMid: 49,
+  /** A piece of the bar's design levels (variant: which, src/data/bar.ts BarPiece; active: a bartender at work). */
+  BarPiece: 50,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 

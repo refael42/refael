@@ -21,6 +21,7 @@ import { RARITIES, type Rarity } from '../data/rarity';
 import { FESTIVAL, FESTIVAL_THEMES } from '../data/events';
 import { newFestival } from './festival';
 import type { GuideState } from './game/guide';
+import { kitchenSave, type SavedKitchen } from './game/kitchenLayout';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
@@ -79,6 +80,8 @@ export interface SaveData {
   purchases: string[];
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
   guide: SavedGuide;
+  /** The kitchen as the player laid it out in build mode (owner M30; older saves: the building's own). */
+  kitchen?: SavedKitchen;
 }
 
 export type SavedGuide = Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
@@ -187,7 +190,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     levels: { ...s.levels },
     team: s.staff.filter((st) => !st.leaving).map((st) => ({ ...workerOf(st), wage: toSave(st.wage) })),
     placed: s.placed.map((p) => ({ ...p })),
-    tables: s.tables.map((t) => ({ x: t.x, y: t.y, style: t.style })),
+    tables: s.tables.map((t) => ({ x: t.x, y: t.y, style: t.style, ...(t.parts.length > 1 ? { parts: [...t.parts] } : {}) })),
     quests: { level: s.quests.level, claimed: [...s.quests.claimed] },
     fiveStars: s.stats.fiveStars,
     rushes: s.stats.rushes,
@@ -207,6 +210,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     reviewSeq: s.reviewSeq,
     purchases: [...s.purchases],
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null },
+    kitchen: kitchenSave(s),
   };
 }
 
@@ -309,7 +313,15 @@ function validate(o: Record<string, unknown>): SaveData | null {
     placed: o.placed.filter((p): p is PlacedDecor => isRecord(p) && typeof p.item === 'string' && p.item in DECOR_BY_ID && finite(p.x) && finite(p.y)).map((p) => ({ item: p.item, x: p.x, y: p.y })),
     // The same for tables: known styles on real coordinates (where they fit is checked when the game is built).
     ...(Array.isArray(o.tables)
-      ? { tables: o.tables.filter((t): t is TableSpot => isRecord(t) && isTableStyle(t.style) && finite(t.x) && finite(t.y)).map((t) => ({ x: t.x, y: t.y, style: t.style })) }
+      ? {
+          tables: o.tables
+            .filter((t): t is TableSpot => isRecord(t) && isTableStyle(t.style) && finite(t.x) && finite(t.y))
+            .map((t) => {
+              // Tables joined into it (front first): known styles, at least two of them.
+              const parts = Array.isArray(t.parts) ? t.parts.filter(isTableStyle) : [];
+              return { x: t.x, y: t.y, style: t.style, ...(parts.length > 1 ? { parts } : {}) };
+            }),
+        }
       : {}),
     quests,
     fiveStars: count(o.fiveStars),
@@ -330,8 +342,21 @@ function validate(o: Record<string, unknown>): SaveData | null {
     flash: isRecord(o.flash) && finite(o.flash.slot) ? { slot: Math.floor(o.flash.slot), bought: o.flash.bought === true } : { slot: -1, bought: false },
     ...cleanReviews(o.reviews, o.reviewSeq),
     guide: cleanGuide(o.guide),
+    ...(cleanKitchen(o.kitchen) ? { kitchen: cleanKitchen(o.kitchen)! } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
+  };
+}
+
+/** The kitchen's layout as saved: tiles on real coordinates (whether they match is checked when the game is built). */
+function cleanKitchen(v: unknown): SavedKitchen | null {
+  if (!isRecord(v) || !finite(v.tier) || !Array.isArray(v.stations) || !Array.isArray(v.preps)) return null;
+  const at = (p: unknown): p is { x: number; y: number } => isRecord(p) && finite(p.x) && finite(p.y);
+  if (!v.stations.every(at) || !v.preps.every((p) => at(p) && finite((p as { variant?: unknown }).variant))) return null;
+  return {
+    tier: Math.floor(v.tier),
+    stations: v.stations.map((p) => ({ x: p.x, y: p.y })),
+    preps: (v.preps as { x: number; y: number; variant: number }[]).map((p) => ({ x: p.x, y: p.y, variant: Math.floor(p.variant) })),
   };
 }
 
@@ -466,5 +491,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     reviewSeq: save.reviewSeq,
     purchases: save.purchases,
     guide: save.guide,
+    kitchen: save.kitchen,
   });
 }

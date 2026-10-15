@@ -7,7 +7,8 @@ import { dishSpot, seatCustomer } from './customers';
 import { barSlotPoint, serveDrink } from './bar';
 import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf, UPGRADE_QUIET } from './purchase';
-import { moveDecor, moveTable } from './create';
+import { joinTables, moveDecor, moveTable, splitTable } from './create';
+import { pieceAt, restylePrep, swapKitchen } from './kitchenLayout';
 import { openBranch } from '../franchise';
 import { claimDaily, openGift } from '../retention';
 import { collectWheel, spinWheel } from '../wheel';
@@ -178,6 +179,35 @@ function apply(s: GameState, cmd: Command): void {
       rerouteWalkers(s);
       if (from.x !== t!.x || from.y !== t!.y) emit(s, Ev.Poof, from.x, from.y);
       emit(s, Ev.Upgrade, t!.x, t!.y, 1, UPGRADE_QUIET, PropKind.Table);
+    }
+  } else if (cmd.type === 'joinTables') {
+    // Build mode: another table pushed onto the back of this one (owner M30).
+    const b = s.tables[cmd.other];
+    const from = b ? { x: b.x, y: b.y } : null;
+    if (from && joinTables(s, cmd.table, cmd.other)) {
+      rerouteWalkers(s);
+      const t = s.tables[cmd.other < cmd.table ? cmd.table - 1 : cmd.table]!;
+      emit(s, Ev.Poof, from.x, from.y);
+      emit(s, Ev.Upgrade, t.x, t.y, 1, UPGRADE_QUIET, PropKind.Table);
+    }
+  } else if (cmd.type === 'splitTable') {
+    const t = s.tables[cmd.table];
+    if (t && splitTable(s, cmd.table)) {
+      rerouteWalkers(s);
+      emit(s, Ev.Upgrade, t.x, t.y, 1, UPGRADE_QUIET, PropKind.Table);
+    }
+  } else if (cmd.type === 'swapKitchen') {
+    // Build mode: two kitchen pieces trade places (owner M30: "the kitchen laid out as you like").
+    const at = pieceAt(s, cmd.a);
+    if (at && swapKitchen(s, cmd.a, cmd.b)) {
+      const to = pieceAt(s, cmd.a)!;
+      emit(s, Ev.Poof, at.x, at.y);
+      emit(s, Ev.Upgrade, to.x, to.y, 1, UPGRADE_QUIET, cmd.a.kind === 'station' ? PropKind.Stove : PropKind.Prep);
+    }
+  } else if (cmd.type === 'restylePrep') {
+    if (restylePrep(s, cmd.id)) {
+      const p = s.props.find((q) => q.id === cmd.id)!;
+      emit(s, Ev.Upgrade, p.x, p.y, 1, UPGRADE_QUIET, PropKind.Prep);
     }
   } else if (cmd.type === 'hurry') {
     const w = s.works.find((x) => x.id === cmd.work);

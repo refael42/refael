@@ -1,3 +1,4 @@
+import { BAR_STAGES } from '../../data/bar';
 import { TIERS } from '../../data/buildings';
 import { HUB } from '../../data/delivery';
 import { DISHES } from '../../data/dishes';
@@ -37,6 +38,9 @@ export interface Mods {
   /** The delivery hub (src/data/delivery.ts HUB): more packers' posts, and more delivery orders. */
   packers: number;
   deliveryDemand: number;
+  /** The bar's pieces (src/data/bar.ts BAR_STAGES): added to the chance of a drink with a meal, and of a guest at the bar. */
+  drinkChance: number;
+  barGuests: number;
   /** The bar: how fast drinks are made, and what they sell for. */
   mixSpeed: number;
   drinkPrice: number;
@@ -156,6 +160,8 @@ function emptyMods(): Mods {
     packSpeed: 1,
     packers: 0,
     deliveryDemand: 1,
+    drinkChance: 0,
+    barGuests: 0,
     mixSpeed: 1,
     drinkPrice: 1,
     price: DISHES.map(() => 1),
@@ -195,6 +201,16 @@ export function computeMods(levels: Levels, perks: Perks = {}, trophies = 0): Mo
     else m[stat] *= 1 + value;
   }
   priceAdd.forEach((value, dish) => (m.price[dish]! *= 1 + value));
+  // The bar's pieces open with the bar counter's levels.
+  const barLevel = levelOf(levels, 'barCounter');
+  for (const b of BAR_STAGES) {
+    if (barLevel < b.level) break;
+    m.drinkPrice *= b.perk.drinkPrice ?? 1;
+    m.mixSpeed *= b.perk.mixSpeed ?? 1;
+    m.drinkChance += b.perk.drinkChance ?? 0;
+    m.barGuests += b.perk.barGuests ?? 0;
+    m.arrivals *= b.perk.arrivals ?? 1;
+  }
   // The delivery hub's pieces, each with what it brings, open with the packing station's levels.
   const hubLevel = levelOf(levels, 'packStation');
   for (const h of HUB) {

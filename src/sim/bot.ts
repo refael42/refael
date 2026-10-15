@@ -1,4 +1,5 @@
 import { DAY } from '../data/staff';
+import { tableUnits } from './game/create';
 import { UPGRADES } from '../data/upgrades';
 import { ZERO, type Big } from './big';
 import { costOf, isMaxed, levelOf, upgradeDef } from './economy/upgrades';
@@ -71,7 +72,7 @@ const keyOf = (c: Command): string => {
 
 /** How many of each job a sensible manager keeps for this restaurant size. */
 function wanted(s: GameState, role: string): number {
-  const tables = s.tables.length;
+  const tables = tableUnits(s);
   switch (role) {
     case 'cook':
       return cookPosts(s);

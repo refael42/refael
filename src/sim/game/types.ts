@@ -1,4 +1,5 @@
 import type { CustomerTypeId } from '../../data/customers';
+import type { KitchenPiece } from './kitchenLayout';
 import type { ReviewKind } from '../../data/reviews';
 import type { Role, StatId } from '../../data/staff';
 import type { TraitId } from '../../data/traits';
@@ -80,10 +81,15 @@ export interface Table {
   /** Waiter on the way to clear it (-1 none). */
   waiter: number;
   propId: number;
-  /** Its design (src/data/tables.ts) and the props that go with it: the chairs (or sofas), and a long table's back half (-1 none). */
+  /**
+   * Its design (src/data/tables.ts) and the props that go with it: the chairs (or sofas), and a
+   * long table's pieces behind its front tile (one per tile, the last its back half).
+   */
   style: TableStyle;
   chairs: number[];
-  backId: number;
+  backIds: number[];
+  /** Tables joined into this one in build mode, front first (owner M30); empty: one table. */
+  parts: TableStyle[];
   /** Its anchor: the front tile's middle (where it was put down). */
   x: number;
   y: number;
@@ -191,6 +197,10 @@ export type Command =
   | { type: 'serveDrink'; drink: number }
   /** Build mode: put a table somewhere else, in this style (the same spot: just a new look). */
   | { type: 'moveTable'; table: number; to: Point; style: TableStyle }
+  | { type: 'joinTables'; table: number; other: number }
+  | { type: 'splitTable'; table: number }
+  | { type: 'swapKitchen'; a: KitchenPiece; b: KitchenPiece }
+  | { type: 'restylePrep'; id: number }
   /** Hand this restaurant over and open a branch in the next city (prestige). */
   | { type: 'branch' }
   /** Open the present on the sidewalk. */

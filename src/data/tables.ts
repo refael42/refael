@@ -6,8 +6,8 @@ import type { Point } from './maps';
 // upgrades (one chair, "More chairs" for two, "Family table" for all of them), so every style
 // costs the same and the choice is the player's taste and floor space.
 
-export type TableStyle = 'round' | 'square' | 'long' | 'booth';
-export const TABLE_STYLES: readonly TableStyle[] = ['round', 'square', 'long', 'booth'];
+export type TableStyle = 'round' | 'square' | 'long' | 'booth' | 'banquet' | 'feast';
+export const TABLE_STYLES: readonly TableStyle[] = ['round', 'square', 'long', 'booth', 'banquet', 'feast'];
 
 export interface TableStyleDef {
   id: TableStyle;
@@ -15,6 +15,8 @@ export interface TableStyleDef {
   tier: number;
   /** Tiles the top covers, from its anchor tile (the front one): [dx, dy]. */
   top: readonly (readonly [number, number])[];
+  /** Only made by joining tables (owner M30: "join tables into a long table for more people"): not in the style picker. */
+  joined?: boolean;
 }
 
 /**
@@ -27,7 +29,21 @@ export const TABLE_STYLE_DEFS: readonly TableStyleDef[] = [
   { id: 'square', tier: 0, top: [[0, 0]] },
   { id: 'long', tier: 0, top: [[0, -1], [0, 0]] },
   { id: 'booth', tier: 1, top: [[0, 0]] },
+  // Tables pushed together in build mode: three tiles (eight chairs), four tiles (ten).
+  { id: 'banquet', tier: 0, top: [[0, -2], [0, -1], [0, 0]], joined: true },
+  { id: 'feast', tier: 0, top: [[0, -3], [0, -2], [0, -1], [0, 0]], joined: true },
 ];
+
+/** How many tiles deep a table of this style is. */
+export const tableLength = (style: TableStyle): number => styleDef(style).top.length;
+
+/** The style of tables joined into one this many tiles deep (null: too long to join). */
+export function joinedStyle(length: number): TableStyle | null {
+  return length === 2 ? 'long' : length === 3 ? 'banquet' : length === 4 ? 'feast' : null;
+}
+
+/** The styles a player can pick for a table in build mode (joined ones are made by joining). */
+export const PICKABLE_STYLES: readonly TableStyle[] = TABLE_STYLES.filter((st) => !TABLE_STYLE_DEFS.find((d) => d.id === st)!.joined);
 
 export const styleIndex = (style: TableStyle): number => TABLE_STYLES.indexOf(style);
 export const styleDef = (style: TableStyle): TableStyleDef => TABLE_STYLE_DEFS[styleIndex(style)]!;
@@ -37,25 +53,32 @@ export const isTableStyle = (v: unknown): v is TableStyle => typeof v === 'strin
 const OUT = 0.62;
 /** Two on one side of a table for four: this far before and behind its middle. */
 const PAIR = 0.26;
-/** A long table: its middle is half a tile behind its anchor, and its chairs are this far apart. */
-const LONG_MID = -0.5;
+/** A long table's chairs are this far apart along it (its middle is half its length behind the anchor). */
 const LONG_GAP = 0.62;
 
 const sides = (y: number): Point[] => [{ x: -OUT, y }, { x: OUT, y }];
 const ONE_TILE: readonly (readonly Point[])[] = [sides(0).slice(0, 1), sides(0), [...sides(-PAIR), ...sides(PAIR)]];
-const LONG: readonly (readonly Point[])[] = [
-  sides(LONG_MID).slice(0, 1),
-  sides(LONG_MID),
-  [...sides(LONG_MID - LONG_GAP), ...sides(LONG_MID), ...sides(LONG_MID + LONG_GAP)],
-];
+/** A table `length` tiles deep: one more chair a side than its tiles (six at two tiles, eight at three, ten at four). */
+function longSeats(length: number): readonly (readonly Point[])[] {
+  const mid = -(length - 1) / 2;
+  const n = length + 1;
+  const all: Point[] = [];
+  for (let i = 0; i < n; i++) all.push(...sides(mid + (i - (n - 1) / 2) * LONG_GAP));
+  return [sides(mid).slice(0, 1), sides(mid), all];
+}
 
 /**
  * Where each chair stands (from the anchor tile's middle), by style index, then [one chair,
  * two, every seat]. Plain data: the renderer reads it too (it lays the plates out from it).
  */
-export const SEAT_LAYOUTS: readonly (readonly (readonly Point[])[])[] = TABLE_STYLES.map((st) => (st === 'long' ? LONG : ONE_TILE));
+export const SEAT_LAYOUTS: readonly (readonly (readonly Point[])[])[] = TABLE_STYLES.map((st) => {
+  const length = TABLE_STYLE_DEFS.find((d) => d.id === st)!.top.length;
+  return length > 1 ? longSeats(length) : ONE_TILE;
+});
 /** The middle of each style's top, from its anchor (plates slide toward it). */
-export const TOP_MIDDLE: readonly Point[] = TABLE_STYLES.map((st) => ({ x: 0, y: st === 'long' ? LONG_MID : 0 }));
+export const TOP_MIDDLE: readonly Point[] = TABLE_STYLES.map((st) => ({ x: 0, y: -(TABLE_STYLE_DEFS.find((d) => d.id === st)!.top.length - 1) / 2 }));
+/** Tiles deep, by style index (the renderer draws a long table a tile at a time). */
+export const STYLE_LENGTH: readonly number[] = TABLE_STYLES.map((st) => TABLE_STYLE_DEFS.find((d) => d.id === st)!.top.length);
 
 /** How many sit at a table of this style once it has every chair. */
 export const fullSeats = (style: TableStyle): number => SEAT_LAYOUTS[styleIndex(style)]![2]!.length;
@@ -86,6 +109,8 @@ export interface TableSpot {
   x: number;
   y: number;
   style: TableStyle;
+  /** Tables joined into this one, front first (owner M30): what it splits back into. Absent: one table. */
+  parts?: TableStyle[];
 }
 
 /** Where staff stand to serve or clear a table: its front edge, clear of the chairs (every style's front is its anchor tile). */

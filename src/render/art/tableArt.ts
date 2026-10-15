@@ -106,6 +106,26 @@ function longHalf(c: SkCanvas, t: number, half: 'back' | 'front' | 'whole') {
   }
 }
 
+/**
+ * A middle tile of a table joined longer (owner M30): a full tile of the top between the front
+ * and the back half, seams at both ends, no legs; a centerpiece in the middle from the second look.
+ */
+function longMid(c: SkCanvas, t: number) {
+  const s = CLOTH[t]!;
+  const y0 = -0.5;
+  const y1 = 0.5;
+  floorShadow(c, 0, 0, 0.5, 0.26);
+  clothTop(c, s, t, LONG.w, y1 - y0, 0, false);
+  c.drawPath(path.polyline([P(LONG.w / 2, y0, 17), P(LONG.w / 2, y1, 17)]), stroke(lighten(s.top, 0.5), 0.7, 0.8));
+  onTop(c, 17, () => {
+    c.drawRect(Skia.XYWHRect(-0.08, y0, 0.16, y1 - y0), fill(s.runner));
+    c.drawPath(path.polyline([[-LONG.w / 2 + 0.04, y0], [-LONG.w / 2 + 0.04, y1]]), stroke(s.rim, 0.02));
+    c.drawPath(path.polyline([[LONG.w / 2 - 0.04, y0], [LONG.w / 2 - 0.04, y1]]), stroke(s.rim, 0.02));
+  });
+  if (t >= 1) centerpiece(c, t, 0, 0, 17);
+}
+
+const longMidLooks = looks('tableLongMid', [-34, -44, 34, 26], longMid);
 const longBack = looks('tableLongBack', [-34, -58, 34, 30], (c, t) => longHalf(c, t, 'back'));
 const longFront = looks('tableLongFront', [-34, -44, 34, 18], (c, t) => longHalf(c, t, 'front'));
 const longWhole = looks('tableLong', [-34, -64, 66, 22], (c, t) => longHalf(c, t, 'whole'));
@@ -205,7 +225,7 @@ export const RUG_COLORS = [
   ['#EAD9B2', '#7E1E2A', '#C9A35A'],
 ] as const;
 
-function rugArt(c: SkCanvas, shape: 'round' | 'rect' | 'long', color: number) {
+function rugArt(c: SkCanvas, shape: 'round' | 'rect' | 'long' | 'long3' | 'long4', color: number) {
   const [base, border, accent] = RUG_COLORS[color]!;
   onTop(c, 0, () => {
     if (shape === 'round') {
@@ -221,7 +241,8 @@ function rugArt(c: SkCanvas, shape: 'round' | 'rect' | 'long', color: number) {
       }
       return;
     }
-    const y0 = shape === 'long' ? -1.6 : -0.62;
+    // A long table's rug runs its length: two tiles, or three and four for tables joined longer.
+    const y0 = shape === 'long' ? -1.6 : shape === 'long3' ? -2.6 : shape === 'long4' ? -3.6 : -0.62;
     const y1 = 0.62;
     const rr = (inset: number) => Skia.RRectXY(Skia.XYWHRect(-1.25 + inset, y0 + inset, 2.5 - inset * 2, y1 - y0 - inset * 2), 0.1, 0.1);
     c.drawRRect(rr(-0.04), fill(darken(base, 0.35), 0.5));
@@ -242,7 +263,9 @@ const RUGS: Record<string, SpriteDef> = Object.fromEntries(
     [`rugRound${k}`, sprite([-52, -28, 52, 28], (c) => rugArt(c, 'round', k))],
     [`rugRect${k}`, sprite([-66, -34, 66, 34], (c) => rugArt(c, 'rect', k))],
     [`rugLong${k}`, sprite([-66, -50, 96, 34], (c) => rugArt(c, 'long', k))],
+    [`rugLong3${k}`, sprite([-66, -66, 128, 34], (c) => rugArt(c, 'long3', k))],
+    [`rugLong4${k}`, sprite([-66, -82, 160, 34], (c) => rugArt(c, 'long4', k))],
   ]),
 );
 
-export const tableSprites = { ...RUGS, ...tableSmall, ...tableRoundBig, ...longBack, ...longFront, ...longWhole, ...booths, ...boothSeats, ...boothRests, ...SETS };
+export const tableSprites = { ...RUGS, ...tableSmall, ...tableRoundBig, ...longBack, ...longMidLooks, ...longFront, ...longWhole, ...booths, ...boothSeats, ...boothRests, ...SETS };

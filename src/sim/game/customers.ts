@@ -103,7 +103,16 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   // A long table for six: some families are big groups of 5-6 (by the id again).
   const bigTables = family ? s.tables.filter((t) => t.seats > 4).length : 0;
   const crowd = bigTables > 0 && hash01(s.nextId * 1.91 + 0.13) < (PARTY.bigChance * bigTables) / familyTables;
-  const size = crowd ? (hash01(s.nextId * 2.37 + 0.5) < 0.5 ? 6 : 5) : family ? (roll < (PARTY.familyChance * familyTables) / pairTables / 2 ? 4 : 3) : pair ? 2 : 1;
+  // Tables joined for eight or ten (owner M30): some groups are whole parties of 7 up to the
+  // longest table's chairs, the more such tables the more often (a table joined is an invitation).
+  const banquets = pair ? s.tables.filter((t) => t.seats > 6) : [];
+  const most = banquets.reduce((m, t) => Math.max(m, t.seats), 0);
+  const feast = banquets.length > 0 && hash01(s.nextId * 4.13 + 0.29) < Math.min(PARTY.banquetMax, PARTY.banquetChance * banquets.length);
+  const size = feast
+    ? 7 + Math.floor(hash01(s.nextId * 6.71 + 0.17) * (most - 6))
+    : crowd
+      ? hash01(s.nextId * 2.37 + 0.5) < 0.5 ? 6 : 5
+      : family ? (roll < (PARTY.familyChance * familyTables) / pairTables / 2 ? 4 : 3) : pair ? 2 : 1;
   const leader = newCustomer(s, type, start, slot, -1, size);
   if (look) leader.look = { ...look };
   maybeVip(s, leader);
@@ -119,7 +128,7 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
     return leader;
   }
   for (let m = 1; m < size; m++) {
-    const o = PARTY.spawnOffsets[m - 1]!;
+    const o = PARTY.spawnOffsets[(m - 1) % PARTY.spawnOffsets.length]!;
     const friend = newCustomer(s, type, { x: start.x + o.x, y: start.y + o.y }, -1, leader.id, size);
     // Some come with a child (by the id: the game's dice are left alone); a family's third and
     // fourth are mostly children.

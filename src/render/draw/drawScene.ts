@@ -62,7 +62,8 @@ function decorLook(A: RenderAssets, kind: number): number {
 function tableSet(A: RenderAssets, style: number): number {
   'worklet';
   if (style === 1) return A.S.setSquare;
-  if (style === 2) return A.S.setLong;
+  // Long ones (and tables joined longer, 4 and 5) show as the long set.
+  if (style === 2 || style >= 4) return A.S.setLong;
   if (style === 3) return A.S.setBooth;
   return A.S.setRound;
 }

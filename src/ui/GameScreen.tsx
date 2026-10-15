@@ -19,7 +19,9 @@ import { big, toSave } from '../sim/big';
 import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
 import { crewCount } from '../sim/economy/works';
 import { buildableTiles, tableAnchors } from '../sim/game/build';
-import { tableIsFree } from '../sim/game/create';
+import { joinCandidate, joinedFits, tableIsFree } from '../sim/game/create';
+import { pieceAt, type KitchenPiece } from '../sim/game/kitchenLayout';
+import { fullSeats } from '../data/tables';
 import { styleIndex, type TableStyle } from '../data/tables';
 import type { OfflineEarnings } from '../sim/offline';
 import type { GameState, PlacedDecor } from '../sim/game/types';
@@ -82,6 +84,8 @@ interface BuildState {
   table?: number;
   style?: TableStyle;
   busy?: boolean;
+  /** A kitchen piece picked to trade places with the next one tapped (owner M30). */
+  kitchen?: KitchenPiece;
 }
 
 /** Name tags under the cast and props, so the owner can review each piece. */
@@ -251,16 +255,27 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       }
       setFreeCount(freeTiles.current.length);
       const moved = build.table !== undefined ? game?.tables[build.table] : undefined;
+      const picked = build.kitchen && game ? pieceAt(game, build.kitchen) : null;
       overlay.value = {
         tiles: decor || build.moving || tables ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
         pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : tables && build.tile ? [build.tile.x, build.tile.y, PropKind.Table, styleIndex(build.style!)] : [],
-        from: build.moving ? [build.moving.x, build.moving.y] : moved ? [moved.x, moved.y] : [],
+        from: build.moving ? [build.moving.x, build.moving.y] : moved ? [moved.x, moved.y] : picked ? [picked.x, picked.y] : [],
       };
     };
     refresh();
     const timer = setInterval(refresh, 1000);
     return () => clearInterval(timer);
   }, [build, gameRef, overlay]);
+  // A picked table: is there another to join onto its back (owner M30), or is it a joined one to split?
+  const picked = build?.table !== undefined ? gameRef.current?.tables[build.table] : undefined;
+  const join = useMemo(() => {
+    const game = gameRef.current;
+    if (!game || build?.table === undefined) return null;
+    const other = joinCandidate(game, build.table);
+    const style = other >= 0 ? joinedFits(game, build.table, other) : null;
+    return style ? { other, seats: fullSeats(style) } : null;
+  }, [build, gameRef]);
+  const splittable = picked !== undefined && picked.parts.length > 1;
   const placeBuild = () => {
     const b = buildRef.current;
     if (!b?.item) return;
@@ -393,6 +408,27 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           }
         }
         const game = gameRef.current;
+        // The kitchen (owner M30): a station or prep piece picked, then another tapped: they trade places.
+        if (game && !b.item && !b.moving && b.table === undefined) {
+          let kitchen: KitchenPiece | null = null;
+          let close = PICK_PX * cam.zoom;
+          const consider = (piece: KitchenPiece, at: Point) => {
+            const dist = Math.hypot(cam.x + isoX(at.x, at.y) * cam.zoom - x, cam.y + isoY(at.x, at.y, PICK_HEIGHT) * cam.zoom - y);
+            if (dist < close) {
+              close = dist;
+              kitchen = piece;
+            }
+          };
+          game.stoves.forEach((sv, index) => consider({ kind: 'station', index }, sv));
+          for (const p of game.props) if (p.kind === PropKind.Prep) consider({ kind: 'prep', id: p.id }, p);
+          if (kitchen) {
+            if (b.kitchen) {
+              command({ type: 'swapKitchen', a: b.kitchen, b: kitchen });
+              setBuild({ item: null, tile: null });
+            } else setBuild({ item: null, tile: null, kitchen });
+            return;
+          }
+        }
         // A piece is picked by what you see: its body stands up from its tile (a table's top is lower).
         let piece: PlacedDecor | undefined;
         let table = -1;
@@ -510,6 +546,22 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       )}
       {build && wallet && (
         <BuildPanel
+          kitchen={build.kitchen?.kind ?? null}
+          onRestyle={() => {
+            if (build.kitchen?.kind === 'prep') command({ type: 'restylePrep', id: build.kitchen.id });
+          }}
+          joinSeats={join ? join.seats : null}
+          canSplit={splittable}
+          onJoin={() => {
+            if (build.table === undefined || !join) return;
+            command({ type: 'joinTables', table: build.table, other: join.other });
+            setBuild({ item: null, tile: null });
+          }}
+          onSplit={() => {
+            if (build.table === undefined) return;
+            command({ type: 'splitTable', table: build.table });
+            setBuild({ item: null, tile: null });
+          }}
           wallet={wallet}
           item={build.item}
           tile={build.tile}

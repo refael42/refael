@@ -60,7 +60,7 @@ function chooseDrink(s: GameState, c: Customer, salt: number, bar: boolean): num
 /** A guest at a table ordered their meal: now and then a drink with it, once there is a bartender. */
 export function maybeOrderDrink(s: GameState, c: Customer): void {
   if (!bartendersOn(s) || c.stool >= 0 || c.drinkOrder >= 0) return;
-  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance) return;
+  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), false);
 }
 
@@ -292,7 +292,7 @@ const freeStool = (s: GameState): number => s.barSeats.findIndex((id) => id < 0)
  * stools, when one is free and a bartender works (by their id: the game's dice are left alone).
  */
 export function maybeBarGuest(s: GameState, c: Customer): boolean {
-  if (c.partySize !== 1 || !bartendersOn(s) || hash01(c.id * 1.37 + 0.21) >= BAR.barGuestChance) return false;
+  if (c.partySize !== 1 || !bartendersOn(s) || hash01(c.id * 1.37 + 0.21) >= BAR.barGuestChance + s.mods.barGuests) return false;
   const k = freeStool(s);
   if (k < 0) return false;
   s.barSeats[k] = c.id;
