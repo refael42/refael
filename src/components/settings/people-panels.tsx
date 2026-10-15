@@ -3,7 +3,7 @@ import { Copy, Link2, MessageCircle, Pencil, Phone, Plus, Trash2 } from "lucide-
 import { useState } from "react";
 import { toast } from "sonner";
 import { loginLinkAction } from "@/app/actions/login-link";
-import { addMemberAction, createContractorAction, removeMemberAction, setMemberRoleAction, updateContractorAction } from "@/app/actions/settings";
+import { addMemberAction, createContractorAction, removeMemberAction, setMemberRoleAction, updateContractorAction, updateMemberAction } from "@/app/actions/settings";
 import { Field, OptionSelect, type Option } from "@/components/common/field";
 import { useAction } from "@/components/common/use-action";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +109,8 @@ export interface MemberRow {
   name: string;
   role: MemberRole;
   contact: string | null;
+  phone: string | null;
+  email: string | null;
   isMe: boolean;
 }
 
@@ -116,6 +118,7 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", phone: "", email: "", role: "viewer" as "pm" | "viewer" });
   const [link, setLink] = useState<LinkVM | null>(null);
+  const [editing, setEditing] = useState<MemberRow | null>(null);
   const { call, pending } = useAction();
   const roles: Option[] = [
     { value: "pm", label: t.roles.pm },
@@ -138,6 +141,9 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
                 </span>
               )}
             </div>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(m)} aria-label={t.settings.editMember} title={t.settings.editMember}>
+              <Pencil />
+            </Button>
             {!m.isMe && (
               <Button
                 variant="ghost"
@@ -176,6 +182,7 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
         ))}
       </div>
       {link && <LoginLinkDialog link={link} onClose={() => setLink(null)} />}
+      {editing && <EditMemberDialog row={editing} onClose={() => setEditing(null)} />}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
@@ -212,6 +219,42 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function EditMemberDialog({ row, onClose }: { row: MemberRow; onClose: () => void }) {
+  const [f, setF] = useState({ name: row.name, phone: row.phone ?? "", email: row.email ?? "" });
+  const { call, pending } = useAction();
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t.settings.editMember}</DialogTitle>
+        </DialogHeader>
+        <Field label={t.settings.name}>
+          <Input value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t.settings.phone}>
+            <Input dir="ltr" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} placeholder="050-1234567" />
+          </Field>
+          <Field label={t.settings.email}>
+            <Input dir="ltr" type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} />
+          </Field>
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={pending || !f.name.trim()}
+            onClick={async () => {
+              const ok = await call(() => updateMemberAction(row.profileId, { name: f.name, phone: f.phone || null, email: f.email || null }), t.app.saved);
+              if (ok !== null) onClose();
+            }}
+          >
+            {t.app.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -841,6 +841,8 @@ export const he = {
     company: "חברה",
     needPhoneOrEmail: "צריך טלפון או אימייל כדי שהאדם יוכל להתחבר",
     duplicatePhone: "כבר קיים קבלן עם הטלפון הזה",
+    phoneTaken: "המספר הזה כבר שייך לאדם אחר במערכת",
+    editMember: "עריכת פרטים",
     alreadyMember: "האדם כבר חבר בפרויקט",
     loginLink: "קישור כניסה",
     loginLinkTitle: (name: string) => `קישור כניסה ל${name}`,
