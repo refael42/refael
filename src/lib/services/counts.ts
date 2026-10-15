@@ -32,5 +32,14 @@ export async function navCounts(store: Store, s: ProjectSession) {
     ]);
     approvals = suggested.length + tasks.length;
   }
-  return { notifications: notifications.length, chat, approvals };
+  let updates = 0;
+  if (isPM(s)) {
+    // never let a missing table (migration not run yet) take the whole app down
+    try {
+      updates = (await store.select("project_events", { where: { project_id: projectId, status: { in: ["proposed", "needs_info"] } } })).length;
+    } catch {
+      updates = 0;
+    }
+  }
+  return { notifications: notifications.length, chat, approvals, updates };
 }

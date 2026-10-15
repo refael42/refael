@@ -17,6 +17,7 @@ import {
   MessageCircle,
   Network,
   Plus,
+  Radar,
   Settings,
   Workflow,
   Settings2,
@@ -59,6 +60,7 @@ const ICONS: Record<NavKey, LucideIcon> = {
   report: FileBarChart,
   flow: Workflow,
   sources: Inbox,
+  updates: Radar,
 };
 
 export interface ShellProps {
