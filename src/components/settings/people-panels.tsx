@@ -144,22 +144,21 @@ export function MembersPanel({ rows }: { rows: MemberRow[] }) {
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing(m)} aria-label={t.settings.editMember} title={t.settings.editMember}>
               <Pencil />
             </Button>
-            {!m.isMe && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={pending}
-                onClick={async () => {
-                  const r = await call(() => loginLinkAction(m.profileId));
-                  if (r) setLink(r);
-                }}
-                aria-label={t.settings.loginLink}
-                title={t.settings.loginLink}
-              >
-                <Link2 />
-              </Button>
-            )}
+            {/* also for yourself: a code to sign in on the phone's home-screen app */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              disabled={pending}
+              onClick={async () => {
+                const r = await call(() => loginLinkAction(m.profileId));
+                if (r) setLink(r);
+              }}
+              aria-label={t.settings.loginLink}
+              title={t.settings.loginLink}
+            >
+              <Link2 />
+            </Button>
             {m.isMe ? (
               <Badge variant="outline">{t.roles[m.role]}</Badge>
             ) : m.role === "contractor" ? (
