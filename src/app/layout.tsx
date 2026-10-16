@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Heebo } from "next/font/google";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
+import { Splash } from "@/components/splash";
 import { t } from "@/lib/i18n";
 import "./globals.css";
 
@@ -26,8 +27,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="he" dir="rtl" className={heebo.variable}>
+    // the splash script adds a class before React loads
+    <html lang="he" dir="rtl" className={heebo.variable} suppressHydrationWarning>
       <body className="min-h-dvh font-sans">
+        <Splash />
         <Providers>{children}</Providers>
         <Toaster position="top-center" dir="rtl" richColors closeButton />
       </body>
