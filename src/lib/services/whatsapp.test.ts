@@ -77,7 +77,7 @@ describe("whatsapp", () => {
     await handleWebhook(store, hook(text("+972599999999", "שלום")), deps());
     expect(sent.at(-1)).toMatchObject({ to: "+972599999999", how: "text" });
 
-    // the PM writing from WhatsApp is told to use the app; nothing enters a chat
+    // the PM writing from WhatsApp: kept as evidence for updates (not a chat message), and acknowledged
     const before = store.data.messages.length;
     await handleWebhook(store, hook(text("+972500000001", "בדיקה")), deps());
     expect(sent.at(-1)).toMatchObject({ to: "+972500000001", how: "text" });
@@ -115,5 +115,24 @@ describe("whatsapp", () => {
     expect(validSignature(body, sig, "s3cret")).toBe(true);
     expect(validSignature(body, sig, "other")).toBe(false);
     expect(validSignature(body, null, "s3cret")).toBe(false);
+  });
+
+  it("the PM forwards a contractor's message to the SiteFlow number → evidence read into an update", async () => {
+    const store = demoStore();
+    const PM = "+972500000001";
+    const fwd: WaInboundMessage = { ...text(PM, "יוסי: סיימתי חשמל בדירה 14"), context: { forwarded: true } };
+    await handleWebhook(store, hook(fwd, image(PM, "המצב בדירה 9")), deps());
+    const src = store.data.sources.find((x) => x.kind === "manual" && x.title.includes("העביר בוואטסאפ"))!;
+    const items = store.data.source_items.filter((i) => i.source_id === src.id);
+    expect(items.map((i) => [i.author, i.kind, i.status])).toEqual([
+      ["הודעה שהועברה", "text", "processed"],
+      ["רפאל כהן", "image", "processed"],
+    ]);
+    expect(items[1].media_url).toMatch(/^media\//);
+    const ev = store.data.project_events.find((e) => e.source_item_id === items[0].id)!;
+    expect(ev).toMatchObject({ type: "reported_done" });
+    expect(sent.at(-1)!.text).toContain("קיבלתי");
+    // nothing reaches a chat with a contractor
+    expect(store.data.messages.some((x) => x.text?.includes("סיימתי חשמל בדירה 14") && x.sender_profile_id === null)).toBe(false);
   });
 });
