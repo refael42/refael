@@ -113,6 +113,8 @@ const DEFAULTS: { [K in TableName]?: () => Partial<Tables[K]> } = {
   audit_log: () => ({ from_value: null, to_value: null, actor_profile_id: null, meta: null, project_id: null }),
   sources: () => ({ is_group: false, speakers: {}, since: null, last_import_at: null, created_by: null }),
   source_items: () => ({ author: null, author_profile_id: null, kind: "text", text: null, media_url: null, media_name: null, status: "new" }),
+  whatsapp_links: () => ({ display_phone: null, access_token: null, status: "connected", history_requested_at: null, last_message_at: null }),
+  whatsapp_link_contacts: () => ({ name: null, status: "pending", project_id: null, source_ids: [], message_count: 0, last_at: null }),
   project_events: () => ({ source_item_id: null, quote: null, extracted: {}, resolved: {}, confidence: 0.5, status: "proposed", note: null, decided_by: null, decided_at: null }),
 };
 
@@ -122,6 +124,8 @@ const UNIQUE: { [K in TableName]?: Array<Array<keyof Tables[K] & string>> } = {
   trades: [["key"]],
   sources: [["project_id", "kind", "title"]],
   source_items: [["source_id", "external_id"]],
+  whatsapp_links: [["phone_number_id"]],
+  whatsapp_link_contacts: [["link_id", "wa_id"]],
 };
 
 export { StoreError };
@@ -160,6 +164,8 @@ export function emptyData(): MemoryData {
     sources: [],
     source_items: [],
     project_events: [],
+    whatsapp_links: [],
+    whatsapp_link_contacts: [],
   };
 }
 

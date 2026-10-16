@@ -85,11 +85,16 @@ async function signedMediaUrl(key: string): Promise<string | null> {
 
 /** The part of Meta's webhook payload we read. */
 export interface WaWebhook {
+  object?: string;
   entry?: Array<{
+    id?: string;
     changes?: Array<{
+      field?: string;
       value?: {
+        metadata?: { phone_number_id?: string; display_phone_number?: string };
         contacts?: Array<{ wa_id: string; profile?: { name?: string } }>;
         messages?: WaInboundMessage[];
+        [key: string]: unknown;
       };
     }>;
   }>;

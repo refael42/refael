@@ -365,6 +365,33 @@ export interface PushSubscriptionRow {
   created_at: ISODateTime;
 }
 
+export interface WhatsappLink {
+  id: UUID;
+  profile_id: UUID;
+  waba_id: string;
+  phone_number_id: string;
+  display_phone: string | null;
+  access_token: string | null;
+  status: "connected" | "disconnected" | "error";
+  history_requested_at: ISODateTime | null;
+  last_message_at: ISODateTime | null;
+  created_at: ISODateTime;
+}
+
+export interface WhatsappLinkContact {
+  id: UUID;
+  link_id: UUID;
+  /** the other side's WhatsApp number, digits only */
+  wa_id: string;
+  name: string | null;
+  status: "pending" | "follow" | "ignore";
+  project_id: UUID | null;
+  source_ids: UUID[];
+  message_count: number;
+  last_at: ISODateTime | null;
+  created_at: ISODateTime;
+}
+
 export type SourceKind = "whatsapp_export" | "whatsapp_coexistence" | "manual";
 export type SourceItemKind = "text" | "image" | "voice" | "file" | "system";
 export type SourceItemStatus = "new" | "processed" | "skipped" | "error";
@@ -505,6 +532,8 @@ export interface Tables {
   sources: Source;
   source_items: SourceItem;
   project_events: ProjectEvent;
+  whatsapp_links: WhatsappLink;
+  whatsapp_link_contacts: WhatsappLinkContact;
 }
 
 export type TableName = keyof Tables;

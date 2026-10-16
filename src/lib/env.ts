@@ -68,6 +68,14 @@ export const serverEnv = {
   get whatsappApiVersion() {
     return process.env.WHATSAPP_API_VERSION ?? "v23.0";
   },
+  /** Meta app id (public) — for connecting a PM's own WhatsApp Business number (Embedded Signup). */
+  get metaAppId() {
+    return process.env.NEXT_PUBLIC_META_APP_ID ?? "";
+  },
+  /** Embedded Signup configuration id (Facebook Login for Business → WhatsApp). */
+  get metaSignupConfigId() {
+    return process.env.NEXT_PUBLIC_META_ES_CONFIG_ID ?? "";
+  },
   /** Hours without a reply before a "no response" reminder fires. */
   get noResponseHours() {
     return Number(process.env.NO_RESPONSE_HOURS ?? 6);
