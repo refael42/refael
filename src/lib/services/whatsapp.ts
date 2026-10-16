@@ -18,6 +18,7 @@ import type { ProjectSession } from "./auth-types";
 import { sendMessage } from "./chat";
 import { submitReport } from "./completion";
 import { directConversation, projectPMs } from "./messaging";
+import { processSource } from "./intel";
 import type { Ctx } from "./tasks";
 
 const WINDOW_MS = 24 * 3600_000 - 10 * 60_000; // Meta's 24h window, with a safety margin
@@ -111,6 +112,8 @@ export interface WaInboundMessage {
   document?: { id: string; caption?: string; mime_type?: string; filename?: string };
   button?: { text: string };
   interactive?: { button_reply?: { title: string }; list_reply?: { title: string } };
+  /** set when the sender forwarded someone else's message */
+  context?: { forwarded?: boolean; frequently_forwarded?: boolean };
 }
 
 export interface InboundDeps {
@@ -139,7 +142,7 @@ export async function handleWebhook(store: Store, payload: WaWebhook, deps: Inbo
   return handled;
 }
 
-type Outcome = "duplicate" | "unknown_number" | "opted_out" | "opted_in" | "no_project" | "staff" | "no_pm" | "chat" | "report" | "unsupported";
+type Outcome = "duplicate" | "unknown_number" | "opted_out" | "opted_in" | "no_project" | "staff" | "forwarded" | "no_pm" | "chat" | "report" | "unsupported";
 
 async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDeps): Promise<Outcome> {
   // Meta retries deliveries: handle each message id once
@@ -179,10 +182,11 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
     await reply(phone, he.wa.noProject);
     return "no_project";
   }
-  // WhatsApp is the contractors' channel; staff use the app
+  // a PM sends or forwards a message to the SiteFlow number: keep it as evidence and read it
   if (ctx.s.role !== "contractor") {
-    await reply(phone, he.wa.staffUseApp);
-    return "staff";
+    const kept = await keepFromStaff(store, profile, m, text, deps, now);
+    await reply(phone, kept ? he.waForward.got : he.wa.staffUseApp);
+    return kept ? "forwarded" : "staff";
   }
   const conversationId = await pmConversation(store, ctx.s.project.id, profile.id);
   if (!conversationId) return "no_pm";
@@ -214,6 +218,73 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
     return "unsupported";
   }
   return "chat";
+}
+
+/**
+ * What a PM sends or forwards to the SiteFlow number goes into one chat of
+ * his project ("הודעות שהעביר בוואטסאפ") and is read into updates for his
+ * approval, like an exported chat. A forwarded message doesn't say who wrote
+ * it — the contractor is found in the text, or chosen when marking it.
+ */
+async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage, text: string, deps: InboundDeps, now: Date): Promise<boolean> {
+  const memberships = await store.select("project_members", { where: { profile_id: profile.id } });
+  const pmOf = memberships.filter((x) => x.role === "pm");
+  if (!pmOf.length) return false;
+  // the project he brought chats into last, else his first one
+  const recent = await store.select("sources", {
+    where: { created_by: profile.id, project_id: { in: pmOf.map((x) => x.project_id) } },
+    order: [["last_import_at", "desc"]],
+    limit: 1,
+  });
+  const projectId = recent[0]?.project_id ?? pmOf[0].project_id;
+  const project = (await store.byId("projects", projectId)) as Project | null;
+  if (!project) return false;
+
+  const caption = (m.image?.caption ?? m.document?.caption ?? "").trim();
+  const media = m.image ?? m.audio ?? m.document;
+  let mediaUrl: string | null = null;
+  if (media) {
+    try {
+      const { bytes, mime } = await deps.client.fetchMedia(media.id);
+      mediaUrl = await deps.saveMedia(project.id, bytes, mime);
+    } catch (err) {
+      console.warn("[whatsapp] forwarded media not saved", (err as Error).message);
+    }
+  }
+  const words = text || caption;
+  if (!words && !mediaUrl) return false;
+
+  const forwarded = !!(m.context?.forwarded || m.context?.frequently_forwarded);
+  const author = forwarded ? he.waForward.forwardedAuthor : profile.full_name;
+  const title = he.waForward.sourceTitle(profile.full_name);
+  let src = await store.first("sources", { where: { project_id: project.id, kind: "manual", title } });
+  if (!src)
+    [src] = await store.insert("sources", {
+      project_id: project.id,
+      kind: "manual",
+      title,
+      is_group: false,
+      speakers: { [profile.full_name]: { profile_id: profile.id }, [he.waForward.forwardedAuthor]: { profile_id: null } },
+      created_by: profile.id,
+    });
+  const ts = Number(m.timestamp);
+  await store.insert("source_items", {
+    project_id: project.id,
+    source_id: src.id,
+    external_id: m.id,
+    sent_at: new Date(Number.isFinite(ts) && ts > 0 ? ts * 1000 : now.getTime()).toISOString(),
+    author,
+    author_profile_id: forwarded ? null : profile.id,
+    kind: m.audio ? "voice" : m.document ? "file" : m.image ? "image" : "text",
+    text: words || null,
+    media_url: mediaUrl,
+    media_name: m.document?.filename ?? null,
+    status: "new",
+  });
+  await store.update("sources", { id: src.id }, { last_import_at: now.toISOString() });
+  const ctx: Ctx = { store, s: { profile, memberships, project, role: "pm", contractorIds: [], isDemo: false }, now };
+  await processSource(ctx, src.id);
+  return true;
 }
 
 /** The contractor's 1:1 chat with a PM: an existing one with any PM, else a new one with the first PM. */
