@@ -27,6 +27,17 @@ export interface MirrorMessage {
   fromBusiness: boolean;
   kind: SourceItemKind;
   text: string;
+  /** an attached photo / voice note / file, fetched only for followed chats */
+  mediaId: string | null;
+  mediaName: string | null;
+  /** from the one-time history (its media are not fetched) */
+  fromHistory: boolean;
+}
+
+export interface MirrorDeps {
+  /** download a media item with the number's own token */
+  fetchMedia(token: string, mediaId: string): Promise<{ bytes: Buffer; mime: string }>;
+  saveMedia(projectId: string, bytes: Buffer, mime: string): Promise<string>;
 }
 
 export interface MirrorBatch {
@@ -69,11 +80,22 @@ function contentOf(m: Raw): { kind: SourceItemKind; text: string } | null {
   }
 }
 
-function toMessage(m: Raw, counterpart: string, fromBusiness: boolean): MirrorMessage | null {
+function toMessage(m: Raw, counterpart: string, fromBusiness: boolean, fromHistory = false): MirrorMessage | null {
   const c = contentOf(m);
   if (!m.id || !counterpart || !c || !c.text) return null;
   const ts = Number(m.timestamp);
-  return { id: m.id, at: new Date(Number.isFinite(ts) && ts > 0 ? ts * 1000 : Date.now()).toISOString(), counterpart, fromBusiness, ...c };
+  const att = (m[m.type ?? ""] ?? {}) as { id?: string; filename?: string };
+  const hasMedia = c.kind !== "text" && typeof att.id === "string";
+  return {
+    id: m.id,
+    at: new Date(Number.isFinite(ts) && ts > 0 ? ts * 1000 : Date.now()).toISOString(),
+    counterpart,
+    fromBusiness,
+    ...c,
+    mediaId: hasMedia ? att.id! : null,
+    mediaName: typeof att.filename === "string" ? att.filename : null,
+    fromHistory,
+  };
 }
 
 /**
@@ -114,7 +136,7 @@ export function splitMirror(payload: WaWebhook, linked: Set<string>): { batches:
             const other = digits(thread.id);
             for (const m of thread.messages ?? []) {
               const mine = (!!m.to && digits(m.to) === other) || (!!own && digits(m.from) === own) || (!!m.from && digits(m.from) !== other);
-              const msg = toMessage(m, other, mine);
+              const msg = toMessage(m, other, mine, true);
               if (msg) b.messages.push(msg);
             }
           }
@@ -147,7 +169,7 @@ function pmCtx(store: Store, owner: Profile, memberships: ProjectSession["member
 }
 
 /** Keep the followed part of one delivery for a mirrored number, then read it into updates. */
-export async function handleMirror(store: Store, batch: MirrorBatch, now = new Date()): Promise<{ kept: number; dropped: number }> {
+export async function handleMirror(store: Store, batch: MirrorBatch, now = new Date(), deps?: MirrorDeps): Promise<{ kept: number; dropped: number }> {
   const link = await store.first("whatsapp_links", { where: { phone_number_id: batch.phoneNumberId } });
   if (!link || link.status !== "connected") return { kept: 0, dropped: batch.messages.length };
   const owner = await store.byId("profiles", link.profile_id);
@@ -189,6 +211,16 @@ export async function handleMirror(store: Store, batch: MirrorBatch, now = new D
 
     const otherName = person?.full_name || contact.name || `+${waId}`;
     const sourceIds = new Set(contact.source_ids ?? []);
+    // photos / voice notes of a followed chat: downloaded once, saved in each project
+    const media = new Map<string, { bytes: Buffer; mime: string }>();
+    if (deps && link.access_token)
+      for (const m of msgs.filter((x) => x.mediaId && !x.fromHistory)) {
+        try {
+          media.set(m.id, await deps.fetchMedia(link.access_token, m.mediaId!));
+        } catch (err) {
+          console.warn("[whatsapp] mirror media not fetched", (err as Error).message);
+        }
+      }
     for (const projectId of projects) {
       const title = `${otherName} · ${he.waMirror.sourceSuffix}`;
       let src = await store.first("sources", { where: { project_id: projectId, kind: "whatsapp_coexistence", title } });
@@ -203,6 +235,9 @@ export async function handleMirror(store: Store, batch: MirrorBatch, now = new D
         });
       sourceIds.add(src.id);
       for (const m of msgs) {
+        if (await store.first("source_items", { where: { source_id: src.id, external_id: m.id } })) continue;
+        const file = media.get(m.id);
+        const mediaUrl = file && deps ? await deps.saveMedia(projectId, file.bytes, file.mime).catch(() => null) : null;
         try {
           await store.insert("source_items", {
             project_id: projectId,
@@ -213,8 +248,8 @@ export async function handleMirror(store: Store, batch: MirrorBatch, now = new D
             author_profile_id: m.fromBusiness ? owner.id : person?.id ?? null,
             kind: m.kind,
             text: m.text.slice(0, 4000),
-            media_url: null,
-            media_name: null,
+            media_url: mediaUrl,
+            media_name: m.mediaId ? m.mediaName ?? m.text : null,
             status: "new",
           });
           kept++;
