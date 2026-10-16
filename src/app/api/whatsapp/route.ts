@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getStore } from "@/lib/db";
 import { serverEnv } from "@/lib/env";
+import { handleMirror, splitMirror } from "@/lib/services/wa-mirror";
 import { handleWebhook, type WaWebhook } from "@/lib/services/whatsapp";
 import { saveBytes } from "@/lib/storage";
 import { getWaClient, validSignature } from "@/lib/whatsapp/client";
@@ -21,14 +22,26 @@ export function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   if (!validSignature(raw, request.headers.get("x-hub-signature-256"))) return new NextResponse("bad signature", { status: 401 });
-  const client = getWaClient();
-  if (!client) return NextResponse.json({ ok: true, skipped: "not configured" });
   let payload: WaWebhook;
   try {
     payload = JSON.parse(raw) as WaWebhook;
   } catch {
     return new NextResponse("bad json", { status: 400 });
   }
-  const handled = await handleWebhook(getStore(), payload, { client, saveMedia: saveBytes });
-  return NextResponse.json({ ok: true, handled });
+  const store = getStore();
+  // a PM's own number (Coexistence): kept only for followed chats, never answered
+  const links = await store.select("whatsapp_links", { where: { status: "connected" } }).catch(() => []);
+  const { batches, rest } = splitMirror(payload, new Set(links.map((l) => l.phone_number_id)));
+  let mirrored = 0;
+  for (const b of batches) {
+    try {
+      mirrored += (await handleMirror(store, b)).kept;
+    } catch (err) {
+      console.error("[whatsapp] mirror failed", b.phoneNumberId, err);
+    }
+  }
+  const client = getWaClient();
+  if (!client) return NextResponse.json({ ok: true, mirrored, skipped: "not configured" });
+  const handled = await handleWebhook(store, rest, { client, saveMedia: saveBytes });
+  return NextResponse.json({ ok: true, handled, mirrored });
 }
