@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { contractorProfileId, DEMO_IDS } from "@/lib/seed/demo";
 import { ctxFor, demoStore, NOW } from "@/test/fixtures";
+import { applyEvent } from "./intel";
 import { connectWhatsapp, myWhatsapp, setWhatsappContact } from "./wa-link";
 import { handleMirror, splitMirror } from "./wa-mirror";
 import type { WaWebhook } from "./whatsapp";
@@ -137,5 +138,38 @@ describe("the PM's own WhatsApp, mirrored", () => {
     await connectWhatsapp(pm, graph, { code: "abc", wabaId: "222222", phoneNumberId: PID });
     expect(calls.filter((c) => c === "history")).toHaveLength(1);
     await expect(connectWhatsapp(await ctxFor("shor", store), graph, { code: "x", wabaId: "222222", phoneNumberId: "333333" })).rejects.toThrow();
+  });
+
+  it("a followed chat's photo is saved and becomes the proof on the 'done, not checked' report", async () => {
+    const { store, pm, yossiWa } = await setup();
+    await store.update("whatsapp_links", { phone_number_id: PID }, { access_token: "tok" });
+    const fetched: string[] = [];
+    const deps = {
+      fetchMedia: async (token: string, id: string) => (fetched.push(`${token}:${id}`), { bytes: Buffer.from("jpg"), mime: "image/jpeg" }),
+      saveMedia: async (projectId: string) => `media/${projectId}/wa-photo.jpg`,
+    };
+    const payload = delivery([
+      {
+        field: "messages",
+        value: {
+          messages: [
+            { id: "p1", from: yossiWa, timestamp: ts(2), type: "text", text: { body: "סיימתי חשמל בדירה 14" } },
+            { id: "p2", from: yossiWa, timestamp: ts(2), type: "image", image: { id: "media-77", caption: "" } },
+            { id: "p3", from: "972501234777", timestamp: ts(2), type: "image", image: { id: "media-stranger" } },
+          ],
+        },
+      },
+    ]);
+    const { batches } = splitMirror(payload, new Set([PID]));
+    await handleMirror(store, batches[0], NOW, deps);
+    // only the followed chat's media is downloaded
+    expect(fetched).toEqual(["tok:media-77"]);
+    const photo = store.data.source_items.find((i) => i.external_id === "p2")!;
+    expect(photo).toMatchObject({ kind: "image", media_url: `media/${pm.s.project.id}/wa-photo.jpg` });
+
+    const done = store.data.project_events.find((e) => e.type === "reported_done" && e.quote?.includes("דירה 14"))!;
+    await applyEvent(pm, done.id);
+    const report = store.data.completion_reports.find((r) => r.status === "pending" && r.note?.includes("דירה 14"))!;
+    expect(report.photo_urls).toEqual([photo.media_url]);
   });
 });

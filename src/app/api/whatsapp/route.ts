@@ -5,6 +5,7 @@ import { handleMirror, splitMirror } from "@/lib/services/wa-mirror";
 import { handleWebhook, type WaWebhook } from "@/lib/services/whatsapp";
 import { saveBytes } from "@/lib/storage";
 import { getWaClient, validSignature } from "@/lib/whatsapp/client";
+import { fetchMirrorMedia } from "@/lib/whatsapp/coexistence";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
   let mirrored = 0;
   for (const b of batches) {
     try {
-      mirrored += (await handleMirror(store, b)).kept;
+      mirrored += (await handleMirror(store, b, new Date(), { fetchMedia: fetchMirrorMedia, saveMedia: saveBytes })).kept;
     } catch (err) {
       console.error("[whatsapp] mirror failed", b.phoneNumberId, err);
     }

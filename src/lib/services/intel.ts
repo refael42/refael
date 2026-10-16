@@ -282,14 +282,16 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
   const tasks = taskIds.length ? await ctx.store.select("tasks", { where: { id: { in: taskIds }, project_id: ctx.s.project.id } }) : [];
 
   switch (e.type as EventType) {
-    case "reported_done":
+    case "reported_done": {
+      // photos the same person sent around that message are the proof for the inspection
+      const photos = item ? await nearbyPhotos(ctx, item) : [];
       for (const t of tasks) {
         if (t.status === "done" || t.status === "awaiting_approval") continue;
         await ctx.store.insert("completion_reports", {
           task_id: t.id,
           contractor_id: t.contractor_id,
           submitted_by: item?.author_profile_id ?? ctx.s.profile.id,
-          photo_urls: [],
+          photo_urls: photos,
           note: e.quote,
           status: "pending",
           message_id: null,
@@ -309,6 +311,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
         changed++;
       }
       break;
+    }
     case "inspected_ok":
       for (const t of tasks) {
         if (t.status === "done") continue;
@@ -389,6 +392,20 @@ export async function decideEvents(ctx: Ctx, input: { apply: string[]; dismiss: 
   for (const id of input.apply) changed += (await applyEvent(ctx, id)).changed;
   for (const id of input.dismiss) await dismissEvent(ctx, id);
   return { changed };
+}
+
+const PHOTO_WINDOW_MS = 2 * 3600_000;
+
+/** Pictures the author of a message sent in the same chat within two hours of it. */
+async function nearbyPhotos(ctx: Ctx, item: SourceItem): Promise<string[]> {
+  if (!item.author) return [];
+  const t0 = Date.parse(item.sent_at);
+  const items = await ctx.store.select("source_items", { where: { source_id: item.source_id, kind: "image" } });
+  return items
+    .filter((i) => i.media_url && i.author === item.author && Math.abs(Date.parse(i.sent_at) - t0) <= PHOTO_WINDOW_MS)
+    .sort((a, b) => a.sent_at.localeCompare(b.sent_at))
+    .map((i) => i.media_url!)
+    .slice(0, 10);
 }
 
 /** Waiting messages per source (for the "read messages" button). */

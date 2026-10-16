@@ -48,3 +48,15 @@ export function cloudCoexGraph(): CoexGraph {
     },
   };
 }
+
+/** A media item of a mirrored number, with that number's token. */
+export async function fetchMirrorMedia(token: string, mediaId: string): Promise<{ bytes: Buffer; mime: string }> {
+  const base = `https://graph.facebook.com/${serverEnv.whatsappApiVersion}`;
+  const auth = { Authorization: `Bearer ${token}` };
+  const meta = await fetch(`${base}/${mediaId}`, { headers: auth, signal: AbortSignal.timeout(8000) });
+  if (!meta.ok) throw new Error(`media ${meta.status}`);
+  const { url, mime_type } = (await meta.json()) as { url: string; mime_type: string };
+  const file = await fetch(url, { headers: auth, signal: AbortSignal.timeout(15000) });
+  if (!file.ok) throw new Error(`media file ${file.status}`);
+  return { bytes: Buffer.from(await file.arrayBuffer()), mime: mime_type };
+}
