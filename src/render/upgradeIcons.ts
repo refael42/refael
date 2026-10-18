@@ -2,7 +2,11 @@ import { EXPAND, UPGRADE_BY_ID } from '../data/upgrades';
 import { LOOKS } from './art/stationArt';
 import type { SpriteName } from './sprites';
 
-/** Which sprite stands for each upgrade in menus; looked items show their current look. */
+/**
+ * Which sprite stands for each upgrade in menus; looked items show their current look. Every
+ * upgrade needs a line here (tests/upgradeIcons.test.ts): a missing one fell back to a table,
+ * which is how the salad and pad thai recipes showed a table for a while.
+ */
 const ICON: Record<string, { base: string; looks: boolean }> = {
   fries: { base: 'plateFries', looks: true },
   burger: { base: 'plateBurger', looks: true },
@@ -18,6 +22,8 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   steak: { base: 'plateSteak', looks: true },
   cake: { base: 'plateCake', looks: true },
   lobster: { base: 'plateLobster', looks: true },
+  salad: { base: 'plateSalad', looks: true },
+  padThai: { base: 'platePadThai', looks: true },
   stove: { base: 'stove', looks: true },
   stove2: { base: 'stove0', looks: false },
   fridge: { base: 'fridge', looks: true },
