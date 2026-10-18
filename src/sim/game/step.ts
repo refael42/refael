@@ -17,7 +17,7 @@ import { applyCommands } from './commands';
 import { updateConstruction } from './construction';
 import { finishWork, UPGRADE_QUIET } from './purchase';
 import { updateWorks } from './works';
-import { updateArrivals, updateCustomers } from './customers';
+import { dishSpot, updateArrivals, updateCustomers } from './customers';
 import { emit, Ev, packEvents, pruneEvents } from './events';
 import { anchorPoints, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
@@ -91,6 +91,8 @@ function prop(id: number, kind: PropView['kind'], x: number, y: number, extra: P
 
 /** Ids for synthetic props (tickets, plate stacks) that must not collide with entity ids. */
 const SYNTH = 1_000_000;
+/** Plates stand this many px up on a table (src/render/draw/drawProp.ts drawTable). */
+const TABLE_TOP = 17;
 
 function dynamicProps(s: GameState): PropView[] {
   const out: PropView[] = [];
@@ -120,6 +122,15 @@ function dynamicProps(s: GameState): PropView[] {
     // same plates and looks (each draws the plates on its own tile; `bubble` = how many tiles back).
     t.backIds.forEach((id, k) => out.push(prop(id, k === t.backIds.length - 1 ? PropKind.TableBack : PropKind.TableMid, t.x, t.y - 1 - k, { ...look, bubble: k + 1 })));
   }
+  // A dessert being eaten, on the table in front of its guest (M45).
+  for (const c of s.customers) {
+    if (c.dessertPhase !== 'eat' || c.table < 0 || c.dessert === undefined) continue;
+    const p = dishSpot(s.tables[c.table]!, c.seat);
+    out.push(prop(SYNTH * 4 + c.id, PropKind.Dessert, p.x, p.y, { variant: c.dessert, lift: TABLE_TOP, depthBias: 1 }));
+  }
+  // The host's menu stand by the door, a step in front of the host's place.
+  const host = s.map.hostSpot;
+  out.push(prop(SYNTH - 61, PropKind.MenuStand, host.x - 0.05, host.y + 0.85, { active: s.staff.some((st) => st.role === 'host' && !st.leaving) }));
   const rail = s.map.ticketRail;
   let ticket = 0;
   for (const o of s.orders) {

@@ -19,6 +19,7 @@ import { updateChecker } from './checker';
 import { freeDeliverySlot, packersOn, packingProgress, parking, postOf, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
 import { counterBefore, readyDrink, updateBartender, updateDrinkRun } from './bar';
+import { readyDessert, updateDessertRun } from './desserts';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
 import { careTable, updateCare } from './care';
 
@@ -385,6 +386,14 @@ function findJob(s: GameState, st: Staff): void {
       return;
     }
   }
+  // A dessert asked for: plated at the pass and brought to the table (owner M45).
+  const dessert = readyDessert(s);
+  if (dessert && !nearerFree(s, st, s.map.pickupSpots[0]!)) {
+    dessert.waiter = st.id;
+    st.path = [];
+    setJob(st, { kind: 'dessert', order: dessert.id, phase: 'toPass' });
+    return;
+  }
   const dirty = s.tables.find((t) => t.state === TableState.Dirty && t.waiter < 0);
   if (dirty) {
     dirty.waiter = st.id;
@@ -543,7 +552,7 @@ function updateRunner(s: GameState, st: Staff, dt: number): boolean {
     const d = s.drinks.find((x) => x.id === job.drink);
     if (d && d.waiter === st.id && d.state === OrderState.Ready) d.waiter = -1;
     release(st);
-  }
+  } else if (job.kind === 'dessert' && !updateDessertRun(s, st, dt, (to) => walkTo(s, st, to, dt), besideTable)) release(st);
   return true;
 }
 

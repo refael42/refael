@@ -324,6 +324,14 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     spr(c, A, base, 0, 0, body);
     // Where ready drinks wait for the waiters: a rubber mat.
     if (variant >= 10) spr(c, A, S.barMat, 0, 0, plain);
+  } else if (kind === PropKind.Dessert) {
+    // A dessert on its small plate, set down with a little bounce.
+    const plate = A.L.dessertPlate[variant];
+    if (plate !== undefined) spr(c, A, plate, 0, 0, plain);
+  } else if (kind === PropKind.MenuStand) {
+    // The host's stand; with a host at work its little lamp glows.
+    spr(c, A, S.menuStand, 0, 0, plain);
+    if (active) sprFade(c, A, S.glowHalo, -6, -37, 0.35, 0.35 + Math.sin(t * 2 + seed) * 0.1);
   } else if (kind === PropKind.Drink) {
     // On the bar's pass it pops in, bobs and sparkles until a waiter takes it; in front of a guest at the bar it stands still.
     const age = t - d[o + PF.since]!;

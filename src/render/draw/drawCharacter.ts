@@ -140,6 +140,12 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
       // Leaning in for each bite.
       lean = raise * 2.5;
       headY = raise * 0.8;
+    } else if (held === Held.MenuOpen || held === Held.DessertMenu) {
+      // Reading the menu: head down over it, eyes moving along the lines.
+      headY = 1.1;
+      headX = Math.sin(t * 1.8 + phase) * 0.7;
+      armUpLift = 1.5;
+      lean = 1.2;
     } else if (held === Held.Phone) {
       // Head down over the phone, a thumb tapping away.
       headY = 1.3;
@@ -430,6 +436,14 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     } else if (held === Held.Clipboard || held === Held.Flyers || held === Held.Bag || held === Held.FoodBox || held === Held.FoodDrink) {
       // Held low against the chest, not in front of the face like a phone.
       spr(c, A, L.held[held]!, hx, hy + 9, P.plain);
+    } else if (held === Held.MenuOpen) {
+      // The open menu, held up in front; every few seconds a page turns (it narrows and widens).
+      const turn = fract(t * 0.32 + phase);
+      const k = turn > 0.9 ? 0.55 + Math.abs(Math.cos(((turn - 0.9) / 0.1) * Math.PI)) * 0.45 : 1;
+      sprXf(c, A, L.held[held]!, hx, hy + 4, 0, k, 1, P.plain);
+    } else if (held === Held.DessertPlate) {
+      // A dessert carried carefully in front, level.
+      spr(c, A, L.held[held]!, hx, hy + 3, P.plain);
     } else {
       spr(c, A, L.held[held]!, hx, hy, P.plain);
     }

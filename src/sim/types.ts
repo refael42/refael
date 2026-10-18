@@ -46,6 +46,8 @@ export const Held = {
   Basket: 15, Wok: 16, Knife: 17, Bowl: 18, Ladle: 19, Peel: 20, Tweezers: 21,
   /** The guide's inspector writing a few words (their tell on a rumor day). */
   Notebook: 22,
+  /** A guest reading the menu open (M45), the small dessert menu, a waiter carrying a dessert. */
+  MenuOpen: 23, DessertMenu: 24, DessertPlate: 25,
   /** A plated dish on its way to the pass: `PlateBase + dish`. */
   PlateBase: 30,
 } as const;
@@ -165,6 +167,10 @@ export const PropKind = {
    */
   WcStall: 55,
   WcSink: 56,
+  /** A dessert on a table in front of its guest (variant: the dessert, src/data/desserts.ts). */
+  Dessert: 57,
+  /** The host's menu stand by the door (M45). */
+  MenuStand: 58,
 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
@@ -174,7 +180,8 @@ export const EntityType = { Character: 1, Prop: 2 } as const;
  * Persistent icon bubbles (not timed like emotes): what a customer wants, or what a prop needs.
  * Dish bubbles are `DishBase + dish id`.
  */
-export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, Cv: 4, Raise: 5, DishBase: 10, DrinkBase: 40 } as const;
+/** `DessertBase + n`: a guest waiting for dessert n (src/data/desserts.ts). */
+export const Bubble = { None: 0, Seat: 1, Clean: 2, NoPlates: 3, Cv: 4, Raise: 5, DishBase: 10, DrinkBase: 40, DessertBase: 60 } as const;
 
 /** What the renderer needs to draw a character, whatever system drives it. */
 export interface CharacterView {

@@ -3,6 +3,8 @@ import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, typ
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { GUIDE } from '../../data/guide';
+import { DESSERT } from '../../data/desserts';
+import { chooseDessert, dessertShare, wantsDessert } from './desserts';
 import { gainXp as chefXp } from '../chef';
 import { ECONOMY } from '../../data/economy';
 import { ANIM } from '../../data/customers';
@@ -418,7 +420,8 @@ function pay(s: GameState, c: Customer): void {
   // So do the festival trophies, and tourists on holiday pay more.
   // The guide's stars too: people come for them and pay for them.
   const extra = festivalBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s);
-  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra).floor();
+  // A dessert eaten is on the bill too (a share of the main course, src/data/desserts.ts).
+  const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra * (1 + dessertShare(c))).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
   s.stats.bestCombo = Math.max(s.stats.bestCombo, s.combo);
   s.lastPayTime = s.time;
@@ -472,6 +475,9 @@ function followLeader(s: GameState, c: Customer, dt: number): void {
   }
 }
 
+/** Seconds after taking the menu that it comes open in their hands. */
+const MENU_OPENS = 0.45;
+
 /** They read the menu: the order goes to the kitchen, its picture over their head, and the wait starts. */
 function orderMeal(s: GameState, c: Customer): void {
   c.dish = c.inspector
@@ -513,6 +519,7 @@ function updateBarDiner(s: GameState, c: Customer, dt: number): void {
       }
       break;
     case CustomerState.Reading:
+      if (c.held === Held.Menu && c.stateTime >= MENU_OPENS) c.held = Held.MenuOpen;
       if (c.stateTime >= ECONOMY.readMenuSeconds) {
         orderMeal(s, c);
         maybeBarDrink(s, c);
@@ -552,6 +559,39 @@ function updateBarDiner(s: GameState, c: Customer, dt: number): void {
     }
     default:
       break;
+  }
+}
+
+/** The dessert: reading the small menu, waiting for it (patiently: they skip it if it never comes), eating it, then the bill. */
+function updateDessertGuest(s: GameState, c: Customer, dt: number): void {
+  if (c.dessertPhase === 'menu') {
+    if (c.stateTime < DESSERT.readSeconds) return;
+    c.dessert = chooseDessert(s, c);
+    s.desserts.push({ id: s.nextId++, customer: c.id, dessert: c.dessert, waiter: -1 });
+    c.held = Held.None;
+    c.bubble = Bubble.DessertBase + c.dessert;
+    startWait(c, DESSERT.patience * s.mods.patience);
+    c.dessertPhase = 'wait';
+    c.stateTime = 0;
+    return;
+  }
+  if (c.dessertPhase === 'wait') {
+    drainPatience(c, dt);
+    if (c.patienceLeft > 0) return;
+    // It never came: no dessert, and the bill (the wait counts against the service).
+    s.desserts = s.desserts.filter((d) => d.customer !== c.id);
+    endWait(c);
+    c.bubble = Bubble.None;
+    c.dessertPhase = undefined;
+    pay(s, c);
+    return;
+  }
+  // Eating it; when the patience bar was on, the wait counted once it came.
+  if (c.patience >= 0) endWait(c);
+  if (c.stateTime >= DESSERT.eatSeconds) {
+    c.dessertServed = true;
+    c.dessertPhase = undefined;
+    pay(s, c);
   }
 }
 
@@ -622,6 +662,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           c.held = Held.Menu;
           c.stateTime = 0;
         }
+        // Owner M45: the menu comes open in their hands after a moment; they read, then choose.
+        if (c.held === Held.Menu && c.stateTime >= MENU_OPENS) c.held = Held.MenuOpen;
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
           orderMeal(s, c);
           maybeOrderDrink(s, c);
@@ -641,7 +683,17 @@ export function updateCustomers(s: GameState, dt: number): void {
         break;
       }
       case CustomerState.Eating:
-        if (c.stateTime >= dishDef(c.dish).eatSeconds) pay(s, c);
+        if (c.dessertPhase) updateDessertGuest(s, c, dt);
+        else if (c.stateTime >= dishDef(c.dish).eatSeconds) {
+          // Done with the main course: the dessert menu, sometimes (owner M45).
+          if (wantsDessert(s, c)) {
+            c.dessertPhase = 'menu';
+            c.held = Held.DessertMenu;
+            c.expression = Expression.Happy;
+            c.stateTime = 0;
+            setPose(c, Pose.Sit);
+          } else pay(s, c);
+        }
         break;
       case CustomerState.Paying: {
         // Friends leave together, once everyone at the table has paid.

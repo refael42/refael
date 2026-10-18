@@ -13,6 +13,7 @@ import type { CharacterView, Facing, PropKind, PropView } from '../types';
 import type { Station } from '../../data/kitchen';
 import type { GuideState } from './guide';
 import type { ChefState } from '../chef';
+import type { DessertOrder } from './desserts';
 import type { BulkStep } from '../../data/works';
 import type { TableStyle } from '../../data/tables';
 
@@ -74,6 +75,10 @@ export interface Customer extends CharacterView {
   barMeal?: boolean;
   barDish?: number;
   barDone?: boolean;
+  /** Dessert (M45, src/sim/game/desserts.ts): which (an index in DESSERTS), where they are with it, whether it came. */
+  dessert?: number;
+  dessertPhase?: 'menu' | 'wait' | 'eat';
+  dessertServed?: boolean;
   /** Their drink order (-1 none), how many rounds they have had at the bar, and the drink in front of them there (-1 none). */
   drinkOrder: number;
   rounds: number;
@@ -197,6 +202,8 @@ export type Command =
   | { type: 'attend'; customer: number }
   /** The player saw a chef level's card (src/sim/chef.ts). */
   | { type: 'chefSeen'; level: number }
+  /** Bring a waiting guest their dessert at once (a tap on them). */
+  | { type: 'dessert'; customer: number }
   /** Rush hour: on while the button is held down. */
   | { type: 'rush'; on: boolean }
   /** Close to new guests (the ones inside finish) or open again. */
@@ -307,6 +314,7 @@ export type Job =
   | { kind: 'mix'; drink: number; phase: 'toStation' | 'mixing' | 'toPass' | 'place' | 'hand' }
   /** A waiter takes a drink from the bar's pass to the table. */
   | { kind: 'drinkRun'; drink: number; phase: 'toBar' | 'handoff' | 'toTable' | 'serve' }
+  | { kind: 'dessert'; order: number; phase: 'toPass' | 'plate' | 'toTable' | 'serve' }
   /** A packer takes a delivery off the pass, packs it at the counter, leaves it on the window shelf. */
   | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toFridge' | 'fridge' | 'toTable' | 'packing' }
   /** A cleaner (or, with none on the team, a waiter) mops the restroom (owner M36). */
@@ -535,6 +543,8 @@ export interface GameState {
   /** The chef's level and experience (src/sim/chef.ts): the player's, kept across branches. */
   chef: ChefState;
   notices: Notice[];
+  /** Desserts asked for and not brought yet (not saved: a new session starts with none). */
+  desserts: DessertOrder[];
   nextNoticeId: number;
   /** The next building tier going up (closed meanwhile), or null. */
   construction: Construction | null;

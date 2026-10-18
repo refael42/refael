@@ -14,6 +14,8 @@ import { deliverySprites, SCOOTER_COLORS } from './art/deliveryArt';
 import { CAR_COLORS, parkSprites, STALL_COLORS } from './art/parkArt';
 import { FESTIVAL_THEMES } from '../data/events';
 import { fxSprites } from './art/fxArt';
+import { dessertSprites } from './art/dessertArt';
+import { DESSERTS } from '../data/desserts';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
 import { LOCK_BOARDS, propSprites } from './art/propArt';
 import { LOOKS, stationSprites } from './art/stationArt';
@@ -25,7 +27,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -64,7 +66,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -128,8 +130,8 @@ export const LAYERS = {
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
   held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld'],
-    [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers'], [Held.Notebook, 'notebook']]),
-  bubble: byEnum(Bubble.DrinkBase + DRINK_SPRITES.length, [
+    [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers'], [Held.Notebook, 'notebook'], [Held.MenuOpen, 'menuOpen'], [Held.DessertMenu, 'dessertMenu'], [Held.DessertPlate, 'dessertHeld']]),
+  bubble: byEnum(Bubble.DessertBase + DESSERTS.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],
     [Bubble.NoPlates, 'noPlates'],
@@ -137,6 +139,7 @@ export const LAYERS = {
     [Bubble.Raise, 'raise'],
     ...DISH_ICONS.map((name, i) => [Bubble.DishBase + i, name] as const),
     ...DRINK_SPRITES.map((name, i) => [Bubble.DrinkBase + i, name] as const),
+    ...DESSERTS.map((d, i) => [Bubble.DessertBase + i, `dessert_${d.id}`] as const),
   ]),
   /** Each drink (src/data/bar.ts order). */
   drink: DRINK_SPRITES.map((name) => INDEX[name]!),
@@ -160,6 +163,8 @@ export const LAYERS = {
   station: STATION_SPRITES.map((name) => looks(name)),
   prep: [...Array.from({ length: PREP_KINDS }, (_, i) => INDEX[`prep${i}`]!), ...Array.from({ length: BACK_KINDS }, (_, i) => INDEX[`back${i}`]!)],
   plaque: [0, 1, 2, 3].map((i) => INDEX[`guidePlaque${i}`]!),
+  /** A dessert on its small plate, by dessert (src/data/desserts.ts order). */
+  dessertPlate: DESSERTS.map((d) => INDEX[`dessertPlate_${d.id}`]!),
   /** The delivery hub's pieces (src/data/delivery.ts HubPiece order). */
   hub: HUB_SPRITES.map((name) => INDEX[name]!),
   hubRow: SCREEN_ROWS.map((_, i) => INDEX[`hubRow${i}`]!),

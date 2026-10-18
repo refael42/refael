@@ -563,6 +563,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     day: setup.day ?? 1,
     dayTime: 0,
     notices: [],
+    desserts: [],
     nextNoticeId: 1,
     construction: null,
     closed: false,
