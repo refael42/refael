@@ -73,6 +73,9 @@ export function spriteDef(name: SpriteName): SpriteDef {
 }
 
 const INDEX = Object.fromEntries(Object.keys(ALL).map((name, i) => [name, i])) as Record<string, number>;
+
+/** Every sprite's name (the browser's art review lists them; index.web.ts). */
+export const spriteNames = (): string[] => Object.keys(ALL);
 /** Sprite name -> atlas index. Worklets use these plain numbers. */
 export const S = INDEX as Record<SpriteName, number>;
 

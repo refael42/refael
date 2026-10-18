@@ -8,4 +8,12 @@ document.body.style.backgroundColor = '#2A1230';
 LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(async () => {
   const { default: App } = await import('./src/App');
   registerRootComponent(App);
+  // Browser only, never in the store build: the art review scripts render any sprite to a PNG
+  // (`__spriteIcon('plateSalad2', 128)`), to look at every dish, prop and look side by side.
+  const { STORE_BUILD } = await import('./src/config');
+  if (!STORE_BUILD) {
+    const { spriteIcon } = await import('./src/render/icons');
+    const { spriteNames } = await import('./src/render/sprites');
+    Object.assign(globalThis, { __spriteIcon: spriteIcon, __spriteNames: spriteNames });
+  }
 });

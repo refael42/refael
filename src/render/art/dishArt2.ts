@@ -106,21 +106,43 @@ const cakePlates = looks('plateCake', [-14, -32, 14, 6], (c, t) => {
 
 const lobsterPlates = looks('plateLobster', [-18, -20, 18, 6], (c, t) => {
   const [x, y] = P(0, 0, plateBase(c, t));
-  // A red lobster on a bed of greens, two claws, lemon; caviar and gold from the later looks.
-  blob(c, ellipse(x, y - 1.5, 9, 3.2), '#5FA84A');
+  // A whole red lobster lying across the plate (owner: the old one read as a red centipede on a
+  // pile of lettuce): a curled tail ending in a fan, the shell, two big claws in front, long
+  // feelers swept back. A few leaves under it, lemon from the second look, caviar and gold later.
   const red = '#D8402A';
-  for (let i = 0; i < 4; i++) blob(c, ellipse(x - 4 + i * 2.6, y - 3.5 - i * 0.6, 2.2, 1.6), i % 2 ? red : darken(red, 0.1));
-  blob(c, [[x + 5, y - 6.5], [x + 9, y - 7.5], [x + 10, y - 4.5], [x + 7, y - 4]], red, 0.8);
-  for (const [cx, cy] of [[-7, -7.5], [-5, -9.5]] as const) {
-    blob(c, [[x + cx, y + cy], [x + cx - 3, y + cy - 2], [x + cx - 2.5, y + cy + 0.5], [x + cx + 1, y + cy + 2]], red, 0.8);
+  const shell = '#B9301C';
+  for (const [dx, dy] of [[-3, 0.6], [4, 0.4], [0.6, 1.2]] as const) blob(c, ellipse(x + dx, y + dy, 2.4, 1), '#5FA84A');
+  // Feelers first (behind everything).
+  for (const [ex, ey] of [[3, -12.5], [6, -11]] as const) {
+    c.drawPath(path.smooth([[x - 6, y - 5], [x - 3, y - 9.5], [x + ex, y + ey]], false), stroke('#9A2A16', 0.5));
   }
-  for (const [dx, dy] of [[1, -9], [3, -8.5]] as const) c.drawLine(x + dx, y + dy + 3, x + dx + 3, y + dy - 2, stroke('#B5321E', 0.5));
+  // The tail: segments shrinking toward the fan.
+  const segs: [number, number, number][] = [[1, -3.3, 2.5], [3.6, -3.9, 2.2], [5.8, -4.4, 1.9], [7.7, -4.8, 1.6]];
+  for (const [dx, dy, r] of segs) blob(c, ellipse(x + dx, y + dy, r, r * 0.7), red, 0.95);
+  for (const [dx, dy, r] of segs) c.drawPath(path.polyline([[x + dx - r * 0.5, y + dy - r * 0.55], [x + dx + r * 0.1, y + dy + r * 0.6]]), stroke(shell, 0.45));
+  blob(c, [[x + 8.8, y - 5], [x + 11.4, y - 7.2], [x + 12.2, y - 5.3], [x + 11.6, y - 3.4], [x + 9, y - 4.2]], red, 0.7);
+  c.drawPath(path.polyline([[x + 9.2, y - 4.7], [x + 11.8, y - 5.3]]), stroke(shell, 0.4));
+  // The shell and the head, with its eyes.
+  blob(c, ellipse(x - 2.4, y - 3.3, 3.5, 2.3), shell);
+  c.drawPath(path.smooth(ellipse(x - 2.9, y - 4, 1.9, 0.8), true, 1), fill(lighten(red, 0.35), 0.8));
+  blob(c, ellipse(x - 5.6, y - 3.8, 1.9, 1.4), red);
+  for (const [dx, dy] of [[-6.4, -5], [-5.2, -5.3]] as const) c.drawCircle(x + dx, y + dy, 0.45, fill('#1A1A22'));
+  // Little legs under the shell.
+  for (let i = 0; i < 3; i++) c.drawLine(x - 3.4 + i * 1.5, y - 1.4, x - 4.2 + i * 1.5, y - 0.1, stroke('#9A2A16', 0.5));
+  // Two big claws reaching forward, the near one bigger, each with its pincer cut.
+  const claw = (ax: number, ay: number, cx: number, cy: number, r: number) => {
+    c.drawPath(path.polyline([[x + ax, y + ay], [x + cx + r * 0.6, y + cy - r * 0.2]]), stroke(shell, 1.1));
+    blob(c, ellipse(x + cx, y + cy, r, r * 0.62), red, 0.95);
+    c.drawPath(path.polyline([[x + cx - r * 1.05, y + cy - r * 0.05], [x + cx - r * 0.1, y + cy + r * 0.05]]), stroke(EDGE, 0.55));
+  };
+  claw(-6.4, -3.4, -10, -5.6, 2.3);
+  claw(-6, -2.6, -9.2, -1.2, 2.7);
   if (t >= 1) {
-    c.drawPath(path.smooth(ellipse(x + 8, y + 0.5, 2, 1.2), true, 1), fill('#F6D84A'));
-    c.drawPath(path.smooth(ellipse(x + 8, y + 0.3, 1.4, 0.8), true, 1), fill('#FFF2A0'));
+    c.drawPath(path.smooth(ellipse(x + 7, y + 0.6, 2, 1.2), true, 1), fill('#F6D84A'));
+    c.drawPath(path.smooth(ellipse(x + 7, y + 0.4, 1.4, 0.8), true, 1), fill('#FFF2A0'));
   }
-  if (t >= 2) for (const [dx, dy] of [[-8, 0], [-7, 0.6], [-6.2, -0.2]] as const) c.drawCircle(x + dx, y + dy, 0.6, fill('#1A1A22'));
-  if (t === 3) c.drawPath(path.polyline([[x - 3, y - 6.5], [x + 3, y - 7.5]]), stroke(GOLD, 0.9));
+  if (t >= 2) for (const [dx, dy] of [[-1, 1.2], [0, 1.6], [0.9, 1.1]] as const) c.drawCircle(x + dx, y + dy, 0.6, fill('#1A1A22'));
+  if (t === 3) c.drawPath(path.polyline([[x - 4, y - 5.6], [x + 0.5, y - 6.2]]), stroke(GOLD, 0.9));
 });
 
 // ---------- icons (order bubbles, tickets) ----------
@@ -160,9 +182,15 @@ const iconCake = sprite(ICON, (c) => {
 });
 
 const iconLobster = sprite(ICON, (c) => {
-  glossy(c, path.smooth([[-2, -6], [2, -6], [3, 0], [1.6, 6], [-1.6, 6], [-3, 0]], true, 0.9), '#D8402A');
-  for (const s of [-1, 1]) glossy(c, path.smooth([[s * 3, -3], [s * 7.5, -7], [s * 8, -3], [s * 4.5, -1]], true, 0.8), '#E2502E');
-  for (const y of [-1, 2]) c.drawLine(-2.6, y, 2.6, y, stroke('#9A2A16', 0.7));
+  // Seen from above: feelers, two claws, the shell, a segmented tail and its fan.
+  for (const s of [-1, 1]) c.drawPath(path.smooth([[s * 1, -5.5], [s * 3.5, -8.5], [s * 7, -8.8]], false), stroke(EDGE, 0.7));
+  glossy(c, path.smooth([[-2.6, -5.5], [2.6, -5.5], [3, 1], [1.8, 5.6], [-1.8, 5.6], [-3, 1]], true, 0.9), '#D8402A');
+  // The claws: an arm out to a big pincer, its two jaws split by a notch.
+  for (const s of [-1, 1]) glossy(c, path.smooth([[s * 2.6, -3], [s * 4.6, -5.4], [s * 4.8, -8.6], [s * 7.4, -8.6], [s * 8.4, -5], [s * 5.8, -1.4]], true, 0.85), '#E2502E');
+  for (const s of [-1, 1]) c.drawPath(path.polyline([[s * 6.1, -8.8], [s * 6.3, -5.8]]), stroke(EDGE, 0.9));
+  glossy(c, path.smooth([[0, 5], [3.4, 8.6], [0, 7.6], [-3.4, 8.6]], true, 0.6), '#E2502E');
+  for (const y of [0.5, 2.6, 4.4]) c.drawLine(-2.4, y, 2.4, y, stroke('#9A2A16', 0.7));
+  for (const s of [-1, 1]) c.drawCircle(s * 1.2, -4.2, 0.6, fill('#1A1A22'));
 });
 
 
