@@ -12,7 +12,7 @@
 - **מחיקה:** מחיקת המשחק מוחקת את כל המידע שלו מהמכשיר. אפשר גם למחוק את ההתקדמות מתוך ההגדרות במשחק.
 - **ילדים:** המשחק לא אוסף מידע מאף אחד, כולל ילדים.
 - **שינויים:** אם המדיניות תשתנה, הגרסה החדשה תופיע בעמוד הזה עם תאריך עדכון.
-- **יצירת קשר:** [כתובת מייל לתמיכה]
+- **יצירת קשר:** cheftycoon.support@gmail.com
 
 ---
 
@@ -30,4 +30,4 @@
 - **Deletion:** deleting the game deletes all of its data from your device. You can also erase your progress from the game's settings.
 - **Children:** the game collects no data from anyone, children included.
 - **Changes:** if this policy changes, the new version will appear on this page with its date.
-- **Contact:** [כתובת מייל לתמיכה]
+- **Contact:** cheftycoon.support@gmail.com

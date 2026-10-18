@@ -10,7 +10,7 @@
 2. **מזהה האפליקציה** (bundle id): `com.refael.cheftycoon`. **אחרי ההעלאה הראשונה אי אפשר לשנות אותו.**
 3. **אייפד:** כן (`supportsTablet: true` ב-`app.json`).
 4. **חנויות:** Google Play ו-App Store ביחד.
-5. **מייל לתמיכה** — עוד חסר. פותחים מייל Gmail חדש רק למשחק (עם אימות דו-שלבי) ושולחים לי אותו; אני מכניס אותו ל-`src/data/contact.ts` ולמדיניות הפרטיות. אותו מייל ממלאים בחנויות.
+5. **מייל לתמיכה:** `cheftycoon.support@gmail.com` (במסך הפרטיות במשחק, ב-`src/data/contact.ts` ובמדיניות הפרטיות). אותו מייל ממלאים בחנויות, ואפשר לפתוח איתו גם את חשבונות המפתח.
 
 ## שלב 1 — חשבונות מפתח (פעם אחת)
 1. **Apple:** הכי קל מהאייפון: מורידים את האפליקציה **Apple Developer** ← Account ← Enroll Now (או באתר developer.apple.com). נרשמים כ-**Individual** (אדם פרטי; השם שלך יופיע בחנות כמוכר). צריך Apple ID עם אימות דו-שלבי ותעודה מזהה. 99$ לשנה. האישור לוקח בין שעה לכמה ימים.
@@ -70,7 +70,7 @@ eas update:configure
 - אייקון: Apple לוקחת אותו מהאפליקציה עצמה; ל-Google מעלים את `store/screenshots/google/icon-512.png`.
 - תמונת נושא ל-Google: `store/screenshots/google/feature-1024x500.png`.
 - שאלונים (פרטיות, גיל, בטיחות נתונים): התשובות ב-`store/questionnaires.md`.
-- **Apple:** Support URL ו-Privacy Policy URL = הקישור משלב 4. מייל ליצירת קשר: המייל משלב 0.
+- **Apple:** Support URL ו-Privacy Policy URL = הקישור משלב 4. מייל ליצירת קשר: `cheftycoon.support@gmail.com`.
 - **Google:** Store settings ← Contact details ← אותו מייל.
 
 ## שלב 8 — בנייה לחנות ושליחה
