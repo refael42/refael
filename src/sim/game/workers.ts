@@ -127,9 +127,10 @@ function payday(s: GameState): void {
       emote(st, Emote.Anger);
     }
   }
-  for (const gossip of team.filter((st) => has(st, 'gossip'))) {
-    for (const st of team) if (st !== gossip) st.morale += m.gossip;
-  }
+  // Gossip wears the others down, but a second gossip does not double it: stacked, a big team's
+  // three or four gossips outweighed the day's pay and people quit nonstop (balance run, M39).
+  const gossips = team.filter((st) => has(st, 'gossip'));
+  for (const st of team) if (gossips.some((g) => g !== st)) st.morale += m.gossip;
   for (const st of team) {
     st.morale = clamp01(st.morale);
     // A hero never leaves (they were paid for) and never asks for more.

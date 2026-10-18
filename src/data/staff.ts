@@ -115,6 +115,7 @@ export const STAFF = {
     scold: -0.15,
     raiseYes: 0.2,
     raiseNo: -0.2,
+    /** Everyone hears it once a payday, however many gossips there are (src/sim/game/workers.ts). */
     gossip: -0.04,
     quit: 0.12,
     unpaidDaysToQuit: 2,
