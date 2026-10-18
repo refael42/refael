@@ -53,7 +53,7 @@ eas update:configure
 (זה מפרסם את הקובץ לכולם — לכן זה שלב שלך. GitHub Pages בחינם עובד רק כשהמאגר ציבורי; אם הוא פרטי, אפשר להדביק את הטקסט של `store/privacy-policy.md` בעמוד חינמי של Google Sites.)
 
 ## שלב 5 — יצירת האפליקציה בחנויות
-- **App Store Connect** (appstoreconnect.apple.com) ← My Apps ← ➕ ← New App: פלטפורמה iOS, שם, שפה ראשית (עברית או אנגלית), Bundle ID (בוחרים את המזהה מהשלב הראשון), SKU (כל מילה, למשל `cheftycoon1`).
+- **App Store Connect** (appstoreconnect.apple.com) ← My Apps ← ➕ ← New App: פלטפורמה iOS, שם, שפה ראשית (עברית או אנגלית), Bundle ID `com.refael.cheftycoon`, SKU (כל מילה, למשל `cheftycoon1`). **המזהה מופיע ברשימה רק אחרי הבנייה הראשונה לאייפון** (`eas build` רושם אותו לבד), לכן באפל עושים קודם את הבנייה משלב 8 ואז את זה.
 - **Google Play Console** ← Create app: שם, שפה, Game, Free.
 
 ## שלב 5א — חוזה תשלומים (חובה לקניות)
