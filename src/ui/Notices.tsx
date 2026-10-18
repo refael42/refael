@@ -7,7 +7,6 @@ import { formatBig } from '../sim/format';
 import type { Command, GameState, Notice } from '../sim/game/types';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
-import { IconText } from './GameIcon';
 
 interface Item {
   notice: Notice;
@@ -19,7 +18,8 @@ interface Item {
 function read(s: GameState): Item[] {
   return s.notices
     // The guide's edition has its own big card (src/ui/Guide.tsx GuideEdition).
-    .filter((n) => n.kind !== 'guide' && (n.kind !== 'payday' || n.unpaid > 0))
+    // The guide's edition and the inspector's notebook have their own cards (src/ui/GuideCards.tsx).
+    .filter((n) => n.kind !== 'guide' && n.kind !== 'inspector' && (n.kind !== 'payday' || n.unpaid > 0))
     .map((n) => {
       const st = 'staff' in n ? s.staff.find((x) => x.id === n.staff) : undefined;
       return {
@@ -72,12 +72,6 @@ export function Notices({ gameRef, onCommand }: { gameRef: { current: GameState 
             <>
               <Text style={styles.text}>{t('ui.quitNotice')}</Text>
               <Text style={styles.text}>{t(n.unpaid ? 'ui.unpaidReason' : 'ui.moraleReason')}</Text>
-            </>
-          )}
-          {n.kind === 'inspector' && (
-            <>
-              <IconText icon="hudBook" size={16} textStyle={styles.name}>{t('guide.revealed')}</IconText>
-              <Text style={styles.text}>{`"${t(n.verdict)}"`}</Text>
             </>
           )}
           {n.kind === 'payday' && (

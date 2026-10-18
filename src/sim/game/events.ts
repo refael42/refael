@@ -102,6 +102,8 @@ export const Ev = {
   Inspector: 51,
   /** A new edition of the guide is out. a = stars, b = stars won (+) or lost (-), c = 1 if recommended */
   Guide: 52,
+  /** The head chef came out for this guest (a rumor day's pick). a = 1 if it is the inspector. */
+  Attention: 53,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

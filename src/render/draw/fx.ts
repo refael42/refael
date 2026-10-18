@@ -217,6 +217,11 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       // The inspector says who they were: their red book pops up, a ring of confetti.
       spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
       for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.2, wx, wy - 56, (k / 12) * Math.PI * 2, 0, k);
+    } else if (type === Ev.Attention) {
+      // The head chef comes out to this guest: a burst of sparkles and a ring.
+      spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 40);
+      spawnFx(s, FxKind.LevelUp, t, 0.9, wx, wy - 40, 0, 0, 0, 1);
+      for (let k = 0; k < 8; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1, wx, wy - 50, (k / 8) * Math.PI * 2, 0, k);
     } else if (type === Ev.VipArrives) {
       spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
       for (let k = 0; k < 10; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.1, wx, wy - 50, (k / 10) * Math.PI * 2, 0, k);

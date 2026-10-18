@@ -44,6 +44,8 @@ export const Held = {
   None: 0, TrayFull: 1, TrayEmpty: 2, Phone: 3, Spatula: 4, Menu: 5, DirtyPlates: 6, Clipboard: 7, Flyers: 8, Bag: 9, FoodBox: 10, FoodDrink: 11, Shaker: 12, DrinkTray: 13, Glass: 14,
   /** The kitchen's tools: the fryer basket, the wok, the sushi knife, the salad bowl, the ladle, the pizza peel, plating tweezers. */
   Basket: 15, Wok: 16, Knife: 17, Bowl: 18, Ladle: 19, Peel: 20, Tweezers: 21,
+  /** The guide's inspector writing a few words (their tell on a rumor day). */
+  Notebook: 22,
   /** A plated dish on its way to the pass: `PlateBase + dish`. */
   PlateBase: 30,
 } as const;

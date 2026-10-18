@@ -247,7 +247,58 @@ const iconCocktail = sprite(BOX, (c) => {
   inkLine(c, path.polyline([[-12, -24], [-2, -10]]), '#2EA84A', 1.6);
 });
 
+/** The guide's star: a red rosette of six round petals, a cream heart (drawn, so it reads like the guide's own mark). */
+const iconRosette = sprite(BOX, (c) => {
+  const R: Look = { light: '#FF7A7A', base: '#D7192E', dark: '#7E0A18' };
+  // The outline of six round petals round a middle (sampled by angle: the web's Skia has no path union).
+  const pts: Pt[] = [];
+  for (let k = 0; k < 144; k++) {
+    const th = (k / 144) * Math.PI * 2;
+    let r = 12;
+    for (let i = 0; i < 6; i++) {
+      const d = th - (-Math.PI / 2 + (i / 6) * Math.PI * 2);
+      const side = 11 * Math.sin(d);
+      if (Math.abs(side) <= 10) r = Math.max(r, 11 * Math.cos(d) + Math.sqrt(100 - side * side));
+    }
+    pts.push([Math.cos(th) * r, Math.sin(th) * r]);
+  }
+  const p = path.poly(pts);
+  shape(c, p, R);
+  shape(c, path.circle(0, 0, 7), { light: '#FFFFFF', base: '#FFF4DC', dark: '#E9C9A0', outline: 2.2, shadow: false, gloss: 0.2 });
+  shape(c, path.circle(0, 0, 3.2), { ...R, outline: 1.4, shadow: false, gloss: 0 });
+});
+
+/** The guide's plate ("recommended"): a white plate with a fork and a knife. */
+const iconPlate = sprite(BOX, (c) => {
+  shape(c, path.circle(0, 2, 17), { light: '#FFFFFF', base: '#EEF1F6', dark: '#B9C2CF' });
+  c.drawCircle(0, 2, 11, stroke('#B9C2CF', 1.6));
+  shape(c, path.rrect(-23.5, -16, 4, 36, 2), STEEL);
+  for (const x of [-24.5, -21.5, -18.5]) c.drawLine(x, -20, x, -12, stroke(EDGE, 2.4));
+  shape(c, path.smooth([[19.5, 20], [19.5, -20], [24, -12], [23.5, 2], [21.5, 3]], true, 0.4), STEEL);
+});
+
+/** Spot the inspector: a gold-rimmed magnifier on a wooden handle. */
+const iconMagnifier = sprite(BOX, (c) => {
+  shape(c, path.poly([[6, 9], [10, 5], [22, 17], [18, 21]]), WOOD);
+  shape(c, path.circle(-4, -4, 17), GOLD);
+  shape(c, path.circle(-4, -4, 12.5), { light: '#FFFFFF', base: '#BFE6FF', dark: '#6FB3E8', outline: 2, shadow: false, gloss: 0.5 });
+  sparkle(c, -10, -10, 4.5);
+});
+
+/** The inspector's notebook: red covers, a cream page with notes, a pencil. */
+const iconNotebook = sprite(BOX, (c) => {
+  shape(c, path.rrect(-17, -20, 30, 40, 4), RED);
+  shape(c, path.rrect(-12, -16, 22, 32, 2), { ...PARCH, outline: 1.8, shadow: false });
+  for (let i = 0; i < 4; i++) c.drawLine(-8, -9 + i * 6, 6, -9 + i * 6, stroke('#9AA3AD', 1.4));
+  shape(c, path.poly([[10, 18], [22, -14], [25, -12.6], [13, 19.6], [9, 23]]), YELLOW);
+  shape(c, path.poly([[22, -14], [24, -19], [27, -17.6], [25, -12.6]]), { light: '#FFD0E2', base: '#F38DB3', dark: '#B8487A', outline: 1.8, shadow: false });
+});
+
 export const menuIcons = {
+  iconRosette,
+  iconPlate,
+  iconMagnifier,
+  iconNotebook,
   iconScooter,
   iconSmile,
   iconLeaf,

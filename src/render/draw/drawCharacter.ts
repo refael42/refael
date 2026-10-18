@@ -23,6 +23,9 @@ function ly(viewB: boolean, f: number, r: number, z: number): number {
 /** The `rank` a VIP customer carries (staff ranks are 1 and 2), and a child (src/data/customers.ts KID_RANK). */
 const VIP_RANK = 3;
 const KID_RANK = 4;
+/** A rumor day's suspect (a magnifier over them) and the guest the head chef cooks for (a toque): src/sim/game/guide.ts. */
+const SUSPECT_RANK = 5;
+const ATTENDED_RANK = 6;
 /** Children are drawn this size; sitting, they are lifted onto the seat. */
 const KID_SCALE = 0.74;
 const KID_SEAT_LIFT = 4;
@@ -441,7 +444,7 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
   const patience = d[o + C.patience]!;
   const bubble = d[o + C.bubble]!;
   const rank = d[o + C.rank]! % 10;
-  if (emote === 0 && patience < 0 && bubble === 0 && rank !== VIP_RANK) return;
+  if (emote === 0 && patience < 0 && bubble === 0 && rank !== VIP_RANK && rank !== SUSPECT_RANK && rank !== ATTENDED_RANK) return;
   const wx = d[o + F.px]! + (d[o + F.x]! - d[o + F.px]!) * alpha;
   const wy = d[o + F.py]! + (d[o + F.y]! - d[o + F.py]!) * alpha;
   const x = isoX(wx, wy);
@@ -450,6 +453,16 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
   if (rank === VIP_RANK) {
     // The VIP's crown, bobbing over everything else above their head.
     sprXf(c, A, A.S.crown, x, top - 26 - Math.abs(Math.sin(t * 3)) * 3, Math.sin(t * 2) * 8, 1.3, 1.3, P.plain);
+  } else if (rank === SUSPECT_RANK) {
+    // Could this be the inspector? A magnifier sways over them in a gold glow: tap to send the head chef.
+    const sway = Math.sin(t * 2.4 + o);
+    const my = top - 34 - Math.abs(Math.sin(t * 3.1 + o)) * 3;
+    sprFade(c, A, A.S.glowHalo, x, my, 0.8 + Math.sin(t * 4 + o) * 0.08, 0.6);
+    sprXf(c, A, A.S.magnifier, x + sway * 3, my, sway * 14, 1.7, 1.7, P.plain);
+  } else if (rank === ATTENDED_RANK) {
+    // The head chef's own guest: a toque over them, gently glowing.
+    sprFade(c, A, A.S.glowHalo, x, top - 34, 0.8, 0.45 + Math.sin(t * 3) * 0.15);
+    sprXf(c, A, A.S.toque, x, top - 34 - Math.abs(Math.sin(t * 2.2)) * 2, Math.sin(t * 1.6) * 6, 1.6, 1.6, P.plain);
   }
   if (patience >= 0) {
     const w = 22;

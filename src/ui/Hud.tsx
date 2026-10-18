@@ -222,7 +222,8 @@ export function Hud({ gameRef, feed, layout }: Props) {
   );
 }
 
-const DAY_W = 168;
+export const DAY_PILL_WIDTH = 168;
+const DAY_W = DAY_PILL_WIDTH;
 /** A thin gold rim (owner M33: classier, less loud than the thick yellow one). */
 const RIM = 'rgba(242,198,96,0.9)';
 /** Room on a pill's left end for the icon that sits on it. */

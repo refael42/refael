@@ -41,6 +41,23 @@ export const GUIDE = {
   coldSeconds: 40,
   /** Plates remembered for consistency. */
   recent: 30,
+  /**
+   * A rumor (owner: "improve the Michelin guide"): on most inspection days word gets around
+   * the kitchen in the morning. Look-alikes come that day too (lone guests in suits), and the
+   * manager may give one guest a day the head chef's attention: the best cook's hand on the
+   * plate, the ticket to the front, the chef tasting it at the pass. On the inspector that
+   * shows in the score; a look-alike is just very happy (a tip of `attentionTip` of the bill).
+   */
+  rumorChance: 0.8,
+  decoys: 2,
+  attentionTip: 0.5,
+  /** ...and the chosen guest's patience runs out this much slower (the chef came out to say hello). */
+  attentionPatience: 0.5,
+  /** The tell: the inspector writes in a small notebook while waiting, `noteSeconds` of every `noteEvery`. */
+  noteSeconds: 3.5,
+  noteEvery: 9,
+  /** The first time this restaurant wins each mark: gems (the plate, one, two, three stars). */
+  rewardGems: [10, 30, 60, 120] as readonly number[],
 } as const;
 
 /** How an inspector's score reads (they never say the number): the words they leave. */

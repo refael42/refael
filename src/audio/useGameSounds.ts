@@ -45,6 +45,9 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['sparkle', true];
     case Ev.Guide:
       return b > 0 ? ['fanfare', true] : ['done', false];
+    // The head chef comes out for the guest the manager picked.
+    case Ev.Attention:
+      return ['upgrade', true];
     case Ev.Review:
       return a >= 5 ? ['sparkle', false] : [null, false];
     case Ev.Rush:

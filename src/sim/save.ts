@@ -91,7 +91,7 @@ export interface SaveData {
   rate?: string;
 }
 
-export type SavedGuide = Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
+export type SavedGuide = Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
 
 /** A review as saved: its bonus as text. */
 export interface SavedReview extends Omit<Review, 'bonus'> {
@@ -223,7 +223,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     reviewSeq: s.reviewSeq,
     purchases: [...s.purchases],
     offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
-    guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null },
+    guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
     rate: toSave(incomeRate(s)),
   };
@@ -394,13 +394,17 @@ function cleanKitchen(v: unknown): SavedKitchen | null {
 
 /** The guide as saved: stars 0-3, visits with their day and score (older saves: none yet). */
 function cleanGuide(raw: unknown): SavedGuide {
-  if (!isRecord(raw)) return { stars: 0, plate: false, edition: 0, visits: [], last: null };
+  if (!isRecord(raw)) return { stars: 0, plate: false, edition: 0, visits: [], last: null, best: -1 };
   const visits = (Array.isArray(raw.visits) ? raw.visits : []).filter((v): v is { day: number; score: number } => isRecord(v) && finite(v.day) && finite(v.score)).map((v) => ({ day: Math.floor(v.day), score: Math.max(0, Math.min(100, v.score)) }));
   const l = raw.last;
   const last = isRecord(l) && finite(l.edition) && finite(l.stars) && finite(l.change) && finite(l.average) && finite(l.visits)
-    ? { edition: l.edition, stars: Math.max(0, Math.min(3, Math.floor(l.stars))), plate: l.plate === true, change: l.change, average: l.average, visits: l.visits }
+    ? { edition: l.edition, stars: Math.max(0, Math.min(3, Math.floor(l.stars))), plate: l.plate === true, change: l.change, average: l.average, visits: l.visits, ...(finite(l.gems) && l.gems > 0 ? { gems: Math.floor(l.gems) } : {}) }
     : null;
-  return { stars: finite(raw.stars) ? Math.max(0, Math.min(3, Math.floor(raw.stars))) : 0, plate: raw.plate === true, edition: finite(raw.edition) && raw.edition >= 0 ? Math.floor(raw.edition) : 0, visits: visits.slice(-20), last };
+  const stars = finite(raw.stars) ? Math.max(0, Math.min(3, Math.floor(raw.stars))) : 0;
+  const plate = raw.plate === true;
+  // The best mark won (its gems come once); saves before M42: the mark held now.
+  const best = finite(raw.best) ? Math.max(-1, Math.min(3, Math.floor(raw.best))) : stars > 0 ? stars : plate ? 0 : -1;
+  return { stars, plate, edition: finite(raw.edition) && raw.edition >= 0 ? Math.floor(raw.edition) : 0, visits: visits.slice(-20), last, best };
 }
 
 /** Reviews of known kinds and lines (saves before the reviews page have none). */

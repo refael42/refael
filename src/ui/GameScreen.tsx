@@ -37,15 +37,16 @@ import { StaffPanel, type StaffView } from './StaffPanel';
 import { usePurchases } from '../iap/usePurchases';
 import { PrivacyPanel } from './Privacy';
 import { GearButton, SettingsPanel } from './SettingsPanel';
-import { Hud } from './Hud';
+import { DAY_PILL_WIDTH, Hud } from './Hud';
 import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { textShadow, theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewsPanel } from './Reviews';
-import { GuideEdition, GuidePanel } from './Guide';
+import { GuidePanel } from './Guide';
+import { GuideEdition, InspectorCard, RumorHint } from './GuideCards';
 import { RushButton } from './RushButton';
-import { ClosedSign } from './ClosedSign';
+import { ClosedSign, SIGN_WIDTH } from './ClosedSign';
 import { KitchenHint } from './KitchenHint';
 import { EventsMenu } from './EventsMenu';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
@@ -538,12 +539,17 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
       {!panel && !staff && !build && !onboarding && tutorial >= TUTORIAL_STEPS.length && (
-        <KitchenHint
-          gameRef={gameRef}
-          onAct={(advice) => (advice === 'hire' ? showStaff({ tab: 'applicants' }) : open(advice === 'stove' ? PropKind.StoveSlot : PropKind.Stove))}
-          style={{ bottom: insets.bottom + 66, end: insets.right + 10 }}
-        />
+        // Notes above the big buttons: the guide's rumor (an inspector in town), the kitchen falling behind.
+        <View style={[styles.hints, { bottom: insets.bottom + 66, end: insets.right + 10 }]} pointerEvents="box-none">
+          <RumorHint gameRef={gameRef} style={styles.hint} />
+          <KitchenHint
+            gameRef={gameRef}
+            onAct={(advice) => (advice === 'hire' ? showStaff({ tab: 'applicants' }) : open(advice === 'stove' ? PropKind.StoveSlot : PropKind.Stove))}
+            style={styles.hint}
+          />
+        </View>
       )}
+      {!onboarding && <InspectorCard gameRef={gameRef} hidden={!!(panel || staff || build || shop || quests || guide || editionCard)} />}
       {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
           <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
@@ -557,9 +563,11 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
           <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
-          {/* The sign on the door; on a narrow screen it sits above the rush flame, clear of the big buttons. */}
-          <ClosedSign gameRef={gameRef} onCommand={command} style={width >= 800 ? { bottom: insets.bottom + 5, start: insets.left + 320 } : { bottom: insets.bottom + 72, start: insets.left + 130 }} />
         </>
+      )}
+      {!panel && !staff && !build && !quests && !onboarding && tutorial >= TUTORIAL_STEPS.length && building < 0 && (
+        // The door sign hangs in the top bar, between the day and the rating (owner: "a more normal place").
+        <ClosedSign gameRef={gameRef} onCommand={command} style={{ top: hud.top - 8, left: signLeft(hud) }} />
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}
       {shop && (
@@ -580,7 +588,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {offers && <OffersPanel gameRef={gameRef} onClose={() => setOffers(false)} purchases={purchases} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
-      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} onClose={closeEdition} />}
+      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} gems={editionCard.gems} onClose={closeEdition} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -686,10 +694,17 @@ function CastView() {
   );
 }
 
+/** The door sign's left edge: in the middle of the gap between the day pill and the rating pill. */
+const signLeft = (hud: { left: number; right: number }): number => {
+  const dayRight = (hud.left + hud.right) / 2 + DAY_PILL_WIDTH / 2;
+  const ratingLeft = hud.right - HUD.ratingWidth - HUD.iconOut;
+  return (dayRight + ratingLeft) / 2 - SIGN_WIDTH / 2;
+};
+
 /** The guide's latest edition (kept in the save, so its card neither expires nor comes back after a reload). */
 const readEdition = (s: GameState) => {
   const l = s.guide.last;
-  return { edition: s.guide.edition, stars: l?.stars ?? s.guide.stars, change: l?.change ?? 0, plate: l?.plate ?? s.guide.plate, visits: l?.visits ?? 0 };
+  return { edition: s.guide.edition, stars: l?.stars ?? s.guide.stars, change: l?.change ?? 0, plate: l?.plate ?? s.guide.plate, visits: l?.visits ?? 0, gems: l?.gems ?? 0 };
 };
 
 export function GameScreen() {
@@ -729,6 +744,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1022' },
   corner: { position: 'absolute' },
   cornerRow: { flexDirection: 'row', gap: 10 },
+  hints: { position: 'absolute', alignItems: 'flex-end', gap: 6 },
+  hint: { position: 'relative' },
   // The three big buttons (owner M33: "so it does not look cheap"): deep colors, a thin light
   // rim, a soft shadow and a sheen instead of thick yellow borders.
   cornerButton: { minHeight: 48, minWidth: 92, paddingHorizontal: 18, borderRadius: 16, backgroundColor: '#23934A', borderColor: 'rgba(255,255,255,0.45)', borderWidth: 1.5, boxShadow: '0px 4px 12px rgba(8,2,12,0.5)' },

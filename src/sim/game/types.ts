@@ -76,6 +76,11 @@ export interface Customer extends CharacterView {
   /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
   inspector?: boolean;
   inspectScore?: number;
+  /** How each part of the inspector's plate scored (0-1): what they note on the way out. */
+  inspectParts?: Record<'chef' | 'mastery' | 'equipment' | 'ingredients' | 'temperature' | 'consistency', number>;
+  /** A rumor day's look-alike (dressed like an inspector), and the guest the head chef cooked for. */
+  suspect?: boolean;
+  attention?: boolean;
   /** Waiter table visits while they wait for their food (src/sim/game/care.ts). */
   cared?: number;
   /** A restroom visit (owner M36): where they are in it, their stall, when this part ends (sim time). */
@@ -183,6 +188,8 @@ export interface Order {
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
 export type Command =
   | { type: 'seat'; customer: number }
+  /** A rumor day: the head chef cooks for this suspect (src/sim/game/guide.ts giveAttention). */
+  | { type: 'attend'; customer: number }
   /** Rush hour: on while the button is held down. */
   | { type: 'rush'; on: boolean }
   /** Close to new guests (the ones inside finish) or open again. */
@@ -374,7 +381,7 @@ export type Notice =
   | { id: number; time: number; kind: 'quit'; name: number; role: Role; unpaid: boolean }
   | { id: number; time: number; kind: 'payday'; paid: Big; unpaid: number }
   /** The guide's inspector paid and said who they were: their score, and the words for it. */
-  | { id: number; time: number; kind: 'inspector'; score: number; verdict: string }
+  | { id: number; time: number; kind: 'inspector'; score: number; verdict: string; dish: number; best: string; worst: string; spotted: boolean; walkedOut: boolean }
   /** A new edition of the guide is out. */
   | { id: number; time: number; kind: 'guide'; stars: number; change: number; plate: boolean; visits: number };
 

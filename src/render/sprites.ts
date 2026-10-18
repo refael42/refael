@@ -128,7 +128,7 @@ export const LAYERS = {
   faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
   held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld'],
-    [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers']]),
+    [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers'], [Held.Notebook, 'notebook']]),
   bubble: byEnum(Bubble.DrinkBase + DRINK_SPRITES.length, [
     [Bubble.Seat, 'seat'],
     [Bubble.Clean, 'clean'],

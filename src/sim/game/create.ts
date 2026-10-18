@@ -479,7 +479,7 @@ export interface GameSetup {
   /** The paid offers seen and taken. */
   offers?: GameState['offers'];
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
-  guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
+  guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
   tables?: readonly TableSpot[];
   /** The kitchen as the player laid it out (src/sim/game/kitchenLayout.ts). */

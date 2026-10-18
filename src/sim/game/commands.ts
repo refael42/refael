@@ -1,6 +1,7 @@
 import { ECONOMY } from '../../data/economy';
 import { setClosed } from './closing';
 import { claimReviews } from './reviews';
+import { canAttend, giveAttention } from './guide';
 import { UPGRADES } from '../../data/upgrades';
 import { fromSave } from '../big';
 import { emit, Ev } from './events';
@@ -51,6 +52,9 @@ export function tapTargets(s: GameState): TapTarget[] {
   for (const c of s.customers) {
     if (c.state === CustomerState.Queued) {
       out.push({ x: c.x, y: c.y, height: HEIGHT.customer, command: { type: 'seat', customer: c.id } });
+    } else if (canAttend(s, c) && c.table >= 0) {
+      // A rumor day's suspect at a table: the head chef cooks for them.
+      out.push({ x: c.x, y: c.y, height: HEIGHT.customer, command: { type: 'attend', customer: c.id } });
     }
   }
   // A drink waiting on the bar's pass: tap it over to its table.
@@ -162,6 +166,11 @@ function apply(s: GameState, cmd: Command): void {
       return startBus(s);
     case 'review':
       return claimReviews(s, cmd.id);
+    case 'attend': {
+      const c = s.customers.find((x) => x.id === cmd.customer);
+      if (c) giveAttention(s, c);
+      return;
+    }
     default:
       break;
   }

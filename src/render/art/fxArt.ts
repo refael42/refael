@@ -244,8 +244,37 @@ const crown = sprite([-10, -9, 10, 5], (c) => {
   for (const x of [-5, 0, 5]) c.drawCircle(x, 0.5, 1.2, fill(x === 0 ? '#E5483B' : '#5FB8FF'));
 });
 
+/** A rumor day's suspect (the guide inspector, or a look-alike): a gold magnifier with a question in the glass. */
+const magnifier = sprite([-11, -11, 11, 11], (c) => {
+  const handle = path.poly([[3.6, 3.0], [5.0, 1.6], [9.6, 6.2], [8.2, 7.6]]);
+  c.drawPath(handle, stroke(EDGE, 2.4));
+  glossy(c, handle, '#8E5A3C', '#4A2A18');
+  c.drawCircle(-1.6, -1.6, 6.8, stroke(EDGE, 2.6));
+  c.drawCircle(-1.6, -1.6, 6.8, stroke('#FFD23F', 2.2));
+  const glass = Skia.Paint();
+  glass.setAntiAlias(true);
+  glass.setShader(Skia.Shader.MakeRadialGradient(vec(-3.4, -3.6), 7, [Skia.Color('#FFFFFF'), Skia.Color('#BFE6FF')], null, TileMode.Clamp));
+  c.drawCircle(-1.6, -1.6, 5.6, glass);
+  // The question mark.
+  const q = path.smooth([[-3.6, -3.6], [-2.6, -5.4], [-0.4, -5.2], [0.4, -3.6], [-0.6, -2.0], [-1.6, -1.2], [-1.6, 0.2]], false, 0.6);
+  c.drawPath(q, stroke('#2A6FD6', 1.5));
+  c.drawCircle(-1.6, 1.8, 0.9, fill('#2A6FD6'));
+  c.drawCircle(-4.2, -4.4, 1.1, fill('#FFFFFF', 0.9));
+});
+/** The guest the head chef cooks for: a white toque with a red band and a gold star. */
+const toque = sprite([-11, -13, 11, 7], (c) => {
+  const puff = path.smooth([[-7, -1], [-9, -6], [-6, -10.5], [-2, -9.5], [0, -12], [3.4, -10], [6.4, -10.5], [9, -6], [7, -1]], true, 0.8);
+  c.drawPath(puff, stroke(EDGE, 2.4));
+  glossy(c, puff, '#FFFFFF', '#9AA3AD');
+  const band = path.rrect(-7.4, -1.8, 14.8, 6.4, 1.6);
+  c.drawPath(band, stroke(EDGE, 2.2));
+  glossy(c, band, '#E5483B', '#8A1E1A');
+  const st = path.poly([[0, -1], [0.9, 0.8], [2.9, 0.9], [1.4, 2.1], [1.9, 4], [0, 2.9], [-1.9, 4], [-1.4, 2.1], [-2.9, 0.9], [-0.9, 0.8]]);
+  c.drawPath(st, fill('#FFD23F'));
+});
+
 export const fxSprites = {
-  giftBox, crown,
+  giftBox, crown, magnifier, toque,
   bubble, heart, anger, clock, bolt, snail, coin, star, starGray, exclaim, zzz, music, seat, clean, noPlates, fries, burger, cross, bill,
   arrowUp, plusBadge, confetti, gear, cv, raise, rankStar,
   steam, sparkle, soap, puff, ring,

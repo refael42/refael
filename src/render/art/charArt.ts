@@ -408,6 +408,17 @@ const flyers = sprite([-9, -16, 9, 4], (c) => {
   onFaceX(c, 0.012, 0.09, () => rectIn(c, 0.02, 2, 0.07, 0.8, '#454556'));
 });
 
+/** The guide inspector's tell: a small red notebook open on the hand, and a pencil writing. */
+const notebook = sprite([-9, -14, 9, 4], (c) => {
+  box(c, { x: 0, y: 0, w: 0.09, d: 0.12, h: 0.8, color: '#B3202E' });
+  box(c, { x: 0, y: 0, z: 0.8, w: 0.08, d: 0.11, h: 0.5, color: '#FFFDF4' });
+  // Lines of notes on the page.
+  for (let i = 0; i < 3; i++) box(c, { x: 0.012 - i * 0.022, y: 0.005, z: 1.3, w: 0.006, d: 0.07, h: 0.08, color: '#7E8A98' });
+  // The pencil, tip down on the page.
+  box(c, { x: -0.02, y: -0.03, z: 1.4, w: 0.016, d: 0.016, h: 7, color: '#F2C14E' });
+  box(c, { x: -0.02, y: -0.03, z: 8.4, w: 0.018, d: 0.018, h: 1.2, color: '#F38DB3' });
+});
+
 const charShadow = sprite([-16, -10, 16, 10], (c) => floorShadow(c, 0, 0, 0.2, 0.34));
 
 export const characterSprites = {
@@ -431,6 +442,6 @@ export const characterSprites = {
   washerF: washer.F, washerB: washer.B,
   sunglasses, glasses, cameraF: camera.F, cameraB: camera.B,
   backpackF: backpack.F, backpackB: backpack.B, backpackStrapsF: backpackStraps.F, backpackStrapsB: backpackStraps.B,
-  trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard, flyers,
+  trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard, flyers, notebook,
 };
 

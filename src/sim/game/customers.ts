@@ -2,6 +2,7 @@ import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
+import { GUIDE } from '../../data/guide';
 import { ECONOMY } from '../../data/economy';
 import { ANIM } from '../../data/customers';
 import { DAY, KITCHEN } from '../../data/staff';
@@ -20,7 +21,7 @@ import { buzzing, maybeReview, serviceMult, serviceStars, walkoutReview } from '
 import { boostNow } from '../shop';
 import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
-import { guideArrivals, guidePrice, inspectorDish, inspectorDue, inspectorLeaves, makeInspector } from './guide';
+import { attentionTip, guideArrivals, guidePrice, inspectorDish, inspectorDue, inspectorLeaves, lookalikeDue, makeInspector, makeLookalike } from './guide';
 import { BUS } from '../../data/events';
 import { cancelDrinks, maybeBarGuest, maybeOrderDrink, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
@@ -121,6 +122,11 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
   // Today's inspector is the next guest who comes alone (they take a table, not the bar).
   if (size === 1 && !leader.vip && inspectorDue(s)) {
     makeInspector(s, leader);
+    return leader;
+  }
+  // On a rumor day, look-alikes in suits come too (a table, never the bar: they are suspects).
+  if (size === 1 && !leader.vip && lookalikeDue(s)) {
+    makeLookalike(s, leader);
     return leader;
   }
   // Someone alone may sit at the bar instead of waiting in line (from the grand restaurant).
@@ -232,7 +238,8 @@ function endWait(c: Customer): void {
 }
 
 function drainPatience(c: Customer, dt: number): void {
-  c.patienceLeft = Math.max(0, c.patienceLeft - dt);
+  // The head chef came out to greet them: they wait happily for longer.
+  c.patienceLeft = Math.max(0, c.patienceLeft - (c.attention ? dt * GUIDE.attentionPatience : dt));
   c.patience = c.patienceLeft / c.patienceMax;
   c.expression = c.patience > 0.5 ? Expression.Happy : c.patience > 0.25 ? Expression.Neutral : Expression.Angry;
   if (c.patience <= 0.25 && !c.angryEmoted) {
@@ -404,7 +411,8 @@ function pay(s: GameState, c: Customer): void {
   const comboMult = 1 + ECONOMY.comboTipBonusPerStep * (s.combo - 1);
   let tipShare = type.tipRate * (ECONOMY.tipMoodBase + mood) * comboMult;
   if (type.fastBonus > 0 && c.foodWaited <= type.foodPatience * s.mods.patience * type.fastShare) tipShare += type.fastBonus;
-  const tip = price.mul(tipShare * s.mods.tips * c.tipBoost).floor();
+  // A look-alike the head chef cooked for leaves a thank-you on top.
+  const tip = price.mul(tipShare * s.mods.tips * c.tipBoost + attentionTip(c)).floor();
   s.coins = s.coins.add(price).add(tip);
   s.stats.earned = s.stats.earned.add(price).add(tip);
   s.stats.served += 1;
@@ -518,6 +526,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           const id = s.nextId++;
           s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
           c.order = id;
+          // The head chef's guest: their ticket goes first.
+          if (c.attention) s.orders.unshift(s.orders.pop()!);
           maybeOrderDrink(s, c);
           c.held = Held.None;
           c.bubble = Bubble.DishBase + c.dish;
@@ -533,7 +543,9 @@ export function updateCustomers(s: GameState, dt: number): void {
           if (c.patienceLeft <= 0) walkout(s, c);
         }
         // Some pass the wait on their phone, until they get fed up (just the look; by their id).
-        if (c.state === CustomerState.Waiting) c.held = phoneUser(c) && c.stateTime > ANIM.phoneAfter && c.patience > ANIM.impatientBelow ? Held.Phone : Held.None;
+        // The inspector's tell: now and then a few words in a small notebook. Look-alikes are on their phones.
+        if (c.state === CustomerState.Waiting && c.inspector) c.held = c.stateTime % GUIDE.noteEvery < GUIDE.noteSeconds ? Held.Notebook : Held.None;
+        else if (c.state === CustomerState.Waiting) c.held = (phoneUser(c) || c.suspect) && c.stateTime > ANIM.phoneAfter && c.patience > ANIM.impatientBelow ? Held.Phone : Held.None;
         break;
       }
       case CustomerState.Eating:

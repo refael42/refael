@@ -15,6 +15,8 @@ LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(async () => {
     const { hudIcon, spriteIcon } = await import('./src/render/icons');
     const { spriteNames } = await import('./src/render/sprites');
     const { hudIcons } = await import('./src/render/art/hudArt');
-    Object.assign(globalThis, { __spriteIcon: spriteIcon, __spriteNames: spriteNames, __hudIcon: hudIcon, __hudNames: () => Object.keys(hudIcons) });
+    // ...and the running game, so a check can stage a moment (a rumor day, an edition).
+    const { liveGame } = await import('./src/ui/liveGame');
+    Object.assign(globalThis, { __spriteIcon: spriteIcon, __spriteNames: spriteNames, __hudIcon: hudIcon, __hudNames: () => Object.keys(hudIcons), __liveGame: liveGame });
   }
 });
