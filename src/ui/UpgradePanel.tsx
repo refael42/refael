@@ -19,10 +19,12 @@ import { formatBig, formatDuration, formatNumber } from '../sim/format';
 import type { PropKind } from '../sim/types';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 import { BulkToggle } from './Bulk';
 import { BranchCard, type BranchView } from './Branch';
 import type { BulkStep } from '../data/works';
 import { buzz } from '../audio/sound';
+import type { HudIcon } from '../render/art/hudArt';
 
 export interface Wallet {
   coins: Big;
@@ -94,7 +96,14 @@ function BuyButton({ cost, affordable, count, seconds, onPress }: { cost: Big; a
         </View>
         {/* How many levels this tap buys, and the build time the last one needs. */}
         {(count > 1 || seconds > 0) && (
-          <Text style={[styles.buyNote, !affordable && styles.buyTextOff]}>{[count > 1 ? `x${count}` : '', seconds > 0 ? `⏱ ${formatDuration(seconds)}` : ''].filter(Boolean).join('  ')}</Text>
+          <View style={styles.noteRow}>
+            {count > 1 && <Text style={[styles.buyNote, !affordable && styles.buyTextOff]}>{`x${count}`}</Text>}
+            {seconds > 0 && (
+              <IconText icon="iconTimer" size={11} textStyle={[styles.buyNote, !affordable && styles.buyTextOff]}>
+                {formatDuration(seconds)}
+              </IconText>
+            )}
+          </View>
         )}
       </Animated.View>
     </Pressable>
@@ -150,12 +159,12 @@ function WorkBox({ total, left, gems, onFinish }: { total: number; left: number;
   const can = gems >= cost;
   return (
     <View style={styles.work}>
-      <Text style={styles.workTime}>{`🔨 ${formatDuration(left)}`}</Text>
+      <IconText icon="iconHammer" size={14} textStyle={styles.workTime}>{formatDuration(left)}</IconText>
       <View style={styles.workBar}>
         <View style={[styles.workFill, { width: `${Math.min(100, (1 - left / Math.max(1, total)) * 100)}%` }]} />
       </View>
       <Pressable accessibilityRole="button" accessibilityState={{ disabled: !can }} disabled={!can} onPress={onFinish} hitSlop={4} style={[styles.finish, !can && styles.buyOff]}>
-        <Text style={styles.finishText}>{`💎 ${cost}`}</Text>
+        <IconText icon="hudGem" size={14} textStyle={styles.finishText}>{cost}</IconText>
       </Pressable>
     </View>
   );
@@ -185,7 +194,7 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
           <Text style={styles.lv}>{level}</Text>
           {best && (
             <View style={styles.bestTag}>
-              <Text style={styles.bestText}>{`★ ${t('ui.bestValue')}`}</Text>
+              <IconText icon="hudStar" size={12} textStyle={styles.bestText}>{t('ui.bestValue')}</IconText>
             </View>
           )}
         </View>
@@ -200,8 +209,8 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
           </View>
         )}
         {def.unlocksDish !== undefined && level === 0 && <Text style={styles.note}>{t('ui.unlocksDish')}</Text>}
-        {def.id === 'packStation' && <StageLine icon="🚚" title="hub.title" stages={HUB} open={hubStage(level)} />}
-        {def.id === 'barCounter' && <StageLine icon="🍸" title="barStage.title" stages={BAR_STAGES} open={barStage(level)} />}
+        {def.id === 'packStation' && <StageLine icon="iconScooter" title="hub.title" stages={HUB} open={hubStage(level)} />}
+        {def.id === 'barCounter' && <StageLine icon="iconCocktail" title="barStage.title" stages={BAR_STAGES} open={barStage(level)} />}
         {def.id === RANK.id && <Text style={styles.note}>{`${t('ui.rankOpens')} ${levelCap(wallet.levels) + RANK.levels}`}</Text>}
         {def.milestone && (
           <View style={styles.line}>
@@ -233,7 +242,7 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
       ) : maxed && isCappedTrack(def) ? (
         // Level 100, 200...: the restaurant has to level up first.
         <View style={styles.needs}>
-          <Text style={styles.needsBig}>{'🔒'}</Text>
+          <GameIcon name="iconLock" size={22} />
           <Text style={styles.needsText}>{`${t('ui.capLocked')} ${restaurantLevel(wallet.levels) + 1}`}</Text>
         </View>
       ) : maxed ? (
@@ -248,7 +257,7 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
         </View>
       ) : plan.status === 'noCrew' ? (
         <View style={[styles.buy, styles.buyOff, styles.busy]}>
-          <Text style={styles.busyText}>{'👷'}</Text>
+          <GameIcon name="shopHardhat" size={18} />
           <Text style={styles.busyText}>{t('ui.crewsBusy')}</Text>
         </View>
       ) : (
@@ -263,14 +272,17 @@ function Row({ def, wallet, onBuy, onFinish, best }: { def: UpgradeDef; wallet: 
  * station's row, the bar's pieces on the bar counter's): how many are open, and the next one, at
  * which level, and what it brings.
  */
-function StageLine({ icon, title, stages, open }: { icon: string; title: string; stages: readonly { level: number; name: string; gives: string }[]; open: number }) {
+function StageLine({ icon, title, stages, open }: { icon: HudIcon; title: string; stages: readonly { level: number; name: string; gives: string }[]; open: number }) {
   const t = useT();
   const next = stages[open];
   return (
-    <Text style={styles.hub} numberOfLines={2}>
-      {`${icon} ${t(title)} ${open}/${stages.length}`}
-      {next ? ` · ${t('ui.lv')} ${next.level}: ${t(next.name)} (${t(next.gives)})` : ` · ${t('hub.done')}`}
-    </Text>
+    <View style={styles.hubRow}>
+      <GameIcon name={icon} size={16} />
+      <Text style={[styles.hub, styles.hubText]} numberOfLines={2}>
+        {`${t(title)} ${open}/${stages.length}`}
+        {next ? ` · ${t('ui.lv')} ${next.level}: ${t(next.name)} (${t(next.gives)})` : ` · ${t('hub.done')}`}
+      </Text>
+    </View>
   );
 }
 
@@ -345,7 +357,11 @@ export function UpgradePanel({ wallet, station, onBuy, onFinish, onBranch, onSho
             const count = c === 'best' ? (bestId ? 1 : 0) : listed.filter((u) => u.category === c && affordable(u)).length;
             return (
               <Pressable key={c} onPress={() => setCategory(c)} style={[styles.tab, c === category && styles.tabOn]}>
-                <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{c === 'best' ? `★ ${t('ui.bestValue')}` : t(`cat.${c}`)}</Text>
+                {c === 'best' ? (
+                  <IconText icon="hudStar" size={14} textStyle={[styles.tabText, c === category && styles.tabTextOn]}>{t('ui.bestValue')}</IconText>
+                ) : (
+                  <Text style={[styles.tabText, c === category && styles.tabTextOn]}>{t(`cat.${c}`)}</Text>
+                )}
                 {count > 0 && <View style={styles.dot} />}
               </Pressable>
             );
@@ -362,7 +378,7 @@ export function UpgradePanel({ wallet, station, onBuy, onFinish, onBranch, onSho
         {/* A station's own list: the best buy anywhere right now, if it is something else. */}
         {station !== null && bestId && !items.some((d) => d.id === bestId) && (
           <>
-            <Text style={styles.bestHeader}>{`★ ${t('ui.bestNow')}`}</Text>
+            <IconText icon="hudStar" size={16} textStyle={styles.bestHeader}>{t('ui.bestNow')}</IconText>
             <Row def={upgradeDef(bestId)} wallet={wallet} onBuy={onBuy} onFinish={onFinish} best />
           </>
         )}
@@ -461,6 +477,9 @@ const styles = StyleSheet.create({
     boxShadow: '0px 3px 0px #17602A',
   },
   buyLine: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  hubRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  hubText: { flexShrink: 1 },
+  noteRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   buyNote: { color: '#FFFFFF', fontWeight: '900', fontSize: 10, marginTop: -2 },
   busy: { flexDirection: 'column', gap: 0 },
   busyText: { color: '#E8D7F0', fontWeight: '800', fontSize: 10, textAlign: 'center' },

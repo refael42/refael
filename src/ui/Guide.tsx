@@ -10,6 +10,8 @@ import { scoreOf, scoreParts } from '../sim/game/guide';
 import type { GameState } from '../sim/game/types';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
+import type { HudIcon } from '../render/art/hudArt';
 
 // The restaurant guide on screen (owner M29: "Michelin logic"): a chip under the stars with the
 // guide's mark, a page that explains how inspectors judge and how the kitchen stands, and a card
@@ -32,7 +34,7 @@ export function GuideChip({ gameRef, onPress, style }: { gameRef: { current: Gam
 }
 
 const PARTS = ['chef', 'mastery', 'equipment', 'ingredients', 'temperature', 'consistency'] as const;
-const PART_ICON: Record<(typeof PARTS)[number], string> = { chef: '👨‍🍳', mastery: '📜', equipment: '🔥', ingredients: '🥬', temperature: '♨️', consistency: '🎯' };
+const PART_ICON: Record<(typeof PARTS)[number], HudIcon> = { chef: 'iconChef', mastery: 'hudScroll', equipment: 'shopTurbo', ingredients: 'iconLeaf', temperature: 'iconFlame', consistency: 'iconCheck' };
 
 const readPage = (s: GameState) => {
   const parts = scoreParts(s, null, s.time + GUIDE.hotSeconds);
@@ -59,7 +61,7 @@ export function GuidePanel({ gameRef, onClose }: { gameRef: { current: GameState
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{`📕 ${t('guide.name')}`}</Text>
+        <IconText icon="hudBook" size={24} style={styles.grow} textStyle={styles.title}>{t('guide.name')}</IconText>
         <View style={styles.grow} />
         <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
           <Text style={styles.closeText}>{'✕'}</Text>
@@ -82,7 +84,7 @@ export function GuidePanel({ gameRef, onClose }: { gameRef: { current: GameState
         ) : (
           visits.map(([day, verdict], i) => (
             <View key={i} style={styles.visit}>
-              <Text style={styles.visitDay}>{`🕵️ ${t('guide.day')} ${day}`}</Text>
+              <IconText icon="iconCalendar" size={14} textStyle={styles.visitDay}>{`${t('guide.day')} ${day}`}</IconText>
               <Text style={styles.visitText}>{t(verdict)}</Text>
             </View>
           ))
@@ -90,7 +92,7 @@ export function GuidePanel({ gameRef, onClose }: { gameRef: { current: GameState
         <Text style={styles.section}>{t('guide.judged')}</Text>
         {PARTS.map((k) => (
           <View key={k} style={styles.part}>
-            <Text style={styles.partIcon}>{PART_ICON[k]}</Text>
+            <GameIcon name={PART_ICON[k]} size={22} />
             <View style={styles.grow}>
               <Text style={styles.partName}>{t(`guide.part.${k}`)}</Text>
               <View style={styles.barBack}>
@@ -128,7 +130,7 @@ export function GuideEdition({ stars, change, plate, onClose }: { stars: number;
   return (
     <Pressable style={styles.editionWrap} onPress={onClose}>
       <Animated.View style={[styles.edition, change < 0 && styles.editionSad, style]}>
-        <Text style={styles.editionKicker}>{`📕 ${t('guide.newEdition')}`}</Text>
+        <IconText icon="hudBook" size={18} textStyle={styles.editionKicker}>{t('guide.newEdition')}</IconText>
         <Text style={[styles.editionMark, { transform: [{ rotate: `${(spin - 0.5) * 6}deg` }] }]}>{rosettes(stars, plate)}</Text>
         <Text style={styles.editionTitle}>{t(title)}</Text>
         <Text style={styles.small}>{t(stars > 0 ? `guide.stars${stars}` : plate ? 'guide.plate' : 'guide.none')}</Text>

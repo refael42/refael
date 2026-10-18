@@ -9,6 +9,7 @@ import { dailyToday } from '../sim/retention';
 import { tapFeedback } from '../audio/sound';
 import { Overlay } from './Overlay';
 import { gold, panel } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 // The daily gift (owner request: "addictive"): seven days in a row, each better than the last;
 // miss a day and it starts over. The dates are the phone's own (the sim has no clock).
@@ -44,7 +45,7 @@ export function DailyPanel({ gameRef, onCommand, onClose }: { gameRef: { current
   if (!d) return null;
   return (
     <Overlay onClose={onClose} card={styles.card}>
-      <Text style={styles.title}>{`🎁 ${t('daily.title')}`}</Text>
+      <IconText icon="iconGift" size={22} textStyle={styles.title}>{`${t('daily.title')}`}</IconText>
       <Text style={styles.sub}>{t('daily.sub')}</Text>
       <View style={styles.days}>
         {DAILY.rewards.map((r, i) => {
@@ -54,10 +55,10 @@ export function DailyPanel({ gameRef, onCommand, onClose }: { gameRef: { current
           return (
             <View key={day} style={[styles.day, done && styles.dayDone, now && styles.dayNow, day === DAILY.rewards.length && styles.dayBig]}>
               <Text style={styles.dayLabel}>{`${t('daily.day')} ${day}`}</Text>
-              <Text style={styles.dayIcon}>{r.gems > 0 ? '💎' : '🪙'}</Text>
+              <GameIcon name={r.gems > 0 ? 'hudGem' : 'hudCoin'} size={28} />
               {r.minutes > 0 && <Text style={styles.dayValue}>{`${r.minutes} ${t('daily.min')}`}</Text>}
               {r.gems > 0 && <Text style={styles.dayValue}>{`+${r.gems}`}</Text>}
-              {r.boostMult && <Text style={styles.dayValue}>{`⚡x${r.boostMult}`}</Text>}
+              {r.boostMult && <IconText icon="iconBolt" size={14} textStyle={styles.dayValue}>{`x${r.boostMult}`}</IconText>}
               {done && <Text style={styles.check}>{'✓'}</Text>}
             </View>
           );
@@ -93,7 +94,6 @@ const styles = StyleSheet.create({
   dayNow: { borderColor: '#FFE27A', backgroundColor: '#5A3A1A' },
   dayBig: { width: 92 },
   dayLabel: { color: '#C9B3D6', fontSize: 11, fontWeight: '800' },
-  dayIcon: { fontSize: 22 },
   dayValue: { color: '#FFFFFF', fontSize: 12, fontWeight: '900' },
   check: { position: 'absolute', top: 2, end: 6, color: '#7EE08F', fontSize: 14, fontWeight: '900' },
   take: { height: 42, paddingHorizontal: 26, borderRadius: 16, backgroundColor: '#35B957', borderWidth: 2, borderColor: '#B9F5A8', justifyContent: 'center', boxShadow: '0px 3px 0px #17602A' },

@@ -15,6 +15,8 @@ import { rosettes } from './Guide';
 import { liveGame } from './liveGame';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
+import type { HudIcon } from '../render/art/hudArt';
 
 // The restaurant's story in numbers (polish): everything the game counts, in one card.
 
@@ -44,10 +46,10 @@ const readStats = (s: GameState) => {
   };
 };
 
-function Row({ icon, label, value }: { icon: string; label: string; value: string | number }) {
+function Row({ icon, label, value }: { icon: HudIcon; label: string; value: string | number }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.icon}>{icon}</Text>
+      <GameIcon name={icon} size={22} />
       <Text style={styles.label}>{label}</Text>
       <Text style={styles.value}>{value}</Text>
     </View>
@@ -61,7 +63,7 @@ export function StatsPanel({ onClose }: { onClose: () => void }) {
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{`📊 ${profile?.restaurant || t('stats.title')}`}</Text>
+        <IconText icon="iconChart" size={24} style={styles.grow} textStyle={styles.title}>{profile?.restaurant || t('stats.title')}</IconText>
         <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
           <Text style={styles.closeText}>{'✕'}</Text>
         </Pressable>
@@ -70,22 +72,22 @@ export function StatsPanel({ onClose }: { onClose: () => void }) {
         <Text style={styles.label}>{t('stats.none')}</Text>
       ) : (
         <ScrollView style={scrollFill} contentContainerStyle={styles.grid}>
-          <Row icon="🏢" label={t('stats.building')} value={`${t(`tier.${d.tier}`)} · ${t(`city.${d.city}`)}`} />
-          <Row icon="📅" label={t('stats.days')} value={`${d.day} · ${t(`week.${WEEKDAY_IDS[d.weekday]}`)}`} />
-          <Row icon="🏅" label={t('stats.level')} value={d.level} />
-          <Row icon="🍽️" label={t('stats.served')} value={d.served.toLocaleString()} />
-          <Row icon="🛵" label={t('stats.delivered')} value={d.delivered.toLocaleString()} />
-          <Row icon="😊" label={t('stats.happy')} value={`${d.happy}%`} />
-          <Row icon="🪙" label={t('stats.earned')} value={d.earned} />
-          <Row icon="📈" label={t('stats.perMinute')} value={d.perMinute} />
-          <Row icon="⭐" label={t('stats.rating')} value={`${d.rating} / 5`} />
-          <Row icon="🌟" label={t('stats.fiveStars')} value={d.fiveStars} />
-          <Row icon="🔥" label={t('stats.combo')} value={`x${d.bestCombo}`} />
-          <Row icon="👥" label={t('stats.team')} value={`${d.team} (${t('stats.hired')} ${d.hires})`} />
-          <Row icon="🏆" label={t('stats.trophies')} value={d.chefTrophies} />
-          <Row icon="🎪" label={t('stats.festival')} value={`${d.festivalTrophies}/${FESTIVAL_THEMES.length}`} />
-          <Row icon="💎" label={t('stats.gems')} value={d.gems} />
-          <Row icon="📕" label={t('stats.guide')} value={d.guide} />
+          <Row icon="iconCity" label={t('stats.building')} value={`${t(`tier.${d.tier}`)} · ${t(`city.${d.city}`)}`} />
+          <Row icon="iconCalendar" label={t('stats.days')} value={`${d.day} · ${t(`week.${WEEKDAY_IDS[d.weekday]}`)}`} />
+          <Row icon="shopVip" label={t('stats.level')} value={d.level} />
+          <Row icon="iconChef" label={t('stats.served')} value={d.served.toLocaleString()} />
+          <Row icon="iconScooter" label={t('stats.delivered')} value={d.delivered.toLocaleString()} />
+          <Row icon="iconSmile" label={t('stats.happy')} value={`${d.happy}%`} />
+          <Row icon="hudCoin" label={t('stats.earned')} value={d.earned} />
+          <Row icon="iconChart" label={t('stats.perMinute')} value={d.perMinute} />
+          <Row icon="hudStar" label={t('stats.rating')} value={`${d.rating} / 5`} />
+          <Row icon="shopVip" label={t('stats.fiveStars')} value={d.fiveStars} />
+          <Row icon="iconFlame" label={t('stats.combo')} value={`x${d.bestCombo}`} />
+          <Row icon="shopStaff" label={t('stats.team')} value={`${d.team} (${t('stats.hired')} ${d.hires})`} />
+          <Row icon="iconTrophy" label={t('stats.trophies')} value={d.chefTrophies} />
+          <Row icon="iconGift" label={t('stats.festival')} value={`${d.festivalTrophies}/${FESTIVAL_THEMES.length}`} />
+          <Row icon="hudGem" label={t('stats.gems')} value={d.gems} />
+          <Row icon="hudBook" label={t('stats.guide')} value={d.guide} />
         </ScrollView>
       )}
     </Overlay>
@@ -93,6 +95,7 @@ export function StatsPanel({ onClose }: { onClose: () => void }) {
 }
 
 const styles = StyleSheet.create({
+  grow: { flex: 1 },
   card: { width: 620, maxWidth: '96%', maxHeight: '92%', backgroundColor: panel.bg, borderRadius: 20, borderWidth: 2.5, borderColor: gold, padding: 12, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { flex: 1, color: '#FFE9A8', fontSize: 20, fontWeight: '900', ...textShadow('#120818', 2, 2) },

@@ -3,6 +3,7 @@ import { useT } from '../i18n';
 import { usePoll } from '../render/useSimulation';
 import { CustomerState, type Command, type GameState } from '../sim/game/types';
 import { tapFeedback } from '../audio/sound';
+import { GameIcon } from './GameIcon';
 import { gold, textShadow } from './theme';
 
 // The sign on the door (owner M38: "close the restaurant to guests after service, so upgrading
@@ -45,7 +46,7 @@ export function ClosedSign({ gameRef, onCommand, style }: Props) {
         hitSlop={8}
         style={[styles.button, closed && styles.closed]}
       >
-        <Text style={styles.icon}>{closed ? '🔒' : '🚪'}</Text>
+        <GameIcon name={closed ? 'iconLock' : 'iconDoor'} size={30} style={styles.icon} />
         <Text style={styles.label}>{closed ? t('closed.closed') : t('closed.open')}</Text>
       </Pressable>
     </View>
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 3px 0px #120818',
   },
   closed: { backgroundColor: '#9A2430', borderColor: '#FFF4E3' },
-  icon: { fontSize: 20, marginTop: 2 },
+  icon: { marginTop: 1, marginBottom: -3 },
   label: { color: '#FFF4E3', fontSize: 10, fontWeight: '900', marginTop: -1, ...textShadow('#120818', 1, 0) },
   note: {
     position: 'absolute',

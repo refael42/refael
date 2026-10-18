@@ -6,6 +6,8 @@ import { formatNumber } from '../sim/format';
 import { Ev } from '../sim/game/events';
 import type { GameState } from '../sim/game/types';
 import { gold } from './theme';
+import { IconText } from './GameIcon';
+import type { HudIcon } from '../render/art/hudArt';
 import { FESTIVAL_THEMES } from '../data/events';
 
 // A short note at the top for the special moments: a VIP walks in, a VIP's bonus, a present on
@@ -47,12 +49,23 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
   }, [toast]);
   if (!toast) return null;
   const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant;
-  const reward = festive ? '' : [toast.coins > 0 ? `+${formatNumber(toast.coins)} 🪙` : '', toast.gems > 0 ? `+${toast.gems} 💎` : ''].filter(Boolean).join('  ');
-  const text = textOf(toast, reward, t);
+  // The reward after the words, with the coin and gem icons (owner M41: no emojis).
+  const rewards: { icon: HudIcon; text: string }[] = festive ? [] : [
+    ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
+    ...(toast.gems > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.gems}` }] : []),
+  ];
+  const text = textOf(toast, '', t).trim();
   return (
     <View style={[styles.wrap, style]} pointerEvents="none">
       <Animated.View key={toast.id} entering={FadeInDown.duration(220)} exiting={FadeOut.duration(200)} style={[styles.toast, toast.type === Ev.VipArrives && styles.vip, festive && styles.festive]}>
-        <Text style={styles.text}>{text}</Text>
+        <View style={styles.line}>
+          <Text style={styles.text}>{text}</Text>
+          {rewards.map((r) => (
+            <IconText key={r.icon} icon={r.icon} size={16} textStyle={styles.text}>
+              {r.text}
+            </IconText>
+          ))}
+        </View>
       </Animated.View>
     </View>
   );
@@ -93,5 +106,6 @@ const styles = StyleSheet.create({
   toast: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: 'rgba(42,21,48,0.92)', borderWidth: 2, borderColor: gold },
   vip: { borderColor: '#FFE27A', backgroundColor: 'rgba(90,60,10,0.92)' },
   festive: { borderColor: '#FF9A5A', backgroundColor: 'rgba(110,30,40,0.94)' },
+  line: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },
   text: { color: '#FFF4E3', fontSize: 14, fontWeight: '900' },
 });

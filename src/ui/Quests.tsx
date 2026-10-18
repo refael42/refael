@@ -14,6 +14,7 @@ import { useSettings } from '../store/settings';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
 import { buzz } from '../audio/sound';
+import { GameIcon, IconText } from './GameIcon';
 
 // Quests (owner request): the restaurant's level and its list of goals. A goal that is done
 // waits to be claimed; claiming the last one levels the restaurant up.
@@ -169,7 +170,7 @@ export function LevelBanner({ level, onDone, rank, branch }: { level: number; on
         {restaurant && <Text style={styles.bannerName}>{branch ? `${restaurant} · ${branch.city}` : restaurant}</Text>}
         {branch ? (
           <View style={styles.bannerLine}>
-            <Text style={styles.bannerBig}>{`🏆 ${branch.trophies}`}</Text>
+            <IconText icon="iconTrophy" size={16} textStyle={styles.bannerBig}>{`${branch.trophies}`}</IconText>
           </View>
         ) : (
           <View style={styles.bannerLine}>

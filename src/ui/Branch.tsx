@@ -13,6 +13,7 @@ import type { Command, GameState } from '../sim/game/types';
 import { tapFeedback } from '../audio/sound';
 import { Overlay } from './Overlay';
 import { gold, panel } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 // Opening a branch in a new city (prestige): the card in the upgrades screen, the "are you sure"
 // card, and the chip under the rating that shows the city and the trophies won so far.
@@ -44,7 +45,7 @@ export function BranchCard({ view, onOpen }: { view: BranchView; onOpen: () => v
   return (
     <View style={styles.card}>
       <View style={styles.line}>
-        <Text style={styles.icon}>{'🏙️'}</Text>
+        <GameIcon name="iconCity" size={30} />
         <Text style={styles.title}>{t('branch.title')}</Text>
       </View>
       <View style={styles.line}>
@@ -53,7 +54,7 @@ export function BranchCard({ view, onOpen }: { view: BranchView; onOpen: () => v
       </View>
       <View style={styles.line}>
         <Text style={styles.label}>{t('branch.gain')}</Text>
-        <Text style={styles.value}>{`🏆 +${view.gain}`}</Text>
+        <IconText icon="iconTrophy" size={16} textStyle={styles.value}>{`+${view.gain}`}</IconText>
         <Text style={styles.label}>{t('branch.bonus')}</Text>
         <Text style={styles.good}>{pct(view.trophies + view.gain)}</Text>
       </View>
@@ -90,8 +91,8 @@ export function BranchConfirm({ gameRef, onCommand, onClose }: { gameRef: { curr
   const next = cityOf(view.city + 1);
   return (
     <Overlay onClose={onClose} card={styles.dialog}>
-      <Text style={styles.dialogTitle}>{`🏙️ ${t(`city.${next.id}`)}`}</Text>
-      <Text style={styles.dialogBig}>{`🏆 +${view.gain}  ·  ${t('branch.bonus')} ${pct(view.trophies + view.gain)}`}</Text>
+      <IconText icon="iconCity" size={24} textStyle={styles.dialogTitle}>{t(`city.${next.id}`)}</IconText>
+      <IconText icon="iconTrophy" size={16} textStyle={styles.dialogBig}>{`+${view.gain}  ·  ${t('branch.bonus')} ${pct(view.trophies + view.gain)}`}</IconText>
       <Text style={styles.keep}>{`✓ ${t('branch.keep')}`}</Text>
       <Text style={styles.reset}>{`↺ ${t('branch.reset')}`}</Text>
       <View style={styles.row}>

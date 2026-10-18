@@ -5,6 +5,7 @@ import { usePoll } from '../render/useSimulation';
 import { kitchenAdvice, type KitchenAdvice } from '../sim/game/jam';
 import type { GameState } from '../sim/game/types';
 import { tapFeedback } from '../audio/sound';
+import { IconText } from './GameIcon';
 import { gold, textShadow } from './theme';
 
 // The kitchen can't keep up (owner M40: "waiters stand around while there is lots of work"): a
@@ -37,7 +38,9 @@ export function KitchenHint({ gameRef, onAct, style }: Props) {
         }}
         style={styles.body}
       >
-        <Text style={styles.title}>{`🍳 ${t('jam.title')}`}</Text>
+        <IconText icon="iconChef" size={20} textStyle={styles.title}>
+          {t('jam.title')}
+        </IconText>
         <Text style={styles.text}>{`${t(`jam.${advice}`)} ›`}</Text>
       </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel="hide kitchen hint" onPress={() => setSnoozed(Date.now() + SNOOZE_MS)} hitSlop={8} style={styles.x}>

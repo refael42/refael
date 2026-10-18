@@ -11,6 +11,8 @@ import { formatBig } from '../sim/format';
 import { canShop, coinBag, dealAt } from '../sim/shop';
 import { countdown } from './Festival';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
+import type { HudIcon } from '../render/art/hudArt';
 import { Overlay, scrollFill } from './Overlay';
 import { tapFeedback } from '../audio/sound';
 import type { Purchases } from '../iap/usePurchases';
@@ -22,26 +24,28 @@ import type { Purchases } from '../iap/usePurchases';
 type Tab = 'gems' | 'coins' | 'boosts' | 'staff' | 'forever';
 const TABS: readonly Tab[] = ['gems', 'coins', 'boosts', 'staff', 'forever'];
 const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', coins: 'coins', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever', crew: 'forever' };
-const TAB_ICON: Record<Tab, string> = { gems: '💎', coins: '🪙', boosts: '⚡', staff: '⭐', forever: '👑' };
-const ICON: Record<string, string> = {
-  gems80: '💎',
-  gems500: '💰',
-  gems1200: '🧰',
-  gems3000: '🏦',
-  boost2: '⚡',
-  boost5: '🚀',
-  coins10: '🪙',
-  coins30: '💰',
-  coins120: '🏺',
-  warp1: '⏩',
-  warp4: '⏭️',
-  goldenMenu: '📜',
-  vipSign: '🌟',
-  turboKitchen: '🔥',
-  charmSchool: '💐',
-  crew3: '👷',
-  crew4: '🏗️',
+const TAB_ICON: Record<Tab, HudIcon> = { gems: 'hudGem', coins: 'shopCoinsTab', boosts: 'iconBolt', staff: 'shopStaff', forever: 'iconCrown' };
+/** Each item's drawn icon (owner M41: no emojis); star workers share one. */
+const ICON: Record<string, HudIcon> = {
+  gems80: 'shopGems1',
+  gems500: 'shopGems2',
+  gems1200: 'shopGems3',
+  gems3000: 'shopGems4',
+  coins10: 'shopCoins1',
+  coins30: 'shopCoins2',
+  coins120: 'shopCoins3',
+  boost2: 'shopBoost2',
+  boost5: 'shopBoost5',
+  warp1: 'shopWarp1',
+  warp4: 'shopWarp4',
+  goldenMenu: 'shopMenu',
+  vipSign: 'shopVip',
+  turboKitchen: 'shopTurbo',
+  charmSchool: 'shopBouquet',
+  crew3: 'shopHardhat',
+  crew4: 'shopCrane',
 };
+const iconOf = (item: ShopItem): HudIcon => (item.kind === 'star' ? 'shopStaff' : ICON[item.id] ?? 'iconGift');
 
 const gemUri = (px: number) => hudIcon('hudGem', Math.round(px * PixelRatio.get()));
 
@@ -72,9 +76,9 @@ function DealCard({ gameRef, onCommand, onGems }: { gameRef: { current: GameStat
   return (
     <View style={styles.deal}>
       <View style={styles.dealRibbon}>
-        <Text style={styles.dealRibbonText}>{`⚡ ${t('deal.title')}  -${Math.round(d.off * 100)}%`}</Text>
+        <IconText icon="iconBolt" size={14} textStyle={styles.dealRibbonText}>{`${t('deal.title')}  -${Math.round(d.off * 100)}%`}</IconText>
       </View>
-      <Text style={styles.dealIcon}>{item.kind === 'star' ? '⭐' : ICON[item.id] ?? '🎁'}</Text>
+      <GameIcon name={iconOf(item)} size={46} />
       <View style={styles.dealBody}>
         <Title item={item} />
         <Description item={item} coins={d.coins} />
@@ -98,7 +102,7 @@ function DealCard({ gameRef, onCommand, onGems }: { gameRef: { current: GameStat
               <Image source={{ uri: gemUri(16) }} style={styles.gemSmall} />
               <Text style={styles.buyText}>{d.can || d.short ? d.cost : t('shop.noRoom')}</Text>
             </Pressable>
-            <Text style={styles.dealTime}>{`⏰ ${t('deal.endsIn')} ${countdown(d.secondsLeft, t)}`}</Text>
+            <IconText icon="iconTimer" size={14} textStyle={styles.dealTime}>{`${t('deal.endsIn')} ${countdown(d.secondsLeft, t)}`}</IconText>
           </>
         )}
       </View>
@@ -186,7 +190,7 @@ interface Props {
 
 /** What the last gem purchase came to, in words. */
 function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>): string {
-  return note.kind === 'paid' ? `💎 +${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
+  return note.kind === 'paid' ? `+${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
 }
 
 export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coins', onOffers }: Props) {
@@ -211,13 +215,13 @@ export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coi
         <View style={styles.tabs}>
           {TABS.map((k) => (
             <Pressable key={k} onPress={() => setTab(k)} style={[styles.tab, k === tab && styles.tabOn]}>
-              <Text style={[styles.tabText, k === tab && styles.tabTextOn]}>{`${TAB_ICON[k]} ${t(`shop.tab${k[0]!.toUpperCase()}${k.slice(1)}`)}`}</Text>
+              <IconText icon={TAB_ICON[k]} size={18} textStyle={[styles.tabText, k === tab && styles.tabTextOn]}>{t(`shop.tab${k[0]!.toUpperCase()}${k.slice(1)}`)}</IconText>
             </Pressable>
           ))}
         </View>
         {tab === 'gems' && onOffers && (
           <Pressable accessibilityRole="button" onPress={onOffers} style={styles.offersBanner}>
-            <Text style={styles.offersText}>{`🔥 ${t('offer.title')} · 👑 ${t('rarity.mythic')} + 💎  ›`}</Text>
+            <IconText icon="iconCrown" size={18} textStyle={styles.offersText}>{`${t('offer.title')} · ${t('rarity.mythic')}  ›`}</IconText>
           </Pressable>
         )}
         {tab === 'gems' && purchases.mode === 'demo' && <Text style={styles.demo}>{t('shop.demo')}</Text>}
@@ -238,7 +242,7 @@ export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coi
                 {item.kind === 'gems' && item.tag && (
                   <Text style={styles.tag}>{t(item.tag === 'best' ? 'shop.best' : 'shop.popular')}</Text>
                 )}
-                <Text style={styles.icon}>{item.kind === 'star' ? '⭐' : ICON[item.id] ?? '🎁'}</Text>
+                <GameIcon name={iconOf(item)} size={44} />
                 <Title item={item} />
                 <Description item={item} coins={data.coins[item.id]} />
                 {item.kind === 'gems' ? (
@@ -293,7 +297,7 @@ export function GemPill({ gameRef, onPress, style }: { gameRef: { current: GameS
       </View>
       {g?.boost && (
         <View style={styles.boost}>
-          <Text style={styles.boostText}>{`⚡x${g.boost.mult} ${clock(g.boost.left)}`}</Text>
+          <IconText icon="iconBolt" size={12} textStyle={styles.boostText}>{`x${g.boost.mult} ${clock(g.boost.left)}`}</IconText>
         </View>
       )}
     </Pressable>
@@ -346,7 +350,6 @@ const styles = StyleSheet.create({
   },
   itemTagged: { borderColor: gold },
   tag: { position: 'absolute', top: -2, end: 6, backgroundColor: '#E5483B', color: '#FFFFFF', fontSize: 10, fontWeight: '900', paddingHorizontal: 6, borderRadius: 8, overflow: 'hidden' },
-  icon: { fontSize: 30 },
   line: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap', justifyContent: 'center' },
   name: { color: '#FFF4E3', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   desc: { color: '#C9B3D6', fontSize: 12, fontWeight: '700', textAlign: 'center' },
@@ -384,7 +387,6 @@ const styles = StyleSheet.create({
   deal: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, paddingTop: 16, borderRadius: 14, backgroundColor: '#4A1E2A', borderWidth: 2, borderColor: '#FF7A5A' },
   dealRibbon: { position: 'absolute', top: -2, start: 10, backgroundColor: '#E5483B', borderRadius: 8, paddingHorizontal: 8 },
   dealRibbonText: { color: '#FFFFFF', fontSize: 11, fontWeight: '900' },
-  dealIcon: { fontSize: 34 },
   dealBody: { flex: 1, alignItems: 'flex-start', gap: 2 },
   dealSide: { alignItems: 'center', gap: 2 },
   dealWas: { color: '#B9A3C6', fontSize: 12, fontWeight: '800', textDecorationLine: 'line-through' },

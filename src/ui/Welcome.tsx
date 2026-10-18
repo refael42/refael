@@ -6,6 +6,7 @@ import { isRTL, useT } from '../i18n';
 import { useSettings, type Profile } from '../store/settings';
 import { cardStyles, HowToPlayCards } from './HowToPlay';
 import { gold } from './theme';
+import { GameIcon } from './GameIcon';
 
 // The first run: a welcome with the language choice, the manager's and the restaurant's
 // names (kept on this phone only, no account), then how to play. The game waits behind it.
@@ -74,7 +75,7 @@ export function Welcome({ pages, initial, onDone }: Props) {
             <View style={styles.inputRow}>
               <TextInput value={restaurant} onChangeText={setRestaurant} maxLength={NAME_MAX} placeholder={RESTAURANT_NAMES[lang][0]} placeholderTextColor="#8A6A9A" style={[input, styles.grow]} returnKeyType="done" onSubmitEditing={next} />
               <Pressable accessibilityRole="button" accessibilityLabel="random name" onPress={() => setRestaurant(randomName(lang, restaurant))} style={styles.dice}>
-                <Text style={styles.diceText}>🎲</Text>
+                <GameIcon name="iconDice" size={26} />
               </Pressable>
             </View>
             <View style={styles.buttons}>
@@ -124,6 +125,5 @@ const styles = StyleSheet.create({
   inputRow: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', gap: 8 },
   grow: { flex: 1, alignSelf: 'auto' },
   dice: { width: 44, height: 42, marginTop: 3, borderRadius: 12, borderWidth: 2, borderColor: gold, backgroundColor: '#3A1D40', alignItems: 'center', justifyContent: 'center' },
-  diceText: { fontSize: 22 },
   buttons: { flexDirection: 'row', gap: 10, marginTop: 12 },
 });

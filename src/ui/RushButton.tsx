@@ -4,6 +4,7 @@ import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withRepeat
 import { RUSH } from '../data/staff';
 import { useT } from '../i18n';
 import type { Command, GameState } from '../sim/game/types';
+import { GameIcon } from './GameIcon';
 import { gold, textShadow } from './theme';
 
 // Rush hour: hold the flame and the whole team speeds up while the meter lasts (it costs them
@@ -59,7 +60,7 @@ export function RushButton({ gameRef, onCommand, style }: Props) {
         >
           <Animated.View style={[styles.button, !ready && styles.empty, rush.on && styles.on, buttonStyle]}>
             <View style={[styles.fill, { height: `${Math.round(rush.charge * 100)}%` }]} />
-            <Text style={styles.flame}>🔥</Text>
+            <GameIcon name="iconFlame" size={32} style={styles.flame} />
             <Text style={styles.label}>{rush.on ? t('ui.rush') : t('ui.rushHold')}</Text>
           </Animated.View>
         </Pressable>
@@ -86,6 +87,6 @@ const styles = StyleSheet.create({
   empty: { borderColor: '#6A5A72' },
   on: { borderColor: '#FFF4E3' },
   fill: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#FF7A1A' },
-  flame: { fontSize: 22, marginTop: 4 },
+  flame: { marginTop: 1, marginBottom: -3 },
   label: { color: '#FFF4E3', fontSize: 9, fontWeight: '900', marginTop: -2, ...textShadow('#120818', 1, 0) },
 });

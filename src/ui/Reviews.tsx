@@ -13,6 +13,7 @@ import type { Command, GameState, Review } from '../sim/game/types';
 import { useSettings } from '../store/settings';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 // The reviews page (owner: "customer feedback off the screen, on a page of its own where you
 // claim the money and read what they wrote; good and bad, by the service"). A chip under the
@@ -69,7 +70,7 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{`💬 ${t('reviews.title')}`}</Text>
+        <IconText icon="hudBubble" size={22} textStyle={styles.title}>{`${t('reviews.title')}`}</IconText>
         <View style={styles.summary}>
           <Stars n={Math.round(d.avg)} size={16} />
           <Text style={styles.summaryText}>{`${t('reviews.avg')} ${d.avg.toFixed(1)} · ${t('reviews.count').replace('{n}', String(d.count))}`}</Text>

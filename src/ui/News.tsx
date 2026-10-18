@@ -4,6 +4,7 @@ import { NEWS } from '../data/news';
 import { useT } from '../i18n';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 /** Once after an update: what is new in the restaurant, one line each. */
 export function NewsCard({ onClose }: { onClose: () => void }) {
@@ -14,7 +15,7 @@ export function NewsCard({ onClose }: { onClose: () => void }) {
   };
   return (
     <Overlay onClose={close} card={styles.card}>
-      <Text style={styles.title}>{`✨ ${t('news.title')}`}</Text>
+      <IconText icon="hudStar" size={22} textStyle={styles.title}>{`${t('news.title')}`}</IconText>
       <ScrollView style={scrollFill} contentContainerStyle={styles.list}>
         {NEWS.items.map((key) => (
           <View key={key} style={styles.row}>

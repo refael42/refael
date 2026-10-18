@@ -203,6 +203,7 @@ export const en = {
   'hub.chargers.gives': 'couriers 25% faster',
   'hub.lockers': 'pickup lockers',
   'hub.lockers.gives': 'one more courier, higher prices',
+  'news.icons': '🎨 New icons everywhere: the game’s own drawings instead of emojis (shop, buttons, upgrades, stats and more), all in one glossy style with a dark outline.',
   'news.jam': '🍳 When the kitchen can’t keep up (tickets wait while waiters stand free), a note above the big buttons says what helps: another cook, "Another cook’s post" (room for one more) or faster stoves. Tap it to open the right page.',
   'news.events': '🎁 A calmer screen: one Events button under the stars instead of a row of buttons. The red number says how many things wait for you; tap for the list (offers, festival, reviews, the chef’s guide). More delivery orders in the bigger buildings too.',
   'news.closed': '🚪 A sign on the door (bottom, next to the flame): tap to close to new guests. The ones inside finish their meal and the line goes home without a fuss. Once it is empty, upgrade and move tables in peace. Tap again to open. Coming back to the game, it is always open.',

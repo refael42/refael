@@ -12,6 +12,7 @@ import { capOf, costOf, isUnlocked, levelOf, upgradeDef } from '../sim/economy/u
 import { formatBig } from '../sim/format';
 import { gold, panel } from './theme';
 import { canBuyNow, type Wallet } from './UpgradePanel';
+import { IconText } from './GameIcon';
 
 /** What build mode offers: a table on the next dashed spot, then the decor pieces. */
 export const BUILD_ITEMS: readonly string[] = ['tables', ...DECOR.map((d) => placeRow(d.id))];
@@ -105,17 +106,17 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
         {movingTable && joinSeats !== null && (
           // Owner M30: "join tables into a long table that holds more people".
           <Pressable onPress={onJoin} style={styles.place}>
-            <Text style={styles.placeText}>{`🔗 ${t('ui.joinTable')} (${joinSeats} ${t('ui.seatsShort')})`}</Text>
+            <Text style={styles.placeText}>{`${t('ui.joinTable')} (${joinSeats} ${t('ui.seatsShort')})`}</Text>
           </Pressable>
         )}
         {movingTable && canSplit && (
           <Pressable onPress={onSplit} style={styles.done}>
-            <Text style={styles.doneText}>{`✂️ ${t('ui.splitTable')}`}</Text>
+            <Text style={styles.doneText}>{t('ui.splitTable')}</Text>
           </Pressable>
         )}
         {kitchen === 'prep' && (
           <Pressable onPress={onRestyle} style={styles.place}>
-            <Text style={styles.placeText}>{`🎨 ${t('ui.prepLook')}`}</Text>
+            <Text style={styles.placeText}>{t('ui.prepLook')}</Text>
           </Pressable>
         )}
         {(moving || busy || kitchen) && (
@@ -138,7 +139,7 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
                 <Text style={styles.name} numberOfLines={1}>
                   {t(`table.${d.id}`)}
                 </Text>
-                {!open && need && <Text style={styles.small}>{`🔒 ${t(`tier.${need.id}`)}`}</Text>}
+                {!open && need && <IconText icon="iconLock" size={12} textStyle={styles.small}>{t(`tier.${need.id}`)}</IconText>}
               </Pressable>
             );
           })}

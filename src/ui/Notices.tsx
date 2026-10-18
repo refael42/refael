@@ -7,6 +7,7 @@ import { formatBig } from '../sim/format';
 import type { Command, GameState, Notice } from '../sim/game/types';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
+import { IconText } from './GameIcon';
 
 interface Item {
   notice: Notice;
@@ -75,7 +76,7 @@ export function Notices({ gameRef, onCommand }: { gameRef: { current: GameState 
           )}
           {n.kind === 'inspector' && (
             <>
-              <Text style={styles.name}>{`🕵️ ${t('guide.revealed')}`}</Text>
+              <IconText icon="hudBook" size={16} textStyle={styles.name}>{t('guide.revealed')}</IconText>
               <Text style={styles.text}>{`"${t(n.verdict)}"`}</Text>
             </>
           )}

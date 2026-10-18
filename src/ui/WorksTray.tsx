@@ -8,6 +8,7 @@ import { crewCount, gemsToFinish } from '../sim/economy/works';
 import { formatDuration } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { gold } from './theme';
+import { IconText } from './GameIcon';
 import { tapFeedback } from '../audio/sound';
 
 // What the crews are building right now (owner request: big upgrades take time, and you can
@@ -27,7 +28,7 @@ export function WorksTray({ gameRef, onCommand, style }: { gameRef: { current: G
   if (!data || data.works.length === 0) return null;
   return (
     <View style={[styles.tray, style]}>
-      <Text style={styles.title}>{`🔨 ${t('ui.works')} ${data.works.length}/${data.crews}`}</Text>
+      <IconText icon="iconHammer" size={16} textStyle={styles.title}>{`${t('ui.works')} ${data.works.length}/${data.crews}`}</IconText>
       {data.works.map((w) => {
         const gems = gemsToFinish(w.left);
         const can = data.gems >= gems;
@@ -51,7 +52,7 @@ export function WorksTray({ gameRef, onCommand, style }: { gameRef: { current: G
               }}
               style={[styles.finish, !can && styles.finishOff]}
             >
-              <Text style={styles.finishText}>{`💎${gems}`}</Text>
+              <IconText icon="hudGem" size={14} textStyle={styles.finishText}>{gems}</IconText>
             </Pressable>
           </View>
         );

@@ -26,6 +26,7 @@ import type { GameState } from '../sim/game/types';
 import { useSettings } from '../store/settings';
 import { weatherOn } from '../sim/weather';
 import { textShadow } from './theme';
+import { IconText } from './GameIcon';
 
 // The top bar: coins, the day and the rating. Plain React Native on top of the canvas, so the
 // numbers use the phone's real bold font and the icons are crisp at any screen density. Its
@@ -155,7 +156,7 @@ function RatingPill({ gameRef, feed, layout }: { gameRef: GameRef; feed: SharedV
       <Animated.Image source={{ uri: iconUri('hudStar', HUD.icon) }} style={[styles.icon, bounce]} />
       {buzz && (
         <View style={styles.buzz}>
-          <Text style={styles.buzzText}>{`🔥 ${t('review.trending')}`}</Text>
+          <IconText icon="iconFlame" size={14} textStyle={styles.buzzText}>{t('review.trending')}</IconText>
         </View>
       )}
     </View>

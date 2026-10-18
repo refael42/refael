@@ -15,6 +15,7 @@ import { TIERS } from '../data/buildings';
 import { UNLOCK_TIER } from '../data/unlocks';
 import { Overlay } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon } from './GameIcon';
 
 // The lucky wheel (owner request: "a cool wheel of fortune"). The sim decides where it stops
 // the moment it is spun; this screen only makes the stop exciting: a long ease-out spin with a
@@ -70,10 +71,11 @@ function shortLabel(prize: WheelPrize, coins: string, t: (k: string) => string):
 
 /** The prize in words, for the card. */
 function longLabel(prize: WheelPrize, coins: string, t: (k: string) => string): string {
-  if (prize.kind === 'coins') return `🪙 ${coins}`;
-  if (prize.kind === 'gems') return `💎 +${prize.gems}`;
+  // The coin and gem icons are drawn just above the words.
+  if (prize.kind === 'coins') return coins;
+  if (prize.kind === 'gems') return `+${prize.gems}`;
   if (prize.kind === 'boost') return `x${prize.mult} · ${t('wheel.boost').replace('{m}', String(prize.minutes))}`;
-  return `🪙 ${coins}  +  💎 ${prize.gems}`;
+  return `${coins}  +  ${prize.gems}`;
 }
 
 /** The button by the stage button: a small turning wheel while a spin waits, else the time left. */
@@ -113,7 +115,7 @@ export function WheelButton({ gameRef, onPress, style }: { gameRef: { current: G
         <Image source={{ uri: wheelIcon('wheelHub', px) }} style={styles.buttonFace} />
       </Pressable>
       {ready && !d.locked ? <View style={styles.dot} /> : null}
-      {d.locked ? <Text style={styles.padlock}>🔒</Text> : null}
+      {d.locked ? <GameIcon name="iconLock" size={20} style={styles.padlock} /> : null}
       <View pointerEvents="none" style={[styles.buttonTag, ready && !d.locked && styles.buttonTagFree]}>
         <Text style={styles.buttonTagText}>{d.locked ? opensWith : ready ? t('wheel.free') : clock(d.secondsLeft)}</Text>
       </View>
@@ -333,14 +335,14 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
       </View>
 
       <View style={styles.side}>
-        <Text style={styles.title}>{`🎡 ${t('wheel.title')}`}</Text>
+        <Text style={styles.title}>{t('wheel.title')}</Text>
         {prize ? (
           <View style={styles.won}>
-            <Text style={styles.wonTitle}>{prize.kind === 'jackpot' ? `🎉 ${t('wheel.jackpot')}! 🎉` : t('wheel.won')}</Text>
+            <Text style={styles.wonTitle}>{prize.kind === 'jackpot' ? `${t('wheel.jackpot')}!` : t('wheel.won')}</Text>
             <View style={styles.wonIcons}>
               {(prize.kind === 'coins' || prize.kind === 'jackpot') && <Image source={{ uri: hudIcon('hudCoin', Math.round(44 * PixelRatio.get())) }} style={styles.wonIcon} />}
               {(prize.kind === 'gems' || prize.kind === 'jackpot') && <Image source={{ uri: hudIcon('hudGem', Math.round(44 * PixelRatio.get())) }} style={styles.wonIcon} />}
-              {prize.kind === 'boost' && <Text style={styles.wonBolt}>{'⚡'}</Text>}
+              {prize.kind === 'boost' && <GameIcon name="iconBolt" size={44} />}
             </View>
             <Text style={styles.wonValue}>{longLabel(prize, coins[prizeSeg] ?? '', t)}</Text>
             <Pressable accessibilityRole="button" onPress={take} style={styles.take}>
@@ -365,7 +367,11 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
                   onPress={() => spin(true)}
                   style={[styles.spinGems, d.cost === 'none' && styles.spinOff]}
                 >
-                  <Text style={styles.spinText}>{`${t('wheel.spinGems')}💎${WHEEL.gemCost}`}</Text>
+                  <View style={styles.spinRow}>
+                    <Text style={styles.spinText}>{t('wheel.spinGems')}</Text>
+                    <GameIcon name="hudGem" size={16} />
+                    <Text style={styles.spinText}>{WHEEL.gemCost}</Text>
+                  </View>
                 </Pressable>
                 <Text style={styles.timer}>{`${t('wheel.freeIn')} ${clock(d.secondsLeft)}`}</Text>
               </>
@@ -412,7 +418,7 @@ const styles = StyleSheet.create({
   buttonTagFree: { backgroundColor: '#35B957', borderColor: '#B9F5A8' },
   buttonTagText: { color: '#FFFFFF', fontSize: 9.5, fontWeight: '900' },
   buttonLocked: { opacity: 0.45 },
-  padlock: { position: 'absolute', top: 12, alignSelf: 'center', fontSize: 20 },
+  padlock: { position: 'absolute', top: 12, alignSelf: 'center' },
   lockedNote: {
     position: 'absolute',
     bottom: 62,
@@ -449,7 +455,7 @@ const styles = StyleSheet.create({
   wonTitle: { color: '#FFE27A', fontSize: 20, fontWeight: '900', ...textShadow('#120818', 2, 2) },
   wonIcons: { flexDirection: 'row', gap: 6, alignItems: 'center', minHeight: 44 },
   wonIcon: { width: 44, height: 44 },
-  wonBolt: { fontSize: 36 },
+  spinRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   wonValue: { color: '#FFFFFF', fontSize: 17, fontWeight: '900', textAlign: 'center' },
   take: { height: 44, paddingHorizontal: 30, borderRadius: 16, backgroundColor: '#35B957', borderWidth: 2, borderColor: '#B9F5A8', justifyContent: 'center', boxShadow: '0px 3px 0px #17602A' },
   takeText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },

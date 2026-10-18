@@ -3,6 +3,7 @@ import { SUPPORT_EMAIL } from '../data/contact';
 import { useT } from '../i18n';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
+import { IconText } from './GameIcon';
 
 // The privacy policy inside the app (both stores want it reachable from the app, not only from
 // the store page). The same text lives in docs/store/privacy-policy.md for the web link.
@@ -14,7 +15,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{`🔒 ${t('set.privacy')}`}</Text>
+        <IconText icon="iconLock" size={22} style={styles.grow} textStyle={styles.title}>{t('set.privacy')}</IconText>
         <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
           <Text style={styles.closeText}>{'✕'}</Text>
         </Pressable>
@@ -29,7 +30,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
         {/* Tapping opens the mail app; with none set up nothing happens, and the address is still there to copy. */}
         {SUPPORT_EMAIL !== '' && (
           <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})} style={styles.mail}>
-            <Text selectable style={styles.mailText}>{`✉️ ${SUPPORT_EMAIL}`}</Text>
+            <IconText icon="iconMail" size={20} textStyle={styles.mailText}>{SUPPORT_EMAIL}</IconText>
           </Pressable>
         )}
         <Text style={styles.small}>{t('privacy.updated')}</Text>
@@ -40,6 +41,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
 
 const styles = StyleSheet.create({
   card: { width: 620, maxWidth: '96%', maxHeight: '92%', backgroundColor: panel.bg, borderRadius: 20, borderWidth: 2.5, borderColor: gold, padding: 12, gap: 8 },
+  grow: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   title: { flex: 1, color: '#FFE9A8', fontSize: 20, fontWeight: '900', ...textShadow('#120818', 2, 2) },
   close: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#4A2550', alignItems: 'center', justifyContent: 'center' },

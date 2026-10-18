@@ -19,6 +19,7 @@ import { BulkToggle } from './Bulk';
 import { useSettings } from '../store/settings';
 import { gold, panel } from './theme';
 import { tapFeedback } from '../audio/sound';
+import { GameIcon, IconText } from './GameIcon';
 
 export type StaffView = { tab: 'team' | 'applicants' } | { person: number };
 
@@ -183,7 +184,7 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
         )}
         {p.trial && <Text style={styles.tag}>{t('ui.onTrial')}</Text>}
         {p.leaving && <Text style={styles.tagBad}>{t('ui.leaving')}</Text>}
-        {p.pick && <Text style={styles.tagPick}>{`👍 ${t('ui.recommended')}`}</Text>}
+        {p.pick && <IconText icon="iconCheck" size={16} textStyle={styles.tagPick}>{`${t('ui.recommended')}`}</IconText>}
       </View>
       <Money value={p.wage} suffix={t('ui.perDay')} />
     </Pressable>
@@ -251,7 +252,7 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
             <Bar value={p.energy} color="#5CD66E" label={t('ui.energy')} />
           </View>
           {p.hero ? (
-            <Text style={styles.tagPick}>{`👑 ${t('staff.heroFree')}`}</Text>
+            <IconText icon="iconCrown" size={16} textStyle={styles.tagPick}>{`${t('staff.heroFree')}`}</IconText>
           ) : p.leaving ? (
             <Text style={styles.tagBad}>{t('ui.leaving')}</Text>
           ) : (

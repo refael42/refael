@@ -12,6 +12,7 @@ import { formatBig } from '../sim/format';
 import type { Command, GameState } from '../sim/game/types';
 import { Overlay, scrollFill } from './Overlay';
 import { panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 // The food festival (owner request: events and FOMO). A chip under the rating counts down the
 // days and glows when a prize waits; the panel shows the reward track up to the trophy that
@@ -107,14 +108,14 @@ function Prize({ reward, coins, theme, big }: { reward: FestivalReward; coins: s
     case 'spins':
       return (
         <>
-          <Text style={[styles.prizeEmoji, { fontSize: size * 0.8 }]}>{'🎡'}</Text>
+          <GameIcon name="iconGift" size={size} />
           <Text style={styles.prizeText}>{`x${reward.spins}`}</Text>
         </>
       );
     case 'boost':
       return (
         <>
-          <Text style={[styles.prizeEmoji, { fontSize: size * 0.8 }]}>{'⚡'}</Text>
+          <GameIcon name="iconBolt" size={size} />
           <Text style={styles.prizeText}>{`x${reward.mult} ${reward.minutes}${t('fest.min')}`}</Text>
         </>
       );
@@ -122,7 +123,7 @@ function Prize({ reward, coins, theme, big }: { reward: FestivalReward; coins: s
       return (
         <>
           <Image source={{ uri: trophyIcon(theme, size) }} style={{ width: size, height: size }} />
-          <Text style={styles.prizeText}>{`+${reward.gems}💎`}</Text>
+          <IconText icon="hudGem" size={12} textStyle={styles.prizeText}>{`+${reward.gems}`}</IconText>
         </>
       );
   }
@@ -147,8 +148,8 @@ export function FestivalPanel({ gameRef, onCommand, onClose }: { gameRef: { curr
       <View style={[styles.header, { backgroundColor: theme.color }]}>
         <Image source={{ uri: dishIcon(d.theme, 40) }} style={styles.headerIcon} />
         <View style={styles.headerText}>
-          <Text style={styles.title}>{`🎪 ${titleOf(t, d.theme)}`}</Text>
-          <Text style={[styles.ends, hurry && styles.endsHurry]}>{hurry ? `⏰ ${t('fest.lastHours')} ${countdown(d.secondsLeft, t)}` : `${t('fest.endsIn')} ${countdown(d.secondsLeft, t)}`}</Text>
+          <IconText icon="iconGift" size={22} textStyle={styles.title}>{titleOf(t, d.theme)}</IconText>
+          <IconText icon="iconTimer" size={14} textStyle={[styles.ends, hurry && styles.endsHurry]}>{hurry ? `${t('fest.lastHours')} ${countdown(d.secondsLeft, t)}` : `${t('fest.endsIn')} ${countdown(d.secondsLeft, t)}`}</IconText>
         </View>
         <View style={styles.pointsBox}>
           <Text style={styles.pointsValue}>{d.points}</Text>
@@ -181,7 +182,7 @@ export function FestivalPanel({ gameRef, onCommand, onClose }: { gameRef: { curr
       </ScrollView>
       {d.claimed >= FESTIVAL.track.length && <Text style={styles.allDone}>{t('fest.done')}</Text>}
       <View style={styles.footer}>
-        <Text style={styles.footerLabel}>{`🏆 ${t('fest.collection')} ${won.length}/${FESTIVAL_THEMES.length}`}</Text>
+        <IconText icon="iconTrophy" size={16} textStyle={styles.footerLabel}>{`${t('fest.collection')} ${won.length}/${FESTIVAL_THEMES.length}`}</IconText>
         <View style={styles.cups}>
           {FESTIVAL_THEMES.map((_, i) => (
             <Image key={i} source={{ uri: trophyIcon(i, 26) }} style={[styles.cup, !won.includes(i) && styles.cupMissing]} />

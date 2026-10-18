@@ -8,6 +8,7 @@ import { eraseSave } from '../store/persistence';
 import { useSettings } from '../store/settings';
 import { scrollFill } from './Overlay';
 import { gold, panel } from './theme';
+import { GameIcon } from './GameIcon';
 
 const GEAR_PX = 30;
 
@@ -96,7 +97,7 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
             )}
             <Pressable accessibilityRole="button" onPress={onStats} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.stats')}</Text>
-              <Text style={styles.chevron}>{'📊'}</Text>
+              <GameIcon name="iconChart" size={24} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={onHowTo} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.howTo')}</Text>
@@ -120,7 +121,7 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
             )}
             <Pressable accessibilityRole="button" onPress={onPrivacy} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.privacy')}</Text>
-              <Text style={styles.chevron}>{'🔒'}</Text>
+              <GameIcon name="iconLock" size={24} />
             </Pressable>
             <Pressable accessibilityRole="button" onPress={reset} style={[styles.reset, armed && styles.resetArmed]}>
               <Text style={styles.resetText}>{armed ? t('set.resetConfirm') : t('set.reset')}</Text>

@@ -13,6 +13,7 @@ import { countdown, shortTime } from './Festival';
 import { Overlay } from './Overlay';
 import { SIDE, SideButton } from './SideButton';
 import { gold, panel, textShadow } from './theme';
+import { GameIcon, IconText } from './GameIcon';
 
 // The paid offers (owner M34: "deals worth paying for that create FOMO, a rare character with
 // gems"): a round button with the clock, and a page of up to three packs, each with its hero's
@@ -111,11 +112,11 @@ function PackCard({ p, purchases }: { p: Pack; purchases: Purchases }) {
         <Text style={styles.stickerTop}>{t('offer.worth')}</Text>
         <Text style={styles.stickerBig}>{`x${p.worth}`}</Text>
       </View>
-      {hero ? <HeroFrame hero={hero} size={74} /> : <Text style={styles.bigIcon}>{'💎'}</Text>}
+      {hero ? <HeroFrame hero={hero} size={74} /> : <GameIcon name="shopGems3" size={70} />}
       {hero && (
         <>
           <Text style={[styles.heroName, { color: hero.color }]}>{t(`hero.${hero.id}`)}</Text>
-          <Text style={styles.heroRole}>{`👑 ${t('rarity.mythic')} · ${t(`role.${hero.role}`)}`}</Text>
+          <IconText icon="iconCrown" size={14} textStyle={styles.heroRole}>{`${t('rarity.mythic')} · ${t(`role.${hero.role}`)}`}</IconText>
           <Text style={styles.bonus}>{t(`heroBonus.${hero.bonus.stat}`).replace('{n}', String(Math.round((hero.bonus.mult - 1) * 100)))}</Text>
           <Text style={styles.small}>{t('offer.heroPerks')}</Text>
         </>
@@ -130,7 +131,7 @@ function PackCard({ p, purchases }: { p: Pack; purchases: Purchases }) {
         <Text style={styles.owned}>{`✓ ${t('offer.bought')}`}</Text>
       ) : (
         <>
-          <Text style={[styles.clock, p.hurry && styles.clockHurry]}>{`⏰ ${t(p.hurry ? 'offer.lastHours' : 'offer.endsIn')} ${countdown(p.left, t)}`}</Text>
+          <IconText icon="iconTimer" size={16} textStyle={[styles.clock, p.hurry && styles.clockHurry]}>{`${t(p.hurry ? 'offer.lastHours' : 'offer.endsIn')} ${countdown(p.left, t)}`}</IconText>
           <Pressable
             accessibilityRole="button"
             disabled={!can}
@@ -164,10 +165,14 @@ export function OffersPanel({ gameRef, onClose, purchases }: Props) {
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.title}>{`🔥 ${t('offer.title')}`}</Text>
+        <IconText icon="iconFlame" size={22} textStyle={styles.title}>{`${t('offer.title')}`}</IconText>
         {purchases.note ? (
           <Pressable onPress={purchases.clearNote}>
-            <Text style={styles.demo}>{purchases.note.kind === 'paid' ? `💎 +${purchases.note.gems} ${t('shop.paid')}` : t(`shop.${purchases.note.kind}`)}</Text>
+            {purchases.note.kind === 'paid' ? (
+            <IconText icon="hudGem" size={14} textStyle={styles.demo}>{`+${purchases.note.gems} ${t('shop.paid')}`}</IconText>
+          ) : (
+            <Text style={styles.demo}>{t(`shop.${purchases.note.kind}`)}</Text>
+          )}
           </Pressable>
         ) : (
           purchases.mode === 'demo' && <Text style={styles.demo}>{t('shop.demo')}</Text>
@@ -189,7 +194,7 @@ export function OffersPanel({ gameRef, onClose, purchases }: Props) {
           return (
             <View key={h.id} style={[styles.slot, have && { borderColor: h.color }]}>
               <Image source={{ uri: portrait(h.id, 30) }} style={[styles.slotImage, !have && styles.slotLocked]} />
-              {!have && <Text style={styles.lock}>{'🔒'}</Text>}
+              {!have && <GameIcon name="iconLock" size={14} style={styles.lock} />}
             </View>
           );
         })}
@@ -253,5 +258,5 @@ const styles = StyleSheet.create({
   slot: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#1E0E24', borderWidth: 2, borderColor: '#4A2550', alignItems: 'center', justifyContent: 'center' },
   slotImage: { width: 30, height: 30 },
   slotLocked: { opacity: 0.25 },
-  lock: { position: 'absolute', fontSize: 11 },
+  lock: { position: 'absolute' },
 });

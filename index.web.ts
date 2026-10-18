@@ -12,8 +12,9 @@ LoadSkiaWeb({ locateFile: (file: string) => `/${file}` }).then(async () => {
   // (`__spriteIcon('plateSalad2', 128)`), to look at every dish, prop and look side by side.
   const { STORE_BUILD } = await import('./src/config');
   if (!STORE_BUILD) {
-    const { spriteIcon } = await import('./src/render/icons');
+    const { hudIcon, spriteIcon } = await import('./src/render/icons');
     const { spriteNames } = await import('./src/render/sprites');
-    Object.assign(globalThis, { __spriteIcon: spriteIcon, __spriteNames: spriteNames });
+    const { hudIcons } = await import('./src/render/art/hudArt');
+    Object.assign(globalThis, { __spriteIcon: spriteIcon, __spriteNames: spriteNames, __hudIcon: hudIcon, __hudNames: () => Object.keys(hudIcons) });
   }
 });
