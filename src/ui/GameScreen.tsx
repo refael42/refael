@@ -42,14 +42,16 @@ import { BUILD_ITEMS, BuildPanel } from './BuildPanel';
 import { textShadow, theme } from './theme';
 import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
-import { ReviewsChip, ReviewsPanel } from './Reviews';
-import { GuideChip, GuideEdition, GuidePanel } from './Guide';
+import { ReviewsPanel } from './Reviews';
+import { GuideEdition, GuidePanel } from './Guide';
 import { RushButton } from './RushButton';
 import { ClosedSign } from './ClosedSign';
+import { KitchenHint } from './KitchenHint';
+import { EventsMenu } from './EventsMenu';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
-import { DealChip, GemPill, Shop } from './Shop';
-import { FestivalChip, FestivalPanel, useFestivalClock } from './Festival';
-import { OfferChip, OffersPanel, readOfferPopup, useOffersClock } from './Offers';
+import { GemPill, Shop } from './Shop';
+import { FestivalPanel, useFestivalClock } from './Festival';
+import { OffersPanel, readOfferPopup, useOffersClock } from './Offers';
 import { useReminders } from '../notify/useReminders';
 import { HUD } from '../render/draw/hud';
 import { Tutorial } from './Tutorial';
@@ -64,7 +66,7 @@ import { WorksTray } from './WorksTray';
 import { EventToast } from './EventToast';
 import { DailyButton, DailyPanel, dailyReady } from './Daily';
 import { WheelButton, WheelPanel } from './Wheel';
-import { BranchConfirm, CityChip, readBranch } from './Branch';
+import { BranchConfirm, readBranch } from './Branch';
 import { cityOf } from '../data/franchise';
 import { useGameSounds } from '../audio/useGameSounds';
 import { buzz } from '../audio/sound';
@@ -521,18 +523,27 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!onboarding && !build && <WorksTray gameRef={gameRef} onCommand={command} style={{ left: hud.left + 6, top: hud.top + HUD.height + 104 }} />}
       {!onboarding && <EventToast gameRef={gameRef} style={{ top: hud.top + HUD.height + 8 }} />}
       {!onboarding && (
-        <View style={[styles.sideRow, { right: Math.max(0, width - hud.right) - 6, top: hud.top + HUD.height + 8 }]} pointerEvents="box-none">
-          {/* Round buttons in a row under the rating (owner M33: a calmer screen); each opens its page. */}
-          {tutorial >= TUTORIAL_STEPS.length && <OfferChip gameRef={gameRef} onPress={() => setOffers(true)} style={styles.inColumn} />}
-          {tutorial >= TUTORIAL_STEPS.length && <FestivalChip gameRef={gameRef} onPress={() => setFestival(true)} style={styles.inColumn} />}
-          {tutorial >= TUTORIAL_STEPS.length && <DealChip gameRef={gameRef} onPress={() => setShop(true)} style={styles.inColumn} />}
-          <ReviewsChip gameRef={gameRef} onPress={() => setReviews(true)} style={styles.inColumn} />
-          <GuideChip gameRef={gameRef} onPress={() => setGuide(true)} style={styles.inColumn} />
-          <CityChip gameRef={gameRef} style={styles.inColumn} />
-        </View>
+        // One events button under the rating (owner M40: a less crowded screen); its list drops down.
+        <EventsMenu
+          gameRef={gameRef}
+          full={tutorial >= TUTORIAL_STEPS.length}
+          onOffers={() => setOffers(true)}
+          onFestival={() => setFestival(true)}
+          onShop={() => setShop(true)}
+          onReviews={() => setReviews(true)}
+          onGuide={() => setGuide(true)}
+          style={{ right: Math.max(0, width - hud.right) - 6, top: hud.top + HUD.height + 8 }}
+        />
       )}
       {showPerf && <PerfOverlay uiFps={uiFps} buildMs={buildMs} stats={stats} />}
       <Notices gameRef={gameRef} onCommand={command} />
+      {!panel && !staff && !build && !onboarding && tutorial >= TUTORIAL_STEPS.length && (
+        <KitchenHint
+          gameRef={gameRef}
+          onAct={(advice) => (advice === 'hire' ? showStaff({ tab: 'applicants' }) : open(advice === 'stove' ? PropKind.StoveSlot : PropKind.Stove))}
+          style={{ bottom: insets.bottom + 66, end: insets.right + 10 }}
+        />
+      )}
       {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
           <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
@@ -717,10 +728,6 @@ export function GameScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#1A1022' },
   corner: { position: 'absolute' },
-  /** Under the rating: the branch's city, the festival, the flash deal. */
-  /** Under the rating: the festival, the deal, the reviews, the guide, the trophies, right to left. */
-  sideRow: { position: 'absolute', flexDirection: 'row-reverse', alignItems: 'flex-start', gap: 2, direction: 'ltr' },
-  inColumn: { position: 'relative' },
   cornerRow: { flexDirection: 'row', gap: 10 },
   // The three big buttons (owner M33: "so it does not look cheap"): deep colors, a thin light
   // rim, a soft shadow and a sheen instead of thick yellow borders.

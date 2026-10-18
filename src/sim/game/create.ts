@@ -564,6 +564,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     construction: null,
     closed: false,
     closedAt: 0,
+    jam: 0,
     placed: [],
     works: (setup.works ?? []).map((w, i) => ({ ...w, at: w.at ? { ...w.at } : null, id: i + 1, lastTap: -Infinity })),
     nextWorkId: (setup.works?.length ?? 0) + 1,

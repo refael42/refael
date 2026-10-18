@@ -529,6 +529,8 @@ export interface GameState {
    */
   closed: boolean;
   closedAt: number;
+  /** Seconds the kitchen has been behind while waiters stood free (src/sim/game/jam.ts; not saved). */
+  jam: number;
   /** Decor placed in build mode (tile centers); `item` is a DecorId. */
   placed: PlacedDecor[];
   /** Big upgrades a crew is working on (they count when done). */

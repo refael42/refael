@@ -209,3 +209,18 @@ export const CARE = {
   pourSeconds: 1.1,
   patience: 0.15,
 } as const;
+
+/**
+ * The kitchen can't keep up (owner M40: "waiters stand around while there is lots of work"):
+ * tickets wait for a cook while waiters have nothing to carry. Once that has gone on for a while
+ * the screen says what helps: another cook, another stove (more cooks), or faster stoves.
+ */
+export const JAM = {
+  /** Tickets waiting for a cook... */
+  queued: 5,
+  /** ...while this many waiters stand free. */
+  idleWaiters: 2,
+  /** Seconds of that before the hint shows (it fades twice as fast once the kitchen catches up). */
+  showAfter: 25,
+  max: 60,
+} as const;

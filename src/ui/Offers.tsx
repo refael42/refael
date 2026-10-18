@@ -54,6 +54,13 @@ const readOffers = (s: GameState) => {
 /** The first pack still to take, for the button and the pop-up. */
 const firstOpen = (d: NonNullable<ReturnType<typeof readOffers>>) => d.packs.find((p) => !p.bought) ?? null;
 
+/** The soonest pack still to take (the events button shows its clock), or null. */
+export const openOffer = (s: GameState): { left: number; hurry: boolean } | null => {
+  const d = readOffers(s);
+  const open = d ? firstOpen(d) : null;
+  return open ? { left: open.left, hurry: open.hurry } : null;
+};
+
 /** Should the big card open by itself now: once a hero turn, after a few minutes of play. */
 export const readOfferPopup = (s: GameState): number | null => {
   const d = readOffers(s);

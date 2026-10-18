@@ -48,7 +48,7 @@ export function updateDeliveries(s: GameState): void {
   }
   if (s.time < s.nextDelivery) return;
   // The hub's order screen and sign bring more orders (src/data/delivery.ts HUB).
-  const perMinute = Math.max(0.3, DELIVERY.perMinute + DELIVERY.perStar * (s.rating - 3)) * couriers * s.mods.deliveryDemand;
+  const perMinute = Math.max(0.3, DELIVERY.perMinute + DELIVERY.perStar * (s.rating - 3)) * couriers * s.mods.deliveryDemand * (1 + DELIVERY.perTier * s.map.tier);
   s.nextDelivery = s.time + (-Math.log(1 - next(s.rng)) * 60) / perMinute;
   if (waitingOrders(s).length >= couriers * DELIVERY.waitingPerCourier) return;
   const menu = DISHES.filter((d) => s.mods.menu[d.id]);

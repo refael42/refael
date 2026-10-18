@@ -23,6 +23,7 @@ import { anchorPoints, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
+import { updateJam } from './jam';
 import { updateCrew } from './crew';
 import { updateWorkers } from './workers';
 import { syncFamilyTables, tableUnits } from './create';
@@ -62,6 +63,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateDeliveries(s);
   updateCustomers(s, dt);
   updateStaff(s, dt);
+  updateJam(s, dt);
   updateWorkers(s, dt);
   updateApplicants(s, dt);
   landFlyingDishes(s);

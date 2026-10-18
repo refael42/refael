@@ -10,6 +10,7 @@ import { autoTile, nextTableSpot } from './game/build';
 import { queueCommand, tapTargets } from './game/commands';
 import { TableState, type Command, type GameState } from './game/types';
 import { cookPosts, hasRoom, headcount } from './game/workers';
+import { kitchenAdvice } from './game/jam';
 import { claimable, goalDone, questLevel } from './quests';
 
 // A stand-in manager for headless runs (balance script, offline progress): it taps what a
@@ -201,6 +202,9 @@ export function createBot(options: BotOptions): Bot {
       return;
     }
     if (saveForBuilding(s, budget)) return;
+    // The kitchen hint (src/sim/game/jam.ts) asks for another stove: bought as soon as there is
+    // the money, like a player who reads it (no saving up: each stove costs far more than the last).
+    if (kitchenAdvice(s) === 'stove' && planBuy(upgradeDef('stove2'), s.levels, budget, s.map, crewsOf(s), 1).status === 'ok') return buy(s, 'stove2');
     if (s.map.tier !== noRoomTier) {
       noRoom.clear();
       noRoomTier = s.map.tier;

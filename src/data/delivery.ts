@@ -7,6 +7,11 @@ export const DELIVERY = {
   /** Orders a minute per courier (at 3 stars; every star moves it by `perStar`). */
   perMinute: 1.6,
   perStar: 0.15,
+  /**
+   * More orders in every bigger building (owner M40: in the big ones the couriers sat idle
+   * about 70% of the time): +this share per building tier.
+   */
+  perTier: 0.2,
   /** Orders waiting (not yet out the door) per courier, at most. */
   waitingPerCourier: 2,
   /** A delivery costs more than eating in (the delivery fee). */
