@@ -1,4 +1,5 @@
 import { newGuide, type GuideState } from './guide';
+import { syncStools } from './bar';
 import { newFestival } from '../festival';
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
@@ -608,6 +609,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   }
   restoreDecor(s, setup.placed ?? []);
   restoreKitchen(s, setup.kitchen);
+  syncStools(s);
   if (setup.team) {
     for (const w of setup.team) {
       const { role, look, xp, morale, hiredDay, lastRaiseDay, trial, ...person } = w;

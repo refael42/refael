@@ -16,8 +16,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
 export type Stat =
   | 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price'
   | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed'
-  | 'mixSpeed' | 'drinkPrice';
-export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers'];
+  | 'mixSpeed' | 'drinkPrice' | 'stools';
+export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers', 'stools'];
 
 export interface Effect {
   stat: Stat;
@@ -51,7 +51,7 @@ export interface UpgradeDef {
   /** Capacity tracks stop here; endless tracks leave it out. */
   max?: number;
   /** Capacity tracks limited by the free spots of the current building instead (or, for chairs, by the tables). */
-  spots?: 'tables' | 'stoves' | 'seats' | 'family';
+  spots?: 'tables' | 'stoves' | 'seats' | 'family' | 'stools';
   /** Level 1 adds this dish to the menu. */
   unlocksDish?: Dish;
   /** Bought by placing it on a free tile in build mode (one level = one more on the floor). */
@@ -157,6 +157,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'mixSpeed', per: 0.08 }, milestone: { stat: 'mixSpeed', factor: 1.5 } },
   { id: 'cocktails', category: 'bar', anchor: K.BarCounter, restyle: null, baseCost: 90, growth: 1.17,
     effect: { stat: 'drinkPrice', per: 0.1 }, milestone: { stat: 'drinkPrice', factor: 1.5 } },
+  // Owner: "guests can sit at the bar too": in the diner and the bistro a stool at a time
+  // (from the grand restaurant every stool comes with the building, src/data/bar.ts).
+  { id: 'barStools', category: 'bar', anchor: K.BarStool, restyle: null, baseCost: 180, growth: 2.4, spots: 'stools',
+    effect: { stat: 'stools', per: 1 }, milestone: null },
 
   // Deliveries (owner: "the delivery station can be upgraded, and the couriers, and more of
   // them"): room for more couriers, faster scooters (a new look at the milestones), the delivery

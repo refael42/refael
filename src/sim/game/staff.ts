@@ -18,7 +18,7 @@ import { updateCourier } from './delivery';
 import { updateChecker } from './checker';
 import { freeDeliverySlot, packersOn, packingProgress, parking, postOf, slotPoint, updatePacker } from './packing';
 import { PACKING } from '../../data/delivery';
-import { readyDrink, updateBartender, updateDrinkRun } from './bar';
+import { counterBefore, readyDrink, updateBartender, updateDrinkRun } from './bar';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
 import { careTable, updateCare } from './care';
 
@@ -432,7 +432,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     st.jobTime += dt * workRate(s, st);
     if (st.jobTime < KITCHEN.handoffSeconds) return;
     const c = s.customers.find((x) => x.id === order.customer);
-    if (!c || c.table < 0) return release(st);
+    if (!c || !servable(c)) return release(st);
     order.state = OrderState.Carried;
     order.slot = -1;
     st.held = Held.TrayFull;
@@ -441,12 +441,13 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     return;
   }
   const c = order ? s.customers.find((x) => x.id === order.customer) : undefined;
-  if (!order || !c || c.table < 0) return release(st);
-  const t = s.tables[c.table]!;
+  if (!order || !c || !servable(c)) return release(st);
   if (job.phase === 'toTable') {
-    if (walkTo(s, st, besideTable(t), dt)) {
+    // To the table, or behind the bar across from a guest eating there.
+    const stool = c.table < 0 ? s.map.bar.stools[c.stool]! : null;
+    if (walkTo(s, st, stool ? stool.serve : besideTable(s.tables[c.table]!), dt)) {
       setPose(st, Pose.Idle);
-      st.facing = FACING_TABLE;
+      st.facing = stool ? facingFor(stool.at.x - stool.serve.x, stool.at.y - stool.serve.y, st.facing) : FACING_TABLE;
       setJob(st, { kind: 'pickup', order: order.id, phase: 'serve' });
     }
     return;
@@ -892,11 +893,14 @@ export function switchRole(s: GameState, st: Staff, role: Role): void {
   emote(st, Emote.Star);
 }
 
+/** A guest a plate can go to: at a table, or having a meal at the bar. */
+const servable = (c: Customer): boolean => c.table >= 0 || (c.stool >= 0 && !!c.barMeal);
+
 /** Manager action: tap a ready dish to send it flying to its customer's table. */
 export function serveOrder(s: GameState, order: Order): void {
   const c = s.customers.find((x) => x.id === order.customer);
-  if (!c || c.table < 0) return;
-  const to = dishSpot(s.tables[c.table]!, c.seat);
+  if (!c || !servable(c)) return;
+  const to = c.table >= 0 ? dishSpot(s.tables[c.table]!, c.seat) : counterBefore(s, c.stool);
   const p = s.map.passSlots[order.slot]!;
   emit(s, Ev.DishFly, p.x, p.y, to.x, to.y, order.dish);
   order.state = OrderState.Flying;

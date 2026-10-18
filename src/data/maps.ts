@@ -536,6 +536,8 @@ function acrossTheStreet(width: number, doors: readonly number[]): { areas: Area
 
 /** How many bartenders' places (and stools along the side) the bar has in each building. */
 const BAR_LEN: readonly number[] = [3, 3, 4, 4, 5, 5, 6, 6];
+/** The bar turns a corner (an L) from this building, and closes into three sides from the next stage (tier 4). */
+const BAR_L_TIER = 2;
 /** The bar's counter top (px): the height drinks stand at. */
 const BAR_TOP = 24;
 
@@ -545,7 +547,7 @@ const BAR_TOP = 24;
  * first diner had it, growing longer and gaining sides with the buildings.
  */
 function barOf(tier: number, y1: number): MapDef['bar'] {
-  const stage = tier >= 4 ? 3 : tier >= BAR.seatsTier ? 2 : 1;
+  const stage = tier >= 4 ? 3 : tier >= BAR_L_TIER ? 2 : 1;
   const len = BAR_LEN[tier] ?? 3;
   const ix = KITCHEN_X + 1.5;
   const cx = ix + 1;
@@ -561,6 +563,8 @@ function barOf(tier: number, y1: number): MapDef['bar'] {
   const passPiece = counters.find((c) => c.x === pass.x && c.y === pass.y)!;
   passPiece.variant = (passPiece.variant ?? 0) + 10;
   const stools: MapDef['bar']['stools'] = [];
+  // A stool at every place along the counter (owner: "guests can sit at the bar too": from the
+  // first diner; the tables keep their spots).
   if (tier >= BAR.seatsTier) {
     for (let y = r0; y <= r1; y++) stools.push({ at: { x: cx + 1, y }, facing: Facing.BackLeft, serve: { x: ix, y } });
     if (stage >= 3) {

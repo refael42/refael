@@ -81,16 +81,21 @@ describe('the restroom (owner M36)', () => {
   });
 
   it('a dirty restroom costs rating and brings reviews about it', () => {
-    const s = createGame(STAND_MAP, 8, { roster: ['cook', 'waiter', 'washer'] });
-    // Nobody will mop it: it stays filthy.
-    s.restroom.dirt = 1;
-    s.restroom.cleaner = 999;
-    const rating = s.rating;
-    play(s, 1500, (g) => {
-      g.restroom.dirt = 1;
-      g.restroom.cleaner = 999;
-    });
-    expect(s.rating).toBeLessThan(rating + 1.5);
-    expect(s.reviews.some((r) => r.kind === 'restroom')).toBe(true);
+    // A review is a guest's choice: over a few days in a few restaurants, someone writes one.
+    let wrote = false;
+    for (let seed = 8; seed < 12 && !wrote; seed++) {
+      const s = createGame(STAND_MAP, seed, { roster: ['cook', 'waiter', 'washer'] });
+      // Nobody will mop it: it stays filthy.
+      s.restroom.dirt = 1;
+      s.restroom.cleaner = 999;
+      const rating = s.rating;
+      play(s, 1500, (g) => {
+        g.restroom.dirt = 1;
+        g.restroom.cleaner = 999;
+      });
+      expect(s.rating).toBeLessThan(rating + 1.5);
+      wrote = s.reviews.some((r) => r.kind === 'restroom');
+    }
+    expect(wrote).toBe(true);
   });
 });

@@ -69,6 +69,10 @@ export interface Customer extends CharacterView {
   tourist: boolean;
   /** A guest at the bar: their stool (-1: at a table, or none). */
   stool: number;
+  /** At the bar for a meal (a waiter brings it to the counter), not just a drink; their plate on the counter (-1 none); done and waiting for their friend. */
+  barMeal?: boolean;
+  barDish?: number;
+  barDone?: boolean;
   /** Their drink order (-1 none), how many rounds they have had at the bar, and the drink in front of them there (-1 none). */
   drinkOrder: number;
   rounds: number;

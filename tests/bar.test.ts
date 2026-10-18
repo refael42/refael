@@ -26,7 +26,7 @@ describe('the bar (owner: "from the first moment, growing with the stages, three
   it('every building has one: straight, then an L, then three sides, the side toward the kitchen open', () => {
     TIERS.forEach((_, t) => {
       const bar = mapForTier(t).bar;
-      expect(bar.stage, `tier ${t}`).toBe(t >= 4 ? 3 : t >= BAR.seatsTier ? 2 : 1);
+      expect(bar.stage, `tier ${t}`).toBe(t >= 4 ? 3 : t >= 2 ? 2 : 1);
       // Nothing between the bartenders and the waiters' lane by the kitchen.
       const inside = Math.min(...bar.stations.map((p) => p.x));
       expect(bar.counters.every((c) => c.x >= inside)).toBe(true);

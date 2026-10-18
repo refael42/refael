@@ -7,11 +7,12 @@ import { facingFor, followPath, setPose } from '../movement';
 import { hash01 } from '../retention';
 import { boostNow } from '../shop';
 import { festivalBonus } from '../festival';
-import { Bubble, Emote, Expression, Facing, Held, Pose } from '../types';
+import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
 import { emit, Ev } from './events';
 import { statFactor, workRate } from './people';
 import { CustomerState, OrderState, type Customer, type DrinkOrder, type GameState, type Staff, type Table } from './types';
 import { gainXp } from './workers';
+import { freeStools } from '../economy/upgrades';
 
 // The bar (owner: "bartenders who shake cocktails, plain drinks too: a ready drink goes on the
 // bar's pass and a waiter takes it; later guests sit at the bar and the bartenders serve them").
@@ -62,6 +63,12 @@ export function maybeOrderDrink(s: GameState, c: Customer): void {
   if (!bartendersOn(s) || c.stool >= 0 || c.drinkOrder >= 0) return;
   if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), false);
+}
+
+/** A guest having a meal at the bar: now and then a drink with it, made right in front of them. */
+export function maybeBarDrink(s: GameState, c: Customer): void {
+  if (!bartendersOn(s) || c.drinkOrder >= 0 || hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance) return;
+  newDrink(s, c, chooseDrink(s, c, 0.7, false), true);
 }
 
 /** A guest leaves: a drink of theirs not yet on its way is poured out. */
@@ -192,7 +199,15 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
   }
   // Across the counter to the guest: they start on it.
   s.drinks = s.drinks.filter((x) => x !== d);
-  if (guest) {
+  if (guest?.barMeal) {
+    // A guest having a meal at the bar: the glass goes down by their plate; paid now.
+    guest.drinkOrder = -1;
+    guest.sipping = d.drink;
+    const price = drinkPrice(s, d, guest).mul(statFactor(st.stats.charm)).floor();
+    s.coins = s.coins.add(price);
+    s.stats.earned = s.stats.earned.add(price);
+    emit(s, Ev.Coins, guest.x, guest.y, price.toNumber());
+  } else if (guest) {
     guest.drinkOrder = -1;
     guest.rounds += 1;
     guest.held = Held.Glass;
@@ -285,29 +300,75 @@ export function landFlyingDrinks(s: GameState): void {
 
 // ---------- guests at the bar ----------
 
-const freeStool = (s: GameState): number => s.barSeats.findIndex((id) => id < 0);
+/** Stools open to guests: the building's own, and the ones bought (src/data/upgrades.ts barStools). */
+export const openStools = (s: GameState): number => Math.min(s.map.bar.stools.length, freeStools(s.map) + s.mods.stools);
+
+/** Stools not open yet stand faint (one to buy): `active` on a stool's prop means "not yet". */
+export function syncStools(s: GameState): void {
+  const open = openStools(s);
+  const stools = s.map.bar.stools;
+  for (const p of s.props) {
+    if (p.kind !== PropKind.BarStool) continue;
+    const k = stools.findIndex((st) => st.at.x === p.x && st.at.y === p.y);
+    p.active = k >= open;
+  }
+}
+
+const freeStool = (s: GameState): number => {
+  const k = s.barSeats.findIndex((id) => id < 0);
+  return k >= 0 && k < openStools(s) ? k : -1;
+};
+
+/** Two free stools side by side, for a pair. */
+function freeStoolPair(s: GameState): [number, number] | null {
+  const st = s.map.bar.stools;
+  for (let k = 0; k + 1 < openStools(s); k++) {
+    const a = st[k]!.at;
+    const b = st[k + 1]!.at;
+    if (s.barSeats[k]! < 0 && s.barSeats[k + 1]! < 0 && Math.abs(a.x - b.x) + Math.abs(a.y - b.y) <= 1.01) return [k, k + 1];
+  }
+  return null;
+}
 
 /**
- * Someone who came alone sits at the bar instead of waiting in line: from the building with
- * stools, when one is free and a bartender works (by their id: the game's dice are left alone).
+ * Someone who came alone (or a pair) sits at the bar instead of waiting in line, when stools are
+ * free (by their id: the game's dice are left alone). Most have a meal there; with a bartender
+ * some just drink. Returns their stools and whether they eat, or null.
  */
-export function maybeBarGuest(s: GameState, c: Customer): boolean {
-  if (c.partySize !== 1 || !bartendersOn(s) || hash01(c.id * 1.37 + 0.21) >= BAR.barGuestChance + s.mods.barGuests) return false;
-  const k = freeStool(s);
-  if (k < 0) return false;
-  s.barSeats[k] = c.id;
-  c.stool = k;
+export function barStoolsFor(s: GameState, c: Customer, size: number): { stools: number[]; meal: boolean } | null {
+  if (size > 2 || s.barSeats.length === 0) return null;
+  const roll = hash01(c.id * 1.37 + 0.21);
+  if (roll >= (size === 1 ? BAR.barGuestChance : BAR.pairChance) + s.mods.barGuests) return null;
+  const meal = !bartendersOn(s) || hash01(c.id * 2.93 + 0.4) < BAR.mealChance;
+  if (size === 1) {
+    const k = freeStool(s);
+    return k < 0 ? null : { stools: [k], meal };
+  }
+  const pair = freeStoolPair(s);
+  return pair ? { stools: pair, meal } : null;
+}
+
+/** Takes the stool (they walk there next). */
+export function takeStool(s: GameState, c: Customer, stool: number, meal: boolean): void {
+  s.barSeats[stool] = c.id;
+  c.stool = stool;
+  c.barMeal = meal;
   c.queueSlot = -1;
   c.state = CustomerState.ToTable;
   c.stateTime = 0;
-  return true;
+}
+
+/** Off the stool (to go home, the restroom, or storm out): the seat is free, the plate gone. */
+export function offStool(s: GameState, c: Customer): void {
+  if (c.stool >= 0 && s.barSeats[c.stool] === c.id) s.barSeats[c.stool] = -1;
+  c.stool = -1;
+  c.lift = 0;
+  c.barDish = -1;
 }
 
 /** A bar guest done (or fed up): off the stool and home. */
 function leaveBar(s: GameState, c: Customer, sendHome: (c: Customer) => void): void {
-  if (c.stool >= 0 && s.barSeats[c.stool] === c.id) s.barSeats[c.stool] = -1;
-  c.stool = -1;
-  c.lift = 0;
+  offStool(s, c);
   cancelDrinks(s, c);
   sendHome(c);
 }

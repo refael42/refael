@@ -32,6 +32,7 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   tables: { base: 'setRound', looks: false },
   barCounter: { base: 'barCornerBack', looks: true },
   cocktails: { base: 'drinkMojito', looks: false },
+  barStools: { base: 'barStool0', looks: false },
   cloth: { base: 'table', looks: true },
   chairs: { base: 'chair', looks: true },
   plants: { base: 'plantPalm', looks: true },

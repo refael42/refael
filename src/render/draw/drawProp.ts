@@ -316,6 +316,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     // A long table's other tiles say how far back they are in `bubble` (src/sim/game/step.ts).
     const seg = kind === PropKind.Table ? 0 : d[o + PF.bubble]!;
     drawTable(c, A, variant, d[o + PF.level]!, d[o + PF.progress]!, seg === 0 ? d[o + PF.bubble]! : 0, t, tier, looks.dishTiers, active, looks.detail, style, seg, d[o + PF.extra]!);
+  } else if (kind === PropKind.BarStool && active) {
+    // A stool not bought yet: faint, waiting (src/data/upgrades.ts barStools).
+    sprFade(c, A, base, 0, 0, 1, 0.3);
   } else if (kind === PropKind.Booth || kind === PropKind.BarStool) spr(c, A, base, 0, 0, body);
   else if (kind === PropKind.BarCounter) {
     spr(c, A, base, 0, 0, body);
@@ -384,18 +387,20 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const slide = fx !== 0 || fy !== 0 ? 1 - easeOutBack(clamp01(age / 0.4)) : 0;
     const pop = slide > 0 || age >= 0.35 ? 1 : easeOutBack(clamp01(age / 0.35));
     c.translate(ox(fx * slide, fy * slide), oy(fx * slide, fy * slide, 0) - Math.sin(clamp01(age / 0.4) * Math.PI) * 6 * (slide > 0 ? 1 : 0));
-    const bobY = -Math.abs(Math.sin(t * 3 + seed)) * 2.5;
-    // A delivery waits in its takeaway box to be packed (level bit 1); bit 2: the checker passed it.
+    // A delivery waits in its takeaway box to be packed (level bit 1); bit 2: the checker passed
+    // it; bit 4: served on the bar's counter, being eaten (it sits still, no sparkle).
     const flags = d[o + PF.level]!;
+    const still = flags >= 4;
+    const bobY = still ? 0 : -Math.abs(Math.sin(t * 3 + seed)) * 2.5;
     if (flags % 2 === 1) sprXf(c, A, S.foodBox, 0, bobY, 0, pop * 1.15, pop * 1.15, plain);
     else sprXf(c, A, look(A.L.plate[variant]!, looks.dishTiers[variant] ?? 0), 0, bobY, 0, pop, pop, plain);
-    if (flags >= 2) spr(c, A, S.checkBadge, 7, -14 + bobY, plain);
-    if (age > 0.2) {
+    if (flags % 4 >= 2) spr(c, A, S.checkBadge, 7, -14 + bobY, plain);
+    if (!still && age > 0.2) {
       const ring = 1 + fract(t * 0.9 + seed) * 0.8;
       A.paints.fade.setAlphaf(0.9 - fract(t * 0.9 + seed) * 0.9);
       sprXf(c, A, S.ring, 0, -4, 0, ring, ring * 0.5, A.paints.fade);
     }
-    sparkles(c, A, 0, -12, t, 8, seed);
+    if (!still) sparkles(c, A, 0, -12, t, 8, seed);
   } else if (kind === PropKind.PlatesClean) {
     // Live count: the stack visibly shrinks as dishes go out and grows as they are washed.
     const n = Math.min(10, variant);

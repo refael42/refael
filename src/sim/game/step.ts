@@ -153,9 +153,13 @@ function dynamicProps(s: GameState): PropView[] {
     out.push(prop(SYNTH * 2 + d.id, PropKind.Drink, p.x, p.y, { variant: d.drink, active: true, lift: barTop, since: d.since, depthBias: 1 }));
   }
   for (const c of s.customers) {
-    if (c.stool < 0 || c.sipping < 0) continue;
+    if (c.stool < 0) continue;
     const p = counterBefore(s, c.stool);
-    out.push(prop(SYNTH * 2 + c.id, PropKind.Drink, p.x, p.y, { variant: c.sipping, lift: barTop, depthBias: 1 }));
+    // A meal at the bar: the plate on the counter in front of them, the glass beside it.
+    if (c.barDish !== undefined && c.barDish >= 0) out.push(prop(SYNTH * 3 + c.id, PropKind.PassDish, p.x, p.y, { variant: c.barDish, level: 4, lift: barTop, since: s.time - 9, depthBias: 1 }));
+    if (c.sipping < 0) continue;
+    const g = c.barMeal ? { x: p.x + 0.22, y: p.y - 0.22 } : p;
+    out.push(prop(SYNTH * 2 + c.id, PropKind.Drink, g.x, g.y, { variant: c.sipping, lift: barTop, depthBias: 1 }));
   }
   const noPlates = s.staff.some((st) => st.stalled === 'plates');
   out.push(

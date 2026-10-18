@@ -1,4 +1,5 @@
 import type { Point } from '../../data/maps';
+import { syncStools } from './bar';
 import { parking } from './packing';
 import { computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { COUNT_STATS } from '../../data/upgrades';
@@ -133,6 +134,7 @@ function applyLevel(s: GameState, id: string, tile: Point | null, show: boolean,
   if (batch && !show && !COUNT_STATS.includes(def.effect.stat)) return false;
   const before = s.mods;
   s.mods = computeMods(s.levels, s.perks, s.trophies);
+  if (s.mods.stools !== before.stools) syncStools(s);
   // Bought plates go straight onto the clean stack.
   s.cleanPlates += s.mods.plates - before.plates;
   // A new building is a show of its own (and rebuilds the whole place when it is done).

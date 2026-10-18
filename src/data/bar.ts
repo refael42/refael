@@ -34,10 +34,17 @@ export const BAR = {
   passSlots: 3,
   /** Seconds to hand a drink over (to a waiter, or across the counter). */
   handoffSeconds: 0.5,
-  /** Bar seats (stools) open with this building (src/data/unlocks.ts); before that the bar only makes drinks for the tables. */
-  seatsTier: 2,
-  /** A guest who comes alone sits at the bar this often, when a stool is free and a bartender works. */
+  /** Bar seats (stools) stand from this building on; bought one by one until `stoolsFreeTier`, where every stool comes with the building. */
+  seatsTier: 0,
+  stoolsFreeTier: 2,
+  /** A guest who comes alone sits at the bar this often, when a stool is free; a pair this often, on two stools side by side. */
   barGuestChance: 0.35,
+  pairChance: 0.2,
+  /**
+   * Owner: "guests can sit at the bar too". Most at the bar have a meal there (menu, order, a
+   * waiter brings the plate to the counter); the others just drink. Without a bartender only meals.
+   */
+  mealChance: 0.65,
   /** A bar guest's drink (and a second one this often) is worth this much of the priciest dish on the menu. */
   barShare: 0.5,
   secondRound: 0.4,

@@ -30,7 +30,9 @@ function platesAccounted(s: GameState): number {
   const inOrders = s.orders.filter((o) => o.state === OrderState.Plating || o.state === OrderState.Ready || o.state === OrderState.Flying || o.state === OrderState.Carried).length;
   const onTables = s.tables.reduce((sum, t) => sum + (t.state === TableState.Dirty || t.state === TableState.Cleaning ? t.plates : t.dishes.filter((d) => d >= 0).length), 0);
   const inHands = s.staff.reduce((sum, st) => sum + (st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop') ? (st.job.plates ?? 0) : 0), 0);
-  return s.cleanPlates + s.dirtyPlates + inOrders + onTables + inHands;
+  // A meal being eaten at the bar has its plate on the counter.
+  const atBar = s.customers.filter((c) => (c.barDish ?? -1) >= 0).length;
+  return s.cleanPlates + s.dirtyPlates + inOrders + onTables + inHands + atBar;
 }
 
 describe('staff automate the restaurant', () => {

@@ -1,5 +1,5 @@
 import { HERO, HEROES } from '../../data/offers';
-import { BAR_STAGES } from '../../data/bar';
+import { BAR, BAR_STAGES } from '../../data/bar';
 import { TIERS } from '../../data/buildings';
 import { HUB } from '../../data/delivery';
 import { DISHES } from '../../data/dishes';
@@ -42,6 +42,8 @@ export interface Mods {
   /** The bar's pieces (src/data/bar.ts BAR_STAGES): added to the chance of a drink with a meal, and of a guest at the bar. */
   drinkChance: number;
   barGuests: number;
+  /** Bar stools bought (on top of the building's own, src/data/bar.ts). */
+  stools: number;
   /** The bar: how fast drinks are made, and what they sell for. */
   mixSpeed: number;
   drinkPrice: number;
@@ -93,6 +95,9 @@ export const restaurantLevel = (levels: Levels): number => levelOf(levels, RANK.
 export const levelCap = (levels: Levels): number => RANK.levels * restaurantLevel(levels);
 
 /** A track the restaurant level caps (not a count of things, not the restaurant level itself). */
+/** Stools a building comes with: all of them from the grand restaurant, none before (bought one by one). */
+export const freeStools = (map: MapDef): number => (map.tier >= BAR.stoolsFreeTier ? map.bar.stools.length : 0);
+
 export const isCappedTrack = (def: UpgradeDef): boolean => def.max === undefined && def.spots === undefined && def.id !== RANK.id;
 
 /** How many tracks have reached the cap (the next restaurant level wants RANK.ready of them). */
@@ -111,6 +116,7 @@ export function capOf(def: UpgradeDef, map: MapDef, levels: Levels): number | un
   if (def.spots === 'seats') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'));
   // A family table is a table for two made bigger.
   if (def.spots === 'family') return Math.min(map.tables.length, map.startTables + levelOf(levels, 'tables'), levelOf(levels, 'seats'));
+  if (def.spots === 'stools') return map.bar.stools.length - freeStools(map);
   if (def.max !== undefined || def.id === RANK.id) return def.max;
   return levelCap(levels);
 }
@@ -163,6 +169,7 @@ function emptyMods(): Mods {
     deliveryDemand: 1,
     drinkChance: 0,
     barGuests: 0,
+    stools: 0,
     mixSpeed: 1,
     drinkPrice: 1,
     price: DISHES.map(() => 1),

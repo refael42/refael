@@ -2,7 +2,7 @@ import { VALUE } from '../../data/balance';
 import type { MapDef } from '../../data/maps';
 import { KITCHEN } from '../../data/staff';
 import { UPGRADES, type UpgradeDef } from '../../data/upgrades';
-import { computeMods, costOf, isMaxed, isUnlocked, levelOf, type Levels, type Mods } from './upgrades';
+import { computeMods, costOf, freeStools, isMaxed, isUnlocked, levelOf, type Levels, type Mods } from './upgrades';
 
 // "Best value": roughly how much more the restaurant earns from one more level, per coin. Each
 // stat counts by how strongly it moves income (VALUE), as a ratio: +10 % of anything is worth
@@ -13,7 +13,8 @@ type Weighted = Exclude<keyof typeof VALUE, 'newDish' | 'listSize'>;
 /** The size of each stat that matters for income, counts included (with what the building starts with). */
 function amounts(m: Mods, map: MapDef): Record<Weighted, number> {
   const onMenu = m.price.filter((_, d) => m.menu[d]);
-  const tables = map.startTables + m.tables;
+  // A bar stool seats one: about half a table.
+  const tables = map.startTables + m.tables + 0.5 * Math.min(map.bar.stools.length, freeStools(map) + m.stools);
   return {
     price: onMenu.reduce((sum, p) => sum + p, 0) / Math.max(1, onMenu.length),
     quality: m.quality,

@@ -23,7 +23,7 @@ import { hash01, maybeVip, vipBonus } from '../retention';
 import { festivalBonus, festivalPoints } from '../festival';
 import { attentionTip, guideArrivals, guidePrice, inspectorDish, inspectorDue, inspectorLeaves, lookalikeDue, makeInspector, makeLookalike } from './guide';
 import { BUS } from '../../data/events';
-import { cancelDrinks, maybeBarGuest, maybeOrderDrink, updateBarGuest } from './bar';
+import { barStoolsFor, cancelDrinks, maybeBarDrink, maybeOrderDrink, offStool, STOOL_LIFT, takeStool, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 
 /** About one guest in three checks their phone while waiting for the food. */
@@ -129,8 +129,19 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
     makeLookalike(s, leader);
     return leader;
   }
-  // Someone alone may sit at the bar instead of waiting in line (from the grand restaurant).
-  if (size === 1 && maybeBarGuest(s, leader)) {
+  // Someone alone, or a pair, may sit at the bar instead of waiting in line (owner: "guests
+  // can sit at the bar too"): most for a meal, some for a drink.
+  const bar = barStoolsFor(s, leader, size);
+  if (bar) {
+    // The friend first, while the leader still holds their place in line (a newcomer heads for it).
+    if (bar.stools[1] !== undefined) {
+      const o = PARTY.spawnOffsets[0]!;
+      const friend = newCustomer(s, type, { x: start.x + o.x, y: start.y + o.y }, -1, leader.id, size);
+      takeStool(s, friend, bar.stools[1], bar.meal);
+      friend.path = route(s, friend, s.map.bar.stools[friend.stool]!.at);
+      s.customers.push(friend);
+    }
+    takeStool(s, leader, bar.stools[0]!, bar.meal);
     leader.path = route(s, leader, s.map.bar.stools[leader.stool]!.at);
     return leader;
   }
@@ -383,10 +394,12 @@ export function startEating(s: GameState, c: Customer, dish: number, quality: nu
   c.tipBoost = tipBoost;
   c.foodWaited = c.patienceMax - c.patienceLeft;
   endWait(c);
-  const t = s.tables[c.table]!;
-  t.state = TableState.Occupied;
-  t.dishes[c.seat] = dish;
-  t.since = s.time;
+  if (c.table >= 0) {
+    const t = s.tables[c.table]!;
+    t.state = TableState.Occupied;
+    t.dishes[c.seat] = dish;
+    t.since = s.time;
+  } else c.barDish = dish;
   c.order = -1;
   c.bubble = Bubble.None;
   c.held = Held.None;
@@ -456,10 +469,97 @@ function followLeader(s: GameState, c: Customer, dt: number): void {
   }
 }
 
+/** They read the menu: the order goes to the kitchen, its picture over their head, and the wait starts. */
+function orderMeal(s: GameState, c: Customer): void {
+  c.dish = c.inspector
+    ? inspectorDish(s, c, DISHES.filter((d) => s.mods.menu[d.id]).map((d) => d.id), (dish) => dishPrice(s, dish).toNumber())
+    : chooseDish(s, CUSTOMER_TYPES[c.type]);
+  const id = s.nextId++;
+  s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
+  c.order = id;
+  // The head chef's guest: their ticket goes first.
+  if (c.attention) s.orders.unshift(s.orders.pop()!);
+  c.held = Held.None;
+  c.bubble = Bubble.DishBase + c.dish;
+  startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day));
+  setState(c, CustomerState.Waiting);
+}
+
+/**
+ * A meal at the bar (owner: "guests can sit at the bar too"): onto the stool, the menu, the
+ * order (and a drink from the bartender, when there is one); a waiter sets the plate on the
+ * counter; they eat, pay, and go when their friend is done too.
+ */
+function updateBarDiner(s: GameState, c: Customer, dt: number): void {
+  const stool = s.map.bar.stools[c.stool];
+  if (!stool) {
+    offStool(s, c);
+    sendHome(s, c);
+    return;
+  }
+  switch (c.state) {
+    case CustomerState.ToTable:
+      if (c.path.length === 0 || followPath(c, c.path, c.walkSpeed, dt)) {
+        c.x = stool.at.x;
+        c.y = stool.at.y;
+        c.facing = stool.facing;
+        c.lift = STOOL_LIFT;
+        setPose(c, Pose.Sit);
+        c.held = Held.Menu;
+        setState(c, CustomerState.Reading);
+      }
+      break;
+    case CustomerState.Reading:
+      if (c.stateTime >= ECONOMY.readMenuSeconds) {
+        orderMeal(s, c);
+        maybeBarDrink(s, c);
+      }
+      break;
+    case CustomerState.Waiting: {
+      const flying = s.orders.some((o) => o.id === c.order && (o.state === OrderState.Flying || o.state === OrderState.Carried));
+      if (!flying) drainPatience(c, dt);
+      if (c.patienceLeft <= 0) {
+        for (const m of partyOf(s, c)) if (m.stool >= 0) offStool(s, m);
+        walkout(s, c);
+      } else c.held = phoneUser(c) && c.stateTime > ANIM.phoneAfter && c.patience > ANIM.impatientBelow ? Held.Phone : Held.None;
+      break;
+    }
+    case CustomerState.Eating:
+      if (c.stateTime >= dishDef(c.dish).eatSeconds) {
+        // The empty plate goes back over the counter to the dish pile.
+        c.barDish = -1;
+        c.sipping = -1;
+        s.dirtyPlates += 1;
+        pay(s, c);
+      }
+      break;
+    case CustomerState.Paying: {
+      if (c.stateTime < ECONOMY.paySeconds) break;
+      c.barDone = true;
+      // Friends at the bar go together.
+      const party = partyOf(s, c);
+      if (party.every((m) => m.barDone || m.stool < 0)) {
+        for (const m of party) {
+          if (m.stool < 0) continue;
+          offStool(s, m);
+          leaveAfterMeal(s, m);
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
 export function updateCustomers(s: GameState, dt: number): void {
   for (const c of s.customers) {
     c.stateTime += dt;
     // A guest at the bar has a day of their own (src/sim/game/bar.ts).
+    if (c.stool >= 0 && c.barMeal) {
+      updateBarDiner(s, c, dt);
+      continue;
+    }
     if (c.stool >= 0) {
       updateBarGuest(s, c, dt, (m) => sendHome(s, m), () => {
         s.stats.walkouts += 1;
@@ -520,19 +620,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           c.stateTime = 0;
         }
         if (c.stateTime >= ECONOMY.readMenuSeconds) {
-          c.dish = c.inspector
-            ? inspectorDish(s, c, DISHES.filter((d) => s.mods.menu[d.id]).map((d) => d.id), (dish) => dishPrice(s, dish).toNumber())
-            : chooseDish(s, CUSTOMER_TYPES[c.type]);
-          const id = s.nextId++;
-          s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
-          c.order = id;
-          // The head chef's guest: their ticket goes first.
-          if (c.attention) s.orders.unshift(s.orders.pop()!);
+          orderMeal(s, c);
           maybeOrderDrink(s, c);
-          c.held = Held.None;
-          c.bubble = Bubble.DishBase + c.dish;
-          startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day));
-          setState(c, CustomerState.Waiting);
         }
         break;
       case CustomerState.Waiting: {

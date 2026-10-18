@@ -71,13 +71,14 @@ describe('more chairs and couples', () => {
     expect(table.seats).toBe(2);
     expect(pair[0]!.table).toBe(pair[1]!.table);
     expect(new Set(pair.map((c) => c.seat))).toEqual(new Set([0, 1]));
-    for (let i = 0; i < 3000 && !pair.every((c) => c.state === CustomerState.Leaving); i++) {
+    for (let i = 0; i < 3000 && !pair.every((c) => c.state === CustomerState.Leaving || c.state === CustomerState.Restroom); i++) {
       for (const c of g.customers) if (c.state === CustomerState.Queued && c.partySize === 1) queueCommand(g, { type: 'seat', customer: c.id });
       stepGame(g, STEP_SEC);
-      // Nobody leaves early: the first to pay waits for the other.
-      if (pair.some((c) => c.state === CustomerState.Leaving)) expect(pair.every((c) => c.state === CustomerState.Leaving)).toBe(true);
+      // Nobody leaves early: the first to pay waits for the other (then home, or the restroom first, M36).
+      const gone = (c: Customer) => c.state === CustomerState.Leaving || c.state === CustomerState.Restroom;
+      if (pair.some(gone)) expect(pair.every(gone)).toBe(true);
     }
-    expect(pair.every((c) => c.state === CustomerState.Leaving)).toBe(true);
+    expect(pair.every((c) => c.state === CustomerState.Leaving || c.state === CustomerState.Restroom)).toBe(true);
     expect(g.stats.served - earned).toBeGreaterThanOrEqual(2);
     expect([TableState.Dirty, TableState.Cleaning, TableState.Free]).toContain(table.state);
   });
@@ -94,7 +95,9 @@ describe('more chairs and couples', () => {
     const onTables = s.tables.reduce((n, t) => n + (t.state === TableState.Dirty || t.state === TableState.Cleaning ? t.plates : t.dishes.filter((d) => d >= 0).length), 0);
     const inOrders = s.orders.filter((o) => o.state >= 2).length;
     const carried = s.staff.reduce((n, st) => n + (st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop') ? (st.job.plates ?? 0) : 0), 0);
-    expect(s.cleanPlates + s.dirtyPlates + onTables + inOrders + carried).toBe(total);
+    // ...and a meal being eaten at the bar has its plate on the counter.
+    const atBar = s.customers.filter((c) => (c.barDish ?? -1) >= 0).length;
+    expect(s.cleanPlates + s.dirtyPlates + onTables + inOrders + carried + atBar).toBe(total);
   });
 });
 

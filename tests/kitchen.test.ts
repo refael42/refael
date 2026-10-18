@@ -114,7 +114,9 @@ describe('the kitchen (owner M29: "every dish on its own equipment, an open kitc
     const onTables = s.tables.reduce((n, t) => n + (t.state === 3 || t.state === 4 ? t.plates : t.dishes.filter((d) => d >= 0).length), 0);
     const inOrders = s.orders.filter((o) => o.state >= OrderState.Plating && !o.delivery).length;
     const carried = s.staff.reduce((n, st) => n + (st.job?.kind === 'buss' && (st.job.phase === 'toSink' || st.job.phase === 'drop') ? (st.job.plates ?? 0) : 0), 0);
-    expect(s.cleanPlates + s.dirtyPlates + onTables + inOrders + carried).toBe(total);
+    // ...and a meal being eaten at the bar has its plate on the counter.
+    const atBar = s.customers.filter((c) => (c.barDish ?? -1) >= 0).length;
+    expect(s.cleanPlates + s.dirtyPlates + onTables + inOrders + carried + atBar).toBe(total);
   });
   it('a big kitchen is more than rows of the same table: rooms of stores, fridges, stock pots, butchery, pastry', () => {
     const map = mapForTier(TIERS.length - 1);
