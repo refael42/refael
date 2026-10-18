@@ -44,6 +44,7 @@ import { ConstructionNote, TierBanner } from './TierBanner';
 import { HowToPlay } from './HowToPlay';
 import { ReviewsPanel } from './Reviews';
 import { GuidePanel } from './Guide';
+import { ChefBadge, ChefPanel, LevelUpCard } from './ChefLevel';
 import { GuideEdition, InspectorCard, RumorHint } from './GuideCards';
 import { RushButton } from './RushButton';
 import { ClosedSign, SIGN_WIDTH } from './ClosedSign';
@@ -337,8 +338,12 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Phone reminders while the game is closed (owner M35), once the first screens are done.
   useReminders(gameRef, !onboarding && !welcome && tutorial >= TUTORIAL_STEPS.length);
   const offerPopup = usePoll(gameRef, readOfferPopup, 0.5);
-  const othersOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || offers || onboarding || welcome || newsDue);
+  const [chefPage, setChefPage] = useState(false);
+  const othersOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || offers || chefPage || onboarding || welcome || newsDue);
   const editionCard = editionNews && !othersOpen ? editionNews : null;
+  // A new chef level: its card when nothing else is on screen (after the guide's edition).
+  const chefPending = usePoll(gameRef, readChefPending, 2);
+  const levelCard = !othersOpen && !editionCard && tutorial >= TUTORIAL_STEPS.length && chefPending ? chefPending : null;
   const closeEdition = useCallback(() => setSeenEdition((e) => Math.max(e ?? 0, editionNews?.edition ?? 0)), [editionNews?.edition]);
   const anythingOpen = othersOpen || !!editionCard;
   useEffect(() => {
@@ -565,6 +570,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
         </>
       )}
+      {!onboarding && !build && tutorial >= TUTORIAL_STEPS.length && (
+        // The chef's level (owner: "like Hay Day"): a star in the top bar, between the coins and the day.
+        <ChefBadge gameRef={gameRef} onPress={() => setChefPage(true)} style={{ top: hud.top - 4, left: (hud.left + hud.right) / 2 - DAY_PILL_WIDTH / 2 - 62 }} />
+      )}
       {!panel && !staff && !build && !quests && !onboarding && tutorial >= TUTORIAL_STEPS.length && building < 0 && (
         // The door sign hangs in the top bar, between the day and the rating (owner: "a more normal place").
         <ClosedSign gameRef={gameRef} onCommand={command} style={{ top: hud.top - 8, left: signLeft(hud) }} />
@@ -588,6 +597,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {offers && <OffersPanel gameRef={gameRef} onClose={() => setOffers(false)} purchases={purchases} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
+      {chefPage && <ChefPanel gameRef={gameRef} onClose={() => setChefPage(false)} />}
+      {levelCard !== null && <LevelUpCard key={levelCard} level={levelCard} onClose={() => command({ type: 'chefSeen', level: levelCard })} />}
       {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} gems={editionCard.gems} onClose={closeEdition} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
@@ -693,6 +704,9 @@ function CastView() {
     </>
   );
 }
+
+/** The oldest chef level whose card was not seen yet (or null). */
+const readChefPending = (s: GameState): number | null => s.chef.pending[0] ?? null;
 
 /** The door sign's left edge: in the middle of the gap between the day pill and the rating pill. */
 const signLeft = (hud: { left: number; right: number }): number => {

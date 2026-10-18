@@ -60,6 +60,8 @@ describe('item shop', () => {
     const plain = createGame(STAND_MAP, 82, { roster: [...team] });
     const boosted = createGame(STAND_MAP, 82, { roster: [...team], gems: 1000 });
     expect(buyShopItem(boosted, 'boost2')).toBe(true);
+    // No chef levels here (their coins and chests would muddle the comparison).
+    plain.chef.xp = boosted.chef.xp = -1e12;
     play(plain, 300);
     play(boosted, 300);
     const perMeal = (s: GameState) => s.stats.earned.toNumber() / Math.max(1, s.stats.served);
@@ -108,6 +110,8 @@ describe('item shop', () => {
 
   it('a restaurant level-up gives gems', () => {
     const s = createGame(STAND_MAP, 86, { roster: ['cook', 'waiter'], coins: big(1000) });
+    // No chef levels here (their coins and chests would muddle the comparison).
+    s.chef.xp = -1e12;
     queueCommand(s, { type: 'buy', item: 'fries' });
     for (let i = 0; i < 3; i++) queueCommand(s, { type: 'buy', item: 'fries' });
     play(s, 240);

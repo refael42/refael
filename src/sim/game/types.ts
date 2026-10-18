@@ -12,6 +12,7 @@ import type { Rng } from '../rng';
 import type { CharacterView, Facing, PropKind, PropView } from '../types';
 import type { Station } from '../../data/kitchen';
 import type { GuideState } from './guide';
+import type { ChefState } from '../chef';
 import type { BulkStep } from '../../data/works';
 import type { TableStyle } from '../../data/tables';
 
@@ -194,6 +195,8 @@ export type Command =
   | { type: 'seat'; customer: number }
   /** A rumor day: the head chef cooks for this suspect (src/sim/game/guide.ts giveAttention). */
   | { type: 'attend'; customer: number }
+  /** The player saw a chef level's card (src/sim/chef.ts). */
+  | { type: 'chefSeen'; level: number }
   /** Rush hour: on while the button is held down. */
   | { type: 'rush'; on: boolean }
   /** Close to new guests (the ones inside finish) or open again. */
@@ -529,6 +532,8 @@ export interface GameState {
   /** Day counter (continues across sessions) and seconds into the current day. */
   day: number;
   dayTime: number;
+  /** The chef's level and experience (src/sim/chef.ts): the player's, kept across branches. */
+  chef: ChefState;
   notices: Notice[];
   nextNoticeId: number;
   /** The next building tier going up (closed meanwhile), or null. */

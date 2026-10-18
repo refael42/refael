@@ -1,4 +1,5 @@
 import { DELIVERY, PACKING } from '../../data/delivery';
+import { gainXp as chefXp } from '../chef';
 import { DISHES } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
 import { big } from '../big';
@@ -171,6 +172,7 @@ export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: 
     total = total.add(pay);
     s.orders.splice(s.orders.indexOf(o), 1);
     s.stats.delivered += 1;
+    chefXp(s, 'delivery');
     festivalDelivery(s, o.dish);
     gainXp(s, st);
   }

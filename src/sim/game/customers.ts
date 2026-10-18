@@ -3,6 +3,7 @@ import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, typ
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { GUIDE } from '../../data/guide';
+import { gainXp as chefXp } from '../chef';
 import { ECONOMY } from '../../data/economy';
 import { ANIM } from '../../data/customers';
 import { DAY, KITCHEN } from '../../data/staff';
@@ -429,6 +430,8 @@ function pay(s: GameState, c: Customer): void {
   s.coins = s.coins.add(price).add(tip);
   s.stats.earned = s.stats.earned.add(price).add(tip);
   s.stats.served += 1;
+  chefXp(s, 'served');
+  if (stars >= 5) chefXp(s, 'fiveStar');
   emit(s, Ev.Coins, c.x, c.y, price.toNumber());
   if (tip.gt(0)) emit(s, Ev.Tip, c.x, c.y, tip.toNumber());
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);

@@ -1,5 +1,6 @@
 import { newGuide, type GuideState } from './guide';
 import { syncStools } from './bar';
+import { newChef, type ChefState } from '../chef';
 import { newFestival } from '../festival';
 import { AMBIENT } from '../../data/ambient';
 import { ECONOMY } from '../../data/economy';
@@ -479,6 +480,7 @@ export interface GameSetup {
   purchases?: readonly string[];
   /** The paid offers seen and taken. */
   offers?: GameState['offers'];
+  chef?: Pick<ChefState, 'level' | 'xp'>;
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -580,6 +582,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     festival: setup.festival ? { ...setup.festival, trophies: [...setup.festival.trophies] } : newFestival(),
     flash: setup.flash ? { ...setup.flash } : { slot: -1, bought: false },
     purchases: [...(setup.purchases ?? [])],
+    chef: setup.chef ? { level: setup.chef.level, xp: setup.chef.xp, pending: [] } : newChef(),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),
     restroom: { dirt: 0, stalls: map.restroom.stalls.map(() => -1), cleaner: -1 },
     guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),

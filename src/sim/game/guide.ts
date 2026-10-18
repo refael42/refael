@@ -9,6 +9,7 @@ import { Emote } from '../types';
 import { emit, Ev } from './events';
 import { OrderState, type Customer, type GameState, type Order } from './types';
 import { notify } from './workers';
+import { gainXp as chefXp } from '../chef';
 
 // The restaurant guide (owner M29: "Michelin logic, stars you get like in real life"); the
 // rules are in src/data/guide.ts. Rolls go by hash (the game's dice are left alone).
@@ -214,6 +215,7 @@ export function inspectorLeaves(s: GameState, c: Customer, walkedOut: boolean): 
   s.guide.decoyAt = [];
   for (const o of s.customers) if (o.rank === SUSPECT_RANK) o.rank = 0;
   emit(s, Ev.Inspector, c.x, c.y, score);
+  if (!walkedOut) chefXp(s, 'inspector');
   // What they noted: the best and the weakest part of the plate (none if they walked out).
   const parts = walkedOut ? null : c.inspectParts;
   const ranked = parts ? (Object.keys(GUIDE.weights) as (keyof typeof GUIDE.weights)[]).sort((a, b) => parts[b] - parts[a]) : [];
@@ -247,6 +249,7 @@ export function publish(s: GameState): void {
   g.last = { edition: g.edition, stars, plate: g.plate, change: stars - before, average: Math.round(avg), visits: v.length, gems };
   g.visits = [];
   emit(s, Ev.Guide, 0, 0, stars, stars - before, g.plate ? 1 : 0);
+  if (stars > before) chefXp(s, 'star', stars - before);
   notify(s, { kind: 'guide', stars, change: stars - before, plate: g.plate, visits: v.length });
 }
 

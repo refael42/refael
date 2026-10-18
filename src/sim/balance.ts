@@ -70,7 +70,8 @@ export function runBalance(o: BalanceOptions): BalanceReport {
     quits += s.notices.filter((n) => n.kind === 'quit' && n.time === s.time).length;
     while (levelUps.length < s.quests.level - 1) levelUps.push(s.time);
     if (i % sampleEvery === 0) {
-      const earned = s.stats.earned.toNumber();
+      // Income from serving: prizes handed out (a chef level's coins, a gift) are not the economy running away.
+      const earned = s.stats.earned.sub(s.stats.granted).toNumber();
       samples.push({
         time: s.time,
         coins: s.coins.toString(),

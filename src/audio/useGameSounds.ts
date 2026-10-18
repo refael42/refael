@@ -48,6 +48,8 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     // The head chef comes out for the guest the manager picked.
     case Ev.Attention:
       return ['upgrade', true];
+    case Ev.ChefLevel:
+      return ['levelup', true];
     case Ev.Review:
       return a >= 5 ? ['sparkle', false] : [null, false];
     case Ev.Rush:

@@ -217,6 +217,15 @@ export function processEvents(s: FxState, snap: Snapshot, hud: HudAnchors): void
       // The inspector says who they were: their red book pops up, a ring of confetti.
       spawnFx(s, FxKind.Ding, t, 0.8, wx, wy - 50);
       for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Confetti, t + k * 0.02, 1.2, wx, wy - 56, (k / 12) * Math.PI * 2, 0, k);
+    } else if (type === Ev.ChefLevel) {
+      // A new chef level: its coins fly from the top bar's star into the counter.
+      const sx = hud.centerX - 110;
+      const sy = hud.coinY + 6;
+      const coins = ev[o + E.b]!;
+      if (coins > 0) {
+        for (let k = 0; k < 12; k++) spawnFx(s, FxKind.Coin, t + 0.2 + k * 0.04, 0.9, sx + Math.sin(k * 2.4) * 20, sy + 10, hud.coinX, hud.coinY, coins / 12, FROM_SCREEN);
+        s.pending += coins;
+      }
     } else if (type === Ev.Attention) {
       // The head chef comes out to this guest: a burst of sparkles and a ring.
       spawnFx(s, FxKind.Burst, t, 0.7, wx, wy - 40);

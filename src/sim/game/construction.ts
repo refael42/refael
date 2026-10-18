@@ -1,4 +1,5 @@
 import { CONSTRUCTION } from '../../data/buildings';
+import { gainXp as chefXp } from '../chef';
 import { mapForTier } from '../../data/maps';
 import { levelOf } from '../economy/upgrades';
 import { range } from '../rng';
@@ -93,6 +94,7 @@ function finishConstruction(s: GameState): void {
     guide: s.guide,
     purchases: s.purchases,
     offers: s.offers,
+    chef: s.chef,
     nextBus: s.nextBus,
     city: s.city,
     trophies: s.trophies,
@@ -102,4 +104,5 @@ function finishConstruction(s: GameState): void {
   Object.assign(s, fresh, keep, { nextArrival: s.time + 1, construction: null });
   const b = map.building;
   emit(s, Ev.Built, (b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, map.tier);
+  chefXp(s, 'building');
 }

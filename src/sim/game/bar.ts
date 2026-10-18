@@ -13,6 +13,7 @@ import { statFactor, workRate } from './people';
 import { CustomerState, OrderState, type Customer, type DrinkOrder, type GameState, type Staff, type Table } from './types';
 import { gainXp } from './workers';
 import { freeStools } from '../economy/upgrades';
+import { gainXp as chefXp } from '../chef';
 
 // The bar (owner: "bartenders who shake cocktails, plain drinks too: a ready drink goes on the
 // bar's pass and a waiter takes it; later guests sit at the bar and the bartenders serve them").
@@ -414,6 +415,7 @@ export function updateBarGuest(s: GameState, c: Customer, dt: number, sendHome: 
     c.emote = Emote.Heart;
     c.emoteTime = 0;
     s.stats.served += 1;
+    chefXp(s, 'served');
     leaveBar(s, c, sendHome);
   }
 }

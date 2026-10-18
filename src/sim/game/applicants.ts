@@ -1,4 +1,5 @@
 import { APPLICANTS, ROLE_LIST, ROLES, STAFF, type Role } from '../../data/staff';
+import { gainXp as chefXp } from '../chef';
 import { TRAITS } from '../../data/traits';
 import { followPath, setPose } from '../movement';
 import { chance, next, pick, range } from '../rng';
@@ -153,6 +154,7 @@ export function hire(s: GameState, id: number, trial: boolean): void {
   st.rank = 0;
   emote(st, Emote.Heart);
   emit(s, Ev.Hired, a.x, a.y);
+  chefXp(s, 'hire');
   s.staff.push(st);
   s.stats.hires += 1;
   s.applicants.splice(s.applicants.indexOf(a), 1);

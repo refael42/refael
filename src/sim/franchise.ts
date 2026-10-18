@@ -41,6 +41,8 @@ export function openBranch(s: GameState): boolean {
     events: s.events,
     nextEventId: s.nextEventId,
     boost: s.boost,
+    // The chef's level is the player's: it goes along.
+    chef: s.chef,
     // Ids keep counting up, so nothing new is mistaken for something from the old branch.
     nextId: Math.max(s.nextId, fresh.nextId),
   };

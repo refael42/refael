@@ -1,4 +1,5 @@
 import { QUEST_LEVELS, QUESTS, type QuestGoal, type QuestLevel } from '../data/quests';
+import { gainXp as chefXp } from './chef';
 import { tableUnits } from './game/create';
 import { GEMS } from '../data/shop';
 import { big } from './big';
@@ -83,6 +84,7 @@ export function claimQuest(s: GameState, index: number): void {
     s.quests = { level: s.quests.level + 1, claimed: [] };
     s.gems += GEMS.perLevelUp;
     addWheelToken(s);
+    chefXp(s, 'stage');
   }
   s.coins = s.coins.add(reward);
   emit(s, Ev.Bonus, 0, 0, reward.toNumber());

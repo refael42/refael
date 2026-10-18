@@ -39,6 +39,8 @@ describe('service grade', () => {
     for (const seed of [21, 22, 23]) {
       const quick = createGame(STAND_MAP, seed, { roster: [...team] });
       const slow = createGame(STAND_MAP, seed, { roster: [...team] });
+      // No chef levels here (their coins and chests would muddle the comparison).
+      quick.chef.xp = slow.chef.xp = -1e12;
       play(quick, 240, 0);
       play(slow, 240, 12);
       const perMeal = (s: GameState) => s.stats.earned.toNumber() / Math.max(1, s.stats.served);

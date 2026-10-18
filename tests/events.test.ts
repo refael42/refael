@@ -226,6 +226,8 @@ describe('tourist bus', () => {
     const pays = (tourist: boolean) => {
       const s = busy();
       s.nextBus = Infinity;
+      // No chef levels here (their coins and chests would muddle the comparison).
+      s.chef.xp = -1e12;
       for (let i = 0; i < 240 / STEP_SEC; i++) {
         for (const c of s.customers) c.tourist = tourist;
         stepGame(s, STEP_SEC);

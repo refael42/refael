@@ -104,6 +104,8 @@ export const Ev = {
   Guide: 52,
   /** The head chef came out for this guest (a rumor day's pick). a = 1 if it is the inspector. */
   Attention: 53,
+  /** The chef reached a new level (src/sim/chef.ts). a = the level, b = its coins, c = its gems */
+  ChefLevel: 54,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

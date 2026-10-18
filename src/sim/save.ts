@@ -83,6 +83,8 @@ export interface SaveData {
   purchases: string[];
   /** The paid offers: the starter's clock, packs taken, the turn's hero, the last card shown (M34). */
   offers: OffersState;
+  /** The chef's level and experience (M44; older saves: level 1). */
+  chef?: { level: number; xp: number };
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
   guide: SavedGuide;
   /** The kitchen as the player laid it out in build mode (owner M30; older saves: the building's own). */
@@ -223,6 +225,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     reviewSeq: s.reviewSeq,
     purchases: [...s.purchases],
     offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
+    chef: { level: s.chef.level, xp: s.chef.xp },
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
     rate: toSave(incomeRate(s)),
@@ -376,6 +379,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     ...(bigText(o.rate) && fromSave(o.rate).gte(0) ? { rate: o.rate } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     offers: cleanOffers(o.offers),
+    chef: isRecord(o.chef) && finite(o.chef.level) && finite(o.chef.xp) ? { level: Math.max(1, Math.floor(o.chef.level)), xp: Math.max(0, o.chef.xp) } : { level: 1, xp: 0 },
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
 }
@@ -527,6 +531,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     reviewSeq: save.reviewSeq,
     purchases: save.purchases,
     offers: save.offers,
+    chef: save.chef,
     guide: save.guide,
     kitchen: save.kitchen,
   });

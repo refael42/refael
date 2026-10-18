@@ -135,6 +135,8 @@ describe('the guide 2.0: a rumor, suspects and the head chef', () => {
 
   it('each mark pays its gems once (the plate, then each star), and the best mark is saved', () => {
     const s = createGame(STAND_MAP, 64);
+    // No chef levels here (their coins and chests would muddle the comparison).
+    s.chef.xp = -1e12;
     const gems0 = s.gems;
     // Straight to the first star: the plate's gems and the star's.
     s.guide.visits = [{ day: 3, score: 90 }, { day: 5, score: 88 }];

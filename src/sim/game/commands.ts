@@ -2,6 +2,7 @@ import { ECONOMY } from '../../data/economy';
 import { setClosed } from './closing';
 import { claimReviews } from './reviews';
 import { canAttend, giveAttention } from './guide';
+import { seenLevel } from '../chef';
 import { UPGRADES } from '../../data/upgrades';
 import { fromSave } from '../big';
 import { emit, Ev } from './events';
@@ -166,6 +167,8 @@ function apply(s: GameState, cmd: Command): void {
       return startBus(s);
     case 'review':
       return claimReviews(s, cmd.id);
+    case 'chefSeen':
+      return seenLevel(s, cmd.level);
     case 'attend': {
       const c = s.customers.find((x) => x.id === cmd.customer);
       if (c) giveAttention(s, c);

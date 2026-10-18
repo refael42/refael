@@ -1,5 +1,6 @@
 import type { Point } from '../../data/maps';
 import { syncStools } from './bar';
+import { gainXp as chefXp } from '../chef';
 import { parking } from './packing';
 import { computeMods, costOf, levelOf, milestonesReached, upgradeDef } from '../economy/upgrades';
 import { COUNT_STATS } from '../../data/upgrades';
@@ -101,6 +102,8 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
     rebuildGrid(s);
     rerouteWalkers(s);
   }
+  // The chef's experience: a level bought (a big bulk buy counts for a few).
+  chefXp(s, 'upgrade', plan.count);
   return true;
 }
 
