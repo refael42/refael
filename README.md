@@ -28,6 +28,8 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 ## בנייה לטלפון אנדרואיד (גרסת בדיקה)
 פעם אחת במחשב: `npm install -g eas-cli` ואז `eas login`. אחר כך לחיצה כפולה על `build-android-test.bat`:
 הבנייה רצה בענן של Expo (15–30 דקות), ובסוף יש קישור וקוד QR להתקנה בטלפון. פרטים ב-`store/release-guide.md`.
+בגרסת הבדיקה יש בהגדרות "בדיקות" (כסף לבדיקה, אוטובוס, עומס); בגרסת החנות הן לא מופיעות.
+עדכון מהיר לשחקנים אחרי שהמשחק בחנות: לחיצה כפולה על `publish-update.bat` (ראו שלב 11 במדריך).
 
 ## איך משחקים
 
