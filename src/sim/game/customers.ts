@@ -79,7 +79,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 
 /** Poisson arrivals: exponential gaps whose rate grows with the rating. */
 export function updateArrivals(s: GameState): void {
-  if (s.construction || s.time < s.nextArrival) return;
+  if (s.construction || s.closed || s.time < s.nextArrival) return;
   const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
   const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds) * guideArrivals(s)) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
@@ -145,7 +145,7 @@ function arrive(s: GameState, type: CustomerType, start: Point, slot: number, lo
  * (same face, same clothes). Not if the line is full or the place is closed for building.
  */
 export function walkIn(s: GameState, at: Point, look: Customer['look']): Customer | null {
-  if (s.construction) return null;
+  if (s.construction || s.closed) return null;
   const slot = freeQueueSlot(s);
   if (slot < 0) return null;
   return arrive(s, pickType(s), { x: at.x, y: at.y }, slot, look);
@@ -264,6 +264,17 @@ export function sendHome(s: GameState, c: Customer): void {
   // Sent off from inside a restroom stall (the place closing for building work): seen again.
   c.hidden = false;
   setState(c, CustomerState.Leaving);
+}
+
+/** Closing (for building work, or the player's sign): the line goes home, smiling (no rating hit). */
+export function sendLineHome(s: GameState): void {
+  for (const c of s.customers) {
+    if (c.state === CustomerState.Arriving || c.state === CustomerState.Queued) {
+      c.emote = Emote.Music;
+      c.emoteTime = 0;
+      sendHome(s, c);
+    }
+  }
 }
 
 /** A table everyone left: dirty if anyone ate at it, otherwise ready for the next guests. */

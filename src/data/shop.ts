@@ -22,6 +22,8 @@ export type ShopItem =
   | { id: string; kind: 'boost'; cost: number; mult: number; minutes: number }
   /** That much time of income, right now. */
   | { id: string; kind: 'warp'; cost: number; hours: number }
+  /** Coins for gems (owner M38): `minutes` of income, so the bag grows with the restaurant. */
+  | { id: string; kind: 'coins'; cost: number; minutes: number }
   /** A top worker who joins at once. */
   | { id: string; kind: 'star'; cost: number; role: Role }
   /** A permanent multiplier on one stat (one of each). */
@@ -36,6 +38,13 @@ export const SHOP: readonly ShopItem[] = [
   { id: 'gems500', kind: 'gems', gems: 500, price: '₪19.90', tag: 'popular' },
   { id: 'gems1200', kind: 'gems', gems: 1200, price: '₪39.90' },
   { id: 'gems3000', kind: 'gems', gems: 3000, price: '₪79.90', tag: 'best' },
+
+  // Coins for gems: the amount is shown in coins (it grows as the restaurant earns more). Small
+  // bags for "just a bit more for that upgrade"; per hour they cost about what a time warp does
+  // (the warps also move the crews' clocks on), the big bag a little less.
+  { id: 'coins10', kind: 'coins', cost: 15, minutes: 10 },
+  { id: 'coins30', kind: 'coins', cost: 40, minutes: 30 },
+  { id: 'coins120', kind: 'coins', cost: 130, minutes: 120 },
 
   { id: 'boost2', kind: 'boost', cost: 60, mult: 2, minutes: 30 },
   { id: 'boost5', kind: 'boost', cost: 150, mult: 5, minutes: 10 },

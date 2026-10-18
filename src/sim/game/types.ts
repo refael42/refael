@@ -185,6 +185,8 @@ export type Command =
   | { type: 'seat'; customer: number }
   /** Rush hour: on while the button is held down. */
   | { type: 'rush'; on: boolean }
+  /** Close to new guests (the ones inside finish) or open again. */
+  | { type: 'close'; closed: boolean }
   /** Take a finished quest's reward (index in the current level). */
   | { type: 'claim'; quest: number }
   /** Take a review's bonus on the reviews page (-1: every waiting one). */
@@ -520,6 +522,13 @@ export interface GameState {
   nextNoticeId: number;
   /** The next building tier going up (closed meanwhile), or null. */
   construction: Construction | null;
+  /**
+   * Closed to new guests by the player (owner M38: "close after service, to upgrade calmly"):
+   * the line goes home, the ones at tables and at the bar finish. Not saved: a new session opens.
+   * `closedAt`: when it closed (sim seconds).
+   */
+  closed: boolean;
+  closedAt: number;
   /** Decor placed in build mode (tile centers); `item` is a DecorId. */
   placed: PlacedDecor[];
   /** Big upgrades a crew is working on (they count when done). */

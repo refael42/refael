@@ -16,7 +16,7 @@ const nextGap = (s: GameState) => between(BUS.gapSeconds, hash01(s.tick * 0.77 +
 
 /** The bus sets off for the stop now (also the settings' test button). */
 export function startBus(s: GameState): void {
-  if (s.bus || s.construction) return;
+  if (s.bus || s.construction || s.closed) return;
   const aboard = Math.round(between(BUS.guests, hash01(s.tick * 1.91 + 0.7)));
   const { x, y } = s.map.busStop;
   s.bus = { x, y, door: { ...s.map.busDoor }, arrive: s.time, leave: Infinity, aboard, nextDrop: s.time + BUS.driveSeconds + 0.4 };
@@ -35,9 +35,9 @@ export function updateBus(s: GameState): void {
     return;
   }
   if (bus.leave < Infinity || s.time < bus.nextDrop) return;
-  // Closing time for the building work, or waited long enough for room in the line: off it goes.
+  // Closed (building work, or the player's sign), or waited long enough for room in the line: off it goes.
   const waited = s.time - (bus.arrive + BUS.driveSeconds);
-  if (bus.aboard <= 0 || s.construction || waited > BUS.waitSeconds) {
+  if (bus.aboard <= 0 || s.construction || s.closed || waited > BUS.waitSeconds) {
     bus.leave = s.time + 0.6;
     return;
   }

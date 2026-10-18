@@ -42,7 +42,7 @@ export function updateDeliveries(s: GameState): void {
     emit(s, Ev.DeliveryCancel, p.x, p.y);
   }
   const couriers = couriersOf(s).length;
-  if (couriers === 0 || s.construction) {
+  if (couriers === 0 || s.construction || s.closed) {
     s.nextDelivery = Math.max(s.nextDelivery, s.time + 5);
     return;
   }

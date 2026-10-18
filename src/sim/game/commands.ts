@@ -1,4 +1,5 @@
 import { ECONOMY } from '../../data/economy';
+import { setClosed } from './closing';
 import { claimReviews } from './reviews';
 import { UPGRADES } from '../../data/upgrades';
 import { fromSave } from '../big';
@@ -138,6 +139,8 @@ function apply(s: GameState, cmd: Command): void {
       return answer(s, cmd.notice, cmd.yes);
     case 'rush':
       return setRush(s, cmd.on);
+    case 'close':
+      return setClosed(s, cmd.closed);
     case 'claim':
       return claimQuest(s, cmd.quest);
     case 'shop':

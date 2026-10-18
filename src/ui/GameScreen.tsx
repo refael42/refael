@@ -45,6 +45,7 @@ import { HowToPlay } from './HowToPlay';
 import { ReviewsChip, ReviewsPanel } from './Reviews';
 import { GuideChip, GuideEdition, GuidePanel } from './Guide';
 import { RushButton } from './RushButton';
+import { ClosedSign } from './ClosedSign';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { DealChip, GemPill, Shop } from './Shop';
 import { FestivalChip, FestivalPanel, useFestivalClock } from './Festival';
@@ -545,6 +546,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
           <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
+          {/* The sign on the door; on a narrow screen it sits above the rush flame, clear of the big buttons. */}
+          <ClosedSign gameRef={gameRef} onCommand={command} style={width >= 800 ? { bottom: insets.bottom + 5, start: insets.left + 320 } : { bottom: insets.bottom + 72, start: insets.left + 130 }} />
         </>
       )}
       {quests && <QuestPanel gameRef={gameRef} onCommand={command} onClose={() => setQuests(false)} />}

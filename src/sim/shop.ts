@@ -35,19 +35,35 @@ export function grantCoins(s: GameState, coins: Big): void {
 
 /** Samples coins earned now and then (time warps pay by the recent rate). */
 export function logEarnings(s: GameState): void {
+  // Closed: nothing comes in, and that is not the restaurant's rate (src/sim/game/closing.ts).
+  if (s.closed) return;
   const last = s.earnLog[s.earnLog.length - 1];
   if (last && s.time - last.time < RATE_EVERY) return;
   s.earnLog.push({ time: s.time, earned: servedEarnings(s) });
   while (s.earnLog.length > 2 && s.earnLog[0]!.time < s.time - RATE_WINDOW) s.earnLog.shift();
 }
 
-/** Coins per second lately (at least the warp minimum). */
+/** Coins per second lately (at least the warp minimum); while closed, the rate it had when it closed. */
 export function incomeRate(s: GameState) {
   const first = s.earnLog[0];
-  const span = first ? s.time - first.time : 0;
-  const rate = first && span > 0 ? servedEarnings(s).sub(first.earned).div(span) : big(0);
+  const last = s.closed ? s.earnLog[s.earnLog.length - 1] : { time: s.time, earned: servedEarnings(s) };
+  const span = first && last ? last.time - first.time : 0;
+  const rate = first && last && span > 0 ? last.earned.sub(first.earned).div(span) : big(0);
   return rate.max(WARP_MIN_PER_SECOND);
 }
+
+/**
+ * A game restored from a save starts from the rate it had then (owner M38: right after opening
+ * the game a coin bag held a second's worth of coins): one made-up sample half a window back. Real
+ * samples take over as it plays.
+ */
+export function seedIncomeRate(s: GameState, rate: Big): void {
+  const span = RATE_WINDOW / 2;
+  s.earnLog = [{ time: s.time - span, earned: servedEarnings(s).sub(rate.mul(span)) }];
+}
+
+/** What a coin bag holds right now: its minutes of income (src/data/shop.ts). */
+export const coinBag = (s: GameState, minutes: number): Big => incomeRate(s).mul(minutes * 60).floor();
 
 /** The income multiplier running now (1 = no boost). */
 export const boostNow = (s: GameState): number => (s.time < s.boost.until ? s.boost.mult : 1);
@@ -95,6 +111,12 @@ export function buyShopItem(s: GameState, id: string, cost?: number): boolean {
       emit(s, Ev.Bonus, 0, 0, coins.toNumber());
       // The skipped time passes for the crews too.
       advanceWorks(s, item.hours * 3600);
+      break;
+    }
+    case 'coins': {
+      const coins = coinBag(s, item.minutes);
+      grantCoins(s, coins);
+      emit(s, Ev.Bonus, 0, 0, coins.toNumber());
       break;
     }
     case 'crew':

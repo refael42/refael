@@ -16,6 +16,7 @@ import { capOf, costOf, isCappedTrack, levelOf } from './economy/upgrades';
 import { createGame, workerOf, type SavedWork, type SavedWorker } from './game/create';
 import type { GameState, OffersState, PlacedDecor, QuestState, Review } from './game/types';
 import { questLevel } from './quests';
+import { incomeRate, seedIncomeRate } from './shop';
 import { GEMS, PURCHASE_LOG, SHOP_BY_ID } from '../data/shop';
 import { WHEEL, WHEEL_SEGMENTS } from '../data/wheel';
 import { newWheel } from './wheel';
@@ -86,6 +87,8 @@ export interface SaveData {
   guide: SavedGuide;
   /** The kitchen as the player laid it out in build mode (owner M30; older saves: the building's own). */
   kitchen?: SavedKitchen;
+  /** Coins per second when saved: time warps and coin bags pay by it until the game has measured a fresh one (M38). */
+  rate?: string;
 }
 
 export type SavedGuide = Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'>;
@@ -222,6 +225,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null },
     kitchen: kitchenSave(s),
+    rate: toSave(incomeRate(s)),
   };
 }
 
@@ -369,6 +373,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     ...cleanReviews(o.reviews, o.reviewSeq),
     guide: cleanGuide(o.guide),
     ...(cleanKitchen(o.kitchen) ? { kitchen: cleanKitchen(o.kitchen)! } : {}),
+    ...(bigText(o.rate) && fromSave(o.rate).gte(0) ? { rate: o.rate } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     offers: cleanOffers(o.offers),
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
@@ -488,7 +493,7 @@ export const mapOfSave = (save: SaveData): MapDef => mapForTier(levelOf(save.lev
 /** A fresh day in the saved restaurant, with the saved team (`now`: the crews kept working meanwhile). */
 export function restoreGame(save: SaveData, seed: number, now: number = save.savedAt): GameState {
   const away = Math.max(0, (now - save.savedAt) / 1000);
-  return createGame(mapOfSave(save), seed, {
+  const s = createGame(mapOfSave(save), seed, {
     levels: save.levels,
     coins: fromSave(save.coins),
     earned: fromSave(save.earned),
@@ -521,4 +526,6 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     guide: save.guide,
     kitchen: save.kitchen,
   });
+  if (save.rate) seedIncomeRate(s, fromSave(save.rate));
+  return s;
 }

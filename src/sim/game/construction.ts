@@ -2,11 +2,10 @@ import { CONSTRUCTION } from '../../data/buildings';
 import { mapForTier } from '../../data/maps';
 import { levelOf } from '../economy/upgrades';
 import { range } from '../rng';
-import { Emote } from '../types';
 import { createGame, workerOf } from './create';
-import { sendHome } from './customers';
+import { sendLineHome } from './customers';
 import { emit, Ev } from './events';
-import { CustomerState, type GameState } from './types';
+import type { GameState } from './types';
 
 // Growing the building. Buying the next tier closes the restaurant for a short construction
 // show on the lot next door (scaffolding, dust, a shaking camera), then the game is rebuilt on
@@ -24,13 +23,7 @@ export function startConstruction(s: GameState): void {
   const site = siteOf(s, tier);
   s.construction = { tier, start: s.time, end: s.time + CONSTRUCTION.seconds, nextDust: s.time, site };
   // Closed for building work: the line goes home (no hard feelings, no rating hit).
-  for (const c of s.customers) {
-    if (c.state === CustomerState.Arriving || c.state === CustomerState.Queued) {
-      c.emote = Emote.Music;
-      c.emoteTime = 0;
-      sendHome(s, c);
-    }
-  }
+  sendLineHome(s);
   emit(s, Ev.Build, (site.x0 + site.x1) / 2, (site.y0 + site.y1) / 2, tier);
 }
 

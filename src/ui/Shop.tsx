@@ -7,7 +7,8 @@ import { useT } from '../i18n';
 import { hudIcon } from '../render/icons';
 import { usePoll } from '../render/useSimulation';
 import type { Command, GameState } from '../sim/game/types';
-import { canShop, dealAt } from '../sim/shop';
+import { formatBig } from '../sim/format';
+import { canShop, coinBag, dealAt } from '../sim/shop';
 import { countdown } from './Festival';
 import { gold, panel, textShadow } from './theme';
 import { Overlay, scrollFill } from './Overlay';
@@ -18,10 +19,10 @@ import type { Purchases } from '../iap/usePurchases';
 // Play, a demo elsewhere: src/iap), income boosts and time warps, star workers, and permanent
 // perks, all bought with gems.
 
-type Tab = 'gems' | 'boosts' | 'staff' | 'forever';
-const TABS: readonly Tab[] = ['gems', 'boosts', 'staff', 'forever'];
-const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever', crew: 'forever' };
-const TAB_ICON: Record<Tab, string> = { gems: '💎', boosts: '⚡', staff: '⭐', forever: '👑' };
+type Tab = 'gems' | 'coins' | 'boosts' | 'staff' | 'forever';
+const TABS: readonly Tab[] = ['gems', 'coins', 'boosts', 'staff', 'forever'];
+const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', coins: 'coins', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever', crew: 'forever' };
+const TAB_ICON: Record<Tab, string> = { gems: '💎', coins: '🪙', boosts: '⚡', staff: '⭐', forever: '👑' };
 const ICON: Record<string, string> = {
   gems80: '💎',
   gems500: '💰',
@@ -29,6 +30,9 @@ const ICON: Record<string, string> = {
   gems3000: '🏦',
   boost2: '⚡',
   boost5: '🚀',
+  coins10: '🪙',
+  coins30: '💰',
+  coins120: '🏺',
   warp1: '⏩',
   warp4: '⏭️',
   goldenMenu: '📜',
@@ -46,7 +50,8 @@ const readDeal = (s: GameState) => {
   const now = Date.now();
   const deal = dealAt(s, now);
   if (!deal) return null;
-  return { id: deal.item.id, cost: deal.cost, was: deal.item.cost, off: deal.off, bought: deal.bought, can: !deal.bought && canShop(s, deal.item, deal.cost), short: s.gems < deal.cost, secondsLeft: Math.ceil((deal.ends - now) / 1000) };
+  const coins = deal.item.kind === 'coins' ? formatBig(coinBag(s, deal.item.minutes)) : null;
+  return { id: deal.item.id, cost: deal.cost, was: deal.item.cost, off: deal.off, bought: deal.bought, can: !deal.bought && canShop(s, deal.item, deal.cost), short: s.gems < deal.cost, secondsLeft: Math.ceil((deal.ends - now) / 1000), coins };
 };
 
 /** What the cards need, read a few times a second. */
@@ -54,6 +59,8 @@ const readShop = (s: GameState) => ({
   gems: s.gems,
   can: Object.fromEntries(SHOP.map((i) => [i.id, canShop(s, i)])) as Record<string, boolean>,
   owned: { ...s.perks },
+  // What each coin bag holds now (it grows with the restaurant's income).
+  coins: Object.fromEntries(SHOP.filter((i) => i.kind === 'coins').map((i) => [i.id, formatBig(coinBag(s, i.minutes))])) as Record<string, string>,
 });
 
 /** The flash deal on top of the shop: one item cheaper for a few hours, with the clock running. */
@@ -70,7 +77,7 @@ function DealCard({ gameRef, onCommand, onGems }: { gameRef: { current: GameStat
       <Text style={styles.dealIcon}>{item.kind === 'star' ? '⭐' : ICON[item.id] ?? '🎁'}</Text>
       <View style={styles.dealBody}>
         <Title item={item} />
-        <Description item={item} />
+        <Description item={item} coins={d.coins} />
       </View>
       <View style={styles.dealSide}>
         {d.bought ? (
@@ -120,10 +127,20 @@ function Title({ item }: { item: ShopItem }) {
   return <Text style={styles.name}>{t(`shop.${item.id}`)}</Text>;
 }
 
-/** What it does, numbers kept apart from the words. */
-function Description({ item }: { item: ShopItem }) {
+const coinUri = (px: number) => hudIcon('hudCoin', Math.round(px * PixelRatio.get()));
+
+/** What it does, numbers kept apart from the words. `coins`: a coin bag's amount right now. */
+function Description({ item, coins }: { item: ShopItem; coins?: string | null }) {
   const t = useT();
   switch (item.kind) {
+    case 'coins':
+      return (
+        <View style={styles.line}>
+          <Image source={{ uri: coinUri(16) }} style={styles.gemSmall} />
+          <Text style={styles.big}>{coins ?? '—'}</Text>
+          <Text style={styles.desc}>{`(${item.minutes} ${t('shop.minutesOfIncome')})`}</Text>
+        </View>
+      );
     case 'gems':
       return (
         <View style={styles.line}>
@@ -172,7 +189,7 @@ function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>
   return note.kind === 'paid' ? `💎 +${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
 }
 
-export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boosts', onOffers }: Props) {
+export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coins', onOffers }: Props) {
   const t = useT();
   const [tab, setTab] = useState<Tab>(initialTab);
   const data = usePoll(gameRef, readShop, 4);
@@ -223,7 +240,7 @@ export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'boo
                 )}
                 <Text style={styles.icon}>{item.kind === 'star' ? '⭐' : ICON[item.id] ?? '🎁'}</Text>
                 <Title item={item} />
-                <Description item={item} />
+                <Description item={item} coins={data.coins[item.id]} />
                 {item.kind === 'gems' ? (
                   <Pressable
                     accessibilityRole="button"
