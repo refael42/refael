@@ -30,4 +30,4 @@
 - **Deletion:** deleting the game deletes all of its data from your device. You can also erase your progress from the game's settings.
 - **Children:** the game collects no data from anyone, children included.
 - **Changes:** if this policy changes, the new version will appear on this page with its date.
-- **Contact:** [support email]
+- **Contact:** [כתובת מייל לתמיכה]

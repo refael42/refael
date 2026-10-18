@@ -10,10 +10,10 @@
 2. **מזהה האפליקציה** (bundle id): `com.refael.cheftycoon`. **אחרי ההעלאה הראשונה אי אפשר לשנות אותו.**
 3. **אייפד:** כן (`supportsTablet: true` ב-`app.json`).
 4. **חנויות:** Google Play ו-App Store ביחד.
-5. **מייל לתמיכה** — עוד חסר. פותחים מייל חדש למשחק ושולחים לי אותו; אני מכניס אותו למדיניות הפרטיות ולטקסטים.
+5. **מייל לתמיכה** — עוד חסר. פותחים מייל Gmail חדש רק למשחק (עם אימות דו-שלבי) ושולחים לי אותו; אני מכניס אותו ל-`src/data/contact.ts` ולמדיניות הפרטיות. אותו מייל ממלאים בחנויות.
 
 ## שלב 1 — חשבונות מפתח (פעם אחת)
-1. **Apple:** נכנסים ל-developer.apple.com ← Account ← נרשמים ל-Apple Developer Program (99$ לשנה). צריך Apple ID עם אימות דו-שלבי. האישור לוקח בין שעה לכמה ימים.
+1. **Apple:** הכי קל מהאייפון: מורידים את האפליקציה **Apple Developer** ← Account ← Enroll Now (או באתר developer.apple.com). נרשמים כ-**Individual** (אדם פרטי; השם שלך יופיע בחנות כמוכר). צריך Apple ID עם אימות דו-שלבי ותעודה מזהה. 99$ לשנה. האישור לוקח בין שעה לכמה ימים.
 2. **Google:** נכנסים ל-play.google.com/console ← נרשמים (25$ פעם אחת). חשבון אישי חדש צריך **בדיקה סגורה של 14 יום עם לפחות 12 בודקים** לפני שמותר לפרסם לכולם.
 3. **Expo:** נכנסים ל-expo.dev ← Sign up (חינם). זה השירות שבונה את האפליקציה בענן.
 
@@ -50,11 +50,16 @@ eas update:configure
 2. Source: `Deploy from a branch`, Branch: `main` (או הענף שבו יושב הקובץ), Folder: `/ (root)` ← Save.
 3. הקישור יהיה בערך: `https://refael42.github.io/refael/store/privacy-policy.html`.
 
-(זה מפרסם את הקובץ לכולם — לכן זה שלב שלך.)
+(זה מפרסם את הקובץ לכולם — לכן זה שלב שלך. GitHub Pages בחינם עובד רק כשהמאגר ציבורי; אם הוא פרטי, אפשר להדביק את הטקסט של `store/privacy-policy.md` בעמוד חינמי של Google Sites.)
 
 ## שלב 5 — יצירת האפליקציה בחנויות
-- **App Store Connect** (appstoreconnect.apple.com) ← My Apps ← ➕ ← New App: פלטפורמה iOS, שם, שפה ראשית (עברית או אנגלית), Bundle ID (בוחרים את המזהה מהשלב הראשון), SKU (כל מילה, למשל `restaurant1`).
+- **App Store Connect** (appstoreconnect.apple.com) ← My Apps ← ➕ ← New App: פלטפורמה iOS, שם, שפה ראשית (עברית או אנגלית), Bundle ID (בוחרים את המזהה מהשלב הראשון), SKU (כל מילה, למשל `cheftycoon1`).
 - **Google Play Console** ← Create app: שם, שפה, Game, Free.
+
+## שלב 5א — חוזה תשלומים (חובה לקניות)
+- **Apple:** App Store Connect ← Business (או Agreements, Tax, and Banking) ← **Paid Apps Agreement** ← מסכימים, ממלאים **חשבון בנק** ו**טופס מס** (לתושב ישראל: W-8BEN). בלי זה הקניות במשחק לא עובדות.
+- **Google:** Play Console ← Setup ← Payments profile ← חשבון בנק ופרטי מס.
+- **אירופה (DSA):** שתי החנויות שואלות אם אתה "סוחר" (Trader). מי שמוכר בתוך המשחק הוא בדרך כלל סוחר, ואז באירופה מוצגים כתובת, טלפון ומייל. מי שלא רוצה להצהיר יכול להוריד את מדינות האיחוד מרשימת המדינות.
 
 ## שלב 6 — מוצרי היהלומים
 לפי `store/products.md` — ארבעה מוצרים, **המזהים בדיוק כמו בטבלה**.
@@ -65,6 +70,8 @@ eas update:configure
 - אייקון: Apple לוקחת אותו מהאפליקציה עצמה; ל-Google מעלים את `store/screenshots/google/icon-512.png`.
 - תמונת נושא ל-Google: `store/screenshots/google/feature-1024x500.png`.
 - שאלונים (פרטיות, גיל, בטיחות נתונים): התשובות ב-`store/questionnaires.md`.
+- **Apple:** Support URL ו-Privacy Policy URL = הקישור משלב 4. מייל ליצירת קשר: המייל משלב 0.
+- **Google:** Store settings ← Contact details ← אותו מייל.
 
 ## שלב 8 — בנייה לחנות ושליחה
 ```
@@ -72,6 +79,8 @@ eas build --profile production --platform all
 eas submit --platform ios
 eas submit --platform android
 ```
+בפעם הראשונה `eas build` לאייפון מבקש להתחבר עם ה-Apple ID ויוצר לבד את התעודות (עונים Yes לכל השאלות). הבנייה בענן לוקחת בערך 15–30 דקות. `eas submit` מעלה אותה ל-App Store Connect, ואחרי כרבע שעה עד שעה של עיבוד היא מופיעה ב-**TestFlight**: מתקינים באייפון את האפליקציה TestFlight, מוסיפים את עצמך כבודק פנימי (App Store Connect ← TestFlight ← Internal Testing), ומשחקים בגרסה האמיתית לפני כולם.
+
 גרסת `production` היא הגרסה לחנויות: בלי כלי הבדיקה (כסף לבדיקה, אוטובוס לבדיקה, מד מהירות) ובלי כפתור הפרסומת לדוגמה.
 
 ## שלב 9 — בדיקת קנייה אמיתית (לפני שמפרסמים)

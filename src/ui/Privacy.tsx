@@ -1,4 +1,5 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SUPPORT_EMAIL } from '../data/contact';
 import { useT } from '../i18n';
 import { Overlay, scrollFill } from './Overlay';
 import { gold, panel, textShadow } from './theme';
@@ -6,7 +7,7 @@ import { gold, panel, textShadow } from './theme';
 // The privacy policy inside the app (both stores want it reachable from the app, not only from
 // the store page). The same text lives in docs/store/privacy-policy.md for the web link.
 
-const PARAGRAPHS = ['privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p4', 'privacy.p5', 'privacy.p6'] as const;
+const PARAGRAPHS = ['privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p4', 'privacy.p5'] as const;
 
 export function PrivacyPanel({ onClose }: { onClose: () => void }) {
   const t = useT();
@@ -24,6 +25,13 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
             {t(k)}
           </Text>
         ))}
+        <Text style={styles.text}>{t(SUPPORT_EMAIL ? 'privacy.p6' : 'privacy.store')}</Text>
+        {/* Tapping opens the mail app; with none set up nothing happens, and the address is still there to copy. */}
+        {SUPPORT_EMAIL !== '' && (
+          <Pressable accessibilityRole="link" onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})} style={styles.mail}>
+            <Text selectable style={styles.mailText}>{`✉️ ${SUPPORT_EMAIL}`}</Text>
+          </Pressable>
+        )}
         <Text style={styles.small}>{t('privacy.updated')}</Text>
       </ScrollView>
     </Overlay>
@@ -38,5 +46,7 @@ const styles = StyleSheet.create({
   closeText: { color: '#FFE9A8', fontSize: 16, fontWeight: '900' },
   body: { gap: 8, paddingBottom: 4 },
   text: { color: '#F2E6F7', fontSize: 14, fontWeight: '700', lineHeight: 20, backgroundColor: panel.row, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8 },
+  mail: { alignSelf: 'center', backgroundColor: '#4A2550', borderRadius: 12, borderWidth: 1.5, borderColor: gold, paddingHorizontal: 14, paddingVertical: 8 },
+  mailText: { color: '#FFE9A8', fontSize: 15, fontWeight: '900', writingDirection: 'ltr' },
   small: { color: '#C9B3D6', fontSize: 12, fontWeight: '800' },
 });
