@@ -25,6 +25,10 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 
 אחרי התקנת חבילות חדשות — לעצור את השרת (Ctrl+C) ולהפעיל מחדש, אחרת Metro "שוכח" קבצים.
 
+## בנייה לטלפון אנדרואיד (גרסת בדיקה)
+פעם אחת במחשב: `npm install -g eas-cli` ואז `eas login`. אחר כך לחיצה כפולה על `build-android-test.bat`:
+הבנייה רצה בענן של Expo (15–30 דקות), ובסוף יש קישור וקוד QR להתקנה בטלפון. פרטים ב-`store/release-guide.md`.
+
 ## איך משחקים
 
 - **בפעם הראשונה:** מסך פתיחה, "ברוכים הבאים" (בוחרים שפה), שם המנהל/ת ושם המסעדה (אפשר

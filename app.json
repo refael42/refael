@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Chef Tycoon",
-    "slug": "chef-tycoon",
+    "slug": "restaurant-tycoon",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",
@@ -55,7 +55,14 @@
     },
     "updates": {
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/96895fd4-36b0-4d52-8cf4-1a6b6b2a8e3b"
+    },
+    "owner": "refael42",
+    "extra": {
+      "eas": {
+        "projectId": "96895fd4-36b0-4d52-8cf4-1a6b6b2a8e3b"
+      }
     }
   }
 }

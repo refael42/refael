@@ -25,16 +25,15 @@ eas init
 ```
 `eas init` שואל אם ליצור פרויקט — עונים Yes. הוא מוסיף מזהה פרויקט ל-`app.json`.
 
+**נעשה:** הפרויקט ב-Expo הוא `@refael42/restaurant-tycoon` (השם הפנימי ב-expo.dev; השחקנים רואים "Chef Tycoon"), והמזהה שלו כבר ב-`app.json`, כולל הכתובת לעדכונים המהירים. בהורדה חדשה של ה-ZIP לא צריך להריץ שוב `eas init` או `eas update:configure`, רק `eas login` פעם אחת במחשב.
+
 ומיד אחריו (פעם אחת), כדי שאפשר יהיה לשלוח עדכונים מהירים בהמשך (שלב 11):
 ```
 eas update:configure
 ```
 
 ## שלב 3 — בנייה ראשונה לבדיקה על הטלפון
-- **אנדרואיד (הכי מהיר):**
-  ```
-  eas build --profile preview --platform android
-  ```
+- **אנדרואיד (הכי מהיר):** לחיצה כפולה על `build-android-test.bat` בתיקיית המשחק (או `eas build --profile preview --platform android`).
   בסוף מקבלים קישור לקובץ APK. פותחים אותו בטלפון ומתקינים.
 - **אייפון:** צריך קודם את חשבון Apple. אחר כך:
   ```
