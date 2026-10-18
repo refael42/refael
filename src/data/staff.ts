@@ -192,3 +192,19 @@ export const KITCHEN = {
   /** While every host is walking someone in, the first in line walks to a free table alone after this long. */
   selfSeatSeconds: 4,
 } as const;
+
+/**
+ * Table care (owner: "waiters stand around doing nothing while there is lots of work"). When no
+ * dish or drink is ready and no table is dirty, a free waiter goes round the tables whose guests
+ * wait for their food: pours water, asks if all is well. Each guest gets at most `visits` of these;
+ * the first once they have waited `firstAfter` seconds, the next once their patience is below
+ * `againBelow`. Smaller than the shift manager's visit, so the manager stays worth it.
+ */
+export const CARE = {
+  visits: 2,
+  firstAfter: 2,
+  againBelow: 0.55,
+  /** Seconds at the table (at speed 5), and the share of patience it gives back (at charm 5). */
+  pourSeconds: 1.1,
+  patience: 0.15,
+} as const;

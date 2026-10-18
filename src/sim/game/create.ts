@@ -263,7 +263,7 @@ function removeTable(s: GameState, index: number): void {
   s.tables.forEach((x, i) => (x.index = i));
   const shift = (i: number) => (i > index ? i - 1 : i);
   for (const c of s.customers) c.table = shift(c.table);
-  for (const st of s.staff) if (st.job && (st.job.kind === 'buss' || st.job.kind === 'escort')) st.job.table = shift(st.job.table);
+  for (const st of s.staff) if (st.job && (st.job.kind === 'buss' || st.job.kind === 'escort' || st.job.kind === 'care')) st.job.table = shift(st.job.table);
 }
 
 /** Tables a table is made of (front first): its parts, or just its own style. */

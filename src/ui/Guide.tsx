@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { hudIcon } from '../render/icons';
 import { SIDE, SideButton } from './SideButton';
 import { Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle, PixelRatio } from 'react-native';
@@ -112,11 +112,16 @@ export function GuidePanel({ gameRef, onClose }: { gameRef: { current: GameState
 export function GuideEdition({ stars, change, plate, onClose }: { stars: number; change: number; plate: boolean; onClose: () => void }) {
   const t = useT();
   const pop = useSharedValue(0);
+  // Once, when it appears: the screen behind redraws often, and restarting the pop and the
+  // timer with every redraw made the card bounce and never close by itself (owner: "bugs in the
+  // guide's pop-ups").
+  const close = useRef(onClose);
+  close.current = onClose;
   useEffect(() => {
     pop.value = withSequence(withTiming(0, { duration: 1 }), withSpring(1, { damping: 9, stiffness: 140 }));
-    const id = setTimeout(onClose, 6500);
+    const id = setTimeout(() => close.current(), 6500);
     return () => clearTimeout(id);
-  }, [pop, onClose]);
+  }, [pop]);
   const style = useAnimatedStyle(() => ({ opacity: Math.min(1, pop.value * 1.4), transform: [{ scale: 0.6 + pop.value * 0.4 }] }));
   const [spin] = useState(() => Math.random());
   const title = change > 0 ? (stars === 1 ? 'guide.firstStar' : 'guide.moreStars') : change < 0 ? 'guide.lostStar' : plate && stars === 0 ? 'guide.plateIn' : 'guide.keptTitle';

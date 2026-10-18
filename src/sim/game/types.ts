@@ -76,6 +76,8 @@ export interface Customer extends CharacterView {
   /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
   inspector?: boolean;
   inspectScore?: number;
+  /** Waiter table visits while they wait for their food (src/sim/game/care.ts). */
+  cared?: number;
   /** A restroom visit (owner M36): where they are in it, their stall, when this part ends (sim time). */
   wc?: { step: 'toDoor' | 'wait' | 'toStall' | 'inside' | 'toSink' | 'wash'; stall: number; until: number };
   /** In a stall with the door shut: not drawn. */
@@ -293,6 +295,8 @@ export type Job =
   | { kind: 'pack'; order: number; phase: 'toPass' | 'take' | 'toFridge' | 'fridge' | 'toTable' | 'packing' }
   /** A cleaner (or, with none on the team, a waiter) mops the restroom (owner M36). */
   | { kind: 'restroom'; phase: 'toRoom' | 'mop' }
+  /** A free waiter pours water at a table whose guests wait for their food (src/sim/game/care.ts). */
+  | { kind: 'care'; table: number; phase: 'walk' | 'pour' }
   | { kind: 'home' };
 
 /** A generated person: who applies, and who works here once hired. */

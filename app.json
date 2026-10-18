@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Restaurant Tycoon",
-    "slug": "restaurant-tycoon",
+    "name": "Chef Tycoon",
+    "slug": "chef-tycoon",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.refael.restauranttycoon",
+      "bundleIdentifier": "com.refael.cheftycoon",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -22,7 +22,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.refael.restauranttycoon",
+      "package": "com.refael.cheftycoon",
       "versionCode": 1
     },
     "web": {
@@ -49,6 +49,13 @@
           "backgroundColor": "#4A1752"
         }
       ]
-    ]
+    ],
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

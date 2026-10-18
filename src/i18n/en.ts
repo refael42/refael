@@ -1,5 +1,5 @@
 export const en = {
-  'app.title': 'Restaurant Tycoon',
+  'app.title': 'Chef Tycoon',
   'perf.ui': 'UI',
   'perf.js': 'JS',
   'perf.draw': 'draw',
@@ -203,6 +203,7 @@ export const en = {
   'hub.chargers.gives': 'couriers 25% faster',
   'hub.lockers': 'pickup lockers',
   'hub.lockers.gives': 'one more courier, higher prices',
+  'news.care': '🥤 Waiters no longer stand around: with no plate to serve, they go round the tables with water and check that all is well, which gives guests a little patience back. A ready plate always comes first, and one waiter stays by the pass. Still too many free waiters? The kitchen is slow: more cooks or better equipment.',
   'news.restroom': '🚻 Restrooms: stalls, a sink and a mirror in the dining room’s corner (more stalls in bigger buildings). Guests drop in after their meal and it gets dirty. The cleaner comes with a mop; with no cleaner, a waiter goes only when it is awful. A dirty restroom means flies, angry guests, a lower rating and funny (and less funny) reviews.',
   'news.heroes': '👑 Mythic heroes: seven special characters (Chef Goldie, Nonna Rosa, The Maestro and more), each with a bonus for the whole restaurant. They work for free, never leave, and come with you to every branch. Look for the pink and gold ring.',
   'news.offers': '🎁 Special offers (the gift button): a starter pack for your first three days, and every two days another hero with gems. A hero who leaves comes back only after every other hero had a turn.',

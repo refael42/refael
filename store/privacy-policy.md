@@ -1,8 +1,8 @@
-# מדיניות פרטיות — [שם]
+# מדיניות פרטיות — שף טייקון
 
 *עודכן: אוקטובר 2026*
 
-**[שם]** ("המשחק") לא אוסף מידע אישי.
+**שף טייקון** ("המשחק") לא אוסף מידע אישי.
 
 - **אין הרשמה, אין חשבון, אין מעקב.**
 - השמות שכותבים במשחק (שם המנהל/ת ושם המסעדה) וכל ההתקדמות נשמרים **רק במכשיר שלכם** ולא נשלחים לשום מקום.
@@ -16,11 +16,11 @@
 
 ---
 
-# Privacy Policy — [Name]
+# Privacy Policy — Chef Tycoon
 
 *Updated: October 2026*
 
-**[Name]** ("the game") does not collect personal information.
+**Chef Tycoon** ("the game") does not collect personal information.
 
 - **No sign-up, no account, no tracking.**
 - The names you type in the game (the manager's and the restaurant's) and all your progress are stored **only on your device** and are never sent anywhere.

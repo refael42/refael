@@ -315,10 +315,15 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [wheel, setWheel] = useState(false);
   const [reviews, setReviews] = useState(false);
   const [guide, setGuide] = useState(false);
-  // A new edition of the guide: its card, once.
+  // A new edition of the guide: its card, once, when it is news (inspectors came, or the stars
+  // changed) and nothing else is on screen; it waits for a free moment instead of covering a page.
+  // Editions out before this screen started (a reload) are not shown again.
   const edition = usePoll(gameRef, readEdition, 2);
-  const [shownEdition, setShownEdition] = useState(-1);
-  const editionCard = edition && edition.id !== shownEdition && edition.id >= 0 ? edition : null;
+  const [seenEdition, setSeenEdition] = useState<number | null>(null);
+  useEffect(() => {
+    if (edition && seenEdition === null) setSeenEdition(edition.edition);
+  }, [edition, seenEdition]);
+  const editionNews = edition && seenEdition !== null && edition.edition > seenEdition && (edition.visits > 0 || edition.change !== 0) ? edition : null;
   const [festival, setFestival] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
@@ -328,7 +333,10 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   // Phone reminders while the game is closed (owner M35), once the first screens are done.
   useReminders(gameRef, !onboarding && !welcome && tutorial >= TUTORIAL_STEPS.length);
   const offerPopup = usePoll(gameRef, readOfferPopup, 0.5);
-  const anythingOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || editionCard || offers);
+  const othersOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || offers || onboarding || welcome || newsDue);
+  const editionCard = editionNews && !othersOpen ? editionNews : null;
+  const closeEdition = useCallback(() => setSeenEdition((e) => Math.max(e ?? 0, editionNews?.edition ?? 0)), [editionNews?.edition]);
+  const anythingOpen = othersOpen || !!editionCard;
   useEffect(() => {
     if (offerPopup === null || anythingOpen || onboarding || welcome || newsDue || tutorial < TUTORIAL_STEPS.length) return;
     command({ type: 'offerShown', turn: offerPopup });
@@ -558,7 +566,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {offers && <OffersPanel gameRef={gameRef} onClose={() => setOffers(false)} purchases={purchases} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
-      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} onClose={() => setShownEdition(editionCard.id)} />}
+      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} onClose={closeEdition} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -664,10 +672,10 @@ function CastView() {
   );
 }
 
-/** The newest guide edition notice (its card shows once). */
+/** The guide's latest edition (kept in the save, so its card neither expires nor comes back after a reload). */
 const readEdition = (s: GameState) => {
-  const n = [...s.notices].reverse().find((x) => x.kind === 'guide');
-  return n && n.kind === 'guide' ? { id: n.id, stars: n.stars, change: n.change, plate: n.plate } : null;
+  const l = s.guide.last;
+  return { edition: s.guide.edition, stars: l?.stars ?? s.guide.stars, change: l?.change ?? 0, plate: l?.plate ?? s.guide.plate, visits: l?.visits ?? 0 };
 };
 
 export function GameScreen() {

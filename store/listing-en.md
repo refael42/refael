@@ -1,10 +1,10 @@
 # Store page — English
 
-> Ready-to-paste drafts. The name is not chosen yet: replace `[Name]` with the final one.
+> Ready-to-paste drafts. The name: **Chef Tycoon** (in Hebrew שף טייקון).
 > Limits (characters) in brackets; `npm run store:check` checks the texts fit.
 
 ## App name (up to 30)
-`[Name]: Restaurant Tycoon`
+`Chef Tycoon: Restaurant Empire`
 
 ## Subtitle — App Store (up to 30)
 `Build a restaurant empire`

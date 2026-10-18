@@ -15,7 +15,8 @@
     "check": "npm run typecheck && npm test",
     "balance": "node scripts/run-ts.mjs scripts/balance.ts",
     "postinstall": "setup-skia-web",
-    "store:check": "node scripts/store-check.mjs"
+    "store:check": "node scripts/store-check.mjs",
+    "release:check": "npm run typecheck && npm test && npm run store:check"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
@@ -30,6 +31,7 @@
     "expo-notifications": "~57.0.23",
     "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.26",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",

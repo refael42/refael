@@ -20,6 +20,7 @@ import { freeDeliverySlot, packersOn, packingProgress, parking, postOf, slotPoin
 import { PACKING } from '../../data/delivery';
 import { readyDrink, updateBartender, updateDrinkRun } from './bar';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
+import { careTable, updateCare } from './care';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => serveSpot(t.x, t.y);
@@ -375,7 +376,8 @@ function findJob(s: GameState, st: Staff): void {
       setJob(st, { kind: 'drinkRun', drink: drink.id, phase: 'toBar' });
       return;
     }
-    if (order) {
+    // ...and the free waiter nearest the pass fetches it: one just done pouring water across the room leaves it to a nearer one.
+    if (order && !nearerFree(s, st, s.map.pickupSpots[order.slot]!)) {
       order.waiter = st.id;
       st.path = [];
       setJob(st, { kind: 'pickup', order: order.id, phase: 'toPass' });
@@ -388,7 +390,24 @@ function findJob(s: GameState, st: Staff): void {
     dirty.waiter = st.id;
     st.path = [];
     setJob(st, { kind: 'buss', table: dirty.index, phase: 'toTable' });
+    return;
   }
+  // Nothing to carry or clear: a round of water for guests waiting on a slow kitchen.
+  // One free waiter always stays by the pass for the next plate (a hot plate beats a glass of water).
+  const care = st.role === 'waiter' && s.staff.some((o) => o !== st && free(o) && !o.job) ? careTable(s) : undefined;
+  if (care) {
+    st.path = [];
+    setJob(st, { kind: 'care', table: care.index, phase: 'walk' });
+  }
+}
+
+const free = (st: Staff): boolean => st.role === 'waiter' && (!st.job || st.job.kind === 'home') && !st.leaving && !st.pendingRole;
+
+/** Another free waiter closer to this spot (the nearest one goes). */
+function nearerFree(s: GameState, st: Staff, to: Point): boolean {
+  const d = (o: Staff) => Math.abs(o.x - to.x) + Math.abs(o.y - to.y);
+  const mine = d(st);
+  return s.staff.some((o) => o !== st && free(o) && d(o) < mine);
 }
 
 function release(st: Staff): void {
@@ -501,7 +520,13 @@ function updateBuss(s: GameState, st: Staff, dt: number): void {
   }
 }
 
+/** Food or a drink on a pass that nobody is coming for (a water round gives way to it). */
+const unclaimed = (s: GameState): boolean =>
+  s.orders.some((o) => o.state === OrderState.Ready && o.waiter < 0 && !o.delivery) || readyDrink(s) !== undefined;
+
 function updateRunner(s: GameState, st: Staff, dt: number): boolean {
+  // Still on the way with the water and a plate is waiting: the plate first (the round is never more urgent).
+  if (st.job?.kind === 'care' && st.job.phase === 'walk' && unclaimed(s)) release(st);
   if ((!st.job || st.job.kind === 'home') && !st.leaving && !st.pendingRole) findJob(s, st);
   const job = st.job;
   if (!job || job.kind === 'home') {
@@ -510,6 +535,7 @@ function updateRunner(s: GameState, st: Staff, dt: number): boolean {
   }
   if (job.kind === 'pickup') updatePickup(s, st, s.orders.find((o) => o.id === job.order), dt);
   else if (job.kind === 'buss') updateBuss(s, st, dt);
+  else if (job.kind === 'care' && !updateCare(s, st, dt, (to) => walkTo(s, st, to, dt), besideTable)) release(st);
   else if (job.kind === 'restroom' && !updateRestroomJob(s, st, dt, (to) => walkTo(s, st, to, dt), workRate(s, st))) release(st);
   else if (job.kind === 'drinkRun' && !updateDrinkRun(s, st, dt, (to) => walkTo(s, st, to, dt), besideTable)) {
     // Done, or the drink is gone (its guest left, the player tossed it): free for the next.
