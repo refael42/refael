@@ -10,18 +10,20 @@ export interface DailyReward {
   /** An income boost: x`mult` for `boostMinutes`. */
   boostMult?: number;
   boostMinutes?: number;
+  /** Talent points for the workers (M46). */
+  talent: number;
 }
 
 export const DAILY = {
   /** Day 1..7 of a streak; after day 7 it starts over at day 1. Miss a day and it starts over too. */
   rewards: [
-    { minutes: 3, gems: 0 },
-    { minutes: 5, gems: 0 },
-    { minutes: 0, gems: 10 },
-    { minutes: 10, gems: 0 },
-    { minutes: 15, gems: 0 },
-    { minutes: 20, gems: 5 },
-    { minutes: 0, gems: 30, boostMult: 2, boostMinutes: 15 },
+    { minutes: 3, gems: 0, talent: 1 },
+    { minutes: 5, gems: 0, talent: 1 },
+    { minutes: 0, gems: 10, talent: 1 },
+    { minutes: 10, gems: 0, talent: 1 },
+    { minutes: 15, gems: 0, talent: 1 },
+    { minutes: 20, gems: 5, talent: 1 },
+    { minutes: 0, gems: 30, boostMult: 2, boostMinutes: 15, talent: 5 },
   ] as readonly DailyReward[],
 };
 

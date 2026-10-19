@@ -59,6 +59,7 @@ export function DailyPanel({ gameRef, onCommand, onClose }: { gameRef: { current
               {r.minutes > 0 && <Text style={styles.dayValue}>{`${r.minutes} ${t('daily.min')}`}</Text>}
               {r.gems > 0 && <Text style={styles.dayValue}>{`+${r.gems}`}</Text>}
               {r.boostMult && <IconText icon="iconBolt" size={14} textStyle={styles.dayValue}>{`x${r.boostMult}`}</IconText>}
+              {r.talent > 0 && <IconText icon="iconTalent" size={14} textStyle={styles.dayValue}>{`+${r.talent}`}</IconText>}
               {done && <Text style={styles.check}>{'✓'}</Text>}
             </View>
           );

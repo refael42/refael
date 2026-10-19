@@ -11,7 +11,7 @@ import { chance } from '../rng';
 import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
 import { dishSpot, emote, route, seatCustomer, startEating, tableFor, walkIn } from './customers';
 import { emit, Ev } from './events';
-import { has, managerOnShift, statFactor, workRate } from './people';
+import { charmOf, has, managerOnShift, qualityOf, statFactor, workRate } from './people';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type KitchenSpot, type Order, type Person, type Staff, type Table } from './types';
 import { gainXp, walkOut } from './workers';
 import { updateCourier } from './delivery';
@@ -250,7 +250,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     }
     pick.state = OrderState.Cooking;
     pick.since = s.time;
-    pick.quality = statFactor(st.stats.quality);
+    pick.quality = qualityOf(st);
     pick.chef = chefTouch(st.stats.quality, st.level);
     const sv = s.stoves[station]!;
     sv.user = st.id;
@@ -476,7 +476,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
   }
   s.orders.splice(s.orders.indexOf(order), 1);
   if (c.state === CustomerState.Waiting) {
-    const charm = statFactor(st.stats.charm) * (has(st, 'charmer') ? 1 + TRAIT_FX.charmerTips : 1);
+    const charm = charmOf(st) * (has(st, 'charmer') ? 1 + TRAIT_FX.charmerTips : 1);
     recordPlate(s, order);
     inspectPlate(s, c, order);
     startEating(s, c, order.dish, order.quality, charm);
@@ -594,7 +594,7 @@ function updateManager(s: GameState, st: Staff, dt: number): boolean {
     }
     st.jobTime += dt * workRate(s, st);
     if (st.jobTime < SHIFT.talkSeconds) return true;
-    c.patienceLeft = Math.min(c.patienceMax, c.patienceLeft + c.patienceMax * SHIFT.calmPatience * statFactor(st.stats.charm));
+    c.patienceLeft = Math.min(c.patienceMax, c.patienceLeft + c.patienceMax * SHIFT.calmPatience * charmOf(st));
     emote(c, Emote.Heart);
     c.expression = Expression.Happy;
     gainXp(s, st);
@@ -711,7 +711,7 @@ function updateHost(s: GameState, st: Staff, dt: number): boolean {
   }
   if (job?.customer !== front.id) setJob(st, { kind: 'escort', customer: front.id, table: -1, party: [], phase: 'greet' });
   setPose(st, Pose.Cheer);
-  st.jobTime += dt * workRate(s, st) * statFactor(st.stats.charm);
+  st.jobTime += dt * workRate(s, st) * charmOf(st);
   if (st.jobTime >= KITCHEN.hostSeconds) startEscort(s, st, front);
   return true;
 }
@@ -755,7 +755,7 @@ function updatePromoter(s: GameState, st: Staff, dt: number): boolean {
   st.facing = facingFor(near.x - st.x, near.y - st.y, st.facing);
   setPose(st, Pose.Cheer);
   gainXp(s, st);
-  const comes = chance(s.rng, PROMO.walkIn * statFactor(st.stats.charm)) ? walkIn(s, near, near.look) : null;
+  const comes = chance(s.rng, PROMO.walkIn * charmOf(st)) ? walkIn(s, near, near.look) : null;
   emit(s, Ev.Flyer, st.x, st.y, near.x, near.y, comes ? 1 : 0);
   if (comes) {
     emote(comes, Emote.Heart);

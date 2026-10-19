@@ -1,7 +1,7 @@
 import { CHECKER } from '../../data/staff';
 import { setPose } from '../movement';
 import { Facing, Pose } from '../types';
-import { statFactor, workRate } from './people';
+import { qualityOf, statFactor, workRate } from './people';
 import { OrderState, type GameState, type Order, type Staff } from './types';
 import { gainXp } from './workers';
 
@@ -35,7 +35,7 @@ export function updateChecker(s: GameState, st: Staff, dt: number, walkTo: (to: 
   st.jobTime += dt * workRate(s, st) * statFactor(st.stats.speed);
   if (st.jobTime < CHECKER.seconds) return true;
   order.checked = true;
-  order.quality *= 1 + CHECKER.quality * statFactor(st.stats.quality);
+  order.quality *= 1 + CHECKER.quality * qualityOf(st);
   gainXp(s, st);
   st.job = null;
   st.jobTime = 0;

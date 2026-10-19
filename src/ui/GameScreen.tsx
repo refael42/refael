@@ -34,6 +34,8 @@ import { JuicyButton } from './JuicyButton';
 import { Notices } from './Notices';
 import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
+import { canLearn } from '../sim/game/talents';
+import { GameIcon } from './GameIcon';
 import { usePurchases } from '../iap/usePurchases';
 import { PrivacyPanel } from './Privacy';
 import { GearButton, SettingsPanel } from './SettingsPanel';
@@ -116,7 +118,8 @@ function Labels({ camera }: { camera: Camera }) {
   );
 }
 
-function CornerButton({ label, count, onPress, color, ref }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange'; ref?: Ref<View> }) {
+/** `star`: talent points the team can use now (owner M46): a star on the other corner. */
+function CornerButton({ label, count, onPress, color, ref, star = false }: { label: string; count: number; onPress: () => void; color: 'green' | 'purple' | 'orange'; ref?: Ref<View>; star?: boolean }) {
   return (
     <View ref={ref}>
       <JuicyButton label={label} onPress={onPress} labelStyle={styles.cornerLabel} style={[styles.cornerButton, color === 'purple' && styles.staffButton, color === 'orange' && styles.buildButton]} />
@@ -124,6 +127,11 @@ function CornerButton({ label, count, onPress, color, ref }: { label: string; co
       {count > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{count}</Text>
+        </View>
+      )}
+      {star && (
+        <View style={styles.starBadge}>
+          <GameIcon name="iconTalent" size={18} />
         </View>
       )}
     </View>
@@ -145,6 +153,7 @@ const readCorner = (s: GameState) => {
     affordable: UPGRADES.filter((u) => !u.build && canBuyNow(u, w)).length,
     buildable: BUILD_ITEMS.filter((id) => canBuyNow(upgradeDef(id), w)).length,
     waiting: w.waiting,
+    talent: canLearn(s),
   };
 };
 
@@ -560,7 +569,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {!panel && !staff && !build && (
         <View style={[styles.corner, styles.cornerRow, { bottom: insets.bottom + 10, end: insets.right + 10 }]}>
           <CornerButton label={t('ui.build')} count={buildable} color="orange" onPress={() => setBuild({ item: null, tile: null })} />
-          <CornerButton ref={staffButton} label={t('ui.staff')} count={corner?.waiting ?? 0} color="purple" onPress={() => showStaff({ tab: (corner?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
+          <CornerButton ref={staffButton} label={t('ui.staff')} count={corner?.waiting ?? 0} star={corner?.talent ?? false} color="purple" onPress={() => showStaff({ tab: (corner?.waiting ?? 0) > 0 ? 'applicants' : 'team' })} />
           <CornerButton ref={upgradesButton} label={t('ui.upgrades')} count={affordable} color="green" onPress={() => open(null)} />
         </View>
       )}
@@ -601,7 +610,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}
       {chefPage && <ChefPanel gameRef={gameRef} onClose={() => setChefPage(false)} />}
       {levelCard !== null && <LevelUpCard key={levelCard} level={levelCard} onClose={() => command({ type: 'chefSeen', level: levelCard })} />}
-      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} gems={editionCard.gems} onClose={closeEdition} />}
+      {editionCard && <GuideEdition stars={editionCard.stars} change={editionCard.change} plate={editionCard.plate} gems={editionCard.gems} talent={editionCard.talent} onClose={closeEdition} />}
       {staff && <StaffPanel gameRef={gameRef} view={staff} onView={showStaff} onCommand={command} onClose={close} />}
       {panel && wallet && (
         <UpgradePanel
@@ -720,7 +729,7 @@ const signLeft = (hud: { left: number; right: number }): number => {
 /** The guide's latest edition (kept in the save, so its card neither expires nor comes back after a reload). */
 const readEdition = (s: GameState) => {
   const l = s.guide.last;
-  return { edition: s.guide.edition, stars: l?.stars ?? s.guide.stars, change: l?.change ?? 0, plate: l?.plate ?? s.guide.plate, visits: l?.visits ?? 0, gems: l?.gems ?? 0 };
+  return { edition: s.guide.edition, stars: l?.stars ?? s.guide.stars, change: l?.change ?? 0, plate: l?.plate ?? s.guide.plate, visits: l?.visits ?? 0, gems: l?.gems ?? 0, talent: l?.talent ?? 0 };
 };
 
 export function GameScreen() {
@@ -784,6 +793,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#FFFFFF', fontWeight: '900', fontSize: 12 },
+  starBadge: { position: 'absolute', top: -8, start: -8, width: 26, height: 26, borderRadius: 13, backgroundColor: '#5A1F5E', borderWidth: 1.5, borderColor: '#FFF4E3', alignItems: 'center', justifyContent: 'center' },
   passThrough: { pointerEvents: 'none' },
   tag: { position: 'absolute', width: 100, alignItems: 'center' },
   tagText: {

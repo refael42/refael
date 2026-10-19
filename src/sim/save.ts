@@ -25,6 +25,7 @@ import { FESTIVAL, FESTIVAL_THEMES } from '../data/events';
 import { newFestival } from './festival';
 import type { GuideState } from './game/guide';
 import { kitchenSave, type SavedKitchen } from './game/kitchenLayout';
+import { TALENT, TALENT_IDS, type TalentLevels } from '../data/talents';
 
 // Versioned save format. The world itself (customers mid-meal, plates in hands) is not saved:
 // a loaded game starts a fresh, empty day with all the progress (coins, rating, upgrades).
@@ -85,6 +86,8 @@ export interface SaveData {
   offers: OffersState;
   /** The chef's level and experience (M44; older saves: level 1). */
   chef?: { level: number; xp: number };
+  /** Talent points not spent yet (M46; older saves: the starting points). */
+  talentPoints?: number;
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
   guide: SavedGuide;
   /** The kitchen as the player laid it out in build mode (owner M30; older saves: the building's own). */
@@ -226,6 +229,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     purchases: [...s.purchases],
     offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
     chef: { level: s.chef.level, xp: s.chef.xp },
+    talentPoints: s.talentPoints,
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
     rate: toSave(incomeRate(s)),
@@ -303,9 +307,21 @@ function cleanWorker(raw: unknown): WorkerData | null {
     hiredDay: finite(raw.hiredDay) ? raw.hiredDay : 1,
     lastRaiseDay: finite(raw.lastRaiseDay) ? raw.lastRaiseDay : 1,
     trial: raw.trial === true,
+    ...(cleanTalents(raw.talents) ? { talents: cleanTalents(raw.talents)! } : {}),
     // A hero (paid offer) keeps their own look and stays mythic.
     ...(hero ? { hero: hero.id, look: { ...hero.look }, rarity: 'mythic' as const } : {}),
   };
+}
+
+/** A worker's talents as saved: known ones, whole levels within the cap (none at all: undefined). */
+function cleanTalents(raw: unknown): TalentLevels | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: TalentLevels = {};
+  for (const id of TALENT_IDS) {
+    const lv = raw[id];
+    if (finite(lv) && lv >= 1) out[id] = Math.min(TALENT.max, Math.floor(lv));
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** The paid offers as saved (anything odd: as if nothing was seen yet). */
@@ -379,6 +395,8 @@ function validate(o: Record<string, unknown>): SaveData | null {
     ...(bigText(o.rate) && fromSave(o.rate).gte(0) ? { rate: o.rate } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     offers: cleanOffers(o.offers),
+    // A save from before talents: a few points to try them with.
+    talentPoints: finite(o.talentPoints) && o.talentPoints >= 0 ? Math.floor(o.talentPoints) : TALENT.welcome,
     chef: isRecord(o.chef) && finite(o.chef.level) && finite(o.chef.xp) ? { level: Math.max(1, Math.floor(o.chef.level)), xp: Math.max(0, o.chef.xp) } : { level: 1, xp: 0 },
     boost: isRecord(o.boost) && finite(o.boost.mult) && finite(o.boost.seconds) && o.boost.mult >= 1 ? { mult: o.boost.mult, seconds: Math.max(0, o.boost.seconds) } : { mult: 1, seconds: 0 },
   };
@@ -402,7 +420,7 @@ function cleanGuide(raw: unknown): SavedGuide {
   const visits = (Array.isArray(raw.visits) ? raw.visits : []).filter((v): v is { day: number; score: number } => isRecord(v) && finite(v.day) && finite(v.score)).map((v) => ({ day: Math.floor(v.day), score: Math.max(0, Math.min(100, v.score)) }));
   const l = raw.last;
   const last = isRecord(l) && finite(l.edition) && finite(l.stars) && finite(l.change) && finite(l.average) && finite(l.visits)
-    ? { edition: l.edition, stars: Math.max(0, Math.min(3, Math.floor(l.stars))), plate: l.plate === true, change: l.change, average: l.average, visits: l.visits, ...(finite(l.gems) && l.gems > 0 ? { gems: Math.floor(l.gems) } : {}) }
+    ? { edition: l.edition, stars: Math.max(0, Math.min(3, Math.floor(l.stars))), plate: l.plate === true, change: l.change, average: l.average, visits: l.visits, ...(finite(l.gems) && l.gems > 0 ? { gems: Math.floor(l.gems) } : {}), ...(finite(l.talent) && l.talent > 0 ? { talent: Math.floor(l.talent) } : {}) }
     : null;
   const stars = finite(raw.stars) ? Math.max(0, Math.min(3, Math.floor(raw.stars))) : 0;
   const plate = raw.plate === true;
@@ -532,6 +550,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     purchases: save.purchases,
     offers: save.offers,
     chef: save.chef,
+    talentPoints: save.talentPoints,
     guide: save.guide,
     kitchen: save.kitchen,
   });

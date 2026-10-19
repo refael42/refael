@@ -74,6 +74,8 @@ function prizeIcon(c: SkCanvas, prize: WheelPrize) {
     for (let k = n - 1; k >= 0; k--) stamp(c, hudIcons.hudGem, (k - (n - 1) / 2) * 10, -k * 2, 22);
   } else if (prize.kind === 'boost') {
     bolt(c, 28);
+  } else if (prize.kind === 'talent') {
+    stamp(c, hudIcons.iconTalent, 0, 0, 28);
   } else {
     stamp(c, hudIcons.hudCoin, -8, 4, 20);
     stamp(c, hudIcons.hudGem, 8, 4, 18);

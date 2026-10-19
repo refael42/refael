@@ -106,6 +106,10 @@ export const Ev = {
   Attention: 53,
   /** The chef reached a new level (src/sim/chef.ts). a = the level, b = its coins, c = its gems */
   ChefLevel: 54,
+  /** A worker took a talent level (owner M46). (x,y) = the worker, a = their id, b = the new level */
+  Talent: 55,
+  /** Talent points came in. a = how many */
+  TalentPoints: 56,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

@@ -5,6 +5,8 @@ import { NAMES } from '../data/names';
 import { RARITY, type Rarity } from '../data/rarity';
 import { ROLE_LIST, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { TRAITS, type TraitId } from '../data/traits';
+import { TALENT, TALENT_IDS, TALENTS, talentBlockOf, talentCost, talentCount, talentSlots, talentSpent, type TalentId, type TalentLevels } from '../data/talents';
+import type { HudIcon } from '../render/art/hudArt';
 import { useT } from '../i18n';
 import { heroIcon, spriteIcon } from '../render/icons';
 import type { SpriteName } from '../render/sprites';
@@ -56,6 +58,8 @@ interface PersonRow extends Person {
   room: boolean;
   /** The applicant the shortlist suggests. */
   pick: boolean;
+  /** Talent levels (workers only). */
+  talents?: TalentLevels;
 }
 
 /** A plain copy of what the menu shows, read a few times per second. */
@@ -63,6 +67,7 @@ function read(s: GameState) {
   const team: PersonRow[] = s.staff.map((st) => ({
     ...st,
     stats: { ...st.stats },
+    talents: st.talents ? { ...st.talents } : undefined,
     applicant: false,
     fee: st.wage,
     patience: 1,
@@ -90,7 +95,7 @@ function read(s: GameState) {
       pick: a.id === pick,
     }));
   const room = Object.fromEntries(ROLE_LIST.map((r) => [r, headcount(s, r) < capacity(s, r)])) as Record<Role, boolean>;
-  return { coins: s.coins, team, applicants, room };
+  return { coins: s.coins, gems: s.gems, talentPoints: s.talentPoints, team, applicants, room };
 }
 
 function Bar({ value, color, label }: { value: number; color: string; label: string }) {
@@ -173,6 +178,11 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
           <Text style={styles.lvLabel}>{t('ui.lv')}</Text>
           <Text style={styles.lv}>{p.level}</Text>
           <RarityTag rarity={p.rarity} />
+          {talentCount(p.talents) > 0 && (
+            <IconText icon="iconTalent" size={14} textStyle={styles.talentCount}>
+              {talentCount(p.talents)}
+            </IconText>
+          )}
         </View>
         {p.applicant ? (
           <Bar value={p.patience} color="#F4C542" label={t('ui.patience')} />
@@ -191,7 +201,7 @@ function Row({ p, onPress }: { p: PersonRow; onPress: () => void }) {
   );
 }
 
-function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big; room: Record<Role, boolean>; onCommand: (cmd: Command) => void; onBack: () => void }) {
+function Card({ p, coins, gems, points, room, onCommand, onBack }: { p: PersonRow; coins: Big; gems: number; points: number; room: Record<Role, boolean>; onCommand: (cmd: Command) => void; onBack: () => void }) {
   const t = useT();
   const lang = useSettings((s) => s.lang);
   const bulk = useSettings((s) => s.bulk);
@@ -251,6 +261,7 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
             <Bar value={p.morale} color="#FF6FA8" label={t('ui.morale')} />
             <Bar value={p.energy} color="#5CD66E" label={t('ui.energy')} />
           </View>
+          <Talents p={p} points={points} gems={gems} onCommand={onCommand} />
           {p.hero ? (
             <IconText icon="iconCrown" size={16} textStyle={styles.tagPick}>{`${t('staff.heroFree')}`}</IconText>
           ) : p.leaving ? (
@@ -288,6 +299,90 @@ function Card({ p, coins, room, onCommand, onBack }: { p: PersonRow; coins: Big;
   );
 }
 
+/** The number in each talent's line: what one level does, in percent. */
+const TIP_N: Record<TalentId, number> = { quick: TALENT.quick, mood: TALENT.moodShield, fit: TALENT.fitDrain, craft: TALENT.craft, charisma: TALENT.charisma, loyal: TALENT.loyalWage };
+
+/**
+ * The worker's talents (owner M46): a row each with its level in pips and the next level's price
+ * in points, the levels held against what their level allows, and a reset for gems.
+ */
+function Talents({ p, points, gems, onCommand }: { p: PersonRow; points: number; gems: number; onCommand: (cmd: Command) => void }) {
+  const t = useT();
+  const used = talentCount(p.talents);
+  const slots = talentSlots(p.level);
+  const spent = talentSpent(p.talents);
+  const blocks = TALENT_IDS.map((id) => talentBlockOf(p, id, points));
+  // What stands in the way, said once under the rows: no room left (level up for more), or no points.
+  const hint = p.leaving ? null : used >= slots ? 'talent.full' : blocks.some((b) => b === 'points') && !blocks.some((b) => b === null) ? 'talent.earn' : null;
+  return (
+    <View style={styles.talents}>
+      <View style={styles.line}>
+        <IconText icon="iconTalent" size={18} textStyle={styles.talentTitle}>
+          {t('talent.title')}
+        </IconText>
+        <View style={styles.grow} />
+        <Text style={styles.talentSlotsLabel}>{t('talent.slots')}</Text>
+        <Text style={styles.talentSlots}>{`${used}/${slots}`}</Text>
+      </View>
+      {TALENT_IDS.map((id, i) => {
+        const def = TALENTS[id];
+        const lv = p.talents?.[id] ?? 0;
+        const block = blocks[i];
+        return (
+          <View key={id} style={styles.talentRow}>
+            <GameIcon name={def.icon as HudIcon} size={24} />
+            <View style={styles.rowBody}>
+              <Text style={styles.talentName}>{t(`talent.${id}`)}</Text>
+              <Text style={styles.talentTip}>{t(`talentTip.${id}`).replace('{n}', String(Math.round(TIP_N[id] * 100))).replace('{max}', String(TALENT.max))}</Text>
+            </View>
+            <View style={styles.pips}>
+              {Array.from({ length: TALENT.max }, (_, k) => (
+                <View key={k} style={[styles.pip, k < lv && { backgroundColor: def.color, borderColor: def.color }]} />
+              ))}
+            </View>
+            {lv >= TALENT.max ? (
+              <Text style={styles.talentMax}>{t('talent.max')}</Text>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${t(`talent.${id}`)} +1`}
+                accessibilityState={{ disabled: block !== null }}
+                disabled={block !== null}
+                onPress={() => {
+                  tapFeedback();
+                  onCommand({ type: 'talent', staff: p.id, talent: id });
+                }}
+                style={[styles.talentBuy, { borderColor: def.color }, block === null && { backgroundColor: def.color }, block !== null && styles.buttonOff]}
+              >
+                <Text style={[styles.talentPlus, block === null && styles.talentPlusOn]}>{'+'}</Text>
+                <GameIcon name="iconTalent" size={14} />
+                <Text style={[styles.talentCost, block === null && styles.talentPlusOn]}>{talentCost(lv)}</Text>
+              </Pressable>
+            )}
+          </View>
+        );
+      })}
+      {hint && <Text style={styles.talentHint}>{t(hint)}</Text>}
+      {spent > 0 && !p.leaving && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ disabled: gems < TALENT.resetGems }}
+          disabled={gems < TALENT.resetGems}
+          onPress={() => {
+            tapFeedback();
+            onCommand({ type: 'talentReset', staff: p.id });
+          }}
+          style={[styles.talentReset, gems < TALENT.resetGems && styles.buttonOff]}
+        >
+          <Text style={styles.talentResetText}>{t('talent.reset')}</Text>
+          <GameIcon name="hudGem" size={14} />
+          <Text style={styles.talentResetText}>{TALENT.resetGems}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
 /** Side sheet: the team, the people at the door, and each person's card. */
 export function StaffPanel({ gameRef, view, onView, onCommand, onClose }: Props) {
   const t = useT();
@@ -305,6 +400,11 @@ export function StaffPanel({ gameRef, view, onView, onCommand, onClose }: Props)
     <Animated.View style={[styles.panel, slideStyle]}>
       <View style={styles.header}>
         <Text style={styles.title}>{t('ui.staff')}</Text>
+        <View style={[styles.pointsChip, data.talentPoints > 0 && styles.pointsChipOn]}>
+          <GameIcon name="iconTalent" size={18} />
+          <Text style={styles.pointsText}>{data.talentPoints}</Text>
+          <Text style={styles.pointsLabel}>{t('talent.points')}</Text>
+        </View>
         <Pressable accessibilityRole="button" accessibilityLabel="close" onPress={onClose} hitSlop={10} style={styles.close}>
           <Text style={styles.closeText}>{'✕'}</Text>
         </Pressable>
@@ -323,7 +423,7 @@ export function StaffPanel({ gameRef, view, onView, onCommand, onClose }: Props)
       </View>
       <ScrollView style={styles.list} contentContainerStyle={styles.listInner}>
         {person ? (
-          <Card p={person} coins={data.coins} room={data.room} onCommand={onCommand} onBack={() => onView({ tab })} />
+          <Card p={person} coins={data.coins} gems={data.gems} points={data.talentPoints} room={data.room} onCommand={onCommand} onBack={() => onView({ tab })} />
         ) : list.length === 0 ? (
           <Text style={styles.empty}>{t('ui.noApplicants')}</Text>
         ) : (
@@ -406,6 +506,28 @@ const styles = StyleSheet.create({
   buttonOff: { opacity: 0.45 },
   buttonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 13 },
   section: { color: '#C9B3D6', fontWeight: '800', fontSize: 12, marginTop: 2 },
+  pointsChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, height: 28, borderRadius: 14, backgroundColor: '#3A1D40', marginEnd: 8 },
+  pointsChipOn: { backgroundColor: '#5A1F5E', borderWidth: 1.5, borderColor: '#FF6FD8' },
+  pointsText: { color: '#FFF4E3', fontWeight: '900', fontSize: 14 },
+  pointsLabel: { color: '#E8C8F0', fontWeight: '700', fontSize: 11 },
+  talentCount: { color: '#FF9BE6', fontWeight: '900', fontSize: 12 },
+  talents: { backgroundColor: '#24112A', borderRadius: 12, padding: 8, gap: 6, borderWidth: 1, borderColor: '#5A2E66' },
+  talentTitle: { color: '#FFE9A8', fontWeight: '900', fontSize: 14 },
+  talentSlotsLabel: { color: '#C9B3D6', fontSize: 11, fontWeight: '700' },
+  talentSlots: { color: '#FFF4E3', fontSize: 13, fontWeight: '900' },
+  talentRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  talentName: { color: '#FFF4E3', fontSize: 13, fontWeight: '900' },
+  talentTip: { color: '#C9B3D6', fontSize: 10.5, fontWeight: '600' },
+  pips: { flexDirection: 'row', gap: 3 },
+  pip: { width: 9, height: 9, borderRadius: 5, borderWidth: 1.5, borderColor: '#6A4A78', backgroundColor: '#1C0E22' },
+  talentBuy: { flexDirection: 'row', alignItems: 'center', gap: 3, minWidth: 58, height: 34, paddingHorizontal: 8, borderRadius: 11, borderWidth: 1.5, backgroundColor: '#3A1D40', justifyContent: 'center' },
+  talentPlus: { color: '#FFF4E3', fontWeight: '900', fontSize: 15 },
+  talentPlusOn: { color: '#1A0E22' },
+  talentCost: { color: '#FFF4E3', fontWeight: '900', fontSize: 13 },
+  talentMax: { minWidth: 58, textAlign: 'center', color: gold, fontWeight: '900', fontSize: 12 },
+  talentHint: { color: '#FFB8EC', fontSize: 11, fontWeight: '700' },
+  talentReset: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, height: 30, borderRadius: 10, backgroundColor: '#3A1D40', borderWidth: 1, borderColor: '#8A5BB8' },
+  talentResetText: { color: '#E8D7F0', fontWeight: '800', fontSize: 12 },
   back: { alignSelf: 'center', paddingHorizontal: 18, height: 36, borderRadius: 18, borderWidth: 2, borderColor: gold, justifyContent: 'center', marginTop: 4 },
   backText: { color: '#FFE9A8', fontWeight: '900', fontSize: 13 },
 });

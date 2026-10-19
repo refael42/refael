@@ -9,6 +9,7 @@ import { randomLook } from '../looks';
 import { chance, int, next, pick, type Rng } from '../rng';
 import { dishPrice } from './customers';
 import type { GameState, Person, Staff } from './types';
+import { charismaMult, craftMult, quickMult } from './talents';
 
 // People: generating applicants, what they ask for, and how stats, morale and energy turn into
 // working speed. Pure functions over the game state.
@@ -17,6 +18,11 @@ export const clampStat = (v: number) => Math.max(STAFF.stat.min, Math.min(STAFF.
 
 /** A stat's effect: 5 is neutral, each point away from 5 is `perPoint`. */
 export const statFactor = (value: number) => 1 + STAFF.stat.perPoint * (value - STAFF.stat.average);
+
+/** What someone's quality stat does for their dishes, drinks and checks, with their craft talent. */
+export const qualityOf = (st: Staff) => statFactor(st.stats.quality) * craftMult(st);
+/** What someone's charm stat does (tips, patience given back, walk-ins), with their charisma talent. */
+export const charmOf = (st: Staff) => statFactor(st.stats.charm) * charismaMult(st);
 
 export const has = (p: Person, trait: TraitId) => p.traits.includes(trait);
 
@@ -111,7 +117,7 @@ export const FLOOR_TEAM: readonly Role[] = ['waiter', 'host', 'cleaner'];
 /** How much quicker the waiters are with a manager on shift (1 = no manager). */
 export function waiterLead(s: GameState): number {
   const m = managerOnShift(s);
-  return m ? 1 + SHIFT.waiterSpeed * statFactor(m.stats.charm) : 1;
+  return m ? 1 + SHIFT.waiterSpeed * charmOf(m) : 1;
 }
 
 /** How fast someone works right now: speed stat, morale, energy, scolding, night owls, the manager. */
@@ -124,7 +130,7 @@ export function workRate(s: GameState, st: Staff): number {
   const night = has(st, 'nightOwl') && s.dayTime / DAY.seconds >= TRAIT_FX.nightFrom ? 1 + TRAIT_FX.nightOwlBonus : 1;
   const lead = st.role === 'waiter' ? waiterLead(s) : 1;
   const rush = s.rush.on ? 1 + RUSH.speed : 1;
-  return statFactor(st.stats.speed) * tired * mood * scold * night * lead * rush;
+  return statFactor(st.stats.speed) * tired * mood * scold * night * lead * rush * quickMult(st);
 }
 
 /** Picks the stat a level-up improves: mostly the job's main stats. */

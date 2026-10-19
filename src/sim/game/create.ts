@@ -1,3 +1,4 @@
+import { TALENT, type TalentLevels } from '../../data/talents';
 import { newGuide, type GuideState } from './guide';
 import { syncStools } from './bar';
 import { newChef, type ChefState } from '../chef';
@@ -413,6 +414,7 @@ export interface SavedWorker extends Omit<Person, 'wage'> {
   hiredDay: number;
   lastRaiseDay: number;
   trial: boolean;
+  talents?: TalentLevels;
 }
 
 /** A worker as the save (and a rebuilt restaurant) keeps them. */
@@ -432,6 +434,7 @@ export function workerOf(st: Staff): SavedWorker {
     lastRaiseDay: st.lastRaiseDay,
     trial: st.trial,
     ...(st.hero ? { hero: st.hero } : {}),
+    ...(st.talents ? { talents: { ...st.talents } } : {}),
   };
 }
 
@@ -454,6 +457,8 @@ export interface GameSetup {
   quests?: QuestState;
   /** The item shop: gems, perks owned, a running income boost (seconds left). */
   gems?: number;
+  /** Talent points not spent yet (owner M46). */
+  talentPoints?: number;
   perks?: Perks;
   boost?: { mult: number; seconds: number };
   fiveStars?: number;
@@ -551,6 +556,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     },
     quests: setup.quests ? { level: setup.quests.level, claimed: [...setup.quests.claimed] } : { level: 1, claimed: [] },
     gems: setup.gems ?? GEMS.start,
+    talentPoints: setup.talentPoints ?? TALENT.start,
     perks,
     boost: setup.boost && setup.boost.seconds > 0 ? { mult: setup.boost.mult, until: setup.boost.seconds } : { mult: 1, until: -Infinity },
     earnLog: [],
@@ -618,7 +624,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     for (const w of setup.team) {
       const { role, look, xp, morale, hiredDay, lastRaiseDay, trial, ...person } = w;
       // Copies: the game must never write back into the save it was loaded from.
-      const st = createStaff(s, role, { ...person, stats: { ...person.stats }, traits: [...person.traits] }, { ...look });
+      const st = createStaff(s, role, { ...person, stats: { ...person.stats }, traits: [...person.traits], ...(person.talents ? { talents: { ...person.talents } } : {}) }, { ...look });
       Object.assign(st, { xp, morale, hiredDay, lastRaiseDay, trial, rank: rankOf(person.level) });
       s.staff.push(st);
     }

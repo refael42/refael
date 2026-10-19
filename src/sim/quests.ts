@@ -7,6 +7,8 @@ import { levelOf } from './economy/upgrades';
 import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
 import { addWheelToken } from './wheel';
+import { grantTalentPoints } from './game/talents';
+import { TALENT } from '../data/talents';
 
 // Quests: pure rules over the game state. A goal's progress is read straight from the state
 // (all-time counters, levels, the team), so a goal already met when its level opens is simply
@@ -83,6 +85,7 @@ export function claimQuest(s: GameState, index: number): void {
     reward = reward.mul(1 + QUESTS.levelBonus);
     s.quests = { level: s.quests.level + 1, claimed: [] };
     s.gems += GEMS.perLevelUp;
+    grantTalentPoints(s, TALENT.points.questLevel);
     addWheelToken(s);
     chefXp(s, 'stage');
   }

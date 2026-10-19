@@ -10,7 +10,9 @@ export type WheelPrize =
   /** All income x`mult` for `minutes`. */
   | { kind: 'boost'; mult: number; minutes: number }
   /** The big one: coins and gems together. */
-  | { kind: 'jackpot'; minutes: number; gems: number };
+  | { kind: 'jackpot'; minutes: number; gems: number }
+  /** Talent points for the workers (M46). */
+  | { kind: 'talent'; points: number };
 
 export interface WheelSegment {
   prize: WheelPrize;
@@ -31,6 +33,8 @@ export const WHEEL_SEGMENTS: readonly WheelSegment[] = [
   { prize: { kind: 'gems', gems: 15 }, weight: 8, color: '#1FB5C9', edge: '#117482' },
   { prize: { kind: 'coins', minutes: 60 }, weight: 7, color: '#E0457E', edge: '#972451' },
   { prize: { kind: 'jackpot', minutes: 120, gems: 25 }, weight: 3, color: '#2A1530', edge: '#120818' },
+  // Added last (M46) so a prize saved before it still points at the same segment.
+  { prize: { kind: 'talent', points: 3 }, weight: 12, color: '#F7B91E', edge: '#A8730A' },
 ];
 
 export const WHEEL = {

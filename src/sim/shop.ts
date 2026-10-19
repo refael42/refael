@@ -13,6 +13,7 @@ import { createStaff } from './game/staff';
 import type { GameState } from './game/types';
 import { hasRoom } from './game/workers';
 import { advanceWorks } from './game/works';
+import { grantTalentPoints } from './game/talents';
 import { hash01 } from './retention';
 import { int } from './rng';
 import { Emote } from './types';
@@ -128,6 +129,9 @@ export function buyShopItem(s: GameState, id: string, cost?: number): boolean {
     case 'perk':
       s.perks = { ...s.perks, [item.id]: 1 };
       s.mods = computeMods(s.levels, s.perks, s.trophies);
+      break;
+    case 'talent':
+      grantTalentPoints(s, item.points, true);
       break;
   }
   return true;

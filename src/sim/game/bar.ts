@@ -9,7 +9,7 @@ import { boostNow } from '../shop';
 import { festivalBonus } from '../festival';
 import { Bubble, Emote, Expression, Facing, Held, Pose, PropKind } from '../types';
 import { emit, Ev } from './events';
-import { statFactor, workRate } from './people';
+import { charmOf, qualityOf, workRate } from './people';
 import { CustomerState, OrderState, type Customer, type DrinkOrder, type GameState, type Staff, type Table } from './types';
 import { gainXp } from './workers';
 import { freeStools } from '../economy/upgrades';
@@ -132,7 +132,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     }
     next.bartender = st.id;
     next.state = OrderState.Cooking;
-    next.quality = statFactor(st.stats.quality);
+    next.quality = qualityOf(st);
     st.job = { kind: 'mix', drink: next.id, phase: 'toStation' };
     st.jobTime = 0;
     st.path = [];
@@ -204,7 +204,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     // A guest having a meal at the bar: the glass goes down by their plate; paid now.
     guest.drinkOrder = -1;
     guest.sipping = d.drink;
-    const price = drinkPrice(s, d, guest).mul(statFactor(st.stats.charm)).floor();
+    const price = drinkPrice(s, d, guest).mul(charmOf(st)).floor();
     s.coins = s.coins.add(price);
     s.stats.earned = s.stats.earned.add(price);
     emit(s, Ev.Coins, guest.x, guest.y, price.toNumber());
@@ -220,7 +220,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     guest.stateTime = 0;
     setPose(guest, Pose.Sip);
     // Paid as it is handed over (the bartender's charm, like a waiter's, in the tip).
-    const price = drinkPrice(s, d, guest).mul(statFactor(st.stats.charm)).floor();
+    const price = drinkPrice(s, d, guest).mul(charmOf(st)).floor();
     s.coins = s.coins.add(price);
     s.stats.earned = s.stats.earned.add(price);
     emit(s, Ev.Coins, guest.x, guest.y, price.toNumber());
@@ -279,7 +279,7 @@ export function updateDrinkRun(
   }
   st.jobTime += dt * workRate(s, st);
   if (st.jobTime < BAR.handoffSeconds) return true;
-  deliver(s, d, statFactor(st.stats.charm));
+  deliver(s, d, charmOf(st));
   gainXp(s, st);
   return false;
 }

@@ -23,7 +23,7 @@ import type { Purchases } from '../iap/usePurchases';
 
 type Tab = 'gems' | 'coins' | 'boosts' | 'staff' | 'forever';
 const TABS: readonly Tab[] = ['gems', 'coins', 'boosts', 'staff', 'forever'];
-const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', coins: 'coins', boost: 'boosts', warp: 'boosts', star: 'staff', perk: 'forever', crew: 'forever' };
+const TAB_OF: Record<ShopItem['kind'], Tab> = { gems: 'gems', coins: 'coins', boost: 'boosts', warp: 'boosts', star: 'staff', talent: 'staff', perk: 'forever', crew: 'forever' };
 const TAB_ICON: Record<Tab, HudIcon> = { gems: 'hudGem', coins: 'shopCoinsTab', boosts: 'iconBolt', staff: 'shopStaff', forever: 'iconCrown' };
 /** Each item's drawn icon (owner M41: no emojis); star workers share one. */
 const ICON: Record<string, HudIcon> = {
@@ -44,6 +44,8 @@ const ICON: Record<string, HudIcon> = {
   charmSchool: 'shopBouquet',
   crew3: 'shopHardhat',
   crew4: 'shopCrane',
+  talent5: 'iconTalent',
+  talent20: 'iconTalent',
 };
 const iconOf = (item: ShopItem): HudIcon => (item.kind === 'star' ? 'shopStaff' : ICON[item.id] ?? 'iconGift');
 
@@ -175,6 +177,13 @@ function Description({ item, coins }: { item: ShopItem; coins?: string | null })
       return <Text style={styles.desc}>{t(`shop.${item.id}Desc`)}</Text>;
     case 'crew':
       return <Text style={styles.desc}>{t('shop.crewDesc')}</Text>;
+    case 'talent':
+      return (
+        <View style={styles.line}>
+          <Text style={styles.big}>{`+${item.points}`}</Text>
+          <Text style={styles.desc}>{t('talent.points')}</Text>
+        </View>
+      );
   }
 }
 

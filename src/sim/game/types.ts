@@ -6,6 +6,7 @@ import type { TraitId } from '../../data/traits';
 import type { MapDef, Point } from '../../data/maps';
 import type { Big } from '../big';
 import type { Rarity } from '../../data/rarity';
+import type { TalentId, TalentLevels } from '../../data/talents';
 import type { Levels, Mods, Perks } from '../economy/upgrades';
 import type { Grid } from '../grid';
 import type { Rng } from '../rng';
@@ -255,6 +256,9 @@ export type Command =
   | { type: 'wheel' }
   | { type: 'finish'; work: number }
   | { type: 'hire'; applicant: number; trial: boolean }
+  /** The next level of a talent for a worker, paid in talent points; or every talent back (for gems). */
+  | { type: 'talent'; staff: number; talent: TalentId }
+  | { type: 'talentReset'; staff: number }
   | { type: 'negotiate'; applicant: number }
   | { type: 'reject'; applicant: number }
   | { type: 'fire'; staff: number }
@@ -377,6 +381,8 @@ export interface Staff extends CharacterView, Person {
   busy: boolean;
   /** Out on a delivery: not on the map (the scooter is). */
   away: boolean;
+  /** Their talents (owner M46): levels bought with talent points. */
+  talents?: TalentLevels;
 }
 
 export interface Applicant extends CharacterView, Person {
@@ -498,6 +504,8 @@ export interface GameState {
   quests: QuestState;
   /** Item shop: premium gems, perks owned, an income boost running until `until` (sim time). */
   gems: number;
+  /** Talent points to spend on workers' talents (owner M46, src/data/talents.ts). */
+  talentPoints: number;
   perks: Perks;
   boost: { mult: number; until: number };
   /** Coins earned, sampled every few seconds: the recent income rate (time warps pay by it). */

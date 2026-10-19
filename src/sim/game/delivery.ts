@@ -10,7 +10,7 @@ import { boostNow } from '../shop';
 import { Emote, Facing, Held, Pose } from '../types';
 import { dishPrice, emote } from './customers';
 import { emit, Ev } from './events';
-import { statFactor, workRate } from './people';
+import { charmOf, statFactor, workRate } from './people';
 import { OrderState, type GameState, type Order, type Staff } from './types';
 import { gainXp } from './workers';
 import { onShelf, packersOn, pickupPoint, slotPoint } from './packing';
@@ -66,7 +66,7 @@ export function deliveryPay(s: GameState, st: Staff, o: Order) {
   // Packed by a packer: sealed and neat, worth a little more.
   const packed = o.packed === false ? PACKING.priceMult : 1;
   const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * s.mods.deliveryPrice * packed * boostNow(s) * festivalBonus(s)).floor();
-  const tip = price.mul(DELIVERY.tip * statFactor(st.stats.charm) * s.mods.tips).floor();
+  const tip = price.mul(DELIVERY.tip * charmOf(st) * s.mods.tips).floor();
   return price.add(tip);
 }
 

@@ -1,3 +1,5 @@
+import { TALENT } from './talents';
+
 // The chef's level (owner: "grow the game, more levels and more things that open, like Hay
 // Day"): experience from everything the restaurant does, a level after level with no end, a
 // reward at every one and something new to open every few. How it plays: src/sim/chef.ts.
@@ -34,9 +36,10 @@ export const CHEF = {
 export const xpNeed = (level: number): number => Math.round(CHEF.need.base * Math.max(1, level) ** CHEF.need.power);
 
 /** What reaching `level` gives (before what it opens). */
-export function levelReward(level: number): { gems: number; minutes: number; chest: boolean } {
+export function levelReward(level: number): { gems: number; minutes: number; chest: boolean; talent: number } {
   const chest = level % CHEF.chestEvery === 0;
   return {
+    talent: chest ? TALENT.points.chefChest : TALENT.points.chefLevel,
     gems: CHEF.gems.base + Math.floor(level / 5) * CHEF.gems.perFive + (chest ? CHEF.chestGems : 0),
     minutes: CHEF.minutes.base + Math.floor(level / 4) * CHEF.minutes.perFour,
     chest,

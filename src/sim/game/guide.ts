@@ -10,6 +10,8 @@ import { emit, Ev } from './events';
 import { OrderState, type Customer, type GameState, type Order } from './types';
 import { notify } from './workers';
 import { gainXp as chefXp } from '../chef';
+import { TALENT } from '../../data/talents';
+import { grantTalentPoints } from './talents';
 
 // The restaurant guide (owner M29: "Michelin logic, stars you get like in real life"); the
 // rules are in src/data/guide.ts. Rolls go by hash (the game's dice are left alone).
@@ -28,7 +30,7 @@ export interface GuideState {
   /** This edition's inspections so far. */
   visits: GuideVisit[];
   /** What the last edition said. `change`: stars won (+1) or lost (-1). */
-  last: { edition: number; stars: number; plate: boolean; change: number; average: number; visits: number; gems?: number } | null;
+  last: { edition: number; stars: number; plate: boolean; change: number; average: number; visits: number; gems?: number; talent?: number } | null;
   /** When today's inspector walks in (sim time; -1 none today). Not saved: a new day rolls again. */
   due: number;
   /** The kitchen's recent plates (their quality, 0-1): consistency. Not saved. */
@@ -243,10 +245,15 @@ export function publish(s: GameState): void {
   // A mark won for the first time: its gems (the plate counts as mark 0).
   const mark = stars > 0 ? stars : g.plate ? 0 : -1;
   let gems = 0;
-  for (let m = g.best + 1; m <= mark; m++) gems += GUIDE.rewardGems[m] ?? 0;
+  let talent = 0;
+  for (let m = g.best + 1; m <= mark; m++) {
+    gems += GUIDE.rewardGems[m] ?? 0;
+    talent += TALENT.points.guide[m] ?? 0;
+  }
   g.best = Math.max(g.best, mark);
   s.gems += gems;
-  g.last = { edition: g.edition, stars, plate: g.plate, change: stars - before, average: Math.round(avg), visits: v.length, gems };
+  grantTalentPoints(s, talent, true);
+  g.last = { edition: g.edition, stars, plate: g.plate, change: stars - before, average: Math.round(avg), visits: v.length, gems, ...(talent > 0 ? { talent } : {}) };
   g.visits = [];
   emit(s, Ev.Guide, 0, 0, stars, stars - before, g.plate ? 1 : 0);
   if (stars > before) chefXp(s, 'star', stars - before);

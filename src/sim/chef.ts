@@ -3,6 +3,7 @@ import { CHEF_UNLOCKS } from '../data/chefUnlocks';
 import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
 import { grantCoins, incomeRate } from './shop';
+import { grantTalentPoints } from './game/talents';
 
 // The chef's level (owner: "like Hay Day"): experience comes in from serving, buying, hiring,
 // quests and the guide; each level pays gems and coins (a chest every few) and may open
@@ -38,6 +39,7 @@ export function gainXp(s: GameState, source: XpSource, count = 1): void {
 function levelUp(s: GameState, level: number): void {
   const r = levelReward(level);
   s.gems += r.gems;
+  grantTalentPoints(s, r.talent, true);
   const coins = incomeRate(s).mul(r.minutes * 60).floor();
   grantCoins(s, coins);
   if (r.chest) {

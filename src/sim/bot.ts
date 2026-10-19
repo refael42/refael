@@ -12,6 +12,8 @@ import { TableState, type Command, type GameState } from './game/types';
 import { cookPosts, hasRoom, headcount } from './game/workers';
 import { kitchenAdvice } from './game/jam';
 import { claimable, goalDone, questLevel } from './quests';
+import { talentCost, type TalentId } from '../data/talents';
+import { talentBlock, talentOf } from './game/talents';
 
 // A stand-in manager for headless runs (balance script, offline progress): it taps what a
 // player would tap, after a human-ish reaction delay, and can buy upgrades greedily.
@@ -121,6 +123,32 @@ export function cheapestAffordable(s: GameState, budget: Big = s.coins, skip: Re
   return best;
 }
 
+/** The talents a bot picks for each job, most useful first (the rest after them). */
+const TALENT_PICKS: Partial<Record<string, readonly TalentId[]>> = {
+  cook: ['quick', 'craft'],
+  bartender: ['quick', 'craft'],
+  checker: ['craft', 'quick'],
+  waiter: ['quick', 'charisma'],
+  host: ['charisma', 'quick'],
+  manager: ['charisma', 'mood'],
+};
+
+/** The cheapest useful talent level anyone on the team can take now. */
+function bestTalent(s: GameState): { staff: number; talent: TalentId } | null {
+  let best: { staff: number; talent: TalentId; cost: number } | null = null;
+  for (const st of s.staff) {
+    if (st.leaving || st.hero) continue;
+    const picks = [...(TALENT_PICKS[st.role] ?? []), 'quick', 'fit', 'mood', 'loyal'] as TalentId[];
+    for (const id of picks) {
+      if (talentBlock(s, st, id)) continue;
+      const cost = talentCost(talentOf(st, id));
+      if (!best || cost < best.cost) best = { staff: st.id, talent: id, cost };
+      break;
+    }
+  }
+  return best;
+}
+
 export function createBot(options: BotOptions): Bot {
   const seen = new Map<string, number>();
   const purchases: Purchase[] = [];
@@ -182,6 +210,9 @@ export function createBot(options: BotOptions): Bot {
     // A bonus for anyone close to quitting (gossips wear the others down).
     const low = s.staff.find((st) => !st.leaving && st.morale < BOT_BONUS_MORALE && s.coins.gte(st.wage.mul(2)));
     if (low) queueCommand(s, { type: 'bonus', staff: low.id });
+    // Talent points go to the team at once: what each job needs most, the cheapest level first.
+    const learn = s.talentPoints > 0 ? bestTalent(s) : null;
+    if (learn) queueCommand(s, { type: 'talent', staff: learn.staff, talent: learn.talent });
     // Say yes to raises; near payday, keep the day's wages in the till so it never bounces.
     for (const n of s.notices) if (n.kind === 'raise' || n.kind === 'trial') queueCommand(s, { type: 'answer', notice: n.id, yes: true });
     const wages = s.staff.reduce((sum, st) => sum.add(st.wage), ZERO);

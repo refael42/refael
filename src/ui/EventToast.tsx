@@ -12,10 +12,10 @@ import { FESTIVAL_THEMES } from '../data/events';
 
 // A short note at the top for the special moments: a VIP walks in, a VIP's bonus, a present on
 // the sidewalk and what was inside, a festival starting or a festival prize ready, the tourist
-// bus. The sim's events are read a few times a second.
+// bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints];
 
 interface Toast {
   id: number;
@@ -37,6 +37,8 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
         last.current = e.id;
         // Only the first delivery order gets a note (they come all the time after that).
         if (e.type === Ev.DeliveryOrder && e.c !== 1) continue;
+        // Talent points a card already shows (the wheel, a chef level, the daily gift...) need no note.
+        if (e.type === Ev.TalentPoints && e.b === 1) continue;
         if (TYPES.includes(e.type)) setToast({ id: e.id, type: e.type, coins: e.a, gems: e.b });
       }
     }, 200);
@@ -50,7 +52,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
   if (!toast) return null;
   const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
-  const rewards: { icon: HudIcon; text: string }[] = festive ? [] : [
+  const rewards: { icon: HudIcon; text: string }[] = festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
     ...(toast.gems > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.gems}` }] : []),
   ];
@@ -96,6 +98,8 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t(toast.coins === 3 ? 'toast.legendary' : 'toast.epic');
     case Ev.Weekend:
       return t('toast.weekend').replace('{n}', String(toast.coins));
+    case Ev.TalentPoints:
+      return t('toast.talentPoints');
     default:
       return `${t('toast.giftOpened')} ${reward}`;
   }

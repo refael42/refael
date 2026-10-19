@@ -66,6 +66,7 @@ function shortLabel(prize: WheelPrize, coins: string, t: (k: string) => string):
   if (prize.kind === 'coins') return coins;
   if (prize.kind === 'gems') return `+${prize.gems}`;
   if (prize.kind === 'boost') return `x${prize.mult}`;
+  if (prize.kind === 'talent') return `+${prize.points}`;
   return t('wheel.jackpot');
 }
 
@@ -75,6 +76,7 @@ function longLabel(prize: WheelPrize, coins: string, t: (k: string) => string): 
   if (prize.kind === 'coins') return coins;
   if (prize.kind === 'gems') return `+${prize.gems}`;
   if (prize.kind === 'boost') return `x${prize.mult} · ${t('wheel.boost').replace('{m}', String(prize.minutes))}`;
+  if (prize.kind === 'talent') return `+${prize.points} ${t('talent.points')}`;
   return `${coins}  +  ${prize.gems}`;
 }
 
@@ -343,6 +345,7 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
               {(prize.kind === 'coins' || prize.kind === 'jackpot') && <Image source={{ uri: hudIcon('hudCoin', Math.round(44 * PixelRatio.get())) }} style={styles.wonIcon} />}
               {(prize.kind === 'gems' || prize.kind === 'jackpot') && <Image source={{ uri: hudIcon('hudGem', Math.round(44 * PixelRatio.get())) }} style={styles.wonIcon} />}
               {prize.kind === 'boost' && <GameIcon name="iconBolt" size={44} />}
+              {prize.kind === 'talent' && <GameIcon name="iconTalent" size={44} />}
             </View>
             <Text style={styles.wonValue}>{longLabel(prize, coins[prizeSeg] ?? '', t)}</Text>
             <Pressable accessibilityRole="button" onPress={take} style={styles.take}>
@@ -387,7 +390,8 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
                   <View key={i} style={styles.oddsRow}>
                     <View style={[styles.oddsDot, { backgroundColor: seg.color }]} />
                     <Text style={styles.oddsText} numberOfLines={1}>
-                      {longLabel(seg.prize, coins[i] ?? '', t)}
+                      {/* A left-to-right mark: the talent line starts with its number like the others (Hebrew first would align it to the other side). */}
+                      {seg.prize.kind === 'talent' ? `\u200E${longLabel(seg.prize, '', t)}` : longLabel(seg.prize, coins[i] ?? '', t)}
                     </Text>
                     <Text style={styles.oddsPct}>{`${ODDS[i]}%`}</Text>
                   </View>

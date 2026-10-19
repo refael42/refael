@@ -3,6 +3,7 @@ import { big, type Big } from './big';
 import { emit, Ev } from './game/events';
 import type { Customer, GameState } from './game/types';
 import { grantCoins, incomeRate } from './shop';
+import { grantTalentPoints } from './game/talents';
 
 // The daily gift, the VIP guests and the presents on the sidewalk (src/data/retention.ts). Pure
 // and deterministic: the chances come from a hash of ids, not from the game's dice, so adding
@@ -80,6 +81,7 @@ export function claimDaily(s: GameState, today: string, yesterday: string): bool
   const coins = r.minutes > 0 ? incomeFor(s, r.minutes * 60).max(50 * day) : big(0);
   grantCoins(s, coins);
   s.gems += r.gems;
+  grantTalentPoints(s, r.talent, true);
   if (r.boostMult && r.boostMinutes) {
     const left = s.time < s.boost.until && s.boost.mult === r.boostMult ? s.boost.until - s.time : 0;
     s.boost = { mult: r.boostMult, until: s.time + left + r.boostMinutes * 60 };

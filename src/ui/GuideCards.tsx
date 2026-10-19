@@ -162,8 +162,8 @@ function Rays({ color }: { color: string }) {
   );
 }
 
-/** A new edition is out: the stars won (or lost) stamped in, what they bring, the gems for a first. */
-export function GuideEdition({ stars, change, plate, gems, onClose }: { stars: number; change: number; plate: boolean; gems: number; onClose: () => void }) {
+/** A new edition is out: the stars won (or lost) stamped in, what they bring, the gems (and talent points) for a first. */
+export function GuideEdition({ stars, change, plate, gems, talent = 0, onClose }: { stars: number; change: number; plate: boolean; gems: number; talent?: number; onClose: () => void }) {
   const t = useT();
   const pop = useSharedValue(0);
   const after = useSharedValue(0);
@@ -208,6 +208,12 @@ export function GuideEdition({ stars, change, plate, gems, onClose }: { stars: n
             <View style={styles.gems}>
               <GameIcon name="hudGem" size={20} />
               <Text style={styles.gemsText}>{`+${gems} ${t('guide.firstGems')}`}</Text>
+            </View>
+          )}
+          {talent > 0 && (
+            <View style={styles.gems}>
+              <GameIcon name="iconTalent" size={20} />
+              <Text style={styles.gemsText}>{`+${talent} ${t('talent.points')}`}</Text>
             </View>
           )}
         </Animated.View>

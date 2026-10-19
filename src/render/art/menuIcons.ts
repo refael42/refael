@@ -294,7 +294,28 @@ const iconNotebook = sprite(BOX, (c) => {
   shape(c, path.poly([[22, -14], [24, -19], [27, -17.6], [25, -12.6]]), { light: '#FFD0E2', base: '#F38DB3', dark: '#B8487A', outline: 1.8, shadow: false });
 });
 
+/** A talent point (owner M46): a four-pointed magenta star with a white glint. */
+const iconTalent = sprite(BOX, (c) => {
+  const MAGENTA: Look = { light: '#FFC6F2', base: '#E04FD0', dark: '#7A1E8E' };
+  const pts: Pt[] = Array.from({ length: 8 }, (_, i) => {
+    const r = i % 2 === 0 ? 22 : 8;
+    const a = -Math.PI / 2 + (i * Math.PI) / 4;
+    return [Math.cos(a) * r, Math.sin(a) * r + 2] as Pt;
+  });
+  shape(c, path.smooth(pts, true, 0.18), { ...MAGENTA, outline: 2.4, gloss: 0.45 });
+  shape(c, path.circle(0, 2, 5.5), { light: '#FFFFFF', base: '#FFE6FA', dark: '#E9A6DA', outline: 1.4, shadow: false, gloss: 0.3 });
+  sparkle(c, 13, -13, 4.2);
+});
+
+/** Loyalty: a red heart. */
+const iconHeart = sprite(BOX, (c) => {
+  shape(c, path.smooth([[0, 19], [-19, 0], [-17, -13], [-8, -18], [0, -10], [8, -18], [17, -13], [19, 0]], true, 0.45), RED);
+  c.drawOval(Skia.XYWHRect(-13, -12, 7, 5), fill('#FFFFFF', 0.5));
+});
+
 export const menuIcons = {
+  iconTalent,
+  iconHeart,
   iconRosette,
   iconPlate,
   iconMagnifier,

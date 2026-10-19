@@ -1,4 +1,5 @@
 import { WHEEL, WHEEL_SEGMENTS, type WheelPrize } from '../data/wheel';
+import { grantTalentPoints } from './game/talents';
 import { big, type Big } from './big';
 import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
@@ -88,6 +89,8 @@ export function collectWheel(s: GameState): boolean {
   const gems = p.kind === 'gems' || p.kind === 'jackpot' ? p.gems : 0;
   grantCoins(s, coins);
   s.gems += gems;
+  // The wheel's own card shows them.
+  if (p.kind === 'talent') grantTalentPoints(s, p.points, true);
   if (p.kind === 'boost') {
     // A boost already running at least this strong just runs longer; a weaker one is replaced.
     const running = boostNow(s);

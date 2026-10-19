@@ -28,6 +28,7 @@ import { claimFestival, syncFestival } from '../festival';
 import { startBus } from './bus';
 import { markShown, seeOffers } from '../offers';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
+import { buyTalent, resetTalents } from './talents';
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
 export function queueCommand(s: GameState, command: Command): void {
@@ -263,6 +264,10 @@ function apply(s: GameState, cmd: Command): void {
     const d = s.drinks.find((x) => x.id === cmd.drink);
     const c = d ? s.customers.find((x) => x.id === d.customer) : undefined;
     if (d && c && c.table >= 0 && d.state === OrderState.Ready && !d.bar) serveDrink(s, d, dishSpot(s.tables[c.table]!, c.seat));
+  } else if (cmd.type === 'talent') {
+    buyTalent(s, cmd.staff, cmd.talent);
+  } else if (cmd.type === 'talentReset') {
+    resetTalents(s, cmd.staff);
   } else if (cmd.type === 'grant') {
     const coins = fromSave(cmd.coins);
     grantCoins(s, coins);

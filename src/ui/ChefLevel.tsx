@@ -87,6 +87,7 @@ export function ChefPanel({ gameRef, onClose }: { gameRef: { current: GameState 
         <Text style={styles.section}>{t('chef.next').replace('{n}', String(d.level + 1))}</Text>
         <View style={styles.rewards}>
           <Reward icon="hudGem" text={`+${next.gems}`} />
+          <Reward icon="iconTalent" text={`+${next.talent}`} />
           {next.minutes > 0 && <Reward icon="hudCoin" text={t('chef.minutes').replace('{n}', String(next.minutes))} />}
           {next.chest && <Reward icon="hudGift" text={t('chef.chest').replace('{n}', String(CHEF.chestBoost.minutes))} />}
           {opensAt(d.level + 1).map((u) => (
@@ -182,6 +183,7 @@ export function LevelUpCard({ level, onClose }: { level: number; onClose: () => 
         <Animated.View style={[styles.levelRest, restStyle]}>
           <View style={styles.rewards}>
             <Reward icon="hudGem" text={`+${r.gems}`} />
+            <Reward icon="iconTalent" text={`+${r.talent}`} />
             {r.minutes > 0 && <Reward icon="hudCoin" text={t('chef.minutes').replace('{n}', String(r.minutes))} />}
             {r.chest && <Reward icon="hudGift" text={t('chef.chest').replace('{n}', String(CHEF.chestBoost.minutes))} />}
           </View>

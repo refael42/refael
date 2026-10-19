@@ -13,6 +13,8 @@ import { clampStat, FLOOR_TEAM, has, levelUpStat, managerOnShift, rankOf, wageFo
 import { guideNewDay } from './guide';
 import type { GameState, Notice, Staff } from './types';
 import type { BulkStep } from '../../data/works';
+import { TALENT } from '../../data/talents';
+import { fitDrain, fitRecover, loyalRaise, moraleChange, neverQuits, refundTalents, talentOf, wageNow } from './talents';
 
 // The team over time: experience, energy, the daily payroll, raises, quitting, and everything
 // the manager can do to a worker. Pure sim code; the UI only sends commands.
@@ -73,8 +75,8 @@ function updateEnergy(s: GameState, st: Staff, dt: number, managed: boolean): vo
   if (st.busy) {
     // A shift manager keeps the waiters from running themselves ragged.
     const lead = managed && st.role === 'waiter' ? 1 - SHIFT.drainCut : 1;
-    if (!has(st, 'workaholic')) st.energy -= dt * e.drainPerSecond * lead * Math.max(0.3, 1 - e.staminaPerPoint * (st.stats.stamina - 5));
-  } else st.energy += dt * e.recoverPerSecond;
+    if (!has(st, 'workaholic')) st.energy -= dt * e.drainPerSecond * lead * Math.max(0.3, 1 - e.staminaPerPoint * (st.stats.stamina - 5)) * fitDrain(st);
+  } else st.energy += dt * e.recoverPerSecond * fitRecover(st);
   // ...and the whole floor team in good spirits.
   if (managed && FLOOR_TEAM.includes(st.role)) st.morale = Math.min(1, st.morale + (dt * SHIFT.moralePerMinute) / 60);
   st.energy = clamp01(st.energy);
@@ -105,6 +107,8 @@ export function leave(s: GameState, st: Staff, angry: boolean): void {
 
 function quit(s: GameState, st: Staff, unpaid: boolean): void {
   notify(s, { kind: 'quit', name: st.name, role: st.role, unpaid });
+  // Someone who quits takes half of what was put into their talents (src/data/talents.ts).
+  refundTalents(s, st, TALENT.quitKeeps);
   leave(s, st, true);
 }
 
@@ -115,27 +119,29 @@ function payday(s: GameState): void {
   let unpaid = 0;
   const team = s.staff.filter((st) => !st.leaving);
   for (const st of team) {
-    if (s.coins.gte(st.wage)) {
-      s.coins = s.coins.sub(st.wage);
-      paid = paid.add(st.wage);
+    // Loyal workers settle for less (src/data/talents.ts).
+    const wage = wageNow(st);
+    if (s.coins.gte(wage)) {
+      s.coins = s.coins.sub(wage);
+      paid = paid.add(wage);
       st.unpaidDays = 0;
-      st.morale += m.paid;
+      st.morale += m.paid + TALENT.moodPayday * talentOf(st, 'mood');
     } else {
       unpaid += 1;
       st.unpaidDays += 1;
-      st.morale += m.unpaid;
+      st.morale += moraleChange(st, m.unpaid);
       emote(st, Emote.Anger);
     }
   }
   // Gossip wears the others down, but a second gossip does not double it: stacked, a big team's
   // three or four gossips outweighed the day's pay and people quit nonstop (balance run, M39).
   const gossips = team.filter((st) => has(st, 'gossip'));
-  for (const st of team) if (gossips.some((g) => g !== st)) st.morale += m.gossip;
+  for (const st of team) if (gossips.some((g) => g !== st)) st.morale += moraleChange(st, m.gossip);
   for (const st of team) {
     st.morale = clamp01(st.morale);
     // A hero never leaves (they were paid for) and never asks for more.
     if (st.hero) continue;
-    if (st.morale < m.quit || st.unpaidDays >= m.unpaidDaysToQuit) {
+    if ((st.morale < m.quit && !neverQuits(st)) || st.unpaidDays >= m.unpaidDaysToQuit) {
       quit(s, st, st.unpaidDays > 0);
       continue;
     }
@@ -151,7 +157,7 @@ function maybeAskRaise(s: GameState, st: Staff): void {
   const r = STAFF.raise;
   if (st.trial || st.level < r.minLevel || s.day - st.lastRaiseDay < r.minDaysBetween) return;
   if (s.day - s.lastRaiseAsk < r.teamGapDays || s.notices.some((n) => n.kind === 'raise')) return;
-  const odds = r.chance * (has(st, 'workaholic') ? TRAIT_FX.workaholicRaises : 1);
+  const odds = r.chance * (has(st, 'workaholic') ? TRAIT_FX.workaholicRaises : 1) * loyalRaise(st);
   if (!chance(s.rng, odds)) return;
   // At least the usual step, up to what the market pays now, but never more than +50 % at once.
   const market = wageFor(s, st.role, st.level, st.stats, st.traits);
@@ -184,7 +190,7 @@ function updateRush(s: GameState, dt: number): void {
     return;
   }
   r.charge = Math.max(0, r.charge - dt / RUSH.seconds);
-  for (const st of s.staff) if (!st.leaving) st.morale = Math.max(0, st.morale - dt * RUSH.moralePerSecond);
+  for (const st of s.staff) if (!st.leaving) st.morale = Math.max(0, st.morale + moraleChange(st, -dt * RUSH.moralePerSecond));
   if (r.charge <= 0) r.on = false;
 }
 
@@ -218,7 +224,10 @@ const plainWorker = (s: GameState, id: number) => {
 
 export function fire(s: GameState, id: number): void {
   const st = plainWorker(s, id);
-  if (st) leave(s, st, false);
+  if (!st) return;
+  // Every point put into their talents comes back.
+  refundTalents(s, st, 1);
+  leave(s, st, false);
 }
 
 /** A day's wage as a bonus: a big morale boost. */
@@ -268,7 +277,7 @@ export function train(s: GameState, id: number, step: BulkStep = 1): void {
 export function scold(s: GameState, id: number): void {
   const st = worker(s, id);
   if (!st) return;
-  st.morale = clamp01(st.morale + STAFF.morale.scold);
+  st.morale = clamp01(st.morale + moraleChange(st, STAFF.morale.scold));
   st.scoldUntil = s.time + STAFF.scold.seconds;
   st.expression = Expression.Angry;
   emote(st, Emote.Exclaim);
@@ -294,7 +303,7 @@ export function answer(s: GameState, noticeId: number, yes: boolean): void {
       st.morale = clamp01(st.morale + STAFF.morale.raiseYes);
       emote(st, Emote.Heart);
     } else {
-      st.morale = clamp01(st.morale + STAFF.morale.raiseNo);
+      st.morale = clamp01(st.morale + moraleChange(st, STAFF.morale.raiseNo));
       emote(st, Emote.Anger);
     }
     return;
@@ -305,5 +314,9 @@ export function answer(s: GameState, noticeId: number, yes: boolean): void {
     s.coins = s.coins.sub(fee);
     st.trial = false;
     emote(st, Emote.Heart);
-  } else leave(s, st, false);
+  } else {
+    // Not kept after the trial: like a firing, every talent point comes back.
+    refundTalents(s, st, 1);
+    leave(s, st, false);
+  }
 }

@@ -3,7 +3,7 @@ import { CARE } from '../../data/staff';
 import { setPose } from '../movement';
 import { Emote, Expression, Facing, Held, Pose } from '../types';
 import { emote } from './customers';
-import { statFactor, workRate } from './people';
+import { charmOf, workRate } from './people';
 import { CustomerState, type Customer, type GameState, type Staff, type Table } from './types';
 
 // Table care (owner: "waiters stand around doing nothing while there is lots of work"). A waiter
@@ -54,7 +54,7 @@ export function updateCare(s: GameState, st: Staff, dt: number, walkTo: (to: Poi
   }
   st.jobTime += dt * workRate(s, st);
   if (st.jobTime < CARE.pourSeconds) return true;
-  const back = CARE.patience * statFactor(st.stats.charm);
+  const back = CARE.patience * charmOf(st);
   for (const c of guests) {
     c.cared = (c.cared ?? 0) + 1;
     c.patienceLeft = Math.min(c.patienceMax, c.patienceLeft + c.patienceMax * back);

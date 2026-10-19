@@ -29,7 +29,9 @@ export type ShopItem =
   /** A permanent multiplier on one stat (one of each). */
   | { id: string; kind: 'perk'; cost: number; stat: PerkStat; mult: number }
   /** One more crew for big upgrades, for good (src/data/works.ts). */
-  | { id: string; kind: 'crew'; cost: number };
+  | { id: string; kind: 'crew'; cost: number }
+  /** Talent points for the workers (M46, src/data/talents.ts). */
+  | { id: string; kind: 'talent'; cost: number; points: number };
 
 export type PerkStat = 'price' | 'arrivals' | 'cookSpeed' | 'tips';
 
@@ -58,6 +60,8 @@ export const SHOP: readonly ShopItem[] = [
   { id: 'starCleaner', kind: 'star', cost: 120, role: 'cleaner' },
   { id: 'starManager', kind: 'star', cost: 300, role: 'manager' },
   { id: 'starCourier', kind: 'star', cost: 150, role: 'courier' },
+  { id: 'talent5', kind: 'talent', cost: 25, points: 5 },
+  { id: 'talent20', kind: 'talent', cost: 80, points: 20 },
 
   { id: 'goldenMenu', kind: 'perk', cost: 600, stat: 'price', mult: 1.5 },
   { id: 'vipSign', kind: 'perk', cost: 400, stat: 'arrivals', mult: 1.25 },

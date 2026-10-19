@@ -5,6 +5,7 @@ import { mapForTier } from '../data/maps';
 import { big, type Big } from './big';
 import { levelOf } from './economy/upgrades';
 import { createGame } from './game/create';
+import { talentSpent } from '../data/talents';
 import { emit, Ev } from './game/events';
 import type { GameState } from './game/types';
 
@@ -43,6 +44,8 @@ export function openBranch(s: GameState): boolean {
     boost: s.boost,
     // The chef's level is the player's: it goes along.
     chef: s.chef,
+    // So are the talent points: the old team's come back, for the new team to learn.
+    talentPoints: s.staff.reduce((sum, st) => sum + talentSpent(st.talents), s.talentPoints),
     // Ids keep counting up, so nothing new is mistaken for something from the old branch.
     nextId: Math.max(s.nextId, fresh.nextId),
   };
