@@ -1,6 +1,6 @@
 import { CUSTOMER_TYPES, KID_RANK } from '../../data/customers';
 import { NAMES } from '../../data/names';
-import { REVIEW, REVIEW_LINES, SERVICE, type ReviewKind } from '../../data/reviews';
+import { HAPPY_WEIGHTS, REVIEW, REVIEW_LINES, REVIEW_SCORES, SERVICE, type ReviewKind } from '../../data/reviews';
 import { big, type Big } from '../big';
 import { hash01 } from '../retention';
 import { next } from '../rng';
@@ -31,18 +31,39 @@ function complaint(s: GameState, c: Customer): ReviewKind {
   return c.foodWaited > type.foodPatience * s.mods.patience * 0.5 ? 'slowFood' : 'slowLine';
 }
 
-/** What a paying guest writes about, by their grade (and who they came with). */
+/** What a paying guest writes about, by their grade (and who they came with, what they had). */
 function kindFor(s: GameState, c: Customer, stars: number, roll: number): ReviewKind {
-  const kids = s.customers.some((m) => m.party === c.party && m.rank === KID_RANK);
   if (stars >= 4) {
-    if (c.tourist && roll < 0.35) return 'tourist';
-    if (kids && roll < 0.35) return 'kids';
-    if (roll < 0.65) return 'dish';
-    return stars === 5 ? 'great' : 'good';
+    const w = HAPPY_WEIGHTS;
+    const pool: [ReviewKind, number][] = [['dish', w.dish], [stars === 5 ? 'great' : 'good', w.praise], ['staff', w.staff], ['decor', w.decor], ['value', w.value]];
+    if (c.tourist) pool.push(['tourist', w.tourist]);
+    if (s.customers.some((m) => m.party === c.party && m.rank === KID_RANK)) pool.push(['kids', w.kids]);
+    else if (c.partySize === 2) pool.push(['date', w.date]);
+    if (c.dessertServed) pool.push(['dessert', w.dessert]);
+    if (c.drank || c.rounds > 0) pool.push(['drinks', w.drinks]);
+    if (s.staff.some((st) => st.role === 'host' && !st.leaving)) pool.push(['host', w.host]);
+    if (stars === 5) pool.push(['critic', w.critic]);
+    let left = roll * pool.reduce((sum, [, n]) => sum + n, 0);
+    for (const [kind, n] of pool) if ((left -= n) < 0) return kind;
+    return pool[0]![0];
   }
-  if (stars === 3) return roll < 0.5 ? 'ok' : complaint(s, c);
+  if (stars === 3) return roll < 0.35 ? 'ok' : roll < 0.65 ? 'mixed' : complaint(s, c);
   if (stars === 2) return complaint(s, c);
   return roll < 0.6 ? 'awful' : complaint(s, c);
+}
+
+export interface ReviewScores {
+  /** 1..5; 0 = not rated (they never ate). */
+  food: number;
+  service: number;
+  place: number;
+}
+
+/** The food, service and place scores under a review (worked out from it, not saved). */
+export function reviewScores(r: Pick<Review, 'id' | 'stars' | 'kind'>): ReviewScores {
+  const shift = REVIEW_SCORES[r.kind];
+  const score = (d: number, salt: number) => Math.max(1, Math.min(5, Math.round(r.stars + d + (hash01(r.id * 2.37 + salt) - 0.5) * 0.9)));
+  return { food: shift.food === null ? 0 : score(shift.food, 0.11), service: score(shift.service, 0.47), place: score(shift.place, 0.83) };
 }
 
 /** Adds a review to the page; the oldest goes when it is full (its bonus paid if never taken). */

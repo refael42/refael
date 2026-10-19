@@ -111,6 +111,7 @@ function deliver(s: GameState, d: DrinkOrder, charm: number): void {
     const t: Table = s.tables[c.table]!;
     t.drinks[c.seat] = d.drink;
   }
+  c.drank = true;
   const price = drinkPrice(s, d, c).mul(charm).floor();
   s.coins = s.coins.add(price);
   s.stats.earned = s.stats.earned.add(price);
@@ -204,6 +205,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     // A guest having a meal at the bar: the glass goes down by their plate; paid now.
     guest.drinkOrder = -1;
     guest.sipping = d.drink;
+    guest.drank = true;
     const price = drinkPrice(s, d, guest).mul(charmOf(st)).floor();
     s.coins = s.coins.add(price);
     s.stats.earned = s.stats.earned.add(price);

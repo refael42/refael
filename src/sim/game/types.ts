@@ -83,6 +83,8 @@ export interface Customer extends CharacterView {
   /** Their drink order (-1 none), how many rounds they have had at the bar, and the drink in front of them there (-1 none). */
   drinkOrder: number;
   rounds: number;
+  /** Had a drink with their meal (what they may write about). */
+  drank?: boolean;
   sipping: number;
   /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
   inspector?: boolean;

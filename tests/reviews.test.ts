@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { STAND_MAP } from '../src/data/maps';
-import { REVIEW, SERVICE } from '../src/data/reviews';
+import { REVIEW, REVIEW_KINDS, REVIEW_LINES, SERVICE, type ReviewKind } from '../src/data/reviews';
+import { en } from '../src/i18n/en';
+import { he } from '../src/i18n/he';
 import { STEP_SEC } from '../src/data/sim';
 import { big } from '../src/sim/big';
 import { queueCommand } from '../src/sim/game/commands';
 import { createGame } from '../src/sim/game/create';
-import { buzzing, claimReviews, maybeReview, serviceMult, serviceStars, unclaimedBonus } from '../src/sim/game/reviews';
+import { buzzing, claimReviews, maybeReview, reviewScores, serviceMult, serviceStars, unclaimedBonus } from '../src/sim/game/reviews';
 import { makeSave, parseSave, restoreGame } from '../src/sim/save';
 import { stepGame } from '../src/sim/game/step';
 import { CustomerState, type GameState } from '../src/sim/game/types';
 
 const team = ['cook', 'waiter', 'washer'] as const;
+/** What a happy guest (4 or 5 stars) may write about. */
+const HAPPY: ReviewKind[] = ['great', 'good', 'dish', 'kids', 'tourist', 'date', 'staff', 'host', 'decor', 'value', 'dessert', 'drinks', 'critic'];
 
 /** Plays a while; seats each customer once they have waited `delay` seconds in line. */
 function play(s: GameState, seconds: number, delay: number) {
@@ -72,7 +76,7 @@ describe('reviews', () => {
     expect(s.reviews.length).toBe(count + 1);
     const r = s.reviews.at(-1)!;
     expect(r.stars).toBe(5);
-    expect(['great', 'dish', 'kids', 'tourist']).toContain(r.kind);
+    expect(HAPPY).toContain(r.kind);
     expect(r.bonus.toNumber()).toBe(100 * REVIEW.bonusMeals[5]!);
     // Not paid until taken on the page.
     expect(r.claimed).toBe(false);
@@ -161,5 +165,64 @@ describe('reviews', () => {
     expect(s.reviews.length).toBeLessThanOrEqual(REVIEW.keep);
     const ids = s.reviews.map((r) => r.id);
     for (let i = 1; i < ids.length; i++) expect(ids[i]!).toBeGreaterThan(ids[i - 1]!);
+  });
+
+  it('has at least 200 different lines, written in both languages', () => {
+    const keys = REVIEW_KINDS.flatMap((k) => Array.from({ length: REVIEW_LINES[k] }, (_, i) => `review.${k}.${i}`));
+    expect(keys.length).toBeGreaterThanOrEqual(200);
+    const dict = { he: he as Record<string, string>, en: en as Record<string, string> };
+    for (const lang of ['he', 'en'] as const) {
+      const texts = keys.map((k) => dict[lang][k]);
+      for (const [i, text] of texts.entries()) {
+        expect(text, `${lang} ${keys[i]}`).toBeTruthy();
+        // Only the dish may be filled in.
+        expect(text!.replace(/\{dish\}/g, '')).not.toMatch(/[{}]/);
+      }
+      expect(new Set(texts).size).toBe(texts.length);
+      // No line beyond the counts (a count left behind after adding lines).
+      for (const k of REVIEW_KINDS) expect(dict[lang][`review.${k}.${REVIEW_LINES[k]}`]).toBeUndefined();
+    }
+  });
+
+  it('happy guests write about many things, the ones that fit them', () => {
+    const s = createGame(STAND_MAP, 38, { roster: [...team, 'host'] });
+    s.stats.served = REVIEW.afterServed;
+    const base = { ...s.customers[0], dish: 0, type: 'regular', foodWaited: 0, tourist: false, partySize: 1, rounds: 0 } as unknown as GameState['customers'][number];
+    const kinds = new Set<ReviewKind>();
+    for (let i = 0; i < 4000; i++) {
+      const id = 5000 + i;
+      const guest = { ...base, id, party: id, tourist: i % 5 === 0, partySize: i % 3 === 0 ? 2 : 1, dessertServed: i % 4 === 0, drank: i % 6 === 0 };
+      s.lastReviewTime = -Infinity;
+      s.tick = i;
+      maybeReview(s, guest, 4 + (i % 2), big(10));
+      if (s.reviews.length) kinds.add(s.reviews.at(-1)!.kind);
+    }
+    // (Families need a child in the party: not made up here.)
+    for (const k of HAPPY) if (k !== 'kids') expect(kinds, k).toContain(k);
+    for (const k of kinds) expect(HAPPY).toContain(k);
+  });
+
+  it('scores food, service and the place like a review site, by what the review says', () => {
+    const avg = (kind: ReviewKind, stars: number) => {
+      const sum = { food: 0, service: 0, place: 0 };
+      for (let id = 0; id < 200; id++) {
+        const sc = reviewScores({ id, stars, kind });
+        for (const k of ['food', 'service', 'place'] as const) {
+          if (k !== 'food' || kind !== 'walkout') expect(sc[k]).toBeGreaterThanOrEqual(1);
+          expect(sc[k]).toBeLessThanOrEqual(5);
+          sum[k] += sc[k] / 200;
+        }
+      }
+      return sum;
+    };
+    expect(reviewScores({ id: 3, stars: 1, kind: 'walkout' }).food).toBe(0);
+    const slow = avg('slowFood', 2);
+    expect(slow.food).toBeGreaterThan(slow.service + 1);
+    const wc = avg('restroom', 2);
+    expect(wc.food).toBeGreaterThan(wc.place + 2);
+    const decor = avg('decor', 5);
+    expect(decor.place).toBeGreaterThan(4.6);
+    const great = avg('great', 5);
+    expect(great.food + great.service + great.place).toBeGreaterThan(13.5);
   });
 });

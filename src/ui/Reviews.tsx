@@ -8,7 +8,7 @@ import { useT } from '../i18n';
 import { hudIcon } from '../render/icons';
 import { usePoll } from '../render/useSimulation';
 import { formatBig } from '../sim/format';
-import { unclaimedBonus } from '../sim/game/reviews';
+import { reviewScores, unclaimedBonus } from '../sim/game/reviews';
 import type { Command, GameState, Review } from '../sim/game/types';
 import { useSettings } from '../store/settings';
 import { Overlay, scrollFill } from './Overlay';
@@ -41,6 +41,23 @@ function Stars({ n, size }: { n: number; size: number }) {
       <Text style={styles.on}>{'★'.repeat(n)}</Text>
       <Text style={styles.off}>{'★'.repeat(5 - n)}</Text>
     </Text>
+  );
+}
+
+/** Food, service and place under the quote, like a review site's (owner: "reviews and ratings"). */
+function Scores({ r }: { r: Review }) {
+  const t = useT();
+  const sc = reviewScores(r);
+  const parts = (['food', 'service', 'place'] as const).filter((k) => sc[k] > 0);
+  return (
+    <View style={styles.scores}>
+      {parts.map((k) => (
+        <Text key={k} style={styles.score}>
+          {`${t(`reviews.${k}`)} `}
+          <Text style={sc[k] >= 4 ? styles.on : sc[k] <= 2 ? styles.low : styles.mid}>{`★${sc[k]}`}</Text>
+        </Text>
+      ))}
+    </View>
   );
 }
 
@@ -109,6 +126,7 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
                     <Text style={styles.meta}>{`${name ? name[lang] : ''} · ${t('reviews.day').replace('{n}', String(r.day))}`}</Text>
                   </View>
                   <Text style={styles.quote}>{`“${text(r)}”`}</Text>
+                  <Scores r={r} />
                 </View>
                 {hasBonus &&
                   (r.claimed ? (
@@ -131,6 +149,10 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
 const styles = StyleSheet.create({
   on: { color: '#FFD23F' },
   off: { color: '#5A4E66' },
+  mid: { color: '#F2B35A' },
+  low: { color: '#FF7A6B' },
+  scores: { flexDirection: 'row', gap: 12, marginTop: 2 },
+  score: { color: '#C9B3D6', fontSize: 11.5, fontWeight: '800' },
   card: { width: 600, maxWidth: '94%', maxHeight: '92%', backgroundColor: panel.bg, borderRadius: 22, borderWidth: 3, borderColor: gold, padding: 12, gap: 8, boxShadow: '0px 6px 0px #120818' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   title: { color: '#FFE9A8', fontSize: 22, fontWeight: '900', ...textShadow('#120818', 1, 0) },

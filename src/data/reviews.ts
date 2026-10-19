@@ -35,12 +35,41 @@ export const REVIEW = {
 } as const;
 
 /**
- * What a review is about (owner: "vary the reviews, bad ones too, by the service"), and how
- * many written lines each has (strings review.<kind>.<n>; {dish} = what they ate).
- * great/good/ok: the visit in general; dish: praise for what they ate; kids, tourist: families
- * and tourists; slowFood: the food took long; slowLine: the line took long; awful: everything
- * went wrong; walkout: they left without eating.
+ * What a review is about (owner: "vary the reviews, bad ones too, by the service"; later "at
+ * least 200 different ones, like real restaurant reviews and ratings"), and how many written
+ * lines each has (strings review.<kind>.<n>; {dish} = what they ate). The lines are written in
+ * the voice of real reviews (what they ordered, the wait, the staff, the room, the bill), not
+ * copied from any.
+ * great/good/ok: the visit in general; dish: praise for what they ate; kids, tourist, date:
+ * families, tourists and couples; staff, host, decor, value: the waiters, the welcome, the room,
+ * the bill; dessert, drinks: those who had one; critic: a food writer's five stars; mixed: three
+ * stars, good and bad; slowFood: the food took long; slowLine: the line took long; awful:
+ * everything went wrong; walkout: they left without eating; restroom: a dirty restroom.
  */
-export const REVIEW_LINES = { great: 18, good: 16, dish: 16, kids: 10, tourist: 10, ok: 14, slowFood: 14, slowLine: 12, awful: 14, walkout: 14, restroom: 12 } as const;
+export const REVIEW_LINES = {
+  great: 30, good: 28, dish: 28, kids: 18, tourist: 18, date: 12, staff: 14, host: 12, decor: 14, value: 12,
+  dessert: 12, drinks: 12, critic: 12, ok: 22, mixed: 14, slowFood: 22, slowLine: 20, awful: 22, walkout: 20, restroom: 16,
+} as const;
 export type ReviewKind = keyof typeof REVIEW_LINES;
 export const REVIEW_KINDS = Object.keys(REVIEW_LINES) as ReviewKind[];
+
+/**
+ * How likely a happy guest (4 or 5 stars) is to write about each thing, when it fits them
+ * (a tourist, a family, a couple, had dessert or a drink, met the host, five stars).
+ */
+export const HAPPY_WEIGHTS = { dish: 3, praise: 3, staff: 1.2, decor: 1, value: 0.8, tourist: 3, kids: 3, date: 1.6, dessert: 2, drinks: 1.8, host: 1, critic: 0.5 } as const;
+
+/**
+ * The scores under a review, like a review site's: food, service and the place, 1 to 5 (0: not
+ * rated). Each is the review's stars plus this shift for its kind (then a nudge of up to a star,
+ * by the review's id); `food: null` = they never ate.
+ */
+export const REVIEW_SCORES: Readonly<Record<ReviewKind, { food: number | null; service: number; place: number }>> = {
+  great: { food: 0, service: 0, place: 0 }, good: { food: 0.3, service: 0, place: -0.3 }, dish: { food: 1, service: 0, place: -0.4 },
+  kids: { food: 0, service: 0.4, place: 0 }, tourist: { food: 0.4, service: 0, place: 0 }, date: { food: 0, service: 0, place: 0.6 },
+  staff: { food: -0.3, service: 1, place: 0 }, host: { food: -0.3, service: 1, place: 0.2 }, decor: { food: -0.3, service: 0, place: 1 },
+  value: { food: 0.3, service: -0.3, place: -0.3 }, dessert: { food: 1, service: 0, place: -0.3 }, drinks: { food: 0.4, service: 0.3, place: 0.3 },
+  critic: { food: 0, service: 0, place: 0 }, ok: { food: 0.3, service: -0.3, place: 0 }, mixed: { food: 1, service: -0.7, place: 0.3 },
+  slowFood: { food: 1.5, service: -0.4, place: 1 }, slowLine: { food: 1.5, service: -0.4, place: 0.7 }, awful: { food: 0.3, service: -0.2, place: 0.5 },
+  walkout: { food: null, service: 0, place: 0.8 }, restroom: { food: 2.2, service: 0.6, place: -1 },
+};
