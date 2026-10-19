@@ -92,6 +92,7 @@ const STATION_HEIGHT: Partial<Record<PropKind, number>> = {
   [PropKind.Sink]: 12,
   [PropKind.Fridge]: 34,
   [PropKind.Pass]: 12,
+  [PropKind.MenuStand]: 26,
   [PropKind.PlatesClean]: 26,
   [PropKind.Table]: 14,
   [PropKind.Chair]: 14,

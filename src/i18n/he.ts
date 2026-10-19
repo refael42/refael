@@ -370,6 +370,7 @@ export const he: Record<TKey, string> = {
   'up.tables': 'שולחן חדש',
   'up.cloth': 'מפות שולחן',
   'up.chairs': 'כיסאות',
+  'up.hostStand': 'עמדת מארחת',
   'up.plants': 'צמחים',
   'up.neon': 'שלט ניאון',
   'up.sign': 'שלט רחוב',

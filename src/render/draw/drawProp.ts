@@ -330,9 +330,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const plate = A.L.dessertPlate[variant];
     if (plate !== undefined) spr(c, A, plate, 0, 0, plain);
   } else if (kind === PropKind.MenuStand) {
-    // The host's stand; with a host at work its little lamp glows.
-    spr(c, A, S.menuStand, 0, 0, plain);
-    if (active) sprFade(c, A, S.glowHalo, -6, -37, 0.35, 0.35 + Math.sin(t * 2 + seed) * 0.1);
+    // The host's stand in the design its upgrade has reached (owner M47); with a host at work its lamp glows.
+    const k = Math.min(A.L.hostStand.length - 1, tier);
+    spr(c, A, A.L.hostStand[k] ?? -1, 0, 0, plain);
+    if (active) sprFade(c, A, S.glowHalo, ox(-0.17, -0.12), oy(-0.17, -0.12, k >= 6 ? 47 : k >= 4 ? 40 : k === 3 ? 38 : 38), 0.35, 0.35 + Math.sin(t * 2 + seed) * 0.1);
+    if (k >= 4) sparkles(c, A, 0, -34, t, 12, seed, k >= 6 ? 3 : 1);
   } else if (kind === PropKind.Drink) {
     // On the bar's pass it pops in, bobs and sparkles until a waiter takes it; in front of a guest at the bar it stands still.
     const age = t - d[o + PF.since]!;
@@ -580,7 +582,7 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
 
 /** Where the "upgrade available" arrow floats above each kind of station (px). */
 const BADGE_HEIGHT: Record<number, number> = {
-  [PropKind.Stove]: 70, [PropKind.Sink]: 56, [PropKind.Fridge]: 92, [PropKind.Pass]: 64, [PropKind.PlatesClean]: 50,
+  [PropKind.Stove]: 70, [PropKind.Sink]: 56, [PropKind.Fridge]: 92, [PropKind.Pass]: 64, [PropKind.MenuStand]: 48, [PropKind.PlatesClean]: 50,
   [PropKind.Table]: 46, [PropKind.Chair]: 54, [PropKind.Plant]: 86, [PropKind.Neon]: 116, [PropKind.StreetSign]: 56,
   [PropKind.Gift]: 30, [PropKind.Flowers]: 66, [PropKind.FloorLamp]: 96, [PropKind.Aquarium]: 70, [PropKind.Statue]: 90, [PropKind.Fountain]: 84, [PropKind.Piano]: 80, [PropKind.SaleSign]: 82,
 };

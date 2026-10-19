@@ -368,6 +368,7 @@ export const en = {
   'up.tables': 'New table',
   'up.cloth': 'Tablecloths',
   'up.chairs': 'Chairs',
+  'up.hostStand': 'Host stand',
   'up.plants': 'Plants',
   'up.neon': 'Neon sign',
   'up.sign': 'Street sign',

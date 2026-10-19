@@ -24,6 +24,9 @@ const UPGRADE_FX_SPOTS = 4;
 /** Added to the event's milestone flag: play the effect without the "LV n" text. */
 export const UPGRADE_QUIET = 2;
 
+/** The host's stand: a step in front of the host's place by the door. */
+export const hostStandAt = (s: GameState): Point => ({ x: s.map.hostSpot.x - 0.05, y: s.map.hostSpot.y + 0.85 });
+
 /** Where an upgrade "lives" on the map right now (every table for tablecloths, etc.). */
 export function anchorPoints(s: GameState, kind: PropKind): Point[] {
   if (kind === PropKind.Table) return s.tables.map((t) => ({ x: t.x, y: t.y }));
@@ -37,6 +40,7 @@ export function anchorPoints(s: GameState, kind: PropKind): Point[] {
     return next ? [next.cook] : [];
   }
   if (kind === PropKind.PlatesClean) return [s.map.cleanStack];
+  if (kind === PropKind.MenuStand) return [hostStandAt(s)];
   // The packing counter, and the delivery hub's pieces inside (they open its upgrades too).
   if (kind === PropKind.PackTable && s.map.packing) return [s.map.packing.table, ...s.map.packing.hub.filter((h) => h.blocks)];
   // The couriers' scooters by the curb (none to tap before there is a courier).

@@ -19,7 +19,7 @@ import { finishWork, UPGRADE_QUIET } from './purchase';
 import { updateWorks } from './works';
 import { dishSpot, updateArrivals, updateCustomers } from './customers';
 import { emit, Ev, packEvents, pruneEvents } from './events';
-import { anchorPoints, siteOf } from './purchase';
+import { anchorPoints, hostStandAt, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
 import { OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
@@ -129,8 +129,8 @@ function dynamicProps(s: GameState): PropView[] {
     out.push(prop(SYNTH * 4 + c.id, PropKind.Dessert, p.x, p.y, { variant: c.dessert, lift: TABLE_TOP, depthBias: 1 }));
   }
   // The host's menu stand by the door, a step in front of the host's place.
-  const host = s.map.hostSpot;
-  out.push(prop(SYNTH - 61, PropKind.MenuStand, host.x - 0.05, host.y + 0.85, { active: s.staff.some((st) => st.role === 'host' && !st.leaving) }));
+  const stand = hostStandAt(s);
+  out.push(prop(SYNTH - 61, PropKind.MenuStand, stand.x, stand.y, { active: s.staff.some((st) => st.role === 'host' && !st.leaving) }));
   const rail = s.map.ticketRail;
   let ticket = 0;
   for (const o of s.orders) {

@@ -1,5 +1,6 @@
 import { EXPAND, UPGRADE_BY_ID } from '../data/upgrades';
 import { LOOKS } from './art/stationArt';
+import { HOST_STAND_LOOKS } from './art/hostArt';
 import type { SpriteName } from './sprites';
 
 /**
@@ -35,6 +36,7 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   barStools: { base: 'barStool0', looks: false },
   cloth: { base: 'table', looks: true },
   chairs: { base: 'chair', looks: true },
+  hostStand: { base: 'hostStand', looks: true },
   plants: { base: 'plantPalm', looks: true },
   neon: { base: 'neonIcon', looks: false },
   sign: { base: 'streetSign', looks: true },
@@ -60,6 +62,8 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
 };
 
 export function upgradeIcon(id: string, tier: number): SpriteName {
+  // The host's stand has a design for every milestone (src/render/art/hostArt.ts).
+  if (id === 'hostStand') return `hostStand${Math.min(HOST_STAND_LOOKS - 1, tier)}` as SpriteName;
   const icon = ICON[id] ?? { base: 'table0', looks: false };
   const big = tier >= EXPAND.tier && UPGRADE_BY_ID[id]?.expands;
   return (icon.looks ? `${icon.base}${big ? LOOKS : Math.min(LOOKS - 1, tier)}` : icon.base) as SpriteName;

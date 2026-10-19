@@ -166,18 +166,4 @@ const dessertMenu = sprite([-7, -12, 7, 4], (c) => {
   for (const y of [-1, 0.6]) c.drawLine(-3, y, 3, y, stroke('#C98AA6', 0.7));
 });
 
-/** The host's stand by the door: a wooden lectern, a stack of red menus, a little brass lamp. */
-const menuStand = sprite([-16, -46, 16, 8], (c) => {
-  c.drawOval(Skia.XYWHRect(-10, -3, 20, 7), fill('#000000', 0.22));
-  box(c, { x: 0, y: 0, w: 0.34, d: 0.34, h: 2, color: '#6B4226' });
-  box(c, { x: 0, y: 0, z: 2, w: 0.14, d: 0.14, h: 22, color: '#8E5A3C' });
-  box(c, { x: 0, y: 0, z: 24, w: 0.46, d: 0.36, h: 4, color: '#A8703E', rim: true });
-  for (let i = 0; i < 3; i++) box(c, { x: 0.02 - i * 0.01, y: 0.01 * i, z: 28 + i * 1.1, w: 0.26, d: 0.2, h: 1, color: i === 2 ? '#C8342A' : darken('#C8342A', 0.15 * (2 - i)) });
-  box(c, { x: 0.02, y: 0.012, z: 31.4, w: 0.06, d: 0.12, h: 0.3, color: '#F2C14E' });
-  // The lamp on its arm, glowing a little.
-  box(c, { x: -0.17, y: -0.12, z: 28, w: 0.025, d: 0.025, h: 9, color: '#B8892A' });
-  c.drawCircle(-6.2, -36.5, 3.2, fill(lighten('#FFE58A', 0.2), 0.45));
-  c.drawCircle(-6.2, -36.5, 1.8, fill('#FFF3B0'));
-});
-
-export const dessertSprites = { ...icons, ...plates, dessertHeld, menuOpen, dessertMenu, menuStand };
+export const dessertSprites = { ...icons, ...plates, dessertHeld, menuOpen, dessertMenu };

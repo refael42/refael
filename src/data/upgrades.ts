@@ -150,6 +150,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'tips', per: 0.08 }, milestone: { stat: 'tips', factor: 1.25 } },
   { id: 'chairs', category: 'front', anchor: K.Chair, restyle: 'anchor', baseCost: 20, growth: 1.15,
     effect: { stat: 'patience', per: 0.06 }, milestone: { stat: 'tips', factor: 1.1 } },
+  // Owner M47: "a stand for the hostess, upgradable, with five or six designs that change with
+  // the upgrade". A finer welcome keeps the line patient; each milestone a new design and more walk-ins.
+  { id: 'hostStand', category: 'front', anchor: K.MenuStand, restyle: 'anchor', baseCost: 45, growth: 1.16,
+    effect: { stat: 'patience', per: 0.03 }, milestone: { stat: 'arrivals', factor: 1.05 } },
 
   // The bar (owner: "a bar from the first moment, bartenders who shake cocktails"): the counter
   // (bartenders work faster, a new look at the milestones) and the cocktail menu (every drink sells for more).

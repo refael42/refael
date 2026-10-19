@@ -10,6 +10,7 @@ import { HUB_SPRITES, hubSprites, SCREEN_ROWS } from './art/hubArt';
 import { BAR_DECOR_SPRITES, barDecorSprites } from './art/barDecorArt';
 import { workSprites } from './art/workArt';
 import { SITE_SPRITES, siteSprites } from './art/siteArt';
+import { HOST_STAND_LOOKS, hostSprites } from './art/hostArt';
 import { eventSprites } from './art/eventArt';
 import { deliverySprites, SCOOTER_COLORS } from './art/deliveryArt';
 import { CAR_COLORS, parkSprites, STALL_COLORS } from './art/parkArt';
@@ -28,7 +29,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -67,7 +68,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -164,6 +165,8 @@ export const LAYERS = {
   station: STATION_SPRITES.map((name) => looks(name)),
   prep: [...Array.from({ length: PREP_KINDS }, (_, i) => INDEX[`prep${i}`]!), ...Array.from({ length: BACK_KINDS }, (_, i) => INDEX[`back${i}`]!)],
   plaque: [0, 1, 2, 3].map((i) => INDEX[`guidePlaque${i}`]!),
+  /** The host's stand, one design per milestone of its upgrade (src/render/art/hostArt.ts). */
+  hostStand: Array.from({ length: HOST_STAND_LOOKS }, (_, k) => INDEX[`hostStand${k}`]!),
   /** A new building's site, by SiteItem (src/render/art/siteArt.ts SITE_SPRITES). */
   site: SITE_SPRITES.map((name) => INDEX[name]!),
   /** The pass and its heat lamps a tile at a time: the short one's 3 slabs, then the long one's 5 (variant 1 starts at 3). */
