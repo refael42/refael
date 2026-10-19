@@ -20,7 +20,7 @@ import { PropKind } from '../types';
 import { applicantLook, generatePerson, rankOf, uniformLook } from './people';
 import { createStaff } from './staff';
 import { autoTile, canPlaceAt, canPlaceTable, layoutWorks, nextTableSpot, tableAnchors, type TableSpot } from './build';
-import { restoreKitchen, type SavedKitchen } from './kitchenLayout';
+import { kitchenTiles, restoreKitchen, type SavedKitchen } from './kitchenLayout';
 import { TableState, type GameState, type Person, type PlacedDecor, type QuestState, type Staff, type Table } from './types';
 import { spawnFarWalker, spawnPedestrian } from './walkers';
 import { makeCrew } from './crew';
@@ -65,7 +65,7 @@ export const tableTiles = (t: Table): Point[] => [...topTiles(t.style, t.x, t.y)
 
 /** The walkable grid from the furniture standing now (a batch of new furniture rebuilds it once, at the end). */
 export const rebuildGrid = (s: GameState) => {
-  s.grid = gridWith(s.map, s.stoves.length, s.tables.flatMap(tableTiles), s.placed);
+  s.grid = gridWith(s.map, s.stoves.length, s.tables.flatMap(tableTiles), s.placed, kitchenTiles(s));
 };
 
 /** Puts a decor piece on a tile: its prop, the tile it now blocks, and the record the save keeps. */
@@ -629,7 +629,10 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     s.mods = computeMods(s.levels, s.perks, s.trophies);
   }
   restoreDecor(s, setup.placed ?? []);
-  restoreKitchen(s, setup.kitchen);
+  // The rooms' crew first: each knows its work piece by the map's own layout, and follows it
+  // wherever the player's layout puts it.
+  s.crew = makeCrew(s);
+  restoreKitchen(s, setup.kitchen, rebuildGrid);
   syncStools(s);
   if (setup.team) {
     for (const w of setup.team) {
@@ -647,6 +650,5 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   }
   for (let i = 0; i < AMBIENT.pedestrians; i++) spawnPedestrian(s, true);
   for (let i = 0; i < AMBIENT.farPedestrians; i++) spawnFarWalker(s, true);
-  s.crew = makeCrew(s);
   return s;
 }

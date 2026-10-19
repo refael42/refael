@@ -46,8 +46,8 @@ interface Props {
   style: TableStyle | null;
   tier: number;
   onStyle: (style: TableStyle) => void;
-  /** A kitchen piece picked (owner M30): tap another to trade places; a prep piece can change its look. */
-  kitchen: 'station' | 'prep' | null;
+  /** A kitchen piece picked (owner M30, M47): tap a green tile to move it or another piece to trade places; a prep piece can change its look. */
+  kitchen: 'station' | 'prep' | 'item' | null;
   onRestyle: () => void;
   /** The picked table can take another onto its back: the chairs the long table would have (null: no). */
   joinSeats: number | null;
@@ -74,7 +74,7 @@ export function BuildPanel({ wallet, item, tile, freeTiles, moving, movingTable,
   const isTable = item === 'tables' || movingTable;
   const affordable = chosen ? canBuyNow(chosen, wallet) : false;
   const hint = kitchen
-    ? t('ui.kitchenSwapHint')
+    ? freeTiles === 0 ? t('ui.kitchenNoSpot') : t('ui.kitchenSwapHint')
     : busy
     ? t('ui.tableBusy')
     : movingTable

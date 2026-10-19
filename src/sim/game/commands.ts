@@ -11,8 +11,8 @@ import { dishSpot, seatCustomer } from './customers';
 import { barSlotPoint, serveDrink } from './bar';
 import { PropKind } from '../types';
 import { anchorPoints, buyUpgrade, rerouteWalkers, siteOf, UPGRADE_QUIET } from './purchase';
-import { joinTables, moveDecor, moveTable, splitTable } from './create';
-import { pieceAt, restylePrep, swapKitchen } from './kitchenLayout';
+import { joinTables, moveDecor, moveTable, rebuildGrid, splitTable } from './create';
+import { moveKitchen, pieceAt, restylePrep, swapKitchen, type KitchenPiece } from './kitchenLayout';
 import { openBranch } from '../franchise';
 import { claimDaily, openGift } from '../retention';
 import { collectWheel, spinWheel } from '../wheel';
@@ -29,6 +29,12 @@ import { startBus } from './bus';
 import { markShown, seeOffers } from '../offers';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
+
+/** A kitchen piece's prop kind (for the bump it gives when it lands). */
+function pieceKind(s: GameState, piece: KitchenPiece): PropKind {
+  if (piece.kind === 'station') return PropKind.Stove;
+  return (s.props.find((p) => p.id === piece.id)?.kind ?? PropKind.Prep) as PropKind;
+}
 
 /** Queued player actions are applied at the start of the next fixed step (deterministic, replayable). */
 export function queueCommand(s: GameState, command: Command): void {
@@ -229,10 +235,18 @@ function apply(s: GameState, cmd: Command): void {
   } else if (cmd.type === 'swapKitchen') {
     // Build mode: two kitchen pieces trade places (owner M30: "the kitchen laid out as you like").
     const at = pieceAt(s, cmd.a);
-    if (at && swapKitchen(s, cmd.a, cmd.b)) {
+    if (at && swapKitchen(s, cmd.a, cmd.b, rebuildGrid, rerouteWalkers)) {
       const to = pieceAt(s, cmd.a)!;
       emit(s, Ev.Poof, at.x, at.y);
-      emit(s, Ev.Upgrade, to.x, to.y, 1, UPGRADE_QUIET, cmd.a.kind === 'station' ? PropKind.Stove : PropKind.Prep);
+      emit(s, Ev.Upgrade, to.x, to.y, 1, UPGRADE_QUIET, pieceKind(s, cmd.a));
+    }
+  } else if (cmd.type === 'moveKitchen') {
+    // ...or one goes to a free kitchen tile (owner M47: "every block in the kitchen movable").
+    const at = pieceAt(s, cmd.piece);
+    if (at && moveKitchen(s, cmd.piece, cmd.to, rebuildGrid, rerouteWalkers)) {
+      const to = pieceAt(s, cmd.piece)!;
+      emit(s, Ev.Poof, at.x, at.y);
+      emit(s, Ev.Upgrade, to.x, to.y, 1, UPGRADE_QUIET, pieceKind(s, cmd.piece));
     }
   } else if (cmd.type === 'restylePrep') {
     if (restylePrep(s, cmd.id)) {

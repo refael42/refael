@@ -8,6 +8,7 @@ import { followPath, setPose } from '../movement';
 import { createRng, next, range } from '../rng';
 import { Expression, Facing, Held, Pose, PropKind, type Pose as PoseT } from '../types';
 import { route } from './customers';
+import { crewPost } from './kitchenLayout';
 import type { Crew, GameState } from './types';
 
 // The kitchen rooms' crew (owner M32: the kitchen in rooms, "a small manager's office, very
@@ -102,10 +103,12 @@ function errandSpot(s: GameState, c: Crew, room: Room): Point | null {
   return null;
 }
 
-function atWork(c: Crew, room: Room): void {
+function atWork(s: GameState, c: Crew, room: Room): void {
   const work = AT_WORK[room.task] ?? { pose: Pose.Idle, held: Held.None };
-  c.x = room.post.x;
-  c.y = room.post.y;
+  // At their work piece, wherever the player's kitchen layout put it.
+  const post = crewPost(s, room, c.piece);
+  c.x = post.x;
+  c.y = post.y;
   c.facing = room.front ? Facing.FrontRight : Facing.BackLeft;
   c.held = work.held;
   setPose(c, work.pose);
@@ -115,7 +118,7 @@ function updateOne(s: GameState, c: Crew, dt: number): void {
   const room = s.map.rooms[c.room];
   if (!room) return;
   if (c.phase === 'work') {
-    atWork(c, room);
+    atWork(s, c, room);
     c.timer -= dt;
     if (c.timer > 0) return;
     // Off on an errand: the manager to the coffee or the line, the others mostly to the walk-in.
@@ -139,7 +142,7 @@ function updateOne(s: GameState, c: Crew, dt: number): void {
     if (c.phase === 'back') {
       c.phase = 'work';
       c.timer = range(c.rng, CREW.work.min, CREW.work.max);
-      atWork(c, room);
+      atWork(s, c, room);
       return;
     }
     c.phase = 'stop';
@@ -156,10 +159,10 @@ function updateOne(s: GameState, c: Crew, dt: number): void {
     if (c.errand === 'stretch') {
       c.phase = 'work';
       c.timer = range(c.rng, CREW.work.min, CREW.work.max);
-      atWork(c, room);
+      atWork(s, c, room);
       return;
     }
-    c.path = route(s, c, room.post);
+    c.path = route(s, c, crewPost(s, room, c.piece));
     c.phase = 'back';
   }
 }

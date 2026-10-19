@@ -41,7 +41,13 @@ function markFootprint(g: Grid, cx: number, cy: number, w: number, d: number): v
  * The walkable grid: the kitchen's first `stoveCount` stoves, the counters, the tiles taken by
  * tables and chairs (`taken`, tile centers) and the decor placed in build mode.
  */
-export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[], placed: readonly Point[] = []): Grid {
+/** The kitchen as the player laid it out (src/sim/game/kitchenLayout.ts): tiles its pieces left, and where they stand now. */
+export interface KitchenTiles {
+  free: readonly Point[];
+  block: readonly Point[];
+}
+
+export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[], placed: readonly Point[] = [], kitchen?: KitchenTiles): Grid {
   const g: Grid = {
     w: map.width,
     h: map.height,
@@ -63,6 +69,10 @@ export function gridWith(map: MapDef, stoveCount: number, taken: readonly Point[
   for (const f of [...stoves, map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor]) if (f.blocks) markFootprint(g, f.x, f.y, f.w, f.d);
   // The delivery hub's room in the kitchen's front row, kept from the start (src/data/delivery.ts HUB).
   for (const h of map.packing?.hub ?? []) if (h.blocks) markFootprint(g, h.x, h.y, 1, 1);
+  if (kitchen) {
+    for (const p of kitchen.free) if (inBounds(g, Math.floor(p.x), Math.floor(p.y))) g.walk[tileIndex(g, Math.floor(p.x), Math.floor(p.y))] = 1;
+    for (const p of kitchen.block) markFootprint(g, p.x, p.y, 1, 1);
+  }
   for (const p of taken) markFootprint(g, p.x, p.y, 1, 1);
   for (const p of placed) markFootprint(g, p.x, p.y, 1, 1);
   // A wall along x at y = Y stands between rows Y - 1 and Y; along y at x = X, between columns X - 1 and X.

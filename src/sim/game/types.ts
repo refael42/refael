@@ -232,6 +232,7 @@ export type Command =
   | { type: 'joinTables'; table: number; other: number }
   | { type: 'splitTable'; table: number }
   | { type: 'swapKitchen'; a: KitchenPiece; b: KitchenPiece }
+  | { type: 'moveKitchen'; piece: KitchenPiece; to: Point }
   | { type: 'restylePrep'; id: number }
   /** Hand this restaurant over and open a branch in the next city (prestige). */
   | { type: 'branch' }

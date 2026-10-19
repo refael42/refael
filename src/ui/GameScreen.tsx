@@ -20,7 +20,7 @@ import { levelOf, restaurantLevel, upgradeDef } from '../sim/economy/upgrades';
 import { crewCount } from '../sim/economy/works';
 import { buildableTiles, tableAnchors, nextTableSpot } from '../sim/game/build';
 import { joinCandidate, joinedFits, tableIsFree } from '../sim/game/create';
-import { pieceAt, type KitchenPiece } from '../sim/game/kitchenLayout';
+import { kitchenPieces, kitchenTargets, pieceAt, type KitchenPiece } from '../sim/game/kitchenLayout';
 import { fullSeats } from '../data/tables';
 import { styleIndex, type TableStyle } from '../data/tables';
 import type { OfflineEarnings } from '../sim/offline';
@@ -268,16 +268,18 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     const refresh = () => {
       const game = gameRef.current;
       const layout = game ? game.tables.map((t) => `${t.x},${t.y},${t.style}`).join(';') : '';
-      const now = game ? `${game.map.tier}:${game.placed.length}:${layout}:${game.works.length}:${game.placed.map((p) => p.x * 100 + p.y).join(',')}` : '';
+      // The kitchen's pieces too: a piece picked shows where it can go, and that changes as they move.
+      const kitchenLayout = game && build.kitchen ? kitchenPieces(game).map((k) => `${k.at.x},${k.at.y}`).join(';') : '';
+      const now = game ? `${game.map.tier}:${game.placed.length}:${layout}:${game.works.length}:${game.placed.map((p) => p.x * 100 + p.y).join(',')}:${kitchenLayout}` : '';
       if (now !== seen || !game) {
         seen = now;
-        freeTiles.current = !game ? [] : tables ? tableAnchors(game, build.style!, build.table ?? -1) : buildableTiles(game);
+        freeTiles.current = !game ? [] : build.kitchen ? kitchenTargets(game, build.kitchen) : tables ? tableAnchors(game, build.style!, build.table ?? -1) : buildableTiles(game);
       }
       setFreeCount(freeTiles.current.length);
       const moved = build.table !== undefined ? game?.tables[build.table] : undefined;
       const picked = build.kitchen && game ? pieceAt(game, build.kitchen) : null;
       overlay.value = {
-        tiles: decor || build.moving || tables ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
+        tiles: decor || build.moving || tables || build.kitchen ? freeTiles.current.flatMap((p) => [p.x, p.y]) : [],
         pick: decor && build.tile ? [build.tile.x, build.tile.y, decor.kind] : tables && build.tile ? [build.tile.x, build.tile.y, PropKind.Table, styleIndex(build.style!)] : [],
         from: build.moving ? [build.moving.x, build.moving.y] : moved ? [moved.x, moved.y] : picked ? [picked.x, picked.y] : [],
       };
@@ -453,7 +455,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           }
         }
         const game = gameRef.current;
-        // The kitchen (owner M30): a station or prep piece picked, then another tapped: they trade places.
+        // The kitchen (owner M30, M47): any piece picked, then another tapped: they trade places;
+        // or a green tile tapped: it goes there.
         if (game && !b.item && !b.moving && b.table === undefined) {
           let kitchen: KitchenPiece | null = null;
           let close = PICK_PX * cam.zoom;
@@ -464,10 +467,18 @@ function GameRunner({ boot }: { boot: GameBoot }) {
               kitchen = piece;
             }
           };
-          game.stoves.forEach((sv, index) => consider({ kind: 'station', index }, sv));
-          for (const p of game.props) if (p.kind === PropKind.Prep) consider({ kind: 'prep', id: p.id }, p);
+          for (const k of kitchenPieces(game)) consider(k.piece, k.at);
+          const same = (a: KitchenPiece, c: KitchenPiece) => a.kind === c.kind && (a.kind === 'station' ? a.index === (c as typeof a).index : a.id === (c as { id: number }).id);
+          // A green tile right under the finger beats a piece a little way off: that is a spot being picked.
+          const onTile = tile !== null && best < 0.7;
+          if (b.kitchen && tile && (!kitchen || onTile)) {
+            command({ type: 'moveKitchen', piece: b.kitchen, to: tile });
+            setBuild({ item: null, tile: null });
+            return;
+          }
           if (kitchen) {
-            if (b.kitchen) {
+            if (b.kitchen && same(b.kitchen, kitchen)) setBuild({ item: null, tile: null });
+            else if (b.kitchen) {
               command({ type: 'swapKitchen', a: b.kitchen, b: kitchen });
               setBuild({ item: null, tile: null });
             } else setBuild({ item: null, tile: null, kitchen });

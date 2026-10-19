@@ -411,6 +411,8 @@ function cleanKitchen(v: unknown): SavedKitchen | null {
     tier: Math.floor(v.tier),
     stations: v.stations.map((p) => ({ x: p.x, y: p.y })),
     preps: (v.preps as { x: number; y: number; variant: number }[]).map((p) => ({ x: p.x, y: p.y, variant: Math.floor(p.variant) })),
+    // The rooms' furniture and the fridge (M47): kept only whole.
+    ...(Array.isArray(v.items) && v.items.every(at) ? { items: (v.items as { x: number; y: number }[]).map((p) => ({ x: p.x, y: p.y })) } : {}),
   };
 }
 
