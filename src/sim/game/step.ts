@@ -10,7 +10,7 @@ import { canBuy, levelOf, tierOf, upgradeDef } from '../economy/upgrades';
 import { bestBuy } from '../economy/value';
 import { packSnapshot, type Snapshot } from '../snapshot';
 import type { CharacterView, PropView } from '../types';
-import { Bubble, PropKind } from '../types';
+import { Bubble, PropKind, SiteItem } from '../types';
 import { DAY } from '../../data/staff';
 import { updateApplicants } from './applicants';
 import { applyCommands } from './commands';
@@ -191,7 +191,7 @@ function dynamicProps(s: GameState): PropView[] {
   const affordable = (kind: PropKind) => (UPGRADES.some((u) => u.anchor === kind && canBuy(u, s.levels, s.coins, s.map)) ? 1 : 0);
   const spot = tableUnits(s) < s.map.tables.length ? nextTableSpot(s) : null;
   if (spot) out.push(prop(SYNTH - 3, PropKind.TableSlot, spot.x, spot.y, { variant: affordable(PropKind.TableSlot), depthBias: -0.4, style: styleIndex(spot.style) }));
-  if (s.construction) out.push(...scaffolding(s.construction));
+  if (s.construction) out.push(...scaffolding(s.construction, s.map.width));
   // The guide's plaque out front, once it has written about the place (its stars, or the plate).
   if (s.guide.stars > 0 || s.guide.plate) {
     const sign = s.map.decor.find((f) => f.kind === PropKind.StreetSign);
@@ -231,15 +231,57 @@ function dynamicProps(s: GameState): PropView[] {
   return out;
 }
 
-/** Scaffolding around the lot under construction: back and front edges, then the far side. */
-function scaffolding(k: NonNullable<GameState['construction']>): PropView[] {
+/**
+ * The building site (owner: "make the building areas look more professional"): netted
+ * scaffolding along the far edges, a site fence along the street side, the tower crane, the site
+ * office, the materials and the floodlights, going up one by one. Scaffold variants: bit 0 runs
+ * along y, bit 1 has a ladder.
+ */
+export function scaffolding(k: NonNullable<GameState['construction']>, mapWidth: number): PropView[] {
   const out: PropView[] = [];
   const { x0, y0, x1, y1 } = k.site;
-  const add = (x: number, y: number, variant: number) =>
-    out.push(prop(SYNTH - 100 - out.length, PropKind.Scaffold, x, y, { variant, since: k.start + out.length * 0.06 }));
-  for (let x = x0 + 0.5; x < x1; x++) add(x, y0, 0);
-  for (let y = y0 + 0.5; y < y1; y++) add(x1, y, 1);
-  for (let x = x0 + 0.5; x < x1; x++) add(x, y1, 0);
+  const w = x1 - x0;
+  const d = y1 - y0;
+  const add = (kind: PropKind, x: number, y: number, variant: number) =>
+    out.push(prop(SYNTH - 100 - out.length, kind, x, y, { variant, since: k.start + out.length * 0.05 }));
+  const scaffoldX = (y: number) => {
+    for (let x = x0 + 0.5, i = 0; x < x1; x++, i++) add(PropKind.Scaffold, x, y, i % 4 === 1 ? 2 : 0);
+  };
+  const scaffoldY = (x: number) => {
+    for (let y = y0 + 0.5, i = 0; y < y1; y++, i++) add(PropKind.Scaffold, x, y, i % 5 === 2 ? 3 : 1);
+  };
+  const item = (v: number, x: number, y: number) => add(PropKind.SiteItem, x, y, v);
+  if (k.side === 'north') {
+    // Behind the building: a long, shallow strip.
+    item(SiteItem.Crane, x1 - 3.5, y0 + 1.5);
+    scaffoldX(y0);
+    scaffoldY(x0);
+    scaffoldY(x1);
+    if (d >= 3) item(SiteItem.Cabin, x0 + 2.5, y0 + 1.5);
+    item(SiteItem.Bricks, x0 + w * 0.42, y1 - 1);
+    item(SiteItem.Beams, x0 + w * 0.62, y0 + Math.min(1.6, d - 1));
+    item(SiteItem.Mixer, x0 + w * 0.28, y1 - 1.1);
+    item(SiteItem.Light, x0 + 0.7, y1 - 0.6);
+    item(SiteItem.Light, x1 - 0.7, y1 - 0.6);
+  } else if (k.side === 'inside') {
+    // No new land: a makeover, scaffolding up the street front and the side, the crane outside.
+    if (x1 + 2.2 <= mapWidth) item(SiteItem.Crane, x1 + 1.5, y0 + 2.5);
+    scaffoldX(y1);
+    scaffoldY(x1);
+    if (x1 + 2.2 <= mapWidth) item(SiteItem.Cabin, x1 + 1.4, y1 - 2.2);
+  } else {
+    // The lot beside it: the crane at the back, the fence to the street.
+    if (w >= 3) item(SiteItem.Crane, x0 + 1.5, y0 + 1.5);
+    scaffoldX(y0);
+    scaffoldY(x1);
+    if (w >= 4) item(SiteItem.Cabin, x1 - 1.4, y1 - 1.2);
+    item(SiteItem.Bricks, x0 + 1.4, y1 - 1.6);
+    item(SiteItem.Beams, x0 + w / 2, y0 + d * 0.55);
+    if (w >= 4) item(SiteItem.Mixer, x1 - 1.5, y0 + d * 0.38);
+    item(SiteItem.Light, x0 + 0.6, y1 - 0.6);
+    item(SiteItem.Light, x1 - 0.6, y0 + 0.9);
+    for (let x = x0 + 0.5, i = 0; x < x1; x++, i++) add(PropKind.SiteItem, x, y1, i % 3 === 1 ? SiteItem.FenceLogo : SiteItem.Fence);
+  }
   return out;
 }
 

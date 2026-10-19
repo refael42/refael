@@ -210,19 +210,9 @@ const lockSigns = Object.fromEntries(
   ]),
 );
 
-/** One tile of scaffolding: steel poles, wooden planks and a green safety net. */
-function scaffold(c: SkCanvas, alongX: boolean) {
-  const [ax, ay] = alongX ? [1, 0] : [0, 1];
-  for (const k of [-0.47, 0.47]) box(c, { x: ax * k, y: ay * k, w: 0.07, d: 0.07, h: 86, color: '#B9BEC8' });
-  box(c, { x: 0, y: 0, z: 30, w: alongX ? 0.94 : 0.03, d: alongX ? 0.03 : 0.94, h: 24, color: '#3FAE5A', alpha: 0.5 });
-  for (const z of [28, 56, 84]) box(c, { x: 0, y: 0, z, w: alongX ? 1 : 0.32, d: alongX ? 0.32 : 1, h: 3, color: '#C8914F', rim: true });
-}
-const scaffoldX = sprite([-26, -100, 26, 18], (c) => scaffold(c, true));
-const scaffoldY = sprite([-26, -100, 26, 18], (c) => scaffold(c, false));
-
 export const propSprites = {
   ovenGlow, pan, patty, pot, flame, pass, passLong, washPlate, plateDirty, glass, glassEmpty, stain,
-  ticket, plateSingleDirty, treePalm, treeRound, treeOlive, treeCypress, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
+  ticket, plateSingleDirty, treePalm, treeRound, treeOlive, treeCypress, lamp, glowHalo, saleSign,
   ...lockSigns,
   ...passSlabs,
   passShadow3,

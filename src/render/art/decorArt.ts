@@ -1,4 +1,4 @@
-import { Skia } from '@shopify/react-native-skia';
+import { Skia, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite } from '../sprite';
 import { darken, lighten } from './color';
 import { box, cylinder, floorShadow, onFaceX, P } from './iso3d';
@@ -228,15 +228,29 @@ const pianos = looks('piano', [-44, -84, 44, 16], (c, t) => {
 // ---------- build mode marks ----------
 
 const diamond = (inset = 0.04) => path.poly([P(-0.5 + inset, -0.5 + inset), P(0.5 - inset, -0.5 + inset), P(0.5 - inset, 0.5 - inset), P(-0.5 + inset, 0.5 - inset)]);
-/** A free tile you can build on. */
+/** Corner brackets of a tile, like a planner's marks: `len` tiles along each edge from every corner. */
+function brackets(c: SkCanvas, inset: number, len: number, color: string, width: number) {
+  const e = 0.5 - inset;
+  for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as const) {
+    const cx = sx * e;
+    const cy = sy * e;
+    c.drawPath(path.polyline([P(cx - sx * len, cy), P(cx, cy), P(cx, cy - sy * len)]), stroke(color, width));
+  }
+}
+/** A free tile you can build on: a soft mint fill, a fine outline and white corner marks. */
 const tileFree = sprite([-34, -18, 34, 18], (c) => {
-  c.drawPath(diamond(), fill('#7CF07A', 0.42));
-  c.drawPath(diamond(0.08), stroke('#D8FFD0', 1.6, 0.95));
+  c.drawPath(diamond(0.03), fill('#5BE3B6', 0.24));
+  c.drawPath(diamond(0.07), stroke('#E6FFF6', 1, 0.75));
+  brackets(c, 0.07, 0.2, '#FFFFFF', 2);
 });
-/** The tile you picked (yellow), or one that does not work (red). */
+/** The tile you picked: gold, with bold corner marks and a cross at its middle. */
 const tilePicked = sprite([-36, -20, 36, 20], (c) => {
-  c.drawPath(diamond(), fill('#FFD23F', 0.35));
-  c.drawPath(diamond(0.02), stroke('#FFE9A8', 2.4));
+  c.drawPath(diamond(0.02), fill('#FFD23F', 0.32));
+  c.drawPath(diamond(0.05), stroke('#FFF1B8', 1.4));
+  brackets(c, 0.03, 0.24, '#7A4A06', 4.2);
+  brackets(c, 0.03, 0.24, '#FFC21A', 2.6);
+  c.drawPath(path.polyline([P(-0.08, 0), P(0.08, 0)]), stroke('#FFF6D0', 1.6));
+  c.drawPath(path.polyline([P(0, -0.08), P(0, 0.08)]), stroke('#FFF6D0', 1.6));
 });
 
 export const decorSprites = { ...flowers, ...lamps, ...aquariums, ...statues, ...fountains, ...pianos, fishOrange, fishBlue, tileFree, tilePicked };

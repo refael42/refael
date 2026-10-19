@@ -6,23 +6,29 @@ import { range } from '../rng';
 import { createGame, workerOf } from './create';
 import { sendLineHome } from './customers';
 import { emit, Ev } from './events';
-import type { GameState } from './types';
+import type { Construction, GameState } from './types';
 
 // Growing the building. Buying the next tier closes the restaurant for a short construction
 // show on the lot next door (scaffolding, dust, a shaking camera), then the game is rebuilt on
 // the bigger map: same coins, levels, rating, team and day, a fresh and empty dining room.
 
-/** The lot being built on: from the old building's edge to the new one's (tiles). */
-function siteOf(s: GameState, tier: number) {
+/**
+ * The lot being built on: beside the building (it grows sideways), behind it (it grows back:
+ * several buildings only grow that way, and their site used to be empty), or the building itself
+ * (a makeover with no new land).
+ */
+export function siteOf(s: GameState, tier: number): Pick<Construction, 'site' | 'side'> {
   const now = s.map.building;
   const next = mapForTier(tier).building;
-  return { x0: now.x1, y0: now.y0, x1: next.x1, y1: now.y1 };
+  if (next.x1 - now.x1 >= 2) return { site: { x0: now.x1, y0: now.y0, x1: next.x1, y1: now.y1 }, side: 'east' };
+  if (now.y0 - next.y0 >= 2) return { site: { x0: next.x0, y0: next.y0, x1: next.x1, y1: now.y0 }, side: 'north' };
+  return { site: { ...now }, side: 'inside' };
 }
 
 export function startConstruction(s: GameState): void {
   const tier = levelOf(s.levels, 'building');
-  const site = siteOf(s, tier);
-  s.construction = { tier, start: s.time, end: s.time + CONSTRUCTION.seconds, nextDust: s.time, site };
+  const { site, side } = siteOf(s, tier);
+  s.construction = { tier, start: s.time, end: s.time + CONSTRUCTION.seconds, nextDust: s.time, site, side };
   // Closed for building work: the line goes home (no hard feelings, no rating hit).
   sendLineHome(s);
   emit(s, Ev.Build, (site.x0 + site.x1) / 2, (site.y0 + site.y1) / 2, tier);

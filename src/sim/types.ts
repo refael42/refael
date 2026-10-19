@@ -171,7 +171,12 @@ export const PropKind = {
   Dessert: 57,
   /** The host's menu stand by the door (M45). */
   MenuStand: 58,
+  /** A new building's site (variant: SiteItem): the crane, the office, the materials, the fence. */
+  SiteItem: 59,
 } as const;
+
+/** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */
+export const SiteItem = { Crane: 0, Cabin: 1, Bricks: 2, Beams: 3, Mixer: 4, Light: 5, Fence: 6, FenceLogo: 7 } as const;
 export type PropKind = (typeof PropKind)[keyof typeof PropKind];
 
 export const EntityType = { Character: 1, Prop: 2 } as const;

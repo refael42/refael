@@ -1,7 +1,7 @@
 import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import { F, P as PF, W, WORK_STRIDE, type Packed } from '../../sim/snapshot';
 import { drawText } from './text';
-import { PropKind } from '../../sim/types';
+import { PropKind, SiteItem } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
@@ -13,6 +13,7 @@ import { SEAT_LAYOUTS, STYLE_LENGTH, TOP_MIDDLE } from '../../data/tables';
 import { drawBack, drawStation } from './drawKitchen';
 import { drawHub } from './drawHub';
 import { drawBarDecor } from './drawBarDecor';
+import { CRANE_HOOK, CRANE_TOP } from '../art/siteArt';
 import { drawDoor, drawRoomSign, drawWc } from './drawRoom';
 
 const EXPAND_TIER = EXPAND.tier;
@@ -374,7 +375,22 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     // Goes up piece by piece, with a little overshoot.
     const age = t - d[o + PF.since]!;
     const pop = age < 0 ? 0 : age < 0.4 ? easeOutBack(clamp01(age / 0.4)) : 1;
-    if (pop > 0) sprXf(c, A, variant === 1 ? S.scaffoldY : S.scaffoldX, 0, 0, 0, 1, pop, plain);
+    const along = variant & 1 ? (variant & 2 ? S.scaffoldYLadder : S.scaffoldY) : variant & 2 ? S.scaffoldXLadder : S.scaffoldX;
+    if (pop > 0) sprXf(c, A, along, 0, 0, 0, 1, pop, plain);
+  } else if (kind === PropKind.SiteItem) {
+    // The building site's pieces pop up one by one like the scaffolding.
+    const age = t - d[o + PF.since]!;
+    const pop = age < 0 ? 0 : age < 0.45 ? easeOutBack(clamp01(age / 0.45)) : 1;
+    if (pop > 0) {
+      sprXf(c, A, A.L.site[variant] ?? -1, 0, 0, 0, 1, pop, plain);
+      if (variant === SiteItem.Crane && pop >= 1) {
+        // The hook goes slowly up and down on its cable, the load swinging a little.
+        const hookZ = CRANE_TOP - 80 - (Math.sin(t * 0.7 + seed) * 0.5 + 0.5) * 60;
+        const top = CRANE_TOP + 1;
+        sprXf(c, A, S.siteCable, ox(CRANE_HOOK, 0), oy(CRANE_HOOK, 0, top), 0, 1, (top - hookZ) / 100, plain);
+        sprXf(c, A, S.siteHook, ox(CRANE_HOOK, 0), oy(CRANE_HOOK, 0, hookZ), Math.sin(t * 1.3 + seed) * 4, 1, 1, plain);
+      } else if (variant === SiteItem.Light && pop >= 1) sprFade(c, A, S.glowHalo, 0, -76, 0.7, 0.35 + Math.sin(t * 2 + seed) * 0.08);
+    }
   } else if (kind === PropKind.StreetSign) spr(c, A, look(A.L.look.streetSign, tier), 0, 0, body);
   else if (kind === PropKind.Flowers) sprXf(c, A, look(A.L.look.flowers, tier), 0, 0, Math.sin(t * 1.3 + seed) * 1.2, 1, 1, body);
   else if (kind === PropKind.FloorLamp || kind === PropKind.Statue || kind === PropKind.Fountain || kind === PropKind.Piano) spr(c, A, base, 0, 0, body);

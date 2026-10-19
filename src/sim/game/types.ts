@@ -656,6 +656,8 @@ export interface Construction {
   nextDust: number;
   /** The lot under scaffolding (tiles). */
   site: { x0: number; y0: number; x1: number; y1: number };
+  /** Where it grows: onto the lot beside it, onto the land behind it, or not at all (a makeover in place). */
+  side?: 'east' | 'north' | 'inside';
 }
 
 export interface SimEventRecord {
