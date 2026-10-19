@@ -226,6 +226,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const onCamera = useCallback((cam: Camera) => {
     camera.current = cam;
   }, []);
+  liveGame.camera = camera;
   const upgradesButton = useRef<View>(null);
   const staffButton = useRef<View>(null);
   const tutorialButtons = useMemo(() => ({ upgrades: upgradesButton, staff: staffButton }), []);
@@ -242,6 +243,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   buildRef.current = build;
   const overlay = useSharedValue<BuildOverlay | null>(null);
   const freeTiles = useRef<Point[]>([]);
+  liveGame.freeTiles = freeTiles;
   const [freeCount, setFreeCount] = useState(0);
   useEffect(() => {
     if (!build) {
