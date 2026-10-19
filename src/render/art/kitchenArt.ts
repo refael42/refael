@@ -1,7 +1,7 @@
 import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from '../sprite';
 import { darken, lighten } from './color';
-import { box, cylinder, floorShadow, onFaceX, onFaceY, onTop, P, rectIn } from './iso3d';
+import { box, drawSlab, cylinder, floorShadow, onFaceX, onFaceY, onTop, P, rectIn, slabBounds } from './iso3d';
 import { fill, path, stroke } from './kit';
 import { GOLD, looks } from './stationArt';
 
@@ -665,9 +665,20 @@ const fireBurst = sprite([-10, -22, 10, 2], (c) => {
 
 /** Heat lamps over the pass (drawn over the plates, under the tickets). `len` tiles along y. */
 function heatLamps(c: SkCanvas, len: number) {
-  const z = 58;
+  lampGlow(c, len);
+  lampHardware(c, len);
+}
+const LAMP_Z = 58;
+/** Where the lamps hang along the pass. */
+const lampYs = (len: number): number[] => {
   const d = len - 0.2;
-  for (let y = -d / 2 + 0.5; y <= d / 2 - 0.4; y += 1) {
+  const out: number[] = [];
+  for (let y = -d / 2 + 0.5; y <= d / 2 - 0.4; y += 1) out.push(y);
+  return out;
+};
+function lampGlow(c: SkCanvas, len: number) {
+  const z = LAMP_Z;
+  for (const y of lampYs(len)) {
     // Its warm light spilling down over the plates.
     const glow = Skia.Paint();
     glow.setAntiAlias(true);
@@ -675,6 +686,11 @@ function heatLamps(c: SkCanvas, len: number) {
     const [bx, by] = P(0.05, y, 24);
     glow.setShader(Skia.Shader.MakeLinearGradient(vec(gx, gy), vec(bx, by), [Skia.Color('rgba(255,186,90,0.26)'), Skia.Color('rgba(255,186,90,0.03)')], null, TileMode.Clamp));
     c.drawPath(path.poly([P(0.05, y - 0.1, z), P(0.05, y + 0.1, z), P(0.38, y + 0.38, 24), P(-0.28, y + 0.38, 24), P(-0.28, y - 0.38, 24)]), glow);
+  }
+}
+function lampHardware(c: SkCanvas, len: number) {
+  const z = LAMP_Z;
+  for (const y of lampYs(len)) {
     // A cord from the ceiling, a round brass shade, the glowing bulb under it.
     box(c, { x: 0.05, y, z: z + 6, w: 0.015, d: 0.015, h: 30, color: '#2B2F38' });
     cylinder(c, 0.05, y, 0.06, z + 5, 2, GOLD, '#FFE08A');
@@ -683,8 +699,19 @@ function heatLamps(c: SkCanvas, len: number) {
     c.drawOval(Skia.XYWHRect(lx - 4.5, ly - 1.6, 9, 3.6), fill('#FFF2C4'));
   }
 }
-const passLamps = sprite([-50, -110, 50, 30], (c) => heatLamps(c, 3));
-const passLampsLong = sprite([-80, -126, 80, 46], (c) => heatLamps(c, 5));
+const LAMPS_BOUNDS = [-50, -110, 50, 30] as const;
+const LAMPS_LONG_BOUNDS = [-80, -126, 80, 46] as const;
+const passLamps = sprite([...LAMPS_BOUNDS], (c) => heatLamps(c, 3));
+const passLampsLong = sprite([...LAMPS_LONG_BOUNDS], (c) => heatLamps(c, 5));
+/** The heat lamps cut like the pass under them (`lampSlab<len>_<i>`, src/render/art/propArt.ts passSlabs). */
+const lampSlabs = Object.fromEntries(
+  ([[3, LAMPS_BOUNDS], [5, LAMPS_LONG_BOUNDS]] as const).flatMap(([len, bounds]) =>
+    Array.from({ length: len }, (_, i) => [
+      `lampSlab${len}_${i}`,
+      sprite(slabBounds(bounds, len, i), (c) => drawSlab(c, len, i, 24, () => lampGlow(c, len), () => lampHardware(c, len))),
+    ]),
+  ),
+) as Record<`lampSlab${3 | 5}_${number}`, SpriteDef>;
 
 // ---------- the guide's plaque out front: red enamel, white rosettes (or the plate) ----------
 
@@ -738,4 +765,5 @@ export const kitchenSprites = {
   fireBurst,
   passLamps,
   passLampsLong,
+  ...lampSlabs,
 };

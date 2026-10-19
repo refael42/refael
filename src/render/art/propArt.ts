@@ -1,7 +1,7 @@
 import { Skia, TileMode, vec, type SkCanvas } from '@shopify/react-native-skia';
 import { sprite } from '../sprite';
 import { darken, lighten } from './color';
-import { box, cylinder, floorShadow, onFaceX, onFaceY, onTop, P, rectIn } from './iso3d';
+import { box, drawSlab, cylinder, floorShadow, onFaceX, onFaceY, onTop, P, rectIn, SLAB_HALF, slabBounds } from './iso3d';
 import { fill, path, stroke, type Pt } from './kit';
 
 // Isometric low-poly props. Anchor = center of the footprint on the floor (tiles x/y, z in px).
@@ -34,8 +34,14 @@ const flame = sprite([-4, -10, 4, 2], (c) => {
 
 /** The pass counter, `len` tiles long (3; 5 in the deep buildings' bigger kitchen). */
 function passCounter(c: SkCanvas, len: number) {
+  passShadow(c, len);
+  passBody(c, len);
+}
+const passShadow = (c: SkCanvas, len: number) => floorShadow(c, 0.1, 0, len * 0.4, 0.3);
+function passBody(c: SkCanvas, len: number) {
   const d = len - 0.2;
-  floorShadow(c, 0.1, 0, len * 0.4, 0.3);
+  // Built in sections, a tile each: the seams are where the renderer cuts it (src/render/art/iso3d.ts drawSlab).
+  const seams = Array.from({ length: len - 1 }, (_, k) => -len / 2 + 1 + k);
   box(c, { x: 0, y: 0, w: 0.8, d, h: 21, color: WOOD_DARK });
   onFaceX(c, 0.4, d / 2, () => {
     for (let a = 0.12; a < d - 0.1; a += 0.46) rectIn(c, a, 3, 0.36, 14, lighten(WOOD_DARK, 0.08));
@@ -43,6 +49,11 @@ function passCounter(c: SkCanvas, len: number) {
   onFaceY(c, d / 2, -0.4, () => rectIn(c, 0.08, 3, 0.64, 14, lighten(WOOD_DARK, 0.06)));
   box(c, { x: 0, y: 0, z: 21, w: 0.84, d: d + 0.04, h: 2, color: GOLD, rim: true });
   box(c, { x: 0, y: 0, z: 23, w: 0.8, d, h: 1, color: '#D8DEE5' });
+  for (const y of seams) {
+    c.drawPath(path.poly([P(-SLAB_HALF, y, 24), P(SLAB_HALF, y, 24)]), stroke('#B4BBC5', 1));
+    c.drawPath(path.poly([P(SLAB_HALF, y, 24), P(SLAB_HALF, y, 21)]), stroke('#A07C26', 1));
+    c.drawPath(path.poly([P(SLAB_HALF, y, 21), P(SLAB_HALF, y, 1)]), stroke(darken(WOOD_DARK, 0.12), 1));
+  }
   // Service bell: rung when a dish is ready.
   cylinder(c, 0.15, d / 2 - 0.2, 0.07, 24, 1, '#B8892A', GOLD);
   cylinder(c, 0.15, d / 2 - 0.2, 0.05, 25, 3, GOLD, '#FFE08A');
@@ -50,8 +61,24 @@ function passCounter(c: SkCanvas, len: number) {
   for (const y of [-(d / 2 - 0.05), d / 2 - 0.05]) box(c, { x: -0.4, y, z: 24, w: 0.05, d: 0.05, h: 30, color: '#C9D1D9' });
   box(c, { x: -0.4, y: 0, z: 50, w: 0.06, d: d - 0.04, h: 3, color: '#D8DEE5', rim: true });
 }
-const pass = sprite([-62, -92, 62, 24], (c) => passCounter(c, 3));
-const passLong = sprite([-94, -108, 94, 40], (c) => passCounter(c, 5));
+const PASS_BOUNDS = [-62, -92, 62, 24] as const;
+const PASS_LONG_BOUNDS = [-94, -108, 94, 40] as const;
+/** The counter's top (px): where its slabs are cut across. */
+const PASS_TOP = 24;
+const pass = sprite([...PASS_BOUNDS], (c) => passCounter(c, 3));
+/** Its shadow, on the floor with the rugs (src/render/draw/drawScene.ts), under every slab and whatever stands near. */
+const passShadow3 = sprite([...PASS_BOUNDS], (c) => passShadow(c, 3));
+const passShadow5 = sprite([...PASS_LONG_BOUNDS], (c) => passShadow(c, 5));
+const passLong = sprite([...PASS_LONG_BOUNDS], (c) => passCounter(c, 5));
+/** The pass a tile at a time (`passSlab<len>_<i>`), each sorted by its own tile (src/sim/game/create.ts passPieces). */
+const passSlabs = Object.fromEntries(
+  ([[3, PASS_BOUNDS], [5, PASS_LONG_BOUNDS]] as const).flatMap(([len, bounds]) =>
+    Array.from({ length: len }, (_, i) => [
+      `passSlab${len}_${i}`,
+      sprite(slabBounds(bounds, len, i), (c) => drawSlab(c, len, i, PASS_TOP, () => undefined, () => passBody(c, len))),
+    ]),
+  ),
+) as Record<`passSlab${3 | 5}_${number}`, ReturnType<typeof sprite>>;
 /** A paper order ticket (billboard), hanging from its clip. */
 const ticket = sprite([-8, -2, 8, 20], (c) => {
   c.drawRRect(Skia.RRectXY(Skia.XYWHRect(-1.6, -1, 3.2, 3), 0.6, 0.6), fill('#7E8A98'));
@@ -197,5 +224,8 @@ export const propSprites = {
   ovenGlow, pan, patty, pot, flame, pass, passLong, washPlate, plateDirty, glass, glassEmpty, stain,
   ticket, plateSingleDirty, treePalm, treeRound, treeOlive, treeCypress, lamp, glowHalo, saleSign, scaffoldX, scaffoldY,
   ...lockSigns,
+  ...passSlabs,
+  passShadow3,
+  passShadow5,
 };
 

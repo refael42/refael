@@ -163,6 +163,9 @@ export const LAYERS = {
   station: STATION_SPRITES.map((name) => looks(name)),
   prep: [...Array.from({ length: PREP_KINDS }, (_, i) => INDEX[`prep${i}`]!), ...Array.from({ length: BACK_KINDS }, (_, i) => INDEX[`back${i}`]!)],
   plaque: [0, 1, 2, 3].map((i) => INDEX[`guidePlaque${i}`]!),
+  /** The pass and its heat lamps a tile at a time: the short one's 3 slabs, then the long one's 5 (variant 1 starts at 3). */
+  passSlab: [...[0, 1, 2].map((i) => INDEX[`passSlab3_${i}`]!), ...[0, 1, 2, 3, 4].map((i) => INDEX[`passSlab5_${i}`]!)],
+  lampSlab: [...[0, 1, 2].map((i) => INDEX[`lampSlab3_${i}`]!), ...[0, 1, 2, 3, 4].map((i) => INDEX[`lampSlab5_${i}`]!)],
   /** A dessert on its small plate, by dessert (src/data/desserts.ts order). */
   dessertPlate: DESSERTS.map((d) => INDEX[`dessertPlate_${d.id}`]!),
   /** The delivery hub's pieces (src/data/delivery.ts HubPiece order). */

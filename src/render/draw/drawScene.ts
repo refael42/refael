@@ -158,7 +158,13 @@ export function drawScene(
   // where the table stands (neighbors in a row mostly share one).
   for (let i = 0; i < snap.count; i++) {
     const o = i * STRIDE;
-    if (d[o + F.type] === EntityType.Character || d[o + PF.kind] !== PropKind.Table) continue;
+    if (d[o + F.type] === EntityType.Character) continue;
+    // The pass's shadow, once (with its first slab), on the floor under it and its neighbors.
+    if (d[o + PF.kind] === PropKind.Pass && d[o + PF.style] === 0) {
+      spr(c, A, d[o + PF.variant] === 1 ? A.S.passShadow5 : A.S.passShadow3, isoX(d[o + F.x]!, d[o + F.y]!), isoY(d[o + F.x]!, d[o + F.y]!), A.paints.plain);
+      continue;
+    }
+    if (d[o + PF.kind] !== PropKind.Table) continue;
     const tx = d[o + F.x]!;
     const ty = d[o + F.y]!;
     const px = isoX(tx, ty);

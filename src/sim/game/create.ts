@@ -50,6 +50,16 @@ export function propFrom(id: number, f: Furniture): PropView {
   };
 }
 
+/**
+ * The pass as one prop per tile along its length (`style`: which one), all at its middle but
+ * each sorted by its own tile: as one long piece sorted by its middle, the stations behind its
+ * far end drew over it (owner M46 note). The renderer draws a slab of it for each.
+ */
+export function passPieces(firstId: number, pass: Furniture): PropView[] {
+  const n = Math.max(1, Math.round(pass.d));
+  return Array.from({ length: n }, (_, i) => ({ ...propFrom(firstId + i, pass), style: i, depthBias: i - (n - 1) / 2 }));
+}
+
 /** The tiles a table takes now: its top, its first side's chairs, and the other side's once it has a second chair. */
 export const tableTiles = (t: Table): Point[] => [...topTiles(t.style, t.x, t.y), ...sideTiles(t.style, t.x, t.y, -1), ...(t.seats >= 2 ? sideTiles(t.style, t.x, t.y, 1) : [])];
 
@@ -509,7 +519,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
   const trophies = setup.trophies ?? 0;
   const mods = computeMods(levels, perks, trophies);
   let nextId = 1;
-  const props: PropView[] = [map.pass, map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor].map((f) => propFrom(nextId++, f));
+  const props: PropView[] = [...passPieces(nextId, map.pass), ...[map.sink, ...map.extraSinks.map((e) => e.sink), ...map.decor].map((f, i) => propFrom(nextId + Math.round(map.pass.d) + i, f))];
+  nextId += props.length;
   const s: GameState = {
     map,
     grid: gridWith(map, 0, []),

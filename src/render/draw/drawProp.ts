@@ -121,7 +121,7 @@ function baseSprite(A: RenderAssets, kind: number, variant: number, tier: number
   if (kind === PropKind.Statue) return look(L.statue, tier);
   if (kind === PropKind.Fountain) return look(L.fountain, tier);
   if (kind === PropKind.Piano) return look(L.piano, tier);
-  if (kind === PropKind.Pass) return variant === 1 ? A.S.passLong : A.S.pass;
+  if (kind === PropKind.Pass) return A.L.passSlab[(variant === 1 ? 3 : 0) + style] ?? -1;
   if (kind === PropKind.TableSlot) return A.S.tableSlot;
   if (kind === PropKind.StoveSlot) return A.S.stoveSlot;
   return -1;
@@ -347,9 +347,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     spr(c, A, look(variant === 2 ? A.L.look.chairRest : variant === 1 ? A.L.look.chairSeat : A.L.look.chair, tier), 0, 0, body);
   }
   else if (kind === PropKind.Pass) {
-    // The pass under its brass heat lamps (owner M29: "Michelin level").
-    spr(c, A, variant === 1 ? S.passLong : S.pass, 0, 0, plain);
-    spr(c, A, variant === 1 ? S.passLampsLong : S.passLamps, 0, 0, plain);
+    // The pass under its brass heat lamps (owner M29: "Michelin level"), one tile's slab of it
+    // (`style`): each tile is sorted on its own, so the line behind its far end stays behind it.
+    const k = (variant === 1 ? 3 : 0) + style;
+    spr(c, A, A.L.passSlab[k] ?? -1, 0, 0, plain);
+    spr(c, A, A.L.lampSlab[k] ?? -1, 0, 0, plain);
   }
   else if (kind === PropKind.TableSlot) {
     // Floor space for one more table: a dashed spot with ghost furniture and a "+" when affordable.
