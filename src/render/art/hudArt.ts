@@ -80,21 +80,36 @@ const hudMoon = sprite([-24, -24, 24, 24], (c: SkCanvas) => {
   for (const [x, y, r] of [[14, 8, 2.4], [18, -12, 1.6], [6, 14, 1.4]] as const) c.drawCircle(x, y, r, fill('#FFF6C8'));
 });
 
-/** The tutorial's pointing hand: a white cartoon glove, fingertip at the top middle. */
+/**
+ * The tutorial's pointing hand: a white cartoon glove, fingertip at the top middle. The index
+ * finger stands up on the thumb's side and the other three fingers curl into the fist (owner:
+ * the old one, a lone finger up the middle of the fist, read as a rude gesture).
+ */
 const hudHand = sprite([-22, -32, 22, 32], (c: SkCanvas) => {
   const edge = '#2A1530';
   const glove = (p: ReturnType<typeof path.rrect>) => {
     c.drawPath(p, stroke(edge, 4.4));
     c.drawPath(p, fill('#FFFFFF'));
   };
+  // The three curled fingers: knuckles over the top of the fist, right of the pointing finger.
+  glove(path.rrect(13, -12, 7.5, 13, 3.75));
+  glove(path.rrect(8.5, -14.5, 7.5, 14, 3.75));
+  glove(path.rrect(3.5, -16, 7.5, 15, 3.75));
+  // The pointing finger, then the fist over all their roots.
   glove(path.rrect(-5, -30, 10, 30, 5));
-  glove(path.rrect(-15, -9, 30, 26, 10));
-  glove(path.smooth([[-14, -2], [-22, -9], [-20, -14], [-12, -9], [-8, -4]], true, 0.8));
-  for (const x of [-6, 2]) c.drawLine(x, -8, x, -2, stroke('#C9C2D6', 1.6));
-  c.drawPath(path.rrect(-13, 15, 26, 11, 4), stroke(edge, 4.4));
-  c.drawPath(path.rrect(-13, 15, 26, 11, 4), fill('#E2B13C'));
-  c.drawOval(Skia.XYWHRect(-3, -27, 4, 10), fill('#FFFFFF', 0.9));
-  c.drawOval(Skia.XYWHRect(-11, -6, 12, 6), fill('#EDE8F6'));
+  glove(path.rrect(-9, -7, 28, 25, 9));
+  for (const x of [10, 15]) c.drawLine(x, -6, x, -1, stroke('#C9C2D6', 1.6));
+  // The thumb, folded across the front of the curled fingers.
+  c.save();
+  c.rotate(-10, -2, 4);
+  glove(path.rrect(-13, -0.5, 21, 9, 4.5));
+  c.restore();
+  // The cuff.
+  c.drawPath(path.rrect(-7, 15, 24, 11, 4), stroke(edge, 4.4));
+  c.drawPath(path.rrect(-7, 15, 24, 11, 4), fill('#E2B13C'));
+  // A soft shade down the side of the finger and under the thumb.
+  c.drawPath(path.rrect(2, -25, 1.8, 20, 0.9), fill('#EDE8F6'));
+  c.drawOval(Skia.XYWHRect(-5, 9, 18, 4), fill('#EDE8F6'));
 });
 
 /** The premium gem: a cut diamond, cyan to violet, with bright facets. */
