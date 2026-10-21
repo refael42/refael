@@ -33,7 +33,7 @@ describe('phone reminders (owner M35)', () => {
       { item: 'fries', level: 2, total: 600, left: 600, at: null },
       { item: 'burger', level: 2, total: 9000, left: 9000, at: null },
     ] as typeof s.works;
-    const plan = planReminders(s, NOON, IL);
+    const plan = planReminders(s, NOON, IL, true);
     expect(plan.find((r) => r.kind === 'work')?.at).toBe(NOON + 600 * 1000);
     expect(plan.find((r) => r.kind === 'works')).toMatchObject({ at: NOON + 9000 * 1000, count: 2 });
   });
@@ -53,11 +53,13 @@ describe('phone reminders (owner M35)', () => {
     expect(planReminders(s, NOON, IL).some((r) => r.kind === 'wheel')).toBe(false);
     s.wheel.nextFree = NOON + HOUR;
     seeOffers(s, NOON);
-    const plan = planReminders(s, NOON, IL);
+    const plan = planReminders(s, NOON, IL, true);
     expect(plan.some((r) => r.kind === 'wheel')).toBe(true);
     const offer = plan.find((r) => r.kind === 'offer');
     if (offer) expect(offer.hero).toBeTruthy();
     expect(plan.some((r) => r.kind === 'starter')).toBe(true);
+    // Promotions only for players who opted in (App Review 4.5.4): off by default.
+    expect(planReminders(s, NOON, IL).some((r) => r.kind === 'starter' || r.kind === 'offer')).toBe(false);
   });
 
   it('a few at a time, soonest first, never at night, never two on top of each other (the upgrade wins)', () => {
@@ -65,7 +67,7 @@ describe('phone reminders (owner M35)', () => {
     // A crew done 10 minutes before the till is full: too close, the upgrade stays.
     s.works = [{ item: 'fries', level: 2, total: 6600, left: OFFLINE.capHours * 3600 - 600, at: null }] as typeof s.works;
     seeOffers(s, NOON);
-    const plan = planReminders(s, NOON, IL);
+    const plan = planReminders(s, NOON, IL, true);
     expect(plan.length).toBeLessThanOrEqual(REMINDERS.max);
     for (let i = 1; i < plan.length; i++) {
       expect(plan[i]!.at).toBeGreaterThan(plan[i - 1]!.at);

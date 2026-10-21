@@ -11,22 +11,16 @@
 - **Privacy Policy URL:** כתובת שבה יושב `privacy-policy.html` (ראו מדריך ההעלאה, שלב 4).
 
 ### Age Rating (דירוג גיל)
-| שאלה | תשובה |
-|---|---|
-| Cartoon or Fantasy Violence | None |
-| Realistic Violence | None |
-| Sexual Content / Nudity | None |
-| Profanity or Crude Humor | None |
-| Alcohol, Tobacco, or Drug Use or References | **Infrequent/Mild** (יש בר עם בירה, קוקטיילים ושמפניה) |
-| Simulated Gambling | **Infrequent/Mild** (גלגל מזל עם פרסים וירטואליים; אפשר לקנות סיבוב ביהלומים) |
-| Horror/Fear Themes | None |
-| Medical/Treatment Information | None |
-| Mature/Suggestive Themes | None |
-| Contests | None |
-| Unrestricted Web Access | No |
-| אם נשאלים על פריטים אקראיים בתשלום (loot boxes) | **Yes** (סיבוב בגלגל ביהלומים; הסיכויים מוצגים במסך הגלגל) |
+השאלון של Apple התחלף ב-2025 (דרגות ‎4+‎, ‎9+‎, ‎13+‎, ‎16+‎, ‎18+‎). התשובות המעודכנות, שאלה אחרי
+שאלה, נמצאות ב-`apple-review.md` סעיף 6. בקצרה:
 
-הדירוג הצפוי: **13+** (בגלל ההימורים המדומים והאלכוהול). השאלון של Apple משתנה מדי פעם: אם יש שאלה שלא מופיעה כאן, עונים לפי מה שהמשחק עושה (ראו למעלה) או שולחים לי אותה.
+- **Alcohol...: None.** מאוקטובר 2026 הבר מגיש רק משקאות בלי אלכוהול (שייקים, מוקטיילים, סודה).
+- **Loot boxes: Yes.** סיבוב בגלגל ביהלומים, והסיכויים מוצגים לפני הסיבוב.
+- **Simulated gambling: None.** זה גלגל פרסים ולא קזינו.
+- **Profanity or crude humor: Infrequent.** כמה ביקורות מצחיקות על שירותים.
+- כל השאר: None / No.
+
+הדירוג הצפוי: **‎9+‎** (ובאוסטרליה ‎16+‎ אוטומטית בגלל ה-loot boxes).
 
 ### Export Compliance (הצפנה)
 כבר מוגדר ב-`app.json` (`ITSAppUsesNonExemptEncryption: false`): לא צריך למלא כלום.
@@ -47,8 +41,8 @@
 
 ### Content rating (IARC)
 - קטגוריה: **Game**
-- Violence: No · Sexuality: No · Language: No · Controlled substances: **Yes — references to alcohol (a bar serving drinks)**
-- Gambling: **Simulated gambling — yes** (גלגל מזל עם פרסים וירטואליים, בלי כסף אמיתי שאפשר להרוויח)
+- Violence: No · Sexuality: No · Language: No · Controlled substances: **No** (הבר מגיש רק משקאות בלי אלכוהול)
+- Gambling: **No real or simulated gambling.** Randomized items bought with in-game currency: **Yes** (סיבוב בגלגל ביהלומים, הסיכויים מוצגים)
 - Purchases: **Yes, in-app purchases** · Random items for purchase (loot boxes): **Yes**
 - User interaction / chat / sharing location: **No**
 

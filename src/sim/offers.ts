@@ -137,6 +137,39 @@ export function grantOffer(s: GameState, product: string, transaction: string, t
   return true;
 }
 
+/**
+ * "Restore purchases" (App Review 3.1.1): the store's history of paid packs gives back what is
+ * meant to last, the heroes; gems are consumables and are not paid twice. The packs are replayed
+ * in the order they were bought, each one's hero picked the way it was then (the turn's place in
+ * the rotation, skipping heroes already on the team), so a reinstall gets back the same heroes.
+ * Returns the heroes that came back.
+ */
+export function restoreHeroes(s: GameState, paid: readonly { product: string; time: number }[]): HeroDef[] {
+  const back: HeroDef[] = [];
+  const owned = new Set(heroesOwned(s).map((h) => h.id));
+  for (const p of [...paid].sort((a, b) => a.time - b.time)) {
+    const offer = OFFER_BY_ID[p.product];
+    if (!offer) continue;
+    let hero: HeroDef | null = null;
+    if (offer.kind === 'starter') hero = STARTER_HERO;
+    else {
+      const n = HERO_TURNS.length;
+      const start = ((turnAt(p.time) % n) + n) % n;
+      for (let k = 0; k < n && !hero; k++) {
+        const h = HERO_TURNS[(start + k) % n]!;
+        if (!owned.has(h.id)) hero = h;
+      }
+    }
+    if (!hero || owned.has(hero.id)) continue;
+    owned.add(hero.id);
+    s.perks = { ...s.perks, [heroPerk(hero.id)]: 1 };
+    joinHero(s, hero);
+    back.push(hero);
+  }
+  if (back.length) s.mods = computeMods(s.levels, s.perks, s.trophies);
+  return back;
+}
+
 /** The heroes the player has, by id. */
 export const heroesOwned = (s: Pick<GameState, 'perks'>): HeroDef[] => Object.values(HERO_BY_ID).filter((h) => ownsHero(s, h.id));
 

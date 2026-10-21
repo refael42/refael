@@ -32,7 +32,7 @@ Applicants come to the door with their CV. Pick cooks, waiters, dishwashers, hos
 Eight buildings, from the first diner to the Crown palace: each one bigger, with a new dining room, a kitchen in rooms (hot and cold lines, a dish room, a walk-in cooler and freezer, vegetables, pastry, butchery and a small manager's office) and more dishes on the menu.
 
 🎨 DESIGN YOUR PLACE
-Round tables, square ones, booths, and tables joined into long family tables. Red carpets, plants, an aquarium, a piano and a statue. A bar that grows with you: beer taps, a neon sign, dry-ice cocktails and a champagne tower.
+Round tables, square ones, booths, and tables joined into long family tables. Red carpets, plants, an aquarium, a piano and a statue. A bar that grows with you: soda taps, a neon sign, dry-ice shakes and a sparkling glass tower.
 
 🛵 DELIVERY
 Couriers on scooters, a packing station and a delivery hub that grows and opens more at every level.

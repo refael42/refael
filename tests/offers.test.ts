@@ -9,7 +9,7 @@ import { createGame } from '../src/sim/game/create';
 import { stepGame } from '../src/sim/game/step';
 import { capacity, headcount } from '../src/sim/game/workers';
 import { openBranch } from '../src/sim/franchise';
-import { heroOfTurn, offersAt, ownsHero, seeOffers, turnAt, turnEnds, worthOf } from '../src/sim/offers';
+import { heroOfTurn, offersAt, ownsHero, restoreHeroes, seeOffers, turnAt, turnEnds, worthOf } from '../src/sim/offers';
 import { makeSave, parseSave, restoreGame } from '../src/sim/save';
 import { grantPurchase } from '../src/sim/shop';
 import type { GameState } from '../src/sim/game/types';
@@ -140,5 +140,28 @@ describe('paid offers (owner M34)', () => {
     seeOffers(s, NOW);
     expect(grantPurchase(s, 'offer_hero', 'tx-late', then)).toBe(true);
     expect(ownsHero(s, old.id)).toBe(true);
+  });
+
+  it('restore purchases (App Review 3.1.1) gives back the heroes of paid packs, never the gems', () => {
+    // Bought on one phone: the starter, then two hero packs in two turns.
+    const a = createGame(STAND_MAP, 4);
+    const t1 = NOW, t2 = NOW + OFFER_TIMES.turnHours * HOUR;
+    seeOffers(a, t1);
+    expect(grantPurchase(a, 'offer_starter', 'tx-1', t1)).toBe(true);
+    expect(grantPurchase(a, 'offer_hero', 'tx-2', t1)).toBe(true);
+    seeOffers(a, t2);
+    expect(grantPurchase(a, 'offer_mega', 'tx-3', t2)).toBe(true);
+    const had = Object.keys(a.perks).filter((k) => k.startsWith(HERO.perkPrefix)).sort();
+    expect(had).toHaveLength(3);
+    // A new phone (nothing saved): the store's history brings the same heroes back, gems untouched.
+    const b = createGame(STAND_MAP, 5);
+    const gems = b.gems;
+    const back = restoreHeroes(b, [{ product: 'offer_mega', time: t2 }, { product: 'offer_hero', time: t1 }, { product: 'offer_starter', time: t1 }, { product: 'gems500', time: t1 }]);
+    expect(back.map((h) => HERO.perkPrefix + h.id).sort()).toEqual(had);
+    expect(b.gems).toBe(gems);
+    for (const h of back) expect(hero(b, h.id)).toBeTruthy();
+    // Restoring again changes nothing.
+    expect(restoreHeroes(b, [{ product: 'offer_starter', time: t1 }])).toEqual([]);
+    expect(b.staff.filter((st) => st.hero).length).toBe(3);
   });
 });

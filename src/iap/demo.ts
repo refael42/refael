@@ -24,6 +24,7 @@ export function demoStore(): Store {
           resolve('ok');
         }, FAKE_PAYMENT_MS);
       }),
+    restore: async () => [],
     finish: async () => {},
     stop: () => {
       onGrant = null;
@@ -38,6 +39,7 @@ export function offStore(): Store {
     start: async () => {},
     prices: () => ({}),
     buy: async () => 'failed',
+    restore: async () => [],
     finish: async () => {},
     stop: () => {},
   };

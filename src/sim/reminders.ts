@@ -47,9 +47,10 @@ function tomorrowAt(now: number, hour: number, offsetMin: number): number {
 /**
  * The reminders to plan now that the game closes, soonest first: big upgrades done, the time
  * that offline earnings fill up, the free spin back, tomorrow's gift, a paid offer or the
- * festival in its last hours, and "we miss you" after a day or so away.
+ * festival in its last hours, and "we miss you" after a day or so away. `promos`: the player
+ * opted in to reminders about paid offers (off unless they turn it on in the settings).
  */
-export function planReminders(s: GameState, now: number, offsetMin: number): Reminder[] {
+export function planReminders(s: GameState, now: number, offsetMin: number, promos = false): Reminder[] {
   const out: Reminder[] = [];
   // Big upgrades: the first done, then (if more) when they all are.
   const works = s.works.map((w) => Math.max(0, w.left)).filter((left) => left > 0).sort((a, b) => a - b);
@@ -59,7 +60,8 @@ export function planReminders(s: GameState, now: number, offsetMin: number): Rem
   out.push({ kind: 'full', at: now + OFFLINE.capHours * HOUR });
   if (!freeReady(s.wheel, now)) out.push({ kind: 'wheel', at: s.wheel.nextFree });
   out.push({ kind: 'daily', at: tomorrowAt(now, REMINDERS.dailyHour, offsetMin) });
-  for (const o of offersAt(s, now)) {
+  // Paid offers are promotions: only for players who said yes to them (App Review 4.5.4).
+  for (const o of promos ? offersAt(s, now) : []) {
     if (o.bought) continue;
     if (o.offer.kind === 'starter') out.push({ kind: 'starter', at: o.ends - REMINDERS.starterLeadHours * HOUR });
     else if (o.offer.kind === 'hero' && o.hero) out.push({ kind: 'offer', at: o.ends - REMINDERS.offerLeadHours * HOUR, hero: o.hero.id });

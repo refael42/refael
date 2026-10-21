@@ -3,6 +3,7 @@ import { OFFER_BY_ID } from '../data/offers';
 import { SHOP_BY_ID } from '../data/shop';
 import type { GameState } from '../sim/game/types';
 import { makeSave } from '../sim/save';
+import { restoreHeroes } from '../sim/offers';
 import { grantPurchase, purchasePaid } from '../sim/shop';
 import { writeSave } from '../store/persistence';
 import { createStore, type BuyResult, type StoreGrant } from './index';
@@ -16,9 +17,11 @@ export interface Purchases {
   prices: Readonly<Record<string, string>>;
   /** The pack being paid for right now (one at a time). */
   busy: string | null;
-  /** The last outcome to show: gems arrived, cancelled, waiting for approval, failed. */
-  note: { kind: 'paid'; gems: number } | { kind: Exclude<BuyResult, 'ok'> } | null;
+  /** The last outcome to show: gems arrived, cancelled, waiting for approval, failed; what a restore brought back. */
+  note: { kind: 'paid'; gems: number } | { kind: 'restored'; heroes: number } | { kind: Exclude<BuyResult, 'ok'> | 'restoreFailed' } | null;
   buy: (product: string) => void;
+  /** "Restore purchases" (App Review 3.1.1): the heroes of packs bought before come back. */
+  restore: () => void;
   clearNote: () => void;
 }
 
@@ -87,6 +90,25 @@ export function usePurchases(gameRef: { current: GameState | null }, paused: { c
     [store, busy],
   );
 
+  const restore = useCallback(() => {
+    if (busy) return;
+    setBusy('restore');
+    setNote(null);
+    void store
+      .restore()
+      .then((paid) => {
+        const game = gameRef.current;
+        const back = game ? restoreHeroes(game, paid) : [];
+        if (game && back.length) void writeSave(makeSave(game, Date.now())).catch((e: unknown) => console.warn('Save after a restore failed', e));
+        setNote({ kind: 'restored', heroes: back.length });
+      })
+      .catch((e: unknown) => {
+        console.warn('Restore failed', e);
+        setNote({ kind: 'restoreFailed' });
+      })
+      .finally(() => setBusy(null));
+  }, [store, busy, gameRef]);
+
   const clearNote = useCallback(() => setNote(null), []);
-  return { mode: store.mode, prices, busy, note, buy, clearNote };
+  return { mode: store.mode, prices, busy, note, buy, restore, clearNote };
 }

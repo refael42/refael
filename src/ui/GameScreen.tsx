@@ -36,6 +36,7 @@ import { PerfOverlay } from './PerfOverlay';
 import { StaffPanel, type StaffView } from './StaffPanel';
 import { canLearn } from '../sim/game/talents';
 import { GameIcon } from './GameIcon';
+import { publishPurchases } from '../iap/livePurchases';
 import { usePurchases } from '../iap/usePurchases';
 import { PrivacyPanel } from './Privacy';
 import { GearButton, SettingsPanel } from './SettingsPanel';
@@ -197,6 +198,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   useGameSounds(gameRef, paused);
   // Store purchases live as long as the game (one owed from last time is paid out at start).
   const purchases = usePurchases(gameRef, paused);
+  // The settings panel (outside this game) offers "Restore purchases" through these.
+  useEffect(() => publishPurchases(purchases), [purchases]);
+  useEffect(() => () => publishPurchases(null), []);
   // Screens opened from the settings (the stats) read the running restaurant from here.
   liveGame.ref = gameRef;
   const uiFps = useSharedValue(0);

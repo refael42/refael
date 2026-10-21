@@ -26,6 +26,12 @@ export interface Store {
   prices(): Readonly<Record<string, string>>;
   /** Opens the store's own payment sheet. */
   buy(product: string): Promise<BuyResult>;
+  /**
+   * "Restore purchases" (App Review 3.1.1): asks the store for this account's paid purchases
+   * (on iOS 18+ finished consumables too: Info.plist SKIncludeConsumableInAppPurchaseHistory).
+   * Nothing is paid out here: the game gives back only what lasts (the packs' heroes).
+   */
+  restore(): Promise<StoreGrant[]>;
   /** Tells the store a purchase was paid out (only after it is saved): it is not sent again. */
   finish(grant: StoreGrant): Promise<void>;
   stop(): void;

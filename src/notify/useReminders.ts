@@ -27,9 +27,9 @@ export function useReminders(gameRef: { current: GameState | null }, ready: bool
       }
       if (state !== 'background') return;
       const game = gameRef.current;
-      const { lang, profile, reminders } = useSettings.getState();
+      const { lang, profile, reminders, offerAlerts } = useSettings.getState();
       if (!game || !reminders || !ready) return;
-      const notes = planReminders(game, Date.now(), new Date().getTimezoneOffset()).map((r) => noteFor(r, (k) => translate(lang, k), profile?.restaurant || translate(lang, 'notify.place')));
+      const notes = planReminders(game, Date.now(), new Date().getTimezoneOffset(), offerAlerts).map((r) => noteFor(r, (k) => translate(lang, k), profile?.restaurant || translate(lang, 'notify.place')));
       void notifier.plan(notes).catch((e: unknown) => console.warn('Reminders: plan failed', e));
     });
     return () => sub.remove();

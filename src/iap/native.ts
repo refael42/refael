@@ -79,6 +79,12 @@ export function nativeStore(): Store | null {
         iap.requestPurchase({ request: { apple: { sku: product }, google: { skus: [product] } }, type: 'in-app' }).catch(() => answer(product, 'failed'));
       });
     },
+    async restore() {
+      // The store's own sync first (it may ask the player to sign in), then the whole history.
+      await iap.restorePurchases();
+      const all = ((await iap.getAvailablePurchases({ onlyIncludeActiveItemsIOS: false, alsoPublishToEventListenerIOS: false })) ?? []) as Purchase[];
+      return all.filter((p) => p.purchaseState !== 'pending').map((p) => ({ product: p.productId, transaction: txOf(p), time: Number(p.transactionDate) || 0 }));
+    },
     async finish(grant) {
       const p = open.get(grant.transaction);
       if (!p) return;

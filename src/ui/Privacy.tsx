@@ -1,4 +1,4 @@
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SUPPORT_EMAIL } from '../data/contact';
 import { useT } from '../i18n';
 import { Overlay, scrollFill } from './Overlay';
@@ -9,6 +9,8 @@ import { IconText } from './GameIcon';
 // the store page). The same text lives in docs/store/privacy-policy.md for the web link.
 
 const PARAGRAPHS = ['privacy.p1', 'privacy.p2', 'privacy.p3', 'privacy.p4', 'privacy.p5'] as const;
+/** Only this phone's own store by name (App Review 2.3.10: no other platforms in an iOS app). */
+const STORE_NAME = Platform.OS === 'android' ? 'Google Play' : 'App Store';
 
 export function PrivacyPanel({ onClose }: { onClose: () => void }) {
   const t = useT();
@@ -23,7 +25,7 @@ export function PrivacyPanel({ onClose }: { onClose: () => void }) {
       <ScrollView style={scrollFill} contentContainerStyle={styles.body}>
         {PARAGRAPHS.map((k) => (
           <Text key={k} style={styles.text}>
-            {t(k)}
+            {t(k).replace('{store}', STORE_NAME)}
           </Text>
         ))}
         <Text style={styles.text}>{t(SUPPORT_EMAIL ? 'privacy.p6' : 'privacy.store')}</Text>

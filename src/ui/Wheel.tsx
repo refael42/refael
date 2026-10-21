@@ -190,7 +190,8 @@ function ConfettiBit({ index, size, go }: { index: number; size: number; go: Sha
 }
 
 export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current: GameState | null }; onCommand: (cmd: Command) => void; onClose: () => void }) {
-  const [odds, setOdds] = useState(false);
+  // The odds are open by themselves whenever the next spin costs gems (App Review 3.1.1: shown before any purchase).
+  const [odds, setOdds] = useState<boolean | null>(null);
   const t = useT();
   const d = usePoll(gameRef, readWheel, 4);
   const { width, height } = useWindowDimensions();
@@ -198,6 +199,7 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
   /** Screen points per art unit (icons fill 92% of their image). */
   const u = (size * 0.92) / ART;
   const px = Math.round(size * PixelRatio.get());
+  const oddsOpen = odds ?? (d !== null && d.cost !== 'free' && d.cost !== 'token');
   const waiting = gameRef.current?.wheel.prize ?? -1;
   // A prize left from before (the screen was closed mid-spin): show it where it stopped.
   const [phase, setPhase] = useState<Phase>(waiting >= 0 ? 'won' : 'idle');
@@ -381,10 +383,10 @@ export function WheelPanel({ gameRef, onCommand, onClose }: { gameRef: { current
             )}
             {d.cost !== 'token' && d.tokens > 0 ? <Text style={styles.tokens}>{t('wheel.spinToken').replace('{n}', String(d.tokens))}</Text> : null}
             {/* The odds of every prize, before any spin (a spin can be bought with gems). */}
-            <Pressable accessibilityRole="button" onPress={() => setOdds(!odds)} hitSlop={6}>
+            <Pressable accessibilityRole="button" onPress={() => setOdds(!oddsOpen)} hitSlop={6}>
               <Text style={styles.oddsLink}>{t('wheel.odds')}</Text>
             </Pressable>
-            {odds ? (
+            {oddsOpen ? (
               <View style={styles.odds}>
                 {WHEEL_SEGMENTS.map((seg, i) => (
                   <View key={i} style={styles.oddsRow}>

@@ -2,6 +2,8 @@
 // shake cocktails, plain drinks too; a ready drink goes on the bar's pass and a waiter takes
 // it; at the last stage the bar is a rectangle with only the side toward the kitchen open,
 // three sides in all; later guests sit at the bar and the bartenders serve them too").
+// Every drink is alcohol-free (mocktails, shakes, sodas): the App Store age rating counts any
+// alcohol (13+ and up), and the ids stay as they were so old saves keep working.
 // Where it stands in each building: src/data/maps.ts. How it runs: src/sim/game/bar.ts.
 
 export interface DrinkDef {

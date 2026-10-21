@@ -40,7 +40,9 @@ interface SettingsState {
   haptics: boolean;
   /** Phone reminders while the game is closed (src/notify): an upgrade done, a free spin... */
   reminders: boolean;
-  toggle: (key: 'sound' | 'music' | 'haptics' | 'reminders') => void;
+  /** Reminders about paid offers (a pack's last hours): promotions, so off until the player opts in (App Review 4.5.4). */
+  offerAlerts: boolean;
+  toggle: (key: 'sound' | 'music' | 'haptics' | 'reminders' | 'offerAlerts') => void;
   setLang: (lang: Lang) => void;
   togglePerf: () => void;
   toggleStress: () => void;
@@ -76,6 +78,7 @@ export const useSettings = create<SettingsState>((set) => ({
   music: true,
   haptics: true,
   reminders: true,
+  offerAlerts: false,
   toggle: (key) => set((s) => ({ [key]: !s[key] })),
   setLang: (lang) => set({ lang }),
   togglePerf: () => set((s) => ({ showPerf: !s.showPerf })),
@@ -90,7 +93,7 @@ export const useSettings = create<SettingsState>((set) => ({
 }));
 
 /** What is kept between launches. */
-const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial, sound: s.sound, music: s.music, haptics: s.haptics, reminders: s.reminders, seenNews: s.seenNews });
+const persisted = (s: SettingsState) => ({ lang: s.lang, showPerf: s.showPerf, profile: s.profile, tutorial: s.tutorial, sound: s.sound, music: s.music, haptics: s.haptics, reminders: s.reminders, offerAlerts: s.offerAlerts, seenNews: s.seenNews });
 
 function readProfile(v: unknown): Profile | null {
   if (!v || typeof v !== 'object') return null;
@@ -116,6 +119,7 @@ export async function loadSettings(deviceLang: Lang): Promise<void> {
     music: saved.music !== false,
     haptics: saved.haptics !== false,
     reminders: saved.reminders !== false,
+    offerAlerts: saved.offerAlerts === true,
     seenNews: typeof saved.seenNews === 'number' ? saved.seenNews : 0,
     loaded: true,
   });

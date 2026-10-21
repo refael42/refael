@@ -198,8 +198,10 @@ interface Props {
 }
 
 /** What the last gem purchase came to, in words. */
-function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>): string {
-  return note.kind === 'paid' ? `+${note.gems} ${t('shop.paid')}` : t(`shop.${note.kind}`);
+export function noteText(t: (k: string) => string, note: NonNullable<Purchases['note']>): string {
+  if (note.kind === 'paid') return `+${note.gems} ${t('shop.paid')}`;
+  if (note.kind === 'restored') return note.heroes > 0 ? t('shop.restored').replace('{n}', String(note.heroes)) : t('shop.restoredNone');
+  return t(`shop.${note.kind}`);
 }
 
 export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coins', onOffers }: Props) {
@@ -286,6 +288,12 @@ export function Shop({ gameRef, onCommand, onClose, purchases, initialTab = 'coi
             );
           })}
         </ScrollView>
+        {/* App Review 3.1.1: a way to get back what was bought before (the packs' heroes). */}
+        {tab === 'gems' && purchases.mode !== 'off' && (
+          <Pressable accessibilityRole="button" disabled={purchases.busy !== null} onPress={purchases.restore} hitSlop={8} style={styles.restore}>
+            <Text style={styles.restoreText}>{purchases.busy === 'restore' ? '…' : t('shop.restore')}</Text>
+          </Pressable>
+        )}
     </Overlay>
   );
 }
@@ -314,6 +322,8 @@ export function GemPill({ gameRef, onPress, style }: { gameRef: { current: GameS
 }
 
 const styles = StyleSheet.create({
+  restore: { alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 4 },
+  restoreText: { color: '#C9B3D6', fontSize: 12.5, fontWeight: '800', textDecorationLine: 'underline' },
   card: {
     width: 620,
     maxWidth: '96%',

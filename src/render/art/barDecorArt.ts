@@ -6,13 +6,14 @@ import { fill, path, stroke } from './kit';
 import { GOLD } from './stationArt';
 
 // The bar's design levels (owner M30: "improve the bar with more design levels you can unlock";
-// rules in src/data/bar.ts BAR_STAGES): a rack of wine glasses hanging over the counter, beer
-// taps, a neon sign on the counter, a dry-ice cocktail bowl, a champagne tower, a crystal
-// chandelier. The counter-top ones are drawn from the counter's top (the prop is lifted there);
+// rules in src/data/bar.ts BAR_STAGES): a rack of glasses hanging over the counter, soda taps,
+// a neon sign on the counter, a dry-ice shake bowl, a tower of sparkling juice, a crystal
+// chandelier. Every drink in the game is alcohol-free (the App Store age rating counts alcohol). The counter-top ones are drawn from the counter's top (the prop is lifted there);
 // the hanging ones from the floor. The renderer adds what moves (src/render/draw/drawBarDecor.ts).
 
 const BRASS = '#C9A35A';
 const GLASS = '#D8F0FA';
+const JUICE = '#FF8FB3';
 
 /** A wine glass hanging upside down from the rack: its foot up at `z`, the bowl below. */
 function hangingGlass(c: SkCanvas, x: number, y: number, z: number) {
@@ -90,22 +91,22 @@ function dryIce(c: SkCanvas) {
 }
 
 function champagne(c: SkCanvas) {
-  // Coupes stacked in a pyramid, the bottle on top pouring.
+  // Coupes of sparkling juice stacked in a pyramid, a jug on top pouring.
   const coupe = (x: number, y: number, z: number) => {
     cylinder(c, x, y, 0.012, z, 2.4, GLASS, GLASS);
-    cylinder(c, x, y, 0.07, z + 2.4, 1.6, '#F2C14E', '#FFE9A8');
+    cylinder(c, x, y, 0.07, z + 2.4, 1.6, JUICE, lighten(JUICE, 0.35));
   };
   for (const [x, y] of [[-0.1, -0.1], [0.1, -0.1], [-0.1, 0.1], [0.1, 0.1]] as const) coupe(x, y, 0);
   for (const [x, y] of [[0, -0.05], [0, 0.05]] as const) coupe(x, y, 4);
   coupe(0, 0, 8);
-  // The bottle, tipped toward the top coupe.
+  // A glass jug of pink sparkling juice, tipped toward the top coupe.
   const [bx, by] = P(0.05, 0.12, 16);
   c.save();
   c.rotate(-35, bx, by);
-  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(bx - 2.2, by - 9, 4.4, 9), 1.6, 1.6), fill('#1E4A2A'));
-  c.drawRect(Skia.XYWHRect(bx - 1, by - 13, 2, 4.5), fill('#1E4A2A'));
-  c.drawRect(Skia.XYWHRect(bx - 1.2, by - 14, 2.4, 2), fill(GOLD));
-  c.drawRect(Skia.XYWHRect(bx - 2.2, by - 6, 4.4, 2.6), fill('#F4EEE2'));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(bx - 3, by - 9, 6, 9), 2.4, 2.4), fill(GLASS));
+  c.drawRRect(Skia.RRectXY(Skia.XYWHRect(bx - 2.4, by - 5.5, 4.8, 5), 1.8, 1.8), fill(JUICE));
+  c.drawRect(Skia.XYWHRect(bx - 1.6, by - 11, 3.2, 2.4), fill(GLASS));
+  c.drawArc(Skia.XYWHRect(bx + 2, by - 7.5, 3.2, 5), -90, 180, false, stroke(GLASS, 1.1));
   c.restore();
 }
 

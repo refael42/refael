@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { STORE_BUILD } from '../config';
+import { useLivePurchases } from '../iap/livePurchases';
+import { noteText } from './Shop';
 import { useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { eraseSave } from '../store/persistence';
@@ -21,10 +23,17 @@ export function GearButton({ onPress }: { onPress: () => void }) {
   );
 }
 
-function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
+function Toggle({ label, hint, on, onPress }: { label: string; hint?: string; on: boolean; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="switch" accessibilityState={{ checked: on }} onPress={onPress} style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
+      {hint ? (
+        <View style={styles.names}>
+          <Text style={styles.rowLabel}>{label}</Text>
+          <Text style={styles.soon}>{hint}</Text>
+        </View>
+      ) : (
+        <Text style={styles.rowLabel}>{label}</Text>
+      )}
       <View style={[styles.switch, on && styles.switchOn]}>
         <View style={styles.knob} />
       </View>
@@ -35,8 +44,9 @@ function Toggle({ label, on, onPress }: { label: string; on: boolean; onPress: (
 const RESET_CONFIRM_MS = 4000;
 
 export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }: { onClose: () => void; onHowTo: () => void; onNames: () => void; onStats: () => void; onPrivacy: () => void }) {
+  const purchases = useLivePurchases();
   const t = useT();
-  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, callTestBus, sound, music, haptics, reminders, toggle } = useSettings();
+  const { lang, setLang, showPerf, togglePerf, stress, toggleStress, view, setView, restartGame, profile, addTestMoney, callTestBus, sound, music, haptics, reminders, offerAlerts, toggle } = useSettings();
   // Erasing progress takes two taps: the first one arms it for a few seconds.
   const [armed, setArmed] = useState(false);
   useEffect(() => {
@@ -84,6 +94,8 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
             <Toggle label={t('set.music')} on={music} onPress={() => toggle('music')} />
             <Toggle label={t('set.haptics')} on={haptics} onPress={() => toggle('haptics')} />
             <Toggle label={t('set.reminders')} on={reminders} onPress={() => toggle('reminders')} />
+            {/* Promotions only with the player's explicit yes, and a way back out (App Review 4.5.4). */}
+            {reminders && <Toggle label={t('set.offerAlerts')} hint={t('set.offerAlertsHint')} on={offerAlerts} onPress={() => toggle('offerAlerts')} />}
             {profile && (
               <View style={styles.row}>
                 <View style={styles.names}>
@@ -103,9 +115,9 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
               <Text style={styles.rowLabel}>{t('set.howTo')}</Text>
               <Text style={styles.chevron}>{'?'}</Text>
             </Pressable>
-            <Toggle label={t('set.fps')} on={showPerf} onPress={togglePerf} />
             {!STORE_BUILD && (
               <>
+                <Toggle label={t('set.fps')} on={showPerf} onPress={togglePerf} />
                 <Text style={styles.section}>{t('set.testing')}</Text>
                 <Toggle label={t('set.cast')} on={view === 'cast'} onPress={() => setView(view === 'cast' ? 'game' : 'cast')} />
                 <Toggle label={t('set.stress')} on={stress > 0} onPress={toggleStress} />
@@ -118,6 +130,16 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
                   <Text style={styles.chevron}>{'🚌'}</Text>
                 </Pressable>
               </>
+            )}
+            {/* App Review 3.1.1: restore purchases (the paid packs' heroes come back). */}
+            {purchases && purchases.mode !== 'off' && (
+              <Pressable accessibilityRole="button" disabled={purchases.busy !== null} onPress={purchases.restore} style={styles.row}>
+                <View style={styles.names}>
+                  <Text style={styles.rowLabel}>{t('shop.restore')}</Text>
+                  {purchases.note?.kind === 'restored' || purchases.note?.kind === 'restoreFailed' ? <Text style={styles.soon}>{noteText(t, purchases.note)}</Text> : null}
+                </View>
+                <Text style={styles.chevron}>{purchases.busy === 'restore' ? '…' : '↺'}</Text>
+              </Pressable>
             )}
             <Pressable accessibilityRole="button" onPress={onPrivacy} style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.privacy')}</Text>
