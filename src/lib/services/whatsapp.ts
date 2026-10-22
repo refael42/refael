@@ -18,7 +18,8 @@ import type { ProjectSession } from "./auth-types";
 import { sendMessage } from "./chat";
 import { submitReport } from "./completion";
 import { directConversation, projectPMs } from "./messaging";
-import { processSource } from "./intel";
+import { actOnStaffMessage } from "./intel";
+import { notify } from "./notify";
 import type { Ctx } from "./tasks";
 
 const WINDOW_MS = 24 * 3600_000 - 10 * 60_000; // Meta's 24h window, with a safety margin
@@ -142,7 +143,7 @@ export async function handleWebhook(store: Store, payload: WaWebhook, deps: Inbo
   return handled;
 }
 
-type Outcome = "duplicate" | "unknown_number" | "opted_out" | "opted_in" | "no_project" | "staff" | "forwarded" | "no_pm" | "chat" | "report" | "unsupported";
+type Outcome = "duplicate" | "unknown_number" | "opted_out" | "opted_in" | "no_project" | "staff" | "acted" | "no_pm" | "chat" | "report" | "unsupported";
 
 async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDeps): Promise<Outcome> {
   // Meta retries deliveries: handle each message id once
@@ -184,9 +185,9 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
   }
   // a PM sends or forwards a message to the SiteFlow number: keep it as evidence and read it
   if (ctx.s.role !== "contractor") {
-    const kept = await keepFromStaff(store, profile, m, text, deps, now);
-    await reply(phone, kept ? he.waForward.got : he.wa.staffUseApp);
-    return kept ? "forwarded" : "staff";
+    const answer = await keepFromStaff(store, profile, m, text, deps, now);
+    await reply(phone, answer ?? he.wa.staffUseApp);
+    return answer && answer !== he.waAct.nothing ? "acted" : "staff";
   }
   const conversationId = await pmConversation(store, ctx.s.project.id, profile.id);
   if (!conversationId) return "no_pm";
@@ -226,10 +227,10 @@ async function handleMessage(store: Store, m: WaInboundMessage, deps: InboundDep
  * approval, like an exported chat. A forwarded message doesn't say who wrote
  * it — the contractor is found in the text, or chosen when marking it.
  */
-async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage, text: string, deps: InboundDeps, now: Date): Promise<boolean> {
+async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage, text: string, deps: InboundDeps, now: Date): Promise<string | null> {
   const memberships = await store.select("project_members", { where: { profile_id: profile.id } });
   const pmOf = memberships.filter((x) => x.role === "pm");
-  if (!pmOf.length) return false;
+  if (!pmOf.length) return null;
   // the project he brought chats into last, else his first one
   const recent = await store.select("sources", {
     where: { created_by: profile.id, project_id: { in: pmOf.map((x) => x.project_id) } },
@@ -238,7 +239,7 @@ async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage
   });
   const projectId = recent[0]?.project_id ?? pmOf[0].project_id;
   const project = (await store.byId("projects", projectId)) as Project | null;
-  if (!project) return false;
+  if (!project) return null;
 
   const caption = (m.image?.caption ?? m.document?.caption ?? "").trim();
   const media = m.image ?? m.audio ?? m.document;
@@ -252,7 +253,7 @@ async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage
     }
   }
   const words = text || caption;
-  if (!words && !mediaUrl) return false;
+  if (!words && !mediaUrl) return null;
 
   const forwarded = !!(m.context?.forwarded || m.context?.frequently_forwarded);
   const author = forwarded ? he.waForward.forwardedAuthor : profile.full_name;
@@ -268,7 +269,7 @@ async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage
       created_by: profile.id,
     });
   const ts = Number(m.timestamp);
-  await store.insert("source_items", {
+  const [item] = await store.insert("source_items", {
     project_id: project.id,
     source_id: src.id,
     external_id: m.id,
@@ -283,8 +284,12 @@ async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage
   });
   await store.update("sources", { id: src.id }, { last_import_at: now.toISOString() });
   const ctx: Ctx = { store, s: { profile, memberships, project, role: "pm", contractorIds: [], isDemo: false }, now };
-  await processSource(ctx, src.id);
-  return true;
+  // clear updates are carried out at once (and can be undone in the app); the rest wait for approval
+  const acted = await actOnStaffMessage(ctx, item.id, { ownWords: !forwarded });
+  const lines = [...acted.done, ...(acted.waiting ? [he.waAct.waiting(acted.waiting)] : [])];
+  if (!lines.length) return he.waAct.nothing;
+  await notify(store, [{ profileId: profile.id, projectId: project.id, kind: "wa_actions", title: he.waAct.notifyTitle, body: lines.join("\n"), link: "/updates" }]);
+  return [...lines, ...(acted.done.length ? [he.waAct.undoHint] : [])].join("\n");
 }
 
 /** The contractor's 1:1 chat with a PM: an existing one with any PM, else a new one with the first PM. */

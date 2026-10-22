@@ -20,3 +20,6 @@ export async function decideEventsAction(apply: string[], dismiss: string[]) {
 export async function dismissEventAction(eventId: string) {
   return run((ctx) => svc.dismissEvent(ctx, eventId));
 }
+export async function undoEventAction(eventId: string) {
+  return run((ctx) => svc.undoEvent(ctx, eventId));
+}

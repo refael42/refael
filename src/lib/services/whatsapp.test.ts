@@ -131,7 +131,9 @@ describe("whatsapp", () => {
     expect(items[1].media_url).toMatch(/^media\//);
     const ev = store.data.project_events.find((e) => e.source_item_id === items[0].id)!;
     expect(ev).toMatchObject({ type: "reported_done" });
-    expect(sent.at(-1)!.text).toContain("קיבלתי");
+    // a forwarded "סיימתי" with one clear task is marked done-not-inspected by itself
+    expect(ev).toMatchObject({ status: "applied" });
+    expect((await store.byId("tasks", T("E14")))!.status).toBe("awaiting_approval");
     // nothing reaches a chat with a contractor
     expect(store.data.messages.some((x) => x.text?.includes("סיימתי חשמל בדירה 14") && x.sender_profile_id === null)).toBe(false);
   });

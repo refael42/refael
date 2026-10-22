@@ -71,10 +71,10 @@ describe("setup mode and capturing an existing site", () => {
     await setSetupMode(pm, true);
     pm.s.project.setup_mode = true;
     const before = { msgs: store.data.messages.length, notes: store.data.notifications.length };
-    const tick = await runTick(store, NOW);
-    expect(tick.reminders).toBe(0);
+    await runTick(store, NOW);
     expect(store.data.messages.length).toBe(before.msgs);
-    expect(store.data.notifications.length).toBe(before.notes);
+    // only the PM's own "check" reminders (he asked for them) — nothing else while setting up
+    expect(store.data.notifications.slice(before.notes).every((x) => x.kind === "check" && x.profile_id === pm.s.profile.id)).toBe(true);
     await setSetupMode(pm, false);
     expect((await runTick(store, NOW)).reminders).toBeGreaterThan(0);
   });
