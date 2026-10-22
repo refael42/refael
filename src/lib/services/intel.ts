@@ -6,10 +6,12 @@
  * the PM applies an event; each applied change keeps the message, quote and
  * who said it, so every status can be traced back to its source.
  */
-import type { Area, Contractor, EventType, ProjectEvent, Source, SourceItem, Task } from "../db/types";
+import type { Area, Contractor, EventType, EventUndo, ProjectEvent, Source, SourceItem, Task } from "../db/types";
 import { TIME_ZONE } from "../i18n";
 import { he } from "../i18n/he";
-import { dateFrom, extractEvents, matchTasks, NEEDS_TASKS, type ExtractedEvent, type ProjectFacts, type Speaker } from "../intel/extract";
+import { areasIn, dateFrom, extractEvents, matchTasks, NEEDS_TASKS, reminderFrom, type ExtractedEvent, type ProjectFacts, type Speaker } from "../intel/extract";
+import { findTradeKey } from "../ai/heuristic";
+import { fmtDateTime } from "../i18n";
 import { Learner, type Example } from "../intel/learn";
 import { assertPM } from "./access";
 import { audit } from "./audit";
@@ -280,6 +282,14 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
   let released = 0;
   let blockerId: string | null = null;
   const tasks = taskIds.length ? await ctx.store.select("tasks", { where: { id: { in: taskIds }, project_id: ctx.s.project.id } }) : [];
+  // what it takes to undo this decision later
+  const undo: EventUndo = {
+    tasks: tasks.map((t) => ({ id: t.id, status: t.status, planned_start: t.planned_start, planned_end: t.planned_end, started_at: t.started_at, completed_at: t.completed_at })),
+    created_task_ids: [],
+    report_ids: [],
+    reopened_report_ids: [],
+    blocker_id: null,
+  };
 
   switch (e.type as EventType) {
     case "reported_done": {
@@ -287,7 +297,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
       const photos = item ? await nearbyPhotos(ctx, item) : [];
       for (const t of tasks) {
         if (t.status === "done" || t.status === "awaiting_approval") continue;
-        await ctx.store.insert("completion_reports", {
+        const [report] = await ctx.store.insert("completion_reports", {
           task_id: t.id,
           contractor_id: t.contractor_id,
           submitted_by: item?.author_profile_id ?? ctx.s.profile.id,
@@ -296,6 +306,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
           status: "pending",
           message_id: null,
         });
+        undo.report_ids.push(report.id);
         await ctx.store.update("tasks", { id: t.id }, { status: "awaiting_approval", started_at: t.started_at ?? e.occurred_at });
         await audit(ctx.store, {
           projectId: ctx.s.project.id,
@@ -315,6 +326,8 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
     case "inspected_ok":
       for (const t of tasks) {
         if (t.status === "done") continue;
+        const waiting = await ctx.store.select("completion_reports", { where: { task_id: t.id, status: "pending" } });
+        undo.reopened_report_ids.push(...waiting.map((r) => r.id));
         const r = await approvePendingReportOrComplete(ctx, t.id, { source: "chat" });
         released += r.released.length;
         changed++;
@@ -339,6 +352,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
     case "approval_missing": {
       const r = await createBlocker(ctx, { title: e.summary, notes: e.quote }, taskIds, "ai");
       blockerId = r.blocker.id;
+      undo.blocker_id = blockerId;
       changed = taskIds.length;
       break;
     }
@@ -361,6 +375,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
       );
       changed = r.tasks.length;
       taskIds.push(...r.tasks.map((t) => t.id));
+      undo.created_task_ids.push(...r.tasks.map((t) => t.id));
       break;
     }
     default:
@@ -372,9 +387,47 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
     status: "applied",
     decided_by: ctx.s.profile.id,
     decided_at: now,
-    resolved: { ...e.resolved, applied_task_ids: taskIds, blocker_id: blockerId },
+    resolved: { ...e.resolved, applied_task_ids: taskIds, blocker_id: blockerId, undo },
   });
   return { changed, released };
+}
+
+/**
+ * Take an applied update back: tasks return to how they were, what it created
+ * (tasks, reports, a blocker) is removed, reports it closed are open again.
+ * The update is then marked dismissed, so the reader learns from it.
+ */
+export async function undoEvent(ctx: Ctx, id: string): Promise<void> {
+  assertPM(ctx.s);
+  const e = await ownEvent(ctx, id);
+  const undo = e.resolved.undo;
+  if (e.status !== "applied" || !undo) throw new ServiceError(he.intel.cantUndo);
+  for (const t of undo.tasks) {
+    const now = await ctx.store.byId("tasks", t.id);
+    if (!now || now.project_id !== ctx.s.project.id) continue;
+    const { id: taskId, ...fields } = t;
+    await ctx.store.update("tasks", { id: taskId }, fields);
+    if (now.status !== t.status)
+      await audit(ctx.store, { projectId: ctx.s.project.id, entityType: "task", entityId: taskId, action: "status", from: now.status, to: t.status, actor: ctx.s.profile.id, source: "manual", meta: { undo_event_id: e.id } });
+  }
+  if (undo.report_ids.length) await ctx.store.remove("completion_reports", { id: { in: undo.report_ids } });
+  if (undo.reopened_report_ids.length)
+    await ctx.store.update("completion_reports", { id: { in: undo.reopened_report_ids } }, { status: "pending", reviewed_by: null, reviewed_at: null, review_comment: null });
+  for (const taskId of undo.created_task_ids) {
+    const t = await ctx.store.byId("tasks", taskId);
+    if (t && t.project_id === ctx.s.project.id) await ctx.store.remove("tasks", { id: taskId });
+  }
+  if (undo.blocker_id) {
+    await ctx.store.remove("dependencies", { from_blocker_id: undo.blocker_id });
+    await ctx.store.remove("external_blockers", { id: undo.blocker_id });
+  }
+  await ctx.store.update("project_events", { id: e.id }, {
+    status: "dismissed",
+    note: he.intel.undone,
+    decided_by: ctx.s.profile.id,
+    decided_at: (ctx.now ?? new Date()).toISOString(),
+    extracted: { ...e.extracted, undone: true },
+  });
 }
 
 export async function dismissEvent(ctx: Ctx, id: string) {
@@ -406,6 +459,128 @@ async function nearbyPhotos(ctx: Ctx, item: SourceItem): Promise<string[]> {
     .sort((a, b) => a.sent_at.localeCompare(b.sent_at))
     .map((i) => i.media_url!)
     .slice(0, 10);
+}
+
+// ───────────────────────── acting on the PM's own messages ─────────────────────────
+
+const AUTO_MAX_TASKS = 10;
+
+/** An update clear enough to carry out without asking: never "everything in the apartment" by guess. */
+function clearEnough(e: ProjectEvent): boolean {
+  if (e.status !== "proposed") return false;
+  const n = (e.resolved.task_ids ?? []).length;
+  const named = !!e.resolved.contractor_id || !!e.resolved.trade_id;
+  switch (e.type) {
+    case "reported_done":
+    case "inspected_ok":
+    case "started":
+      return n >= 1 && n <= AUTO_MAX_TASKS && (n === 1 || named);
+    case "commitment":
+      return !!e.resolved.date && n >= 1 && n <= AUTO_MAX_TASKS;
+    case "blocker":
+    case "material_missing":
+    case "approval_missing":
+      return n <= AUTO_MAX_TASKS;
+    case "new_task":
+    case "defect":
+      return (e.resolved.area_ids ?? []).length > 0;
+    default:
+      return false;
+  }
+}
+
+export interface ActResult {
+  /** one line per thing done, for the reply and the notification */
+  done: string[];
+  /** updates found but left for the PM's decision */
+  waiting: number;
+}
+
+function names(tasks: Task[]): string {
+  const shown = tasks.slice(0, 3).map((t) => t.title);
+  return tasks.length > 3 ? `${shown.join(", ")} ${he.waAct.andMore(tasks.length - 3)}` : shown.join(", ");
+}
+
+/** "תזכיר לי…": on the one open task it names, or as a small task of its own. */
+async function setReminder(ctx: Ctx, r: { dueAt: string; what: string }): Promise<string> {
+  const areas = await ctx.store.select("areas", { where: { project_id: ctx.s.project.id } });
+  const trades = await ctx.store.select("trades");
+  const where = areasIn(r.what, areas);
+  const tradeKey = findTradeKey(r.what);
+  const tradeId = tradeKey ? trades.find((t) => t.key === tradeKey)?.id ?? null : null;
+  const open = where.length
+    ? (await ctx.store.select("tasks", { where: { project_id: ctx.s.project.id, area_id: { in: where.map((a) => a.id) } } })).filter(
+        (t) => t.status !== "done" && (!tradeId || t.trade_id === tradeId),
+      )
+    : [];
+  const when = fmtDateTime(r.dueAt);
+  if (tradeId && open.length === 1) {
+    await updateTask(ctx, open[0].id, { check_at: r.dueAt });
+    return he.waAct.reminder(when, open[0].title);
+  }
+  const { tasks } = await createTasks(ctx, [{ title: r.what.slice(0, 90), area_id: where[0]?.id ?? null, trade_id: tradeId, status: "planned" }], { source: "chat", quiet: true });
+  await updateTask(ctx, tasks[0].id, { check_at: r.dueAt });
+  return he.waAct.reminder(when, tasks[0].title);
+}
+
+/**
+ * A message the PM sent (or forwarded) to the SiteFlow number: read it and
+ * carry out what is clear — mark work done or started, move a date, record a
+ * blocker, open a task, set a reminder. Anything unclear waits for approval.
+ * Everything done can be undone from the updates page.
+ */
+export async function actOnStaffMessage(ctx: Ctx, itemId: string, opts: { ownWords: boolean }): Promise<ActResult> {
+  assertPM(ctx.s);
+  const item = await ctx.store.byId("source_items", itemId);
+  if (!item || item.project_id !== ctx.s.project.id) throw new AccessError(he.errors.notFound, 404);
+  const res: ActResult = { done: [], waiting: 0 };
+
+  const r = opts.ownWords && item.text ? reminderFrom(item.text, new Date(item.sent_at), TIME_ZONE) : null;
+  if (r) {
+    res.done.push(await setReminder(ctx, r));
+    await ctx.store.update("source_items", { id: item.id }, { status: "processed" });
+    return res;
+  }
+
+  await processSource(ctx, item.source_id);
+  const events = await ctx.store.select("project_events", { where: { source_item_id: item.id } });
+  for (const e of events) {
+    if (!clearEnough(e)) {
+      if (e.status === "proposed" || e.status === "needs_info") res.waiting++;
+      continue;
+    }
+    await applyEvent(ctx, e.id);
+    const after = (await ctx.store.byId("project_events", e.id))!;
+    const ids = after.resolved.applied_task_ids ?? [];
+    // the PM's own "סיים" is his word that it is done — closed, not left for inspection
+    const closes = opts.ownWords && e.type === "reported_done";
+    if (closes) for (const id of ids) await approvePendingReportOrComplete(ctx, id, { source: "chat" });
+    const tasks = ids.length ? await ctx.store.select("tasks", { where: { id: { in: ids } } }) : [];
+    const line =
+      e.type === "reported_done"
+        ? closes
+          ? he.waAct.done(names(tasks))
+          : he.waAct.reported(names(tasks))
+        : e.type === "inspected_ok"
+          ? he.waAct.done(names(tasks))
+          : e.type === "started"
+            ? he.waAct.started(names(tasks))
+            : e.type === "commitment"
+              ? he.waAct.dated(after.resolved.date ?? "", names(tasks))
+              : e.type === "new_task" || e.type === "defect"
+                ? he.waAct.created((e.quote ?? e.summary).slice(0, 70))
+                : he.waAct.blocked(e.summary);
+    await ctx.store.update("project_events", { id: e.id }, { extracted: { ...after.extracted, auto: true, auto_line: line } });
+    res.done.push(line);
+  }
+  return res;
+}
+
+/** What the system did by itself lately (for the updates page, with undo). */
+export async function autoApplied(ctx: Ctx, days = 7): Promise<EventCard[]> {
+  const since = new Date((ctx.now ?? new Date()).getTime() - days * 86_400_000).toISOString();
+  const cards = await listEvents(ctx, { status: ["applied"], limit: 400 });
+  return cards.filter((c) => c.event.extracted?.auto && (c.event.decided_at ?? "") >= since).slice(0, 30);
 }
 
 /** Waiting messages per source (for the "read messages" button). */

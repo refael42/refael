@@ -443,6 +443,14 @@ export type EventType =
 export type EventStatus = "proposed" | "needs_info" | "applied" | "dismissed";
 
 /** What the server matched an event to. */
+export interface EventUndo {
+  tasks: Array<Pick<Task, "id" | "status" | "planned_start" | "planned_end" | "started_at" | "completed_at">>;
+  created_task_ids: UUID[];
+  report_ids: UUID[];
+  reopened_report_ids: UUID[];
+  blocker_id: UUID | null;
+}
+
 export interface EventResolution {
   task_ids?: UUID[];
   area_ids?: UUID[];
@@ -452,6 +460,8 @@ export interface EventResolution {
   /** tasks actually changed when applied */
   applied_task_ids?: UUID[];
   blocker_id?: UUID | null;
+  /** how to take the applied change back */
+  undo?: EventUndo;
 }
 
 /** One operational fact read from a message — changes nothing until the PM applies it. */

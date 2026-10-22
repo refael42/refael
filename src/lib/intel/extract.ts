@@ -11,6 +11,7 @@
 import { findContractors, findTradeKey } from "../ai/heuristic";
 import { hasWord, normalize } from "../ai/text";
 import type { Area, Contractor, EventType, Task, Trade } from "../db/types";
+import { zonedToUtc } from "../import/whatsapp-export";
 import type { Learner } from "./learn";
 
 export interface Speaker {
@@ -347,8 +348,10 @@ function build(clause: string, type: EventType, ctx: ReadContext, listAreas: Are
   const date = type === "commitment" ? dateFrom(clause, ctx.sentAt, ctx.timeZone) : null;
   // nothing to tie it to (no one, no trade, no place) → it is chatter, not an update
   if (!contractor && !tradeKey && !areas.length && !all) return null;
-  // a date is someone's promise only when they said it, or were named ("מחר יגיעו…" to the chat partner is not)
-  if (type === "commitment" && (!date || (!named.length && speaker.role !== "contractor"))) return null;
+  // a date is someone's promise only when they said it, or were named ("מחר יגיעו…" to the chat partner is not);
+  // the PM naming the trade and the place ("החשמלאי יגיע ביום ראשון לדירה 12") is as good as a name
+  const pinned = speaker.role === "pm" && !!tradeKey && areas.length > 0;
+  if (type === "commitment" && (!date || (!named.length && speaker.role !== "contractor" && !pinned))) return null;
   // a new task or a defect is only useful with a place
   if ((type === "new_task" || type === "defect") && !areas.length && !all) return null;
 
@@ -406,4 +409,41 @@ export function matchTasks(e: ExtractedEvent, facts: ProjectFacts): Task[] {
   if (e.all) return open.filter((t) => !t.area_id || !excluded.has(t.area_id));
   const active = open.filter((t) => t.status === "in_progress");
   return active.length === 1 ? active : [];
+}
+
+// ───────────────────────── reminders ─────────────────────────
+
+const REMIND = /(?:^|\s)(?:תזכיר(?:ו)?(?:\s+לי)?|תזכורת|להזכיר(?:\s+לי)?|הזכר(?:\s+לי)?)(?=[\s:,–-]|$)[\s:,–-]*/;
+const AT_HOUR = /(?:בשעה\s*|(?:^|\s)ב-?\s?)(\d{1,2})(?::(\d{2}))?(?![\d./])/;
+const DATE_WORDS = /(מחרתיים|מחר|היום|בשבוע הבא|ביום (?:ראשון|שני|שלישי|רביעי|חמישי|שישי)|ב-?\s?\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?)/g;
+
+/**
+ * "תזכיר לי מחר ב-8 לבדוק לחץ מים בדירה 9" → when (UTC) and what. Without a
+ * time: 08:00; without a day: today if the hour is still ahead, else tomorrow.
+ */
+export function reminderFrom(text: string, sentAt: Date, timeZone: string): { dueAt: string; what: string } | null {
+  const clean = normalize(text);
+  if (!REMIND.test(clean)) return null;
+  const day = dateFrom(clean, sentAt, timeZone);
+  const hm = clean.match(AT_HOUR);
+  let hour = hm ? Number(hm[1]) : 8;
+  const minute = hm?.[2] ? Number(hm[2]) : 0;
+  if (hour > 23 || minute > 59) hour = 8;
+  let date = day;
+  if (!date) {
+    const today = localDay(sentAt, timeZone);
+    const [y, m, d] = today.split("-").map(Number);
+    const at = zonedToUtc(y, m, d, hour, minute, 0, timeZone);
+    date = hm && at > sentAt ? today : addDays(today, 1);
+  }
+  const [y, m, d] = date.split("-").map(Number);
+  const dueAt = zonedToUtc(y, m, d, hour, minute, 0, timeZone).toISOString();
+  const what = clean
+    .replace(REMIND, " ")
+    .replace(DATE_WORDS, " ")
+    .replace(AT_HOUR, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,.:–-]+|[\s,.:–-]+$/g, "")
+    .trim();
+  return { dueAt, what: what || clean };
 }
