@@ -2,7 +2,7 @@ import type { SkCanvas, SkPaint } from '@shopify/react-native-skia';
 import { Accessory, Outfit } from '../../data/looks';
 import { EMOTE_SECONDS, STEP_SEC } from '../../data/sim';
 import { C, F, type Packed } from '../../sim/snapshot';
-import { Emote, Expression, Held, Pose } from '../../sim/types';
+import { Bubble, Emote, Expression, Held, Pose } from '../../sim/types';
 import type { RenderAssets } from '../assets';
 import { isoX, isoY } from '../iso';
 import { clamp01, easeOutBack, fract, spr, sprFade, sprXf } from './primitives';
@@ -451,6 +451,10 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
   c.restore();
 }
 
+/** Dish bubbles run from here up to the drinks' (a request badge goes on those). */
+const DISH_BUBBLE = Bubble.DishBase;
+const DRINK_BUBBLE = Bubble.DrinkBase;
+
 /** Bubbles and bars go in a second pass so nothing in front ever hides them. */
 export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o: number, alpha: number, t: number): void {
   'worklet';
@@ -484,7 +488,7 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
     const fillPaint = patience > 0.5 ? P.barGood : patience > 0.25 ? P.barMid : P.barLow;
     c.drawRRect({ rect: { x: x - w / 2, y: top, width: Math.max(2, w * patience), height: 3 }, rx: 1.5, ry: 1.5 }, fillPaint);
     // The icon means the bar never relies on color alone, and tells how long they will wait.
-    const kind = d[o + C.patienceKind]!;
+    const kind = d[o + C.patienceKind]! % 10;
     sprXf(c, A, kind === 1 ? A.S.bolt : kind === 2 ? A.S.snail : A.S.clock, x - w / 2 - 5, top + 1.5, 0, 0.55, 0.55, P.plain);
     top -= 4;
   }
@@ -505,5 +509,8 @@ export function drawCharacterOverlay(c: SkCanvas, A: RenderAssets, d: Packed, o:
     const by = top - Math.abs(Math.sin(t * 2.5 + o)) * 1.5;
     sprXf(c, A, A.S.bubble, x, by, 0, pulse, pulse, P.plain);
     sprXf(c, A, A.L.bubble[bubble]!, x, by - 12.6 * pulse, 0, pulse, pulse, P.plain);
+    // A special request (owner M49) pinned to the dish they want: spicy, vegan, gluten-free.
+    const request = Math.floor(d[o + C.patienceKind]! / 10) - 1;
+    if (request >= 0 && bubble >= DISH_BUBBLE && bubble < DRINK_BUBBLE) sprXf(c, A, A.L.request[request]!, x + 9 * pulse, by - 20 * pulse, 0, pulse, pulse, P.plain);
   }
 }

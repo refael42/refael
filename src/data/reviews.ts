@@ -45,10 +45,13 @@ export const REVIEW = {
  * the bill; dessert, drinks: those who had one; critic: a food writer's five stars; mixed: three
  * stars, good and bad; slowFood: the food took long; slowLine: the line took long; awful:
  * everything went wrong; walkout: they left without eating; restroom: a dirty restroom.
+ * Owner M49: hot: the plate came piping hot; request: their special request made right; cold:
+ * the plate came cold; wrong: their special request ignored.
  */
 export const REVIEW_LINES = {
   great: 30, good: 28, dish: 28, kids: 18, tourist: 18, date: 12, staff: 14, host: 12, decor: 14, value: 12,
   dessert: 12, drinks: 12, critic: 12, ok: 22, mixed: 14, slowFood: 22, slowLine: 20, awful: 22, walkout: 20, restroom: 16,
+  hot: 10, request: 12, cold: 12, wrong: 12,
 } as const;
 export type ReviewKind = keyof typeof REVIEW_LINES;
 export const REVIEW_KINDS = Object.keys(REVIEW_LINES) as ReviewKind[];
@@ -57,7 +60,7 @@ export const REVIEW_KINDS = Object.keys(REVIEW_LINES) as ReviewKind[];
  * How likely a happy guest (4 or 5 stars) is to write about each thing, when it fits them
  * (a tourist, a family, a couple, had dessert or a drink, met the host, five stars).
  */
-export const HAPPY_WEIGHTS = { dish: 3, praise: 3, staff: 1.2, decor: 1, value: 0.8, tourist: 3, kids: 3, date: 1.6, dessert: 2, drinks: 1.8, host: 1, critic: 0.5 } as const;
+export const HAPPY_WEIGHTS = { dish: 3, praise: 3, staff: 1.2, decor: 1, value: 0.8, tourist: 3, kids: 3, date: 1.6, dessert: 2, drinks: 1.8, host: 1, critic: 0.5, hot: 1.2, request: 4 } as const;
 
 /**
  * The scores under a review, like a review site's: food, service and the place, 1 to 5 (0: not
@@ -72,4 +75,6 @@ export const REVIEW_SCORES: Readonly<Record<ReviewKind, { food: number | null; s
   critic: { food: 0, service: 0, place: 0 }, ok: { food: 0.3, service: -0.3, place: 0 }, mixed: { food: 1, service: -0.7, place: 0.3 },
   slowFood: { food: 1.5, service: -0.4, place: 1 }, slowLine: { food: 1.5, service: -0.4, place: 0.7 }, awful: { food: 0.3, service: -0.2, place: 0.5 },
   walkout: { food: null, service: 0, place: 0.8 }, restroom: { food: 2.2, service: 0.6, place: -1 },
+  hot: { food: 1, service: 0, place: -0.4 }, request: { food: 0.4, service: 0.8, place: -0.3 },
+  cold: { food: -0.4, service: 0.4, place: 1 }, wrong: { food: 0.6, service: -0.6, place: 1 },
 };

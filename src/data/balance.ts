@@ -39,6 +39,10 @@ export const VALUE = {
   packSpeed: 0.1,
   mixSpeed: 0.12,
   drinkPrice: 0.2,
+  /** Hot plates, the prep stock, special requests (src/data/service.ts): small helpers. */
+  heat: 0.15,
+  prep: 0.15,
+  requests: 0.08,
   /** A new dish on the menu (more choice, a pricier plate). */
   newDish: 0.4,
   /** How many to show in the "best value" list. */

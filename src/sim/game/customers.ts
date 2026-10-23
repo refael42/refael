@@ -1,3 +1,4 @@
+import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
 import { weatherArrivals, weatherPatience } from '../weather';
@@ -429,7 +430,8 @@ function pay(s: GameState, c: Customer): void {
   let tipShare = type.tipRate * (ECONOMY.tipMoodBase + mood) * comboMult;
   if (type.fastBonus > 0 && c.foodWaited <= type.foodPatience * s.mods.patience * type.fastShare) tipShare += type.fastBonus;
   // A look-alike the head chef cooked for leaves a thank-you on top.
-  const tip = price.mul(tipShare * s.mods.tips * c.tipBoost + attentionTip(c)).floor();
+  // A special request made right: a thank-you on top (src/sim/game/service.ts).
+  const tip = price.mul(tipShare * s.mods.tips * c.tipBoost + attentionTip(c) + requestTip(s, c)).floor();
   s.coins = s.coins.add(price).add(tip);
   s.stats.earned = s.stats.earned.add(price).add(tip);
   s.stats.served += 1;
@@ -485,6 +487,9 @@ function orderMeal(s: GameState, c: Customer): void {
     : chooseDish(s, CUSTOMER_TYPES[c.type]);
   const id = s.nextId++;
   s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
+  // Owner M49: spicy, vegan or gluten-free, please (shown on their bubble and the ticket).
+  const request = rollRequest(s, c);
+  if (request !== undefined) s.orders[s.orders.length - 1]!.request = request;
   c.order = id;
   // The head chef's guest: their ticket goes first.
   if (c.attention) s.orders.unshift(s.orders.pop()!);

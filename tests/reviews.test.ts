@@ -14,7 +14,7 @@ import { CustomerState, type GameState } from '../src/sim/game/types';
 
 const team = ['cook', 'waiter', 'washer'] as const;
 /** What a happy guest (4 or 5 stars) may write about. */
-const HAPPY: ReviewKind[] = ['great', 'good', 'dish', 'kids', 'tourist', 'date', 'staff', 'host', 'decor', 'value', 'dessert', 'drinks', 'critic'];
+const HAPPY: ReviewKind[] = ['great', 'good', 'dish', 'kids', 'tourist', 'date', 'staff', 'host', 'decor', 'value', 'dessert', 'drinks', 'critic', 'hot', 'request'];
 
 /** Plays a while; seats each customer once they have waited `delay` seconds in line. */
 function play(s: GameState, seconds: number, delay: number) {
@@ -53,7 +53,9 @@ describe('service grade', () => {
       quickPay += perMeal(quick);
       slowPay += perMeal(slow);
     }
-    expect(quickPay).toBeGreaterThan(slowPay * 1.1);
+    // Hot plates (owner M49) narrow the gap a little: guests let in slowly crowd the pass less,
+    // so their plates come hotter. Seating them at once still pays clearly more.
+    expect(quickPay).toBeGreaterThan(slowPay * 1.05);
   });
 });
 
@@ -191,7 +193,7 @@ describe('reviews', () => {
     const kinds = new Set<ReviewKind>();
     for (let i = 0; i < 4000; i++) {
       const id = 5000 + i;
-      const guest = { ...base, id, party: id, tourist: i % 5 === 0, partySize: i % 3 === 0 ? 2 : 1, dessertServed: i % 4 === 0, drank: i % 6 === 0 };
+      const guest = { ...base, id, party: id, tourist: i % 5 === 0, partySize: i % 3 === 0 ? 2 : 1, dessertServed: i % 4 === 0, drank: i % 6 === 0, hot: i % 7 === 0, requestMet: i % 8 === 0 };
       s.lastReviewTime = -Infinity;
       s.tick = i;
       maybeReview(s, guest, 4 + (i % 2), big(10));

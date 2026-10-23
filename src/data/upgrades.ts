@@ -16,7 +16,8 @@ export const CATEGORIES: readonly Category[] = ['menu', 'kitchen', 'cleaning', '
 export type Stat =
   | 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price'
   | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed'
-  | 'mixSpeed' | 'drinkPrice' | 'stools';
+  | 'mixSpeed' | 'drinkPrice' | 'stools'
+  | 'heat' | 'prep' | 'requests';
 export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers', 'stools'];
 
 export interface Effect {
@@ -129,6 +130,15 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'stoves', per: 1 }, milestone: null },
   { id: 'fridge', category: 'kitchen', anchor: K.Fridge, restyle: 'anchor', baseCost: 40, growth: 1.17, expands: true,
     effect: { stat: 'quality', per: 0.04 }, milestone: { stat: 'quality', factor: 1.25 } },
+  // Owner M49: service and kitchen logic (src/data/service.ts). Heat lamps over the pass keep
+  // plates hot for longer; the prep fridge lets idle cooks stock more mise en place, faster; the
+  // special-requests board (allergens, spice levels) means fewer mistakes and a bigger thank-you.
+  { id: 'heatLamps', category: 'kitchen', anchor: K.Pass, restyle: null, baseCost: 160, growth: 1.17, requires: { item: 'stove', level: 10 },
+    effect: { stat: 'heat', per: 0.1 }, milestone: { stat: 'heat', factor: 1.3 } },
+  { id: 'prepFridge', category: 'kitchen', anchor: K.Fridge, restyle: null, baseCost: 150, growth: 1.17, requires: { item: 'fridge', level: 5 },
+    effect: { stat: 'prep', per: 0.1 }, milestone: { stat: 'prep', factor: 1.3 } },
+  { id: 'requestBoard', category: 'kitchen', anchor: K.Pass, restyle: null, baseCost: 600, growth: 1.17, requires: { item: 'burger', level: 1 },
+    effect: { stat: 'requests', per: 0.08 }, milestone: { stat: 'requests', factor: 1.25 } },
 
   // Cleaning: the plate loop. More plates also get a better polish (tips) at milestones.
   { id: 'sink', category: 'cleaning', anchor: K.Sink, restyle: 'anchor', baseCost: 15, growth: 1.15, expands: true,

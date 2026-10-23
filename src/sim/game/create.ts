@@ -550,6 +550,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     cleanPlates: KITCHEN.plates + mods.plates,
     dirtyPlates: 0,
     washProgress: 0,
+    prep: 0,
+    prepWork: 0,
     props,
     events: [],
     nextEventId: 1,

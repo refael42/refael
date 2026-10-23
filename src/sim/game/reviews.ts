@@ -25,8 +25,11 @@ export const serviceMult = (stars: number): number => SERVICE.payMult[stars - 1]
 /** People are talking about the place (a recent five-star review): more of them come. */
 export const buzzing = (s: GameState): boolean => s.time < s.buzzUntil;
 
-/** What went wrong for a guest who was not happy: the wait for the food, or the line. */
+/** What went wrong for a guest who was not happy: their request, a cold plate, the wait for the food, or the line. */
 function complaint(s: GameState, c: Customer): ReviewKind {
+  // What stands out most: a special request ignored, then a cold plate (owner M49).
+  if (c.wrong) return 'wrong';
+  if (c.cold) return 'cold';
   const type = CUSTOMER_TYPES[c.type];
   return c.foodWaited > type.foodPatience * s.mods.patience * 0.5 ? 'slowFood' : 'slowLine';
 }
@@ -42,6 +45,8 @@ function kindFor(s: GameState, c: Customer, stars: number, roll: number): Review
     if (c.dessertServed) pool.push(['dessert', w.dessert]);
     if (c.drank || c.rounds > 0) pool.push(['drinks', w.drinks]);
     if (s.staff.some((st) => st.role === 'host' && !st.leaving)) pool.push(['host', w.host]);
+    if (c.requestMet) pool.push(['request', w.request]);
+    if (c.hot) pool.push(['hot', w.hot]);
     if (stars === 5) pool.push(['critic', w.critic]);
     let left = roll * pool.reduce((sum, [, n]) => sum + n, 0);
     for (const [kind, n] of pool) if ((left -= n) < 0) return kind;

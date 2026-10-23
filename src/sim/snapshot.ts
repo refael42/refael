@@ -141,7 +141,9 @@ function writeCharacter(d: Packed, o: number, c: CharacterView): void {
   // (Workers and applicants have one; customers and strollers do not.)
   const rarity = (c as { rarity?: keyof typeof RARITY_INDEX }).rarity ?? 'common';
   d[o + C.rank] = (c.rank ?? 0) + 10 * RARITY_INDEX[rarity];
-  d[o + C.patienceKind] = c.patienceKind ?? 0;
+  // A guest's special request (owner M49) rides in the tens: patienceKind % 10 is the icon, / 10 the request + 1.
+  const request = (c as { request?: number }).request;
+  d[o + C.patienceKind] = (c.patienceKind ?? 0) + (request === undefined ? 0 : 10 * (request + 1));
   d[o + C.lift] = c.lift ?? 0;
 }
 

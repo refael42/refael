@@ -85,6 +85,15 @@ export interface Customer extends CharacterView {
   rounds: number;
   /** Had a drink with their meal (what they may write about). */
   drank?: boolean;
+  /**
+   * Owner M49 (src/sim/game/service.ts): what they asked for on top of the dish (index into
+   * REQUESTS), and how the plate came: hot, cold, made their way, or wrong. What they may write about.
+   */
+  request?: number;
+  hot?: boolean;
+  cold?: boolean;
+  requestMet?: boolean;
+  wrong?: boolean;
   sipping: number;
   /** The guide's inspector, eating incognito (src/sim/game/guide.ts), and what their plate scored. */
   inspector?: boolean;
@@ -196,6 +205,16 @@ export interface Order {
    * courier took it (it still pays as a packed order); unset if nobody packed it.
    */
   packed?: boolean;
+  /**
+   * Service and kitchen (owner M49, src/sim/game/service.ts): how hot it left the pass (0-1);
+   * the guest's special request (index into REQUESTS) and whether the cook got it wrong; made
+   * again after the checker sent it back; cooked with a unit of mise en place.
+   */
+  heat?: number;
+  request?: number;
+  wrong?: boolean;
+  remade?: boolean;
+  prepped?: boolean;
 }
 
 /** Player actions, resolved from taps by the UI and applied at the next fixed step. */
@@ -527,6 +546,9 @@ export interface GameState {
   crew: Crew[];
   cleanPlates: number;
   dirtyPlates: number;
+  /** Mise en place (owner M49): units of prep ready, and progress on the next one (0-1). Not saved. */
+  prep: number;
+  prepWork: number;
   /** 0..1 progress on the plate currently being washed. */
   washProgress: number;
   /** Decor plus the stove and sink (whose `active` follows the staff). */

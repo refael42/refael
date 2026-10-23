@@ -22,6 +22,7 @@ import { counterBefore, readyDrink, updateBartender, updateDrinkRun } from './ba
 import { readyDessert, updateDessertRun } from './desserts';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
 import { careTable, updateCare } from './care';
+import { cookRequest, cookTimeMult, prepCap, prepWork, servedPlate, takeOffPass, usePrep } from './service';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
 export const besideTable = (t: Table): Point => serveSpot(t.x, t.y);
@@ -153,6 +154,22 @@ export function walkTo(s: GameState, st: Staff, to: Point, dt: number): boolean 
   return followPath(st, st.path, st.speed * workRate(s, st), dt);
 }
 
+/**
+ * A cook with no ticket (owner M49): at their station, chopping and portioning for the prep
+ * stock until it is full (light work: they rest meanwhile), then waiting there.
+ */
+function idleCook(s: GameState, st: Staff, dt: number): void {
+  if (st.leaving || st.pendingRole || s.prep >= prepCap(s)) {
+    if (st.held === Held.Knife) st.held = TOOL.cook!;
+    return goHome(s, st, dt);
+  }
+  if (!walkTo(s, st, homeOf(s, st), dt)) return;
+  setPose(st, Pose.Slice);
+  st.held = Held.Knife;
+  st.facing = s.stoves[st.slot % Math.max(1, s.stoves.length)]?.facing ?? HOME_FACING.cook;
+  if (prepWork(s, dt, workRate(s, st)) && st.emote === Emote.None && chance(s.rng, 0.3)) emote(st, Emote.Star);
+}
+
 function goHome(s: GameState, st: Staff, dt: number): void {
   if (walkTo(s, st, homeOf(s, st), dt)) {
     setPose(st, Pose.Idle);
@@ -252,6 +269,9 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     pick.since = s.time;
     pick.quality = qualityOf(st);
     pick.chef = chefTouch(st.stats.quality, st.level);
+    // Owner M49: a unit of mise en place makes it quicker; a special request may come out wrong.
+    usePrep(s, pick);
+    cookRequest(s, st, pick);
     const sv = s.stoves[station]!;
     sv.user = st.id;
     sv.dish = -1;
@@ -282,7 +302,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
   st.facing = sv.facing;
   if (job.phase === 'cooking') {
     if (order.progress < 1) {
-      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate) / dishDef(order.dish).cookSeconds);
+      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate) / (dishDef(order.dish).cookSeconds * cookTimeMult(order)));
       setPose(st, STATION_POSE[sv.type] ?? Pose.Cook);
       st.held = STATION_TOOL[sv.type] ?? Held.Spatula;
       return true;
@@ -442,6 +462,7 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     if (st.jobTime < KITCHEN.handoffSeconds) return;
     const c = s.customers.find((x) => x.id === order.customer);
     if (!c || !servable(c)) return release(st);
+    takeOffPass(s, order);
     order.state = OrderState.Carried;
     order.slot = -1;
     st.held = Held.TrayFull;
@@ -479,7 +500,8 @@ function updatePickup(s: GameState, st: Staff, order: Order | undefined, dt: num
     const charm = charmOf(st) * (has(st, 'charmer') ? 1 + TRAIT_FX.charmerTips : 1);
     recordPlate(s, order);
     inspectPlate(s, c, order);
-    startEating(s, c, order.dish, order.quality, charm);
+    const served = servedPlate(s, c, order);
+    startEating(s, c, order.dish, order.quality * served, charm);
   }
   gainXp(s, st);
   release(st);
@@ -846,7 +868,7 @@ export function updateStaff(s: GameState, dt: number): void {
     let busy = false;
     if (st.role === 'cook') {
       busy = updateCook(s, st, dt);
-      if (!busy && !st.job) goHome(s, st, dt);
+      if (!busy && !st.job) idleCook(s, st, dt);
     } else if (st.role === 'washer') {
       busy = updateWasher(s, st, dt);
       if (busy) washing.add(Math.min(st.slot, s.map.extraSinks.length));
@@ -912,6 +934,7 @@ export function serveOrder(s: GameState, order: Order): void {
   const to = c.table >= 0 ? dishSpot(s.tables[c.table]!, c.seat) : counterBefore(s, c.stool);
   const p = s.map.passSlots[order.slot]!;
   emit(s, Ev.DishFly, p.x, p.y, to.x, to.y, order.dish);
+  takeOffPass(s, order);
   order.state = OrderState.Flying;
   order.slot = -1;
   order.waiter = -1;
@@ -927,7 +950,8 @@ export function landFlyingDishes(s: GameState): void {
     if (c && c.state === CustomerState.Waiting) {
       recordPlate(s, order);
       inspectPlate(s, c, order);
-      startEating(s, c, order.dish, order.quality, 1);
+      const served = servedPlate(s, c, order);
+      startEating(s, c, order.dish, order.quality * served, 1);
     }
   }
 }

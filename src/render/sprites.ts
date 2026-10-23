@@ -16,6 +16,7 @@ import { deliverySprites, SCOOTER_COLORS } from './art/deliveryArt';
 import { CAR_COLORS, parkSprites, STALL_COLORS } from './art/parkArt';
 import { FESTIVAL_THEMES } from '../data/events';
 import { fxSprites } from './art/fxArt';
+import { REQUEST_BADGES, serviceSprites } from './art/serviceArt';
 import { dessertSprites } from './art/dessertArt';
 import { DESSERTS } from '../data/desserts';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
@@ -29,7 +30,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites, ...serviceSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -68,7 +69,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites | keyof typeof serviceSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -147,6 +148,9 @@ export const LAYERS = {
   drink: DRINK_SPRITES.map((name) => INDEX[name]!),
   /** Dish icon per dish id (tickets, bubbles). */
   dishIcon: byEnum(DISH_ICONS.length, DISH_ICONS.map((name, i) => [i, name] as const)),
+  /** Special-request badges (owner M49, src/data/service.ts REQUESTS order), and the prep stock's bowls. */
+  request: REQUEST_BADGES.map((name) => INDEX[name]!),
+  prepBowl: [0, 1, 2, 3].map((i) => INDEX[`prepBowl${i}`]!),
   /** The padlock sign on later land, by that building's tier. */
   lockSign: LOCK_BOARDS.map((_, tier) => INDEX[`lockSign${tier}`]!),
   /** Couriers' scooters by slot: parked, and with the courier riding it. */

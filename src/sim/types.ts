@@ -173,6 +173,8 @@ export const PropKind = {
   MenuStand: 58,
   /** A new building's site (variant: SiteItem): the crane, the office, the materials, the fence. */
   SiteItem: 59,
+  /** The prep stock at the head of the pass (owner M49): level = bowls of mise en place ready. */
+  PrepStock: 60,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

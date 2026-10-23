@@ -15,8 +15,11 @@ import { drawHub } from './drawHub';
 import { drawBarDecor } from './drawBarDecor';
 import { CRANE_HOOK, CRANE_TOP } from '../art/siteArt';
 import { drawDoor, drawRoomSign, drawWc } from './drawRoom';
+import { HEAT } from '../../data/service';
 
 const EXPAND_TIER = EXPAND.tier;
+/** A plate on the pass this cold gets its snowflake (owner M49). */
+const COLD_PLATE = HEAT.coldBelow;
 const BUS_DRIVE = BUS.driveSeconds;
 const SCOOTER_DRIVE = DELIVERY.driveSeconds;
 /** The bus comes from this many tiles up the road and drives this far on. */
@@ -429,6 +432,25 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
       sprXf(c, A, S.ring, 0, -4, 0, ring, ring * 0.5, A.paints.fade);
     }
     if (!still) sparkles(c, A, 0, -12, t, 8, seed);
+    // How hot it still is (owner M49): steam while hot, thinning as it cools, a snowflake once cold.
+    if (!still && flags % 2 === 0) {
+      const heat = d[o + PF.progress]!;
+      const puffs = Math.round(heat * 3);
+      for (let i = 0; i < puffs; i++) {
+        const age = fract(t * 0.6 + i / Math.max(1, puffs) + seed);
+        sprFade(c, A, S.steamWisp, (i - 1) * 4 + Math.sin(age * 5 + i * 2.1) * 2, bobY - 12 - age * 12, 0.7 + age * 0.4, Math.sin(age * Math.PI) * 0.9 * Math.min(1, heat * 1.4));
+      }
+      if (heat < COLD_PLATE) sprXf(c, A, S.coldMark, -8, -12 + bobY, Math.sin(t * 2 + seed) * 10, 0.9, 0.9, plain);
+    }
+  } else if (kind === PropKind.PrepStock) {
+    // The mise en place (owner M49): a shelf over the end of the pass, a bowl on it per unit ready.
+    spr(c, A, S.prepBoard, 0, 0, plain);
+    const n = d[o + PF.level]!;
+    for (let i = 0; i < n; i++) {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      spr(c, A, A.L.prepBowl[i % 4]!, -7.5 + col * 5 - row * 2.5, -3.2 + col * -0.4 + row * 3.4, plain);
+    }
   } else if (kind === PropKind.PlatesClean) {
     // Live count: the stack visibly shrinks as dishes go out and grows as they are washed.
     const n = Math.min(10, variant);
@@ -449,6 +471,9 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     c.rotate(swing, 0, 0);
     spr(c, A, S.ticket, 0, 0, plain);
     sprXf(c, A, A.L.dishIcon[variant]!, -0.4, 8, 0, 0.55, 0.55, plain);
+    // A special request on the ticket (owner M49).
+    const request = d[o + PF.level]! - 1;
+    if (request >= 0) sprXf(c, A, A.L.request[request]!, 3.6, 3.2, 0, 0.55, 0.55, plain);
     if (active) {
       const progress = d[o + PF.progress]!;
       c.drawRect({ x: -4.4, y: 14.8, width: 8, height: 1.6 }, A.paints.barBack);

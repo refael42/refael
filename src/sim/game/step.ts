@@ -1,3 +1,4 @@
+import { heatOf } from './service';
 import { heroesJoin } from '../offers';
 import { releaseRestroom, updateRestroomProps } from './restroom';
 import { DISHES } from '../../data/dishes';
@@ -128,6 +129,11 @@ function dynamicProps(s: GameState): PropView[] {
     const p = dishSpot(s.tables[c.table]!, c.seat);
     out.push(prop(SYNTH * 4 + c.id, PropKind.Dessert, p.x, p.y, { variant: c.dessert, lift: TABLE_TOP, depthBias: 1 }));
   }
+  // The prep stock (owner M49): a shelf over the end of the pass, past the ticket rail, a bowl on it per unit ready.
+  if (s.prep > 0 || s.staff.some((st) => st.role === 'cook')) {
+    const r = s.map.ticketRail;
+    out.push(prop(SYNTH - 62, PropKind.PrepStock, r.x, r.y0 + r.max * r.step + 0.15, { level: Math.min(8, s.prep), lift: r.lift - 10, depthBias: 2 }));
+  }
   // The host's menu stand by the door, a step in front of the host's place.
   const stand = hostStandAt(s);
   out.push(prop(SYNTH - 61, PropKind.MenuStand, stand.x, stand.y, { active: s.staff.some((st) => st.role === 'host' && !st.leaving) }));
@@ -140,13 +146,17 @@ function dynamicProps(s: GameState): PropView[] {
       const lift = o.lane && s.map.packing ? s.map.packing.passTop : s.map.passTop;
       // style/extra: where the cook set it down, relative to the slot (tenths of a tile): it slides in from there.
       const from = o.from ?? p;
-      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift, since: o.since, depthBias: 1, style: Math.round((from.x - p.x) * 10), extra: Math.round((from.y - p.y) * 10) }));
+      // progress: how hot it still is (owner M49): it steams while hot, a snowflake once cold.
+      const heat = Math.round(heatOf(s, o) * 20) / 20;
+      out.push(prop(o.id, PropKind.PassDish, p.x, p.y, { variant: o.dish, level: (o.delivery ? 1 : 0) + (o.checked ? 2 : 0), active: true, lift, since: o.since, depthBias: 1, style: Math.round((from.x - p.x) * 10), extra: Math.round((from.y - p.y) * 10), progress: heat }));
     } else if ((o.state === OrderState.Queued || o.state === OrderState.Cooking) && ticket < rail.max) {
       // Order tickets hang on the rail above the pass, oldest first.
       out.push(
         prop(SYNTH + o.id, PropKind.Ticket, rail.x, rail.y0 + ticket * rail.step, {
           variant: o.dish,
           active: o.state === OrderState.Cooking,
+          // A special request (+1, 0 = none) gets its badge on the ticket.
+          level: o.request === undefined ? 0 : o.request + 1,
           lift: rail.lift,
           since: o.since,
           progress: o.progress,

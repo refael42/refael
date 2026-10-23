@@ -47,6 +47,10 @@ export interface Mods {
   /** The bar: how fast drinks are made, and what they sell for. */
   mixSpeed: number;
   drinkPrice: number;
+  /** Service and kitchen (src/data/service.ts): how long plates stay hot, the mise en place (stock and speed), special requests made right. */
+  heat: number;
+  prep: number;
+  requests: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -172,6 +176,9 @@ function emptyMods(): Mods {
     stools: 0,
     mixSpeed: 1,
     drinkPrice: 1,
+    heat: 1,
+    prep: 1,
+    requests: 1,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };
