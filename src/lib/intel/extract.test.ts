@@ -127,7 +127,8 @@ describe("punch lists and learning", () => {
   it("splits a list under apartment headings into one task per line, in its apartment", () => {
     const events = extractEvents(LIST, opts(ido, f));
     expect(events.map((e) => [e.type, e.areaIds.map(name).join(), e.quote])).toEqual([
-      ["new_task", "דירה 3", "השירותים נוזלים לקומה מתחת"],
+      // a leak is a defect (it opens a "תיקון" task in the apartment)
+      ["defect", "דירה 3", "השירותים נוזלים לקומה מתחת"],
       ["new_task", "דירה 14", 'ספרינקלרים לסיים + חבק בממד'],
       ["new_task", "דירה 14", 'תיקון צנרת מזגן ממד'],
       ["new_task", "דירה 15", "ניקיון ניקוזים"],

@@ -9,8 +9,9 @@
 import type { Area, Contractor, EventType, EventUndo, ProjectEvent, Source, SourceItem, Task } from "../db/types";
 import { TIME_ZONE } from "../i18n";
 import { he } from "../i18n/he";
-import { areasIn, dateFrom, extractEvents, matchTasks, NEEDS_TASKS, reminderFrom, type ExtractedEvent, type ProjectFacts, type Speaker } from "../intel/extract";
-import { findTradeKey } from "../ai/heuristic";
+import { areasIn, dateFrom, extractEvents, matchTasks, NEEDS_TASKS, nextTopic, reminderFrom, taskOptions, TOPIC_MS, tradeIn, type ExtractedEvent, type ProjectFacts, type Speaker, type Topic } from "../intel/extract";
+import { findContractors, findTradeKey } from "../ai/heuristic";
+import { normalize } from "../ai/text";
 import { fmtDateTime } from "../i18n";
 import { Learner, type Example } from "../intel/learn";
 import { assertPM } from "./access";
@@ -54,9 +55,15 @@ async function learnerFor(ctx: Ctx): Promise<Learner> {
   const events = await ctx.store.select("project_events", { where: { project_id: ctx.s.project.id }, order: [["created_at", "desc"]] });
   const examples: Example[] = [];
   for (const e of events.slice(0, 3000)) {
-    if (!e.quote) continue;
+    if (!e.quote || e.extracted?.merged) continue;
     const manual = e.extracted?.engine === "manual";
-    if (e.status === "applied" || (manual && e.status !== "dismissed")) examples.push({ id: e.id, type: e.type, text: e.quote, positive: true });
+    const at = e.decided_at ?? e.created_at;
+    if (e.status === "applied" || (manual && e.status !== "dismissed"))
+      examples.push({ id: e.id, type: e.type, text: e.quote, positive: true, tradeId: e.resolved.learned_trade_id ?? null, at });
+    // an undo says "ask me next time", not "this is never an update"; a corrected place says neither
+    else if (e.status === "dismissed" && e.extracted?.undone) {
+      if (!e.extracted.corrected) examples.push({ id: e.id, type: e.type, text: e.quote, positive: false, undone: true, at });
+    }
     else if (e.status === "dismissed" && !manual) examples.push({ id: e.id, type: e.type, text: e.quote, positive: false });
   }
   return new Learner(examples);
@@ -76,10 +83,19 @@ function resolve(e: ExtractedEvent, f: ProjectFacts) {
     status = "needs_info";
     note = he.intel.noPlace;
   }
+  // not sure which task: offer the open ones there to choose from
+  const options = NEEDS_TASKS.includes(e.type) && !tasks.length ? taskOptions(e, f) : [];
   return {
     status,
-    note,
-    resolved: { task_ids: tasks.map((t) => t.id), area_ids: e.areaIds, contractor_id: e.contractorId, trade_id: e.tradeId, date: e.date },
+    note: options.length ? he.intel.pickTask : note,
+    resolved: {
+      task_ids: tasks.map((t) => t.id),
+      ...(options.length ? { option_task_ids: options.map((t) => t.id) } : {}),
+      area_ids: e.areaIds,
+      contractor_id: e.contractorId,
+      trade_id: e.tradeId,
+      date: e.date,
+    },
   };
 }
 
@@ -91,6 +107,15 @@ export function summarize(e: Pick<ExtractedEvent, "type" | "contractorId" | "tra
   const where = e.areaIds.length ? e.areaIds.map(areaName).join(", ") : e.all ? he.intel.everywhere : "";
   const except = e.exceptAreaIds.length ? ` ${he.intel.except}${e.exceptAreaIds.map(areaName).join(", ")}` : "";
   return he.intel.summary[e.type]({ who: who ?? "", trade: trade ?? "", where: `${where}${except}`.trim(), date: e.date ?? "" });
+}
+
+/** What the chat was about just before this message (the messages already read). */
+async function topicBefore(ctx: Ctx, sourceId: string, first: SourceItem, f: ProjectFacts): Promise<Topic | null> {
+  const since = new Date(new Date(first.sent_at).getTime() - TOPIC_MS).toISOString();
+  const prev = await ctx.store.select("source_items", { where: { source_id: sourceId, sent_at: { gte: since } }, order: [["sent_at", "asc"]] });
+  let topic: Topic | null = null;
+  for (const p of prev) if (p.id !== first.id && p.sent_at <= first.sent_at && p.status !== "new" && p.text) topic = nextTopic(topic, p.text, new Date(p.sent_at), f);
+  return topic;
 }
 
 /** Read the waiting messages of a chat. Call again while `remaining` > 0. */
@@ -108,13 +133,16 @@ export async function processSource(ctx: Ctx, sourceId: string): Promise<{ proce
   const ids = batch.map((i) => i.id);
   const before = ids.length ? await ctx.store.select("project_events", { where: { source_item_id: { in: ids } } }) : [];
   const decided = new Set(before.map((e) => `${e.source_item_id}|${e.type}`));
+  let topic = batch.length ? await topicBefore(ctx, src.id, batch[0], f) : null;
   let events = 0;
   for (const item of batch) {
     const key = item.author_profile_id ?? `?${item.author}`;
     if (!speakers.has(key)) speakers.set(key, await speakerOf(ctx, item, f.contractors));
+    const sentAt = new Date(item.sent_at);
     const found = (
-      item.text ? extractEvents(item.text, { speaker: speakers.get(key)!, counterpart, sentAt: new Date(item.sent_at), timeZone: TIME_ZONE, facts: f, learner }) : []
+      item.text ? extractEvents(item.text, { speaker: speakers.get(key)!, counterpart, sentAt, timeZone: TIME_ZONE, facts: f, learner, topic }) : []
     ).filter((e) => !decided.has(`${item.id}|${e.type}`));
+    if (item.text) topic = nextTopic(topic, item.text, sentAt, f);
     if (found.length) {
       await ctx.store.insert(
         "project_events",
@@ -219,6 +247,8 @@ export interface EventCard {
   sourceId: string | null;
   text: string | null;
   tasks: Array<{ id: string; title: string; area: string; status: Task["status"] }>;
+  /** the tasks checked at first (the rest are options to choose from) */
+  chosen: string[];
 }
 
 export async function listEvents(ctx: Ctx, opts: { status?: Array<ProjectEvent["status"]>; limit?: number } = {}): Promise<EventCard[]> {
@@ -240,13 +270,15 @@ export async function listEvents(ctx: Ctx, opts: { status?: Array<ProjectEvent["
     const item = items.find((i) => i.id === event.source_item_id);
     const src = sources.find((s) => s.id === item?.source_id);
     const ids = event.status === "applied" ? event.resolved.applied_task_ids ?? event.resolved.task_ids ?? [] : event.resolved.task_ids ?? [];
+    const options = event.status === "applied" ? [] : (event.resolved.option_task_ids ?? []).filter((id) => !ids.includes(id));
     return {
       event,
       author: profiles.find((p) => p.id === item?.author_profile_id)?.full_name ?? item?.author ?? "",
       sourceTitle: src?.title ?? "",
       sourceId: src?.id ?? null,
       text: item?.text ?? null,
-      tasks: ids
+      chosen: ids,
+      tasks: [...ids, ...options]
         .map((id) => taskById.get(id))
         .filter((t): t is Task => !!t)
         .map((t) => ({ id: t.id, title: t.title, area: t.area_id ? areaById.get(t.area_id)?.name ?? "" : "", status: t.status })),
@@ -274,7 +306,8 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
   const e = await ownEvent(ctx, id);
   if (e.status === "applied" || e.status === "dismissed") throw new ServiceError(he.intel.alreadyDecided);
   const proposed = e.resolved.task_ids ?? [];
-  const taskIds = (opts.taskIds ?? proposed).filter((t) => proposed.includes(t));
+  const allowed = new Set([...proposed, ...(e.resolved.option_task_ids ?? [])]);
+  const taskIds = [...new Set(opts.taskIds ?? proposed)].filter((t) => allowed.has(t));
   if (NEEDS_TASKS.includes(e.type) && !taskIds.length) throw new ServiceError(he.intel.noTasks);
   const item = e.source_item_id ? await ctx.store.byId("source_items", e.source_item_id) : null;
   const now = (ctx.now ?? new Date()).toISOString();
@@ -282,6 +315,10 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
   let released = 0;
   let blockerId: string | null = null;
   const tasks = taskIds.length ? await ctx.store.select("tasks", { where: { id: { in: taskIds }, project_id: ctx.s.project.id } }) : [];
+  // the PM chose the tasks for a message that did not name the work: remember which work it was
+  const chosenTrades = new Set(tasks.map((t) => t.trade_id));
+  const learnedTrade =
+    !e.resolved.trade_id && !e.resolved.contractor_id && tasks.length && chosenTrades.size === 1 ? tasks[0].trade_id : null;
   // what it takes to undo this decision later
   const undo: EventUndo = {
     tasks: tasks.map((t) => ({ id: t.id, status: t.status, planned_start: t.planned_start, planned_end: t.planned_end, started_at: t.started_at, completed_at: t.completed_at })),
@@ -387,7 +424,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
     status: "applied",
     decided_by: ctx.s.profile.id,
     decided_at: now,
-    resolved: { ...e.resolved, applied_task_ids: taskIds, blocker_id: blockerId, undo },
+    resolved: { ...e.resolved, applied_task_ids: taskIds, blocker_id: blockerId, undo, ...(learnedTrade ? { learned_trade_id: learnedTrade } : {}) },
   });
   return { changed, released };
 }
@@ -397,7 +434,7 @@ export async function applyEvent(ctx: Ctx, id: string, opts: { taskIds?: string[
  * (tasks, reports, a blocker) is removed, reports it closed are open again.
  * The update is then marked dismissed, so the reader learns from it.
  */
-export async function undoEvent(ctx: Ctx, id: string): Promise<void> {
+export async function undoEvent(ctx: Ctx, id: string, opts: { corrected?: boolean } = {}): Promise<void> {
   assertPM(ctx.s);
   const e = await ownEvent(ctx, id);
   const undo = e.resolved.undo;
@@ -426,7 +463,7 @@ export async function undoEvent(ctx: Ctx, id: string): Promise<void> {
     note: he.intel.undone,
     decided_by: ctx.s.profile.id,
     decided_at: (ctx.now ?? new Date()).toISOString(),
-    extracted: { ...e.extracted, undone: true },
+    extracted: { ...e.extracted, undone: true, ...(opts.corrected ? { corrected: true } : {}) },
   });
 }
 
@@ -494,6 +531,8 @@ export interface ActResult {
   done: string[];
   /** updates found but left for the PM's decision */
   waiting: number;
+  /** the message took back what was done before ("בטל") */
+  undone?: boolean;
 }
 
 function names(tasks: Task[]): string {
@@ -533,6 +572,17 @@ export async function actOnStaffMessage(ctx: Ctx, itemId: string, opts: { ownWor
   assertPM(ctx.s);
   const item = await ctx.store.byId("source_items", itemId);
   if (!item || item.project_id !== ctx.s.project.id) throw new AccessError(he.errors.notFound, 404);
+  // "בטל", "טעות, דירה 15", or the missing detail of the last message
+  if (opts.ownWords && item.text) {
+    const followed = await followUp(ctx, item);
+    if (followed) return followed;
+  }
+  const res = await act(ctx, item, opts);
+  if (opts.ownWords && item.text && !res.done.length && !res.waiting) return (await fillIn(ctx, item)) ?? res;
+  return res;
+}
+
+async function act(ctx: Ctx, item: SourceItem, opts: { ownWords: boolean }): Promise<ActResult> {
   const res: ActResult = { done: [], waiting: 0 };
 
   const r = opts.ownWords && item.text ? reminderFrom(item.text, new Date(item.sent_at), TIME_ZONE) : null;
@@ -544,15 +594,17 @@ export async function actOnStaffMessage(ctx: Ctx, itemId: string, opts: { ownWor
 
   await processSource(ctx, item.source_id);
   const events = await ctx.store.select("project_events", { where: { source_item_id: item.id } });
+  const learner = events.length ? await learnerFor(ctx) : null;
   for (const e of events) {
-    if (!clearEnough(e)) {
+    // unclear, or like something the PM undid before → it waits for approval
+    if (!clearEnough(e) || (e.quote && learner?.cautious(e.quote, e.type))) {
       if (e.status === "proposed" || e.status === "needs_info") res.waiting++;
       continue;
     }
     await applyEvent(ctx, e.id);
     const after = (await ctx.store.byId("project_events", e.id))!;
     const ids = after.resolved.applied_task_ids ?? [];
-    // the PM's own "סיים" is his word that it is done — closed, not left for inspection
+    // the PM's own "סיים" is the PM's word that it is done — closed, not left for inspection
     const closes = opts.ownWords && e.type === "reported_done";
     if (closes) for (const id of ids) await approvePendingReportOrComplete(ctx, id, { source: "chat" });
     const tasks = ids.length ? await ctx.store.select("tasks", { where: { id: { in: ids } } }) : [];
@@ -574,6 +626,108 @@ export async function actOnStaffMessage(ctx: Ctx, itemId: string, opts: { ownWor
     res.done.push(line);
   }
   return res;
+}
+
+// ───────────── follow-ups from WhatsApp: undo, correct, fill in ─────────────
+
+/** How long after a message a short follow-up is about it. */
+const FOLLOW_MS = 30 * 60_000;
+const UNDO = /^(?:בטל|תבטל|ביטול|בטל את זה|תבטל את זה|טעות|טעיתי|לא נכון|זה לא נכון)[\s.!]*$/;
+const CORRECT = /^(?:טעות|טעיתי|לא נכון|זה לא נכון|לא)[\s,.:–-]+(.{1,40})$/;
+const AREA_PHRASE = /(דירה|דירת|דירות|קומה|קומות)\s+\d+/;
+
+/** The PM's messages to the number shortly before this one, latest first. */
+async function justBefore(ctx: Ctx, item: SourceItem): Promise<SourceItem[]> {
+  const since = new Date(new Date(item.sent_at).getTime() - FOLLOW_MS).toISOString();
+  const items = await ctx.store.select("source_items", { where: { source_id: item.source_id, sent_at: { gte: since } }, order: [["sent_at", "desc"]] });
+  return items.filter((i) => i.id !== item.id && i.sent_at <= item.sent_at);
+}
+
+/** What the system did by itself for the latest message that had anything done. */
+async function lastActed(ctx: Ctx, before: SourceItem[]): Promise<{ item: SourceItem; events: ProjectEvent[] } | null> {
+  for (const i of before) {
+    const events = (await ctx.store.select("project_events", { where: { source_item_id: i.id, status: "applied" } })).filter((e) => e.extracted?.auto && e.resolved.undo);
+    if (events.length) return { item: i, events };
+  }
+  return null;
+}
+
+/** The message with its place corrected: "לא 10, 15" / "טעות, דירה 15" / "לא 10 – 15". */
+function corrected(original: string, fix: string, f: ProjectFacts): string | null {
+  const nums = fix.match(/\d+/g) ?? [];
+  if (nums.length >= 2 && new RegExp(`(?<!\\d)${nums[0]}(?!\\d)`).test(original))
+    return original.replace(new RegExp(`(?<!\\d)${nums[0]}(?!\\d)`), nums[1]);
+  const named = areasIn(fix, f.areas);
+  const phrase = original.match(AREA_PHRASE);
+  if (named.length === 1 && phrase) return original.replace(AREA_PHRASE, named[0].name);
+  if (nums.length === 1 && phrase) return original.replace(AREA_PHRASE, `${phrase[1]} ${nums[0]}`);
+  return null;
+}
+
+async function asFollowUp(ctx: Ctx, item: SourceItem, text: string, of: SourceItem): Promise<SourceItem> {
+  const [copy] = await ctx.store.insert("source_items", {
+    project_id: item.project_id,
+    source_id: item.source_id,
+    // the message read again with the PM's follow-up (one per follow-up)
+    external_id: `followup:${item.id}`,
+    sent_at: of.sent_at,
+    author: of.author,
+    author_profile_id: of.author_profile_id,
+    kind: "text",
+    text,
+    media_url: null,
+    media_name: null,
+    status: "new",
+  });
+  await ctx.store.update("source_items", { id: item.id }, { status: "processed" });
+  return copy;
+}
+
+/** "בטל" / "טעות" undoes what the last message did; "טעות, דירה 15" does it again in the right place. */
+async function followUp(ctx: Ctx, item: SourceItem): Promise<ActResult | null> {
+  const text = normalize(item.text!);
+  const undo = UNDO.test(text);
+  const fix = !undo ? text.match(CORRECT) : null;
+  if (!undo && !fix) return null;
+  const last = await lastActed(ctx, await justBefore(ctx, item));
+  if (!last) return undo ? { done: [he.waAct.nothingToUndo], waiting: 0, undone: true } : null;
+  const f = await facts(ctx);
+  const again = fix && last.item.text ? corrected(last.item.text, fix[1], f) : null;
+  if (fix && !again) return null;
+  for (const e of last.events) await undoEvent(ctx, e.id, { corrected: !undo });
+  const taken = last.events.map((e) => String(e.extracted?.auto_line ?? e.summary));
+  if (undo) {
+    await ctx.store.update("source_items", { id: item.id }, { status: "processed" });
+    return { done: [he.waAct.undoneLast, ...taken], waiting: 0, undone: true };
+  }
+  const copy = await asFollowUp(ctx, item, again!, last.item);
+  const res = await act(ctx, copy, { ownWords: !!last.item.author_profile_id });
+  return { ...res, done: [he.waAct.fixed, ...res.done] };
+}
+
+/**
+ * The last message was not clear ("סיימתי בדירה 14" — who?) and this short
+ * one says what was missing ("יוסי", "החשמלאי", "דירה 14"): read them together.
+ */
+async function fillIn(ctx: Ctx, item: SourceItem): Promise<ActResult | null> {
+  const text = normalize(item.text!);
+  if (text.split(/\s+/).length > 6) return null;
+  const f = await facts(ctx);
+  const says = findContractors(text, f.contractors).length > 0 || !!tradeIn(text, f.trades) || areasIn(text, f.areas).length > 0;
+  if (!says) return null;
+  for (const before of await justBefore(ctx, item)) {
+    const waiting = (await ctx.store.select("project_events", { where: { source_item_id: before.id } })).filter(
+      (e) => (e.status === "needs_info" || e.status === "proposed") && !e.extracted?.auto,
+    );
+    if (!waiting.length) continue;
+    const quote = waiting[0].quote ?? before.text ?? "";
+    // replaced by the message read with the answer — not a "no" to learn from
+    for (const e of waiting)
+      await ctx.store.update("project_events", { id: e.id }, { status: "dismissed", note: he.waAct.merged, decided_at: (ctx.now ?? new Date()).toISOString(), extracted: { ...e.extracted, merged: true } });
+    const copy = await asFollowUp(ctx, item, `${quote} ${text}`, before);
+    return act(ctx, copy, { ownWords: !!before.author_profile_id });
+  }
+  return null;
 }
 
 /** What the system did by itself lately (for the updates page, with undo). */
