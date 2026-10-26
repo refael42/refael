@@ -1,3 +1,5 @@
+import { SEASON } from '../data/season';
+import { grantSeasonGold } from './season';
 import { FLASH } from '../data/events';
 import { OFFER_BY_ID } from '../data/offers';
 import { grantOffer } from './offers';
@@ -191,6 +193,8 @@ export function addGems(s: GameState, amount: number): void {
 export function grantPurchase(s: GameState, product: string, transaction: string, time = 0): boolean {
   // A paid offer (a hero with gems): src/sim/offers.ts.
   if (OFFER_BY_ID[product]) return grantOffer(s, product, transaction, time);
+  // The season's gold pass: src/sim/season.ts.
+  if (product === SEASON.goldProduct) return grantSeasonGold(s, transaction, time);
   const item = SHOP_BY_ID[product];
   if (!item || item.kind !== 'gems' || !transaction || s.purchases.includes(transaction)) return false;
   s.purchases = [...s.purchases.slice(-(PURCHASE_LOG - 1)), transaction];

@@ -1,3 +1,4 @@
+import { seasonBonus, seasonCount } from '../season';
 import { DELIVERY, PACKING } from '../../data/delivery';
 import { gainXp as chefXp } from '../chef';
 import { DISHES } from '../../data/dishes';
@@ -65,7 +66,7 @@ export function updateDeliveries(s: GameState): void {
 export function deliveryPay(s: GameState, st: Staff, o: Order) {
   // Packed by a packer: sealed and neat, worth a little more.
   const packed = o.packed === false ? PACKING.priceMult : 1;
-  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * s.mods.deliveryPrice * packed * boostNow(s) * festivalBonus(s)).floor();
+  const price = dishPrice(s, o.dish).mul(o.quality * DELIVERY.priceMult * s.mods.deliveryPrice * packed * boostNow(s) * festivalBonus(s) * seasonBonus(s)).floor();
   const tip = price.mul(DELIVERY.tip * charmOf(st) * s.mods.tips).floor();
   return price.add(tip);
 }
@@ -174,6 +175,7 @@ export function updateCourier(s: GameState, st: Staff, dt: number, walkTo: (to: 
     s.stats.delivered += 1;
     chefXp(s, 'delivery');
     festivalDelivery(s, o.dish);
+    seasonCount(s, 'delivery');
     gainXp(s, st);
   }
   s.coins = s.coins.add(total);

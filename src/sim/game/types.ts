@@ -1,3 +1,4 @@
+import type { SeasonState } from '../season';
 import type { CustomerTypeId } from '../../data/customers';
 import type { KitchenPiece } from './kitchenLayout';
 import type { ReviewKind } from '../../data/reviews';
@@ -265,6 +266,12 @@ export type Command =
   | { type: 'festival'; now: number }
   /** Take the next festival reward reached. */
   | { type: 'festivalClaim' }
+  /** The phone's clock and time zone (Date#getTimezoneOffset): which season, day and week it is. */
+  | { type: 'season'; now: number; tzMin: number }
+  /** Take the next season prize on a track; a finished mission's XP; the gold pass for gems. */
+  | { type: 'seasonClaim'; track: 'free' | 'gold' }
+  | { type: 'seasonMission'; weekly: boolean; index: number }
+  | { type: 'seasonGold' }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -617,6 +624,8 @@ export interface GameState {
    * so far, rewards taken; and the themes whose trophy was won (kept for good).
    */
   festival: { id: number; points: number; claimed: number; trophies: number[] };
+  /** The season pass (owner M50, src/sim/season.ts): missions, XP, both tracks, medals. Kept across branches. */
+  season: SeasonState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

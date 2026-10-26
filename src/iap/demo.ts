@@ -1,3 +1,4 @@
+import { SEASON } from '../data/season';
 import { OFFERS } from '../data/offers';
 import { GEM_PACKS } from '../data/shop';
 import type { Store, StoreGrant } from './types';
@@ -10,7 +11,7 @@ const FAKE_PAYMENT_MS = 450;
 export function demoStore(): Store {
   let onGrant: ((g: StoreGrant) => void) | null = null;
   let seq = 0;
-  const prices = Object.fromEntries([...GEM_PACKS, ...OFFERS].map((p) => [p.id, p.price]));
+  const prices = Object.fromEntries([...GEM_PACKS, ...OFFERS, { id: SEASON.goldProduct, price: SEASON.goldPrice }].map((p) => [p.id, p.price]));
   return {
     mode: 'demo',
     start: async (cb) => {

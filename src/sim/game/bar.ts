@@ -1,3 +1,4 @@
+import { seasonBonus, seasonCount } from '../season';
 import { BAR, DRINKS, drinksAt } from '../../data/bar';
 import { DISHES } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
@@ -42,7 +43,7 @@ function priciestDish(s: GameState): Big {
 export function drinkPrice(s: GameState, d: DrinkOrder, c: Customer | undefined): Big {
   const def = DRINKS[d.drink]!;
   const base = d.bar || !c ? priciestDish(s).mul(BAR.barShare) : big(DISHES[c.dish]?.price ?? 0).mul(s.mods.price[c.dish]! * s.mods.quality);
-  return base.mul(def.share * s.mods.drinkPrice * d.quality * boostNow(s) * festivalBonus(s)).floor().max(1);
+  return base.mul(def.share * s.mods.drinkPrice * d.quality * boostNow(s) * festivalBonus(s) * seasonBonus(s)).floor().max(1);
 }
 
 function newDrink(s: GameState, c: Customer, drink: number, bar: boolean): DrinkOrder {
@@ -116,6 +117,7 @@ function deliver(s: GameState, d: DrinkOrder, charm: number): void {
   s.coins = s.coins.add(price);
   s.stats.earned = s.stats.earned.add(price);
   emit(s, Ev.Coins, c.x, c.y, price.toNumber());
+  seasonCount(s, 'drink');
 }
 
 // ---------- the bartender ----------
@@ -210,6 +212,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     s.coins = s.coins.add(price);
     s.stats.earned = s.stats.earned.add(price);
     emit(s, Ev.Coins, guest.x, guest.y, price.toNumber());
+    seasonCount(s, 'drink');
   } else if (guest) {
     guest.drinkOrder = -1;
     guest.rounds += 1;
@@ -226,6 +229,7 @@ export function updateBartender(s: GameState, st: Staff, dt: number, walk: (to: 
     s.coins = s.coins.add(price);
     s.stats.earned = s.stats.earned.add(price);
     emit(s, Ev.Coins, guest.x, guest.y, price.toNumber());
+    seasonCount(s, 'drink');
   }
   return true;
 }

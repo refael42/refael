@@ -1,3 +1,4 @@
+import { seasonCount } from '../season';
 import { HEAT, PREP, REQUEST, REQUESTS } from '../../data/service';
 import { chance, next } from '../rng';
 import { Emote } from '../types';
@@ -37,6 +38,7 @@ export function servedPlate(s: GameState, c: Customer, o: Order): number {
   if (!o.delivery && heat >= HEAT.hotAt) {
     mult *= HEAT.hotBonus;
     c.hot = true;
+    seasonCount(s, 'hot');
   } else if (!o.delivery && heat < HEAT.coldBelow) {
     mult *= HEAT.coldPrice;
     c.cold = true;
@@ -50,6 +52,7 @@ export function servedPlate(s: GameState, c: Customer, o: Order): number {
     } else {
       c.requestMet = true;
       emote(c, Emote.Heart);
+      seasonCount(s, 'request');
     }
   }
   return mult;
@@ -81,6 +84,7 @@ export function usePrep(s: GameState, o: Order): void {
   if (s.prep < 1) return;
   s.prep -= 1;
   o.prepped = true;
+  seasonCount(s, 'prep');
 }
 
 /** How much longer than the dish's own time this ticket takes (prep makes it quicker, a request slower). */
@@ -117,6 +121,7 @@ export function cookRequest(s: GameState, st: Staff, o: Order): void {
 export function sendBack(s: GameState, st: Staff, o: Order, at: { x: number; y: number }): boolean {
   if (!o.wrong) return false;
   emote(st, Emote.Exclaim);
+  seasonCount(s, 'caught');
   emit(s, Ev.Poof, at.x, at.y);
   s.dirtyPlates += 1;
   o.state = OrderState.Queued;

@@ -1,3 +1,4 @@
+import { buyGoldWithGems, claimMission, claimSeason, syncSeason } from '../season';
 import { ECONOMY } from '../../data/economy';
 import { setClosed } from './closing';
 import { claimReviews } from './reviews';
@@ -167,6 +168,17 @@ function apply(s: GameState, cmd: Command): void {
       return syncFestival(s, cmd.now);
     case 'festivalClaim':
       claimFestival(s);
+      return;
+    case 'season':
+      return syncSeason(s, cmd.now, cmd.tzMin);
+    case 'seasonClaim':
+      claimSeason(s, cmd.track);
+      return;
+    case 'seasonMission':
+      claimMission(s, cmd.weekly, cmd.index);
+      return;
+    case 'seasonGold':
+      buyGoldWithGems(s);
       return;
     case 'deal':
       buyDeal(s, cmd.now);

@@ -1,3 +1,4 @@
+import { seasonCount } from '../season';
 import type { Point } from '../../data/maps';
 import { syncStools } from './bar';
 import { gainXp as chefXp } from '../chef';
@@ -88,12 +89,14 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
   // A batch (ten chairs at once...) builds the walkable grid and re-plans the walkers once, at the end.
   const batch = plan.count > 1 && !tables;
   let moved = false;
+  let bought = 0;
   for (let i = 0; i < plan.count; i++) {
     const level = levelOf(s.levels, id);
     // Ten tables at once: each needs a spot of its own (the room fills as they go in).
     const place = tables ? (i === 0 && spot ? spot : nextTableSpot(s)) : undefined;
     if (place === null) break;
     s.coins = s.coins.sub(costOf(def, level));
+    bought += 1;
     if (workSeconds(def, level) > 0) {
       const site = tile ?? anchorPoints(s, def.anchor)[0] ?? s.map.pass;
       startWork(s, id, level, tile ? { x: Math.floor(tile.x) + 0.5, y: Math.floor(tile.y) + 0.5 } : null, site);
@@ -108,6 +111,7 @@ export function buyUpgrade(s: GameState, id: string, at?: Point, step: BulkStep 
   }
   // The chef's experience: a level bought (a big bulk buy counts for a few).
   chefXp(s, 'upgrade', plan.count);
+  seasonCount(s, 'upgrades', bought);
   return true;
 }
 

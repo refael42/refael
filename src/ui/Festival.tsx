@@ -25,7 +25,12 @@ const CLOCK_EVERY_MS = 5000;
 export function useFestivalClock(onCommand: (cmd: Command) => void, on: boolean): void {
   useEffect(() => {
     if (!on) return;
-    const tell = () => onCommand({ type: 'festival', now: Date.now() });
+    const tell = () => {
+      const now = Date.now();
+      onCommand({ type: 'festival', now });
+      // The season pass too (src/sim/season.ts): its day turns at the phone's own midnight.
+      onCommand({ type: 'season', now, tzMin: new Date(now).getTimezoneOffset() });
+    };
     tell();
     const timer = setInterval(tell, CLOCK_EVERY_MS);
     return () => clearInterval(timer);

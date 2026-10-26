@@ -110,6 +110,16 @@ export const Ev = {
   Talent: 55,
   /** Talent points came in. a = how many */
   TalentPoints: 56,
+  /** A new season of the season pass started (src/sim/season.ts). a = its number, b = prizes of the last one paid now */
+  SeasonStart: 57,
+  /** Season XP reached a new tier. a = tiers reached */
+  SeasonTier: 58,
+  /** A season prize was taken. a = coins, b = gems, c = the tier (0-based) */
+  SeasonClaim: 59,
+  /** A season mission's XP was taken. a = the XP */
+  SeasonMission: 60,
+  /** The gold pass is on for this season. a = tiers already reached */
+  SeasonGold: 61,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

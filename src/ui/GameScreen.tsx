@@ -56,6 +56,7 @@ import { EventsMenu } from './EventsMenu';
 import { LevelBanner, QuestButton, QuestPanel } from './Quests';
 import { GemPill, Shop } from './Shop';
 import { FestivalPanel, useFestivalClock } from './Festival';
+import { SeasonPanel } from './Season';
 import { OffersPanel, readOfferPopup, useOffersClock } from './Offers';
 import { useReminders } from '../notify/useReminders';
 import { HUD } from '../render/draw/hud';
@@ -347,6 +348,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   }, [edition, seenEdition]);
   const editionNews = edition && seenEdition !== null && edition.edition > seenEdition && (edition.visits > 0 || edition.change !== 0) ? edition : null;
   const [festival, setFestival] = useState(false);
+  const [season, setSeason] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
   // hero turn, when nothing else is on screen.
@@ -356,7 +358,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   useReminders(gameRef, !onboarding && !welcome && tutorial >= TUTORIAL_STEPS.length);
   const offerPopup = usePoll(gameRef, readOfferPopup, 0.5);
   const [chefPage, setChefPage] = useState(false);
-  const othersOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || reviews || guide || offers || chefPage || onboarding || welcome || newsDue);
+  const othersOpen = !!(panel || staff || build || quests || shop || daily || wheel || festival || season || reviews || guide || offers || chefPage || onboarding || welcome || newsDue);
   const editionCard = editionNews && !othersOpen ? editionNews : null;
   // A new chef level: its card when nothing else is on screen (after the guide's edition).
   const chefPending = usePoll(gameRef, readChefPending, 2);
@@ -561,6 +563,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           full={tutorial >= TUTORIAL_STEPS.length}
           onOffers={() => setOffers(true)}
           onFestival={() => setFestival(true)}
+          onSeason={() => setSeason(true)}
           onShop={() => setShop(true)}
           onReviews={() => setReviews(true)}
           onGuide={() => setGuide(true)}
@@ -620,6 +623,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {season && <SeasonPanel gameRef={gameRef} onCommand={command} onClose={() => setSeason(false)} purchases={purchases} />}
       {offers && <OffersPanel gameRef={gameRef} onClose={() => setOffers(false)} purchases={purchases} />}
       {reviews && <ReviewsPanel gameRef={gameRef} onCommand={command} onClose={() => setReviews(false)} />}
       {guide && <GuidePanel gameRef={gameRef} onClose={() => setGuide(false)} />}

@@ -1,3 +1,4 @@
+import { SEASON } from '../data/season';
 import { requireOptionalNativeModule } from 'expo';
 import type { Product, Purchase } from 'expo-iap';
 import { OFFERS } from '../data/offers';
@@ -59,7 +60,7 @@ export function nativeStore(): Store | null {
         iap.purchaseErrorListener((e) => answer(e.productId, e.code === iap.ErrorCode.UserCancelled ? 'cancelled' : e.code === iap.ErrorCode.Pending || e.code === iap.ErrorCode.DeferredPayment ? 'pending' : 'failed')),
       ];
       await iap.initConnection();
-      const products = ((await iap.fetchProducts({ skus: [...GEM_PACKS.map((g) => g.id), ...OFFERS.map((o) => o.id)], type: 'in-app' })) ?? []) as Product[];
+      const products = ((await iap.fetchProducts({ skus: [...GEM_PACKS.map((g) => g.id), ...OFFERS.map((o) => o.id), SEASON.goldProduct], type: 'in-app' })) ?? []) as Product[];
       for (const p of products) prices[p.id] = p.displayPrice;
       // Paid before but never finished (the app closed in between): pay them out now.
       for (const p of (await iap.getAvailablePurchases()) ?? []) take(p);

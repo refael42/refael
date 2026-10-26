@@ -15,7 +15,7 @@ import { FESTIVAL_THEMES } from '../data/events';
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold];
 
 interface Toast {
   id: number;
@@ -50,7 +50,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
   const rewards: { icon: HudIcon; text: string }[] = festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
@@ -100,6 +100,13 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t('toast.weekend').replace('{n}', String(toast.coins));
     case Ev.TalentPoints:
       return t('toast.talentPoints');
+    // The season pass (a = tiers reached; a new season: b = prizes of the last one paid now).
+    case Ev.SeasonTier:
+      return t('toast.seasonTier').replace('{n}', String(toast.coins));
+    case Ev.SeasonStart:
+      return `${t('toast.season')}${toast.gems > 0 ? ` ${t('toast.seasonPaid')}` : ''}`;
+    case Ev.SeasonGold:
+      return t('toast.seasonGold');
     default:
       return `${t('toast.giftOpened')} ${reward}`;
   }

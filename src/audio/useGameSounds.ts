@@ -65,10 +65,16 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['fanfare', true];
     case Ev.Wheel:
     case Ev.FestivalClaim:
+    case Ev.SeasonClaim:
     case Ev.Deal:
       return ['cash', true];
     case Ev.FestivalStart:
+    case Ev.SeasonStart:
+    case Ev.SeasonGold:
+    case Ev.SeasonTier:
       return ['fanfare', true];
+    case Ev.SeasonMission:
+      return ['sparkle', true];
     case Ev.Weekend:
     case Ev.RareApplicant:
       return ['sparkle', false];

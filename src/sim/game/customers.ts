@@ -1,3 +1,4 @@
+import { seasonBonus, seasonCount } from '../season';
 import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
@@ -420,7 +421,8 @@ function pay(s: GameState, c: Customer): void {
   // A shop boost multiplies the whole bill (and so the tip).
   // So do the festival trophies, and tourists on holiday pay more.
   // The guide's stars too: people come for them and pay for them.
-  const extra = festivalBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s);
+  // ...and the season pass's medals (owner M50).
+  const extra = festivalBonus(s) * seasonBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s);
   // A dessert eaten is on the bill too (a share of the main course, src/data/desserts.ts).
   const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra * (1 + dessertShare(c))).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
@@ -441,6 +443,10 @@ function pay(s: GameState, c: Customer): void {
   if (tip.gt(0)) emit(s, Ev.Tip, c.x, c.y, tip.toNumber());
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);
   emit(s, Ev.Service, c.x, c.y, stars);
+  // The season pass's missions (src/sim/season.ts).
+  seasonCount(s, 'serve');
+  if (stars >= 5) seasonCount(s, 'fiveStar');
+  if (c.dessertServed) seasonCount(s, 'dessert');
   maybeReview(s, c, stars, price.add(tip));
   inspectorLeaves(s, c, false);
   vipBonus(s, c, stars);

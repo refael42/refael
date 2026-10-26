@@ -12,6 +12,7 @@ import { GuideChip } from './Guide';
 import { OfferChip, openOffer } from './Offers';
 import { ReviewsChip } from './Reviews';
 import { DealChip } from './Shop';
+import { SeasonChip, seasonWaiting } from './Season';
 import { SIDE, SideButton } from './SideButton';
 
 // One "events" button instead of a row of six round ones under the rating (owner M40: "a less
@@ -29,7 +30,8 @@ const readAttention = (s: GameState) => {
   const reviews = s.reviews.filter((r) => !r.claimed).length;
   const deal = dealAt(s, Date.now());
   const dealOn = !!deal && !deal.bought;
-  return { count: prizes + reviews + (offer ? 1 : 0) + (dealOn ? 1 : 0), ready: prizes > 0 || reviews > 0, hurry: offer?.hurry ?? false, offerLeft: offer?.left ?? null };
+  const season = seasonWaiting(s);
+  return { count: prizes + reviews + season + (offer ? 1 : 0) + (dealOn ? 1 : 0), ready: prizes > 0 || reviews > 0 || season > 0, hurry: offer?.hurry ?? false, offerLeft: offer?.left ?? null };
 };
 
 interface Props {
@@ -38,13 +40,14 @@ interface Props {
   full: boolean;
   onOffers: () => void;
   onFestival: () => void;
+  onSeason: () => void;
   onShop: () => void;
   onReviews: () => void;
   onGuide: () => void;
   style: StyleProp<ViewStyle>;
 }
 
-export function EventsMenu({ gameRef, full, onOffers, onFestival, onShop, onReviews, onGuide, style }: Props) {
+export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onShop, onReviews, onGuide, style }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const a = usePoll(gameRef, readAttention, 1);
@@ -71,6 +74,7 @@ export function EventsMenu({ gameRef, full, onOffers, onFestival, onShop, onRevi
       {open && (
         <View style={styles.list} pointerEvents="box-none">
           {full && <OfferChip gameRef={gameRef} onPress={pick(onOffers)} style={styles.item} />}
+          {full && <SeasonChip gameRef={gameRef} onPress={pick(onSeason)} style={styles.item} />}
           {full && <FestivalChip gameRef={gameRef} onPress={pick(onFestival)} style={styles.item} />}
           {full && <DealChip gameRef={gameRef} onPress={pick(onShop)} style={styles.item} />}
           <ReviewsChip gameRef={gameRef} onPress={pick(onReviews)} style={styles.item} />

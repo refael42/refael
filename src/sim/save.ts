@@ -1,3 +1,4 @@
+import { cleanSeason, copySeason, type SeasonState } from './season';
 import { HERO, HERO_BY_ID } from '../data/offers';
 import { newOffers } from './offers';
 import { isTableStyle } from '../data/tables';
@@ -86,6 +87,8 @@ export interface SaveData {
   offers: OffersState;
   /** The chef's level and experience (M44; older saves: level 1). */
   chef?: { level: number; xp: number };
+  /** The season pass (M50; older saves: no season seen yet, no medals). */
+  season?: SeasonState;
   /** Talent points not spent yet (M46; older saves: the starting points). */
   talentPoints?: number;
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
@@ -229,6 +232,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     purchases: [...s.purchases],
     offers: { ...s.offers, bought: [...s.offers.bought], pick: s.offers.pick ? { ...s.offers.pick } : null },
     chef: { level: s.chef.level, xp: s.chef.xp },
+    season: copySeason(s.season),
     talentPoints: s.talentPoints,
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
@@ -395,6 +399,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     ...(bigText(o.rate) && fromSave(o.rate).gte(0) ? { rate: o.rate } : {}),
     purchases: Array.isArray(o.purchases) ? o.purchases.filter((t): t is string => typeof t === 'string' && t.length > 0).slice(-PURCHASE_LOG) : [],
     offers: cleanOffers(o.offers),
+    season: cleanSeason(o.season),
     // A save from before talents: a few points to try them with.
     talentPoints: finite(o.talentPoints) && o.talentPoints >= 0 ? Math.floor(o.talentPoints) : TALENT.welcome,
     chef: isRecord(o.chef) && finite(o.chef.level) && finite(o.chef.xp) ? { level: Math.max(1, Math.floor(o.chef.level)), xp: Math.max(0, o.chef.xp) } : { level: 1, xp: 0 },
@@ -552,6 +557,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     purchases: save.purchases,
     offers: save.offers,
     chef: save.chef,
+    season: save.season,
     talentPoints: save.talentPoints,
     guide: save.guide,
     kitchen: save.kitchen,

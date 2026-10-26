@@ -1,3 +1,4 @@
+import { seasonCount } from '../season';
 import { RARITY } from '../../data/rarity';
 import { isWeekend, weekArrivals } from '../calendar';
 import { TIERS } from '../../data/buildings';
@@ -175,6 +176,7 @@ export function setRush(s: GameState, on: boolean): void {
   s.rush.on = on;
   if (!on) return;
   s.stats.rushes += 1;
+  seasonCount(s, 'rush');
   for (const st of s.staff) {
     if (st.leaving) continue;
     emote(st, Emote.Exclaim);
