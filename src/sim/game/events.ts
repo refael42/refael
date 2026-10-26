@@ -120,6 +120,10 @@ export const Ev = {
   SeasonMission: 60,
   /** The gold pass is on for this season. a = tiers already reached */
   SeasonGold: 61,
+  /** Suppliers (src/sim/supply.ts): the storeroom ran out of an ingredient (a = which); a van set off for the curb at (x,y) (a = 1 urgent); it was paid (a = coins). */
+  StockOut: 62,
+  SupplyVan: 63,
+  SupplyPaid: 64,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

@@ -84,7 +84,10 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.ScooterOff:
       return ['rush', false];
     case Ev.DeliveryCancel:
+    case Ev.StockOut:
       return ['crash', false];
+    case Ev.SupplyVan:
+      return ['rush', false];
     case Ev.FestivalStep:
       return ['sparkle', true];
     case Ev.Bus:

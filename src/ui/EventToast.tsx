@@ -9,13 +9,14 @@ import { gold } from './theme';
 import { IconText } from './GameIcon';
 import type { HudIcon } from '../render/art/hudArt';
 import { FESTIVAL_THEMES } from '../data/events';
+import { INGREDIENTS } from '../data/supply';
 
 // A short note at the top for the special moments: a VIP walks in, a VIP's bonus, a present on
 // the sidewalk and what was inside, a festival starting or a festival prize ready, the tourist
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut];
 
 interface Toast {
   id: number;
@@ -50,7 +51,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold || toast.type === Ev.StockOut;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
   const rewards: { icon: HudIcon; text: string }[] = festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
@@ -107,6 +108,9 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return `${t('toast.season')}${toast.gems > 0 ? ` ${t('toast.seasonPaid')}` : ''}`;
     case Ev.SeasonGold:
       return t('toast.seasonGold');
+    // The storeroom ran out of an ingredient (a = which, src/data/supply.ts).
+    case Ev.StockOut:
+      return t('toast.stockOut').replace('{i}', t(`supply.ingr.${INGREDIENTS[toast.coins] ?? 'veg'}`));
     default:
       return `${t('toast.giftOpened')} ${reward}`;
   }

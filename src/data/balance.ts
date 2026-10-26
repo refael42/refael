@@ -6,8 +6,12 @@ export const BALANCE = {
   sampleSeconds: 60,
   /** Longer than this with nothing affordable = boring. */
   deadZoneSeconds: 180,
-  /** More purchases than this in one minute = upgrades are too cheap. */
-  bulkPerMinute: 30,
+  /**
+   * More purchases than this in one minute = upgrades are too cheap. Set at 30 for the first
+   * diner's ~15 cheap tracks; M49-M51 added five more there (heat lamps, prep fridge, requests
+   * board, storeroom, supply contract), so the same pace per track buys a third more.
+   */
+  bulkPerMinute: 38,
   /** Income per minute multiplying by more than this between samples = something exploded. */
   incomeJump: 4,
   /** Targets from the design brief, in seconds. */
@@ -43,6 +47,9 @@ export const VALUE = {
   heat: 0.15,
   prep: 0.15,
   requests: 0.08,
+  /** The storeroom and the supply contract (src/data/supply.ts): a bigger stock, smaller bills. */
+  storage: 0.06,
+  supply: 0.08,
   /** A new dish on the menu (more choice, a pricier plate). */
   newDish: 0.4,
   /** How many to show in the "best value" list. */

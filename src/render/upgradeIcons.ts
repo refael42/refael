@@ -31,6 +31,8 @@ const ICON: Record<string, { base: string; looks: boolean }> = {
   heatLamps: { base: 'heatLamp', looks: false },
   prepFridge: { base: 'prepFridge', looks: false },
   requestBoard: { base: 'requestBoard', looks: false },
+  storeroom: { base: 'storeroomIcon', looks: false },
+  supplyContract: { base: 'vanIcon', looks: false },
   sink: { base: 'sink', looks: true },
   plates: { base: 'plateStack', looks: false },
   tables: { base: 'setRound', looks: false },

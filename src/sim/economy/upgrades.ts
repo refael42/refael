@@ -51,6 +51,9 @@ export interface Mods {
   heat: number;
   prep: number;
   requests: number;
+  /** Suppliers (src/data/supply.ts): the storeroom's size, and the supply contract (the van sooner, the bill smaller). */
+  storage: number;
+  supply: number;
   /** Per-dish price multiplier and whether the dish is on the menu. */
   price: number[];
   menu: boolean[];
@@ -179,6 +182,8 @@ function emptyMods(): Mods {
     heat: 1,
     prep: 1,
     requests: 1,
+    storage: 1,
+    supply: 1,
     price: DISHES.map(() => 1),
     menu: DISHES.map((d) => d.startsUnlocked),
   };

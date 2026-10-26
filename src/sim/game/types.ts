@@ -1,3 +1,4 @@
+import type { SupplyState } from '../supply';
 import type { SeasonState } from '../season';
 import type { CustomerTypeId } from '../../data/customers';
 import type { KitchenPiece } from './kitchenLayout';
@@ -272,6 +273,9 @@ export type Command =
   | { type: 'seasonClaim'; track: 'free' | 'gold' }
   | { type: 'seasonMission'; weekly: boolean; index: number }
   | { type: 'seasonGold' }
+  /** Suppliers (src/sim/supply.ts): an ingredient's supplier; an urgent delivery now. */
+  | { type: 'supplier'; ingredient: number; supplier: number }
+  | { type: 'urgentOrder' }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -390,7 +394,7 @@ export interface Staff extends CharacterView, Person {
   job: Job | null;
   jobTime: number;
   /** Set while the cook cannot finish a dish (no clean plate or a full pass). */
-  stalled: 'plates' | 'pass' | null;
+  stalled: 'plates' | 'pass' | 'stock' | null;
   xp: number;
   morale: number;
   energy: number;
@@ -626,6 +630,8 @@ export interface GameState {
   festival: { id: number; points: number; claimed: number; trophies: number[] };
   /** The season pass (owner M50, src/sim/season.ts): missions, XP, both tracks, medals. Kept across branches. */
   season: SeasonState;
+  /** Suppliers and the storeroom (owner M51, src/sim/supply.ts): stock, suppliers, the van. */
+  supply: SupplyState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

@@ -1,3 +1,4 @@
+import { supplierInspector } from '../supply';
 import { DAY } from '../../data/staff';
 import { DISHES } from '../../data/dishes';
 import { GUIDE, verdictOf } from '../../data/guide';
@@ -90,7 +91,8 @@ export function scoreParts(s: GameState, o: Order | null, servedAt: number) {
     chef: o?.chef ?? avgChef(s),
     mastery: o ? norm(levelOf(s.levels, RECIPE_OF[o.dish] ?? '')) : avgMastery(s),
     equipment: norm(levelOf(s.levels, 'stove')),
-    ingredients: norm(levelOf(s.levels, 'fridge')),
+    // The fridge, and who supplies that dish's ingredient (owner M51: the farm's are better, the market's worse).
+    ingredients: clamp01(norm(levelOf(s.levels, 'fridge')) + (o ? supplierInspector(s, o.dish) : 0)),
     temperature: 1 - clamp01((wait - GUIDE.hotSeconds) / (GUIDE.coldSeconds - GUIDE.hotSeconds)),
     consistency: consistency(s),
   };

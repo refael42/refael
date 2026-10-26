@@ -17,7 +17,8 @@ export type Stat =
   | 'cookSpeed' | 'washSpeed' | 'plates' | 'tables' | 'stoves' | 'seats' | 'family' | 'building' | 'tips' | 'patience' | 'arrivals' | 'quality' | 'price'
   | 'couriers' | 'tripSpeed' | 'deliveryPrice' | 'packSpeed'
   | 'mixSpeed' | 'drinkPrice' | 'stools'
-  | 'heat' | 'prep' | 'requests';
+  | 'heat' | 'prep' | 'requests'
+  | 'storage' | 'supply';
 export const COUNT_STATS: readonly Stat[] = ['plates', 'tables', 'stoves', 'seats', 'family', 'building', 'couriers', 'stools'];
 
 export interface Effect {
@@ -137,6 +138,12 @@ export const UPGRADES: readonly UpgradeDef[] = [
     effect: { stat: 'heat', per: 0.1 }, milestone: { stat: 'heat', factor: 1.3 } },
   { id: 'prepFridge', category: 'kitchen', anchor: K.Fridge, restyle: null, baseCost: 150, growth: 1.17, requires: { item: 'fridge', level: 5 },
     effect: { stat: 'prep', per: 0.1 }, milestone: { stat: 'prep', factor: 1.3 } },
+  // Owner M51: the storeroom holds more of each ingredient (milestones: a lot more); the supply
+  // contract brings the van sooner and makes every bill smaller.
+  { id: 'storeroom', category: 'kitchen', anchor: K.Fridge, restyle: null, baseCost: 700, growth: 1.17, requires: { item: 'fridge', level: 10 },
+    effect: { stat: 'storage', per: 0.1 }, milestone: { stat: 'storage', factor: 1.3 } },
+  { id: 'supplyContract', category: 'kitchen', anchor: K.Fridge, restyle: null, baseCost: 2500, growth: 1.18, requires: { item: 'storeroom', level: 5 },
+    effect: { stat: 'supply', per: 0.05 }, milestone: { stat: 'supply', factor: 1.2 } },
   { id: 'requestBoard', category: 'kitchen', anchor: K.Pass, restyle: null, baseCost: 600, growth: 1.17, requires: { item: 'burger', level: 1 },
     effect: { stat: 'requests', per: 0.08 }, milestone: { stat: 'requests', factor: 1.25 } },
 

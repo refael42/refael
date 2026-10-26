@@ -16,8 +16,13 @@ import { drawBarDecor } from './drawBarDecor';
 import { CRANE_HOOK, CRANE_TOP } from '../art/siteArt';
 import { drawDoor, drawRoomSign, drawWc } from './drawRoom';
 import { HEAT } from '../../data/service';
+import { SUPPLY } from '../../data/supply';
 
 const EXPAND_TIER = EXPAND.tier;
+/** The supplier's van drives in from this far left and off this far right (tiles), like the bus. */
+const VAN_DRIVE = SUPPLY.driveSeconds;
+const VAN_FROM = 12;
+const VAN_TO = 16;
 /** A plate on the pass this cold gets its snowflake (owner M49). */
 const COLD_PLATE = HEAT.coldBelow;
 const BUS_DRIVE = BUS.driveSeconds;
@@ -506,6 +511,29 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const moving = k < 1 || m > 0;
     const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.35;
     spr(c, A, S.bus, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+  } else if (kind === PropKind.Van) {
+    // The supplier's van (owner M51): drives up like the bus, unloads a crate of each ingredient
+    // beside it while it waits at the curb, and pulls away with the storeroom full.
+    const since = d[o + PF.since]!;
+    const leave = d[o + PF.progress]!;
+    const k = clamp01((t - since) / VAN_DRIVE);
+    const m = clamp01((t - leave) / VAN_DRIVE);
+    const dx = -VAN_FROM * (1 - k) * (1 - k) * (1 - k) + VAN_TO * m * m;
+    const moving = k < 1 || m > 0;
+    const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.3;
+    // The crates come down one by one once it stopped, and go in with it when it leaves.
+    const unload = clamp01((t - since - VAN_DRIVE) / Math.max(0.5, leave - since - VAN_DRIVE));
+    if (t < leave) {
+      for (let i = 0; i < 3; i++) {
+        if (unload * 3.2 < i + 0.2) continue;
+        // On the road behind its back doors, where the driver sets them down.
+        const cx = -2.25 - (i === 1 ? 0.45 : 0);
+        const cy = i === 2 ? 0.35 : i === 1 ? 0 : -0.35;
+        sprXf(c, A, A.L.crate[i]!, ox(cx, cy), oy(cx, cy, 0), 0, 0.95, 0.95, plain);
+      }
+    }
+    spr(c, A, variant === 1 ? S.vanUrgent : S.van, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+    if (variant === 1 && Math.sin(t * 10) > 0) sprFade(c, A, S.glowHalo, ox(dx + 0.9, 0), oy(dx + 0.9, 0, 40) + shake, 0.35, 0.6);
   } else if (kind === PropKind.Scooter) {
     const slot = variant % A.L.scooter.length;
     // The scooters' upgrades (owner: "upgrade the couriers") show as a new delivery box.

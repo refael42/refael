@@ -1,3 +1,4 @@
+import { setSupplier, urgentOrder } from '../supply';
 import { buyGoldWithGems, claimMission, claimSeason, syncSeason } from '../season';
 import { ECONOMY } from '../../data/economy';
 import { setClosed } from './closing';
@@ -179,6 +180,12 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'seasonGold':
       buyGoldWithGems(s);
+      return;
+    case 'supplier':
+      setSupplier(s, cmd.ingredient, cmd.supplier);
+      return;
+    case 'urgentOrder':
+      urgentOrder(s);
       return;
     case 'deal':
       buyDeal(s, cmd.now);

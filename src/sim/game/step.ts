@@ -1,3 +1,4 @@
+import { updateSupply, vanStop } from '../supply';
 import { heatOf } from './service';
 import { heroesJoin } from '../offers';
 import { releaseRestroom, updateRestroomProps } from './restroom';
@@ -75,6 +76,7 @@ export function stepGame(s: GameState, dt: number): void {
   logEarnings(s);
   updateGift(s);
   updateBus(s);
+  updateSupply(s);
   updateWalkers(s, dt);
   updateCrew(s, dt);
   // Heroes the player owns walk in wherever they are missing (a new branch, a new building).
@@ -213,6 +215,12 @@ function dynamicProps(s: GameState): PropView[] {
   // The tourist bus: drawn where it stops, the renderer drives it in and out (`since` = it set
   // off toward the stop, `progress` = when it pulls away, 0 = not yet). Nothing walks on the road,
   // so it is drawn over the sidewalk behind it.
+  // The supplier's van (owner M51): driven in and out like the bus; it unloads crates at the curb.
+  const van = s.supply.van;
+  if (van) {
+    const p = vanStop(s);
+    out.push(prop(SYNTH - 52, PropKind.Van, p.x, p.y, { since: van.arrive, progress: van.leave, variant: van.urgent ? 1 : 0, depthBias: 2 }));
+  }
   if (s.bus) out.push(prop(SYNTH - 51, PropKind.Bus, s.bus.x, s.bus.y, { since: s.bus.arrive, progress: s.bus.leave < Infinity ? s.bus.leave : 0, active: s.bus.aboard > 0, depthBias: 2 }));
   // Each courier's scooter by the curb; while they are out it rides off and back (the renderer
   // drives it: `since` = left, `progress` = back).

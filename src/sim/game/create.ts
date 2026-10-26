@@ -1,3 +1,4 @@
+import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
 import { TALENT, type TalentLevels } from '../../data/talents';
 import { newGuide, type GuideState } from './guide';
@@ -499,6 +500,8 @@ export interface GameSetup {
   chef?: Pick<ChefState, 'level' | 'xp'>;
   /** The season pass (it goes along to a new branch, like the chef's level). */
   season?: SeasonState;
+  /** Each ingredient's supplier (the storeroom itself starts full). */
+  suppliers?: readonly number[];
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -607,6 +610,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     purchases: [...(setup.purchases ?? [])],
     chef: setup.chef ? { level: setup.chef.level, xp: setup.chef.xp, pending: [] } : newChef(),
     season: setup.season ? copySeason(setup.season) : newSeason(),
+    supply: newSupply({ mods, time: 0 }, setup.suppliers),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),
     restroom: { dirt: 0, stalls: map.restroom.stalls.map(() => -1), cleaner: -1 },
     guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),

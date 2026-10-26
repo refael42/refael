@@ -38,6 +38,8 @@ function amounts(m: Mods, map: MapDef): Record<Weighted, number> {
     heat: m.heat,
     prep: m.prep,
     requests: m.requests,
+    storage: m.storage,
+    supply: m.supply,
   };
 }
 

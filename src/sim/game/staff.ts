@@ -1,3 +1,4 @@
+import { hasStock, takeStock } from '../supply';
 import { restroomJob, takeRestroom, updateRestroomJob } from './restroom';
 import { dishDef } from '../../data/dishes';
 import { ECONOMY } from '../../data/economy';
@@ -252,23 +253,32 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
     if (st.leaving || st.pendingRole) return false;
     let pick: Order | null = null;
     let station = -1;
+    // A ticket whose ingredient ran out waits for the van (owner M51); the next one goes first.
+    let noStock = false;
     for (const o of s.orders) {
       if (o.state !== OrderState.Queued) continue;
       const i = stationFor(s, st, o.dish);
-      if (i >= 0) {
-        pick = o;
-        station = i;
-        break;
+      if (i < 0) continue;
+      if (!hasStock(s, o.dish)) {
+        noStock = true;
+        continue;
       }
+      pick = o;
+      station = i;
+      break;
     }
     if (!pick) {
-      st.stalled = null;
+      if (noStock && st.stalled !== 'stock') emote(st, Emote.Exclaim);
+      st.stalled = noStock ? 'stock' : null;
       return false;
     }
+    st.stalled = null;
     pick.state = OrderState.Cooking;
     pick.since = s.time;
     pick.quality = qualityOf(st);
     pick.chef = chefTouch(st.stats.quality, st.level);
+    // Its ingredient out of the storeroom, and its supplier's quality on the plate (owner M51).
+    takeStock(s, pick);
     // Owner M49: a unit of mise en place makes it quicker; a special request may come out wrong.
     usePrep(s, pick);
     cookRequest(s, st, pick);

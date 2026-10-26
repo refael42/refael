@@ -1,3 +1,4 @@
+import { noteBill } from '../supply';
 import { seasonBonus, seasonCount } from '../season';
 import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
@@ -437,6 +438,8 @@ function pay(s: GameState, c: Customer): void {
   s.coins = s.coins.add(price).add(tip);
   s.stats.earned = s.stats.earned.add(price).add(tip);
   s.stats.served += 1;
+  // What a guest pays, tip and all: the storeroom's ingredients are priced by it (src/sim/supply.ts).
+  noteBill(s, price.add(tip));
   chefXp(s, 'served');
   if (stars >= 5) chefXp(s, 'fiveStar');
   emit(s, Ev.Coins, c.x, c.y, price.toNumber());
