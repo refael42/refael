@@ -457,8 +457,12 @@ export interface EventResolution {
   contractor_id?: UUID | null;
   trade_id?: UUID | null;
   date?: ISODate | null;
+  /** open tasks the PM can choose from when the message did not say which */
+  option_task_ids?: UUID[];
   /** tasks actually changed when applied */
   applied_task_ids?: UUID[];
+  /** the trade of the tasks the PM chose, when the message did not name it (taught to the reader) */
+  learned_trade_id?: UUID | null;
   blocker_id?: UUID | null;
   /** how to take the applied change back */
   undo?: EventUndo;

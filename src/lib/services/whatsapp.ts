@@ -289,7 +289,7 @@ async function keepFromStaff(store: Store, profile: Profile, m: WaInboundMessage
   const lines = [...acted.done, ...(acted.waiting ? [he.waAct.waiting(acted.waiting)] : [])];
   if (!lines.length) return he.waAct.nothing;
   await notify(store, [{ profileId: profile.id, projectId: project.id, kind: "wa_actions", title: he.waAct.notifyTitle, body: lines.join("\n"), link: "/updates" }]);
-  return [...lines, ...(acted.done.length ? [he.waAct.undoHint] : [])].join("\n");
+  return [...lines, ...(acted.done.length && !acted.undone ? [he.waAct.undoHint] : [])].join("\n");
 }
 
 /** The contractor's 1:1 chat with a PM: an existing one with any PM, else a new one with the first PM. */

@@ -144,13 +144,15 @@ const listable = (c: EventCard) => c.event.status === "proposed" && LISTABLE.has
 
 function Card({ card, canDecide }: { card: EventCard; canDecide: boolean }) {
   const { event: e } = card;
-  const [picked, setPicked] = useState<Set<string>>(new Set(card.tasks.map((x) => x.id)));
+  const [picked, setPicked] = useState<Set<string>>(new Set(card.chosen));
   const [open, setOpen] = useState(false);
   const { call, pending } = useAction();
-  const needsInfo = e.status === "needs_info";
+  // "not sure which task": the PM picks from the open ones there
+  const choosing = card.tasks.length > 0 && card.chosen.length === 0;
+  const needsInfo = e.status === "needs_info" && !choosing;
   const visible = open ? card.tasks : card.tasks.slice(0, SHOWN);
   return (
-    <div className={cn("flex flex-col gap-3 rounded-lg border p-4", needsInfo && "border-dashed")}>
+    <div className={cn("flex flex-col gap-3 rounded-lg border p-4", (needsInfo || choosing) && "border-dashed")}>
       <div className="flex flex-wrap items-center gap-2">
         <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold", TONE[e.type])}>{t.intel.type[e.type]}</span>
         <span className="font-medium">{e.summary}</span>
@@ -158,7 +160,7 @@ function Card({ card, canDecide }: { card: EventCard; canDecide: boolean }) {
 
       <Source card={card} quote={e.quote} />
 
-      {needsInfo && e.note && <p className="text-sm text-amber-800 dark:text-amber-300">{e.note}</p>}
+      {(needsInfo || choosing) && e.note && <p className="text-sm text-amber-800 dark:text-amber-300">{e.note}</p>}
       {e.extracted?.engine === "learned" && <p className="text-xs text-muted-foreground">{t.intel.learned}</p>}
       {e.extracted?.engine === "manual" && <p className="text-xs text-muted-foreground">{t.intel.manual}</p>}
 

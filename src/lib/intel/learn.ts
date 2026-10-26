@@ -7,6 +7,11 @@
  * approved or marked by hand is proposed with that example's kind.
  * "Reads like" = the share of meaningful words they have in common
  * (apartment numbers and filler words left out, so "דירה 14" ~ "דירה 15").
+ *
+ * Two more lessons: when the PM picked the tasks by hand, the work they are
+ * (their trade) is what a similar message is about next time; and when the
+ * PM undid something the system did by itself, a similar message waits for
+ * approval instead of being acted on.
  */
 import type { EventType } from "../db/types";
 
@@ -16,6 +21,12 @@ export interface Example {
   text: string;
   /** approved or marked by hand → true; dismissed → false */
   positive: boolean;
+  /** the trade of the tasks the PM chose for it, when the words did not say */
+  tradeId?: string | null;
+  /** done by itself and then undone by the PM */
+  undone?: boolean;
+  /** when it was decided (ISO) */
+  at?: string;
 }
 
 const STOP = new Set(
@@ -43,6 +54,7 @@ export function similarity(a: Set<string>, b: Set<string>): number {
 
 const VETO = 0.6;
 const GUESS = 0.55;
+const TRADE = 0.6;
 const MIN_WORDS = 3;
 
 export class Learner {
@@ -56,9 +68,11 @@ export class Learner {
     return this.ex.length;
   }
 
-  private best(words: Set<string>, type: EventType | null, positive: boolean) {
+  private best(words: Set<string>, type: EventType | null, positive: boolean, only?: (e: Example) => boolean) {
     let top: { sim: number; ex: Example } | null = null;
     for (const e of this.ex) {
+      if (e.undone && !only) continue;
+      if (only && !only(e)) continue;
       if (e.positive !== positive || (type && e.type !== type)) continue;
       const sim = similarity(words, e.words);
       if (!top || sim > top.sim) top = { sim, ex: e };
@@ -73,6 +87,24 @@ export class Learner {
     if (!no || no.sim < VETO) return false;
     const yes = this.best(words, type, true);
     return !yes || yes.sim <= no.sim;
+  }
+
+  /** The trade the PM chose for a message just like this one. */
+  tradeFor(text: string, type: EventType): string | null {
+    const words = tokens(text);
+    if (words.size < 2) return null;
+    const yes = this.best(words, type, true, (e) => !!e.tradeId);
+    return yes && yes.sim >= TRADE ? yes.ex.tradeId! : null;
+  }
+
+  /** The PM undid this kind of update for a message just like this: ask first, do not act. */
+  cautious(text: string, type: EventType): boolean {
+    const words = tokens(text);
+    const undone = this.best(words, type, false, (e) => !!e.undone);
+    if (!undone || undone.sim < VETO) return false;
+    // approving one like it after the undo ends the caution
+    const later = this.best(words, type, true, (e) => !!e.at && !!undone.ex.at && e.at > undone.ex.at);
+    return !later || later.sim < VETO;
   }
 
   /** The rules found nothing, but the PM approved or marked something just like this. */

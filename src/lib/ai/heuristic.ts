@@ -63,21 +63,24 @@ const NOUN: Record<string, string> = {
 
 /** Trade keywords (stems) → trade key. */
 const TRADE_WORDS: Array<[RegExp, string]> = [
-  [/(חשמל|תשתיות חשמל|לוח חשמל)/, "electrical"],
-  [/(אינסטלציה|אינסטלטור|בדיקת לחץ|צנרת מים|ביוב)/, "plumbing"],
-  [/(מיזוג|מזגן|VRF)/i, "hvac"],
-  [/(גבס|תקרה אקוסטית)/, "drywall"],
-  [/(טיח|לטייח|טייח)/, "plaster"],
-  [/(צבע|לצבוע|צביעה)/, "paint"],
-  [/(איטום|לאטום)/, "waterproofing"],
-  [/(ריצוף|אריחים|קרמיקה|לרצף)/, "tiling"],
-  [/(אלומיניום|חלונות|חלון)/, "aluminum"],
-  [/(מסגר|מעקה|מעקות|סימון חורים|דלתות אש)/, "metalwork"],
-  [/(חיפוי|לחפות)/, "cladding"],
-  [/(בטון|יציקה|לצקת|קורה|קורת|שלד|בלוקים|תבנית)/, "structure"],
+  [/(חשמל|תשתיות חשמל|לוח חשמל|שקע|שקעים|תאורה|מפסק|מפסקים)/, "electrical"],
+  [/(אינסטלציה|אינסטלטור|שרברב|בדיקת לחץ|צנרת מים|ביוב|ניקוז|דלוחין|ברז|ברזים|כיור|כיורים|אסלה|אסלות|נקודות מים|נקודת מים)/, "plumbing"],
+  [/(מיזוג|מזגן|מזגנים|VRF|תעלות מיזוג)/i, "hvac"],
+  [/(גבס|גבסן|תקרה אקוסטית)/, "drywall"],
+  [/(טיח|לטייח|טייח|שליכט)/, "plaster"],
+  [/(צבע|לצבוע|צביעה|שפכטל)/, "paint"],
+  [/(איטום|לאטום|איטמ|אטמנו|יריעות|זפת)/, "waterproofing"],
+  [/(ריצוף|ריצפ|רצף|רצפים|אריח|קרמיקה|לרצף|פורצלן)/, "tiling"],
+  [/(אלומיניום|חלונות|חלון|תריס|תריסים|ויטרינה|ויטרינות)/, "aluminum"],
+  [/(מסגר|מעקה|מעקות|סימון חורים|דלתות אש|פרגולה)/, "metalwork"],
+  [/(חיפוי|לחפות|חיפינו)/, "cladding"],
+  [/(בטון|יציקה|לצקת|יצקנו|קורה|קורת|שלד|בלוקים|בלוקאי|תבנית|טפסנות|תפסנות|ברזלן)/, "structure"],
   [/(גינון|פיתוח שטח|השקיה)/, "landscaping"],
-  [/(ספרינקלר|גילוי אש|כיבוי אש|בטיחות אש)/, "fire"],
+  [/(ספרינקלר|גילוי אש|כיבוי אש|בטיחות אש|גלאי|גלאים)/, "fire"],
 ];
+
+/** Trades the word list above knows. */
+export const TRADE_KEYS = new Set(TRADE_WORDS.map(([, key]) => key));
 
 function wordVariants(word: string): string[] {
   const out = new Set([word]);
@@ -113,9 +116,19 @@ export function findContractors(text: string, contractors: Contractor[]): Contra
     .map((x) => x.c);
 }
 
+/** The trade the text speaks of — the first one it names ("אי אפשר להתחיל צבע כי הטיח…" is about the paint). */
 export function findTradeKey(text: string): string | null {
-  for (const [rx, key] of TRADE_WORDS) if (rx.test(text)) return key;
-  return null;
+  return findTrade(text)?.key ?? null;
+}
+
+/** The first trade word in the text, and where it is. */
+export function findTrade(text: string): { key: string; at: number } | null {
+  let best: { at: number; key: string } | null = null;
+  for (const [rx, key] of TRADE_WORDS) {
+    const at = text.search(rx);
+    if (at >= 0 && (!best || at < best.at)) best = { at, key };
+  }
+  return best;
 }
 
 function titleFrom(step: string, areaName: string | null, contractorNames: string[]): string {
