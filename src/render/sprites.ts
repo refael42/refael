@@ -128,10 +128,12 @@ const DISH_PLATES = ['plateFries', 'plateBurger', 'plateFalafel', 'plateShawarma
 /** Every enum-driven layer the renderer needs, as plain arrays (worklet friendly). */
 export const LAYERS = {
   hair: views(size(Hair), [[Hair.Short, 'hairShort'], [Hair.Bob, 'hairBob'], [Hair.Ponytail, 'hairPonytail'], [Hair.Curly, 'hairCurly'], [Hair.Spiky, 'hairSpiky'], [Hair.Bun, 'hairBun']]),
-  hat: views(size(Hat), [[Hat.Toque, 'hatToque'], [Hat.Cap, 'hatCap'], [Hat.SunHat, 'hatSun'], [Hat.Beanie, 'hatBeanie'], [Hat.Bandana, 'hatBandana']]),
-  outfit: views(size(Outfit), [[Outfit.Tee, 'tee'], [Outfit.Suit, 'suit'], [Outfit.Hawaiian, 'hawaiian'], [Outfit.Hoodie, 'hoodie'], [Outfit.Chef, 'chef'], [Outfit.Waiter, 'waiter'], [Outfit.Washer, 'washer']]),
+  hat: views(size(Hat), [[Hat.Toque, 'hatToque'], [Hat.Cap, 'hatCap'], [Hat.SunHat, 'hatSun'], [Hat.Beanie, 'hatBeanie'], [Hat.Bandana, 'hatBandana'],
+    [Hat.HardHat, 'hatHard'], [Hat.Beret, 'hatBeret'], [Hat.Headband, 'hatHeadband'], [Hat.PartyHat, 'hatParty'], [Hat.TopHat, 'hatTop']]),
+  outfit: views(size(Outfit), [[Outfit.Tee, 'tee'], [Outfit.Suit, 'suit'], [Outfit.Hawaiian, 'hawaiian'], [Outfit.Hoodie, 'hoodie'], [Outfit.Chef, 'chef'], [Outfit.Waiter, 'waiter'], [Outfit.Washer, 'washer'],
+    [Outfit.Cardigan, 'cardigan'], [Outfit.Tracksuit, 'tracksuit'], [Outfit.HiVis, 'hiVis'], [Outfit.Sequin, 'sequin']]),
   face: byEnum(size(Expression), [[Expression.Happy, 'faceHappy'], [Expression.Neutral, 'faceNeutral'], [Expression.Angry, 'faceAngry'], [Expression.Sleepy, 'faceSleepy'], [Expression.Eating, 'faceEating']]),
-  faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses']]),
+  faceAccessory: byEnum(size(Accessory), [[Accessory.Sunglasses, 'sunglasses'], [Accessory.Glasses, 'glasses'], [Accessory.Monocle, 'monocle']]),
   emote: byEnum(size(Emote), [[Emote.Heart, 'heart'], [Emote.Anger, 'anger'], [Emote.Clock, 'clock'], [Emote.Coin, 'coin'], [Emote.Star, 'star'], [Emote.Exclaim, 'exclaim'], [Emote.Zzz, 'zzz'], [Emote.Music, 'music']]),
   held: byEnum(size(Held), [[Held.TrayFull, 'trayFull'], [Held.TrayEmpty, 'trayEmpty'], [Held.Phone, 'phone'], [Held.Spatula, 'spatula'], [Held.Menu, 'menu'], [Held.DirtyPlates, 'trayDirty'], [Held.Clipboard, 'clipboard'], [Held.Flyers, 'flyers'], [Held.Bag, 'bag'], [Held.FoodBox, 'foodBox'], [Held.FoodDrink, 'foodDrink'], [Held.Shaker, 'shaker'], [Held.DrinkTray, 'drinkTray'], [Held.Glass, 'glassHeld'],
     [Held.Basket, 'basket'], [Held.Wok, 'wokHeld'], [Held.Knife, 'knife'], [Held.Bowl, 'bowl'], [Held.Ladle, 'ladle'], [Held.Peel, 'peel'], [Held.Tweezers, 'tweezers'], [Held.Notebook, 'notebook'], [Held.MenuOpen, 'menuOpen'], [Held.DessertMenu, 'dessertMenu'], [Held.DessertPlate, 'dessertHeld']]),

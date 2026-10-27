@@ -1,3 +1,4 @@
+import { claimPage, claimSticker } from '../album';
 import { setSupplier, urgentOrder } from '../supply';
 import { buyGoldWithGems, claimMission, claimSeason, syncSeason } from '../season';
 import { ECONOMY } from '../../data/economy';
@@ -186,6 +187,12 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'urgentOrder':
       urgentOrder(s);
+      return;
+    case 'albumSticker':
+      claimSticker(s, cmd.id);
+      return;
+    case 'albumPage':
+      claimPage(s, cmd.page);
       return;
     case 'deal':
       buyDeal(s, cmd.now);

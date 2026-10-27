@@ -348,6 +348,8 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     spr(c, A, pick(S.armFarF, S.armFarB), fax, fay, shirt);
     spr(c, A, pick(S.handFarF, S.handFarB), fax, fay, handPaint);
     if (!viewB && accessory === Accessory.Backpack) spr(c, A, S.backpackF, 0, up, P.plain);
+    // A guitar case on the back shows behind the body from the front (owner M52).
+    if (!viewB && accessory === Accessory.Guitar) spr(c, A, S.guitarF, 0, up, P.plain);
   }
   if (showLegs) leg(true, nearLeg, nearLift);
 
@@ -360,6 +362,9 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     sprXf(c, A, S.rankStar, lx(false, 0.16, -0.12), ly(false, 0.16, -0.12, 19) + up, 0, 0.75, 0.75, rank >= 2 ? P.gold : P.white);
   }
   if (accessory === Accessory.Backpack && detail) spr(c, A, pick(S.backpackStrapsF, S.backpackB), 0, up, P.plain);
+  if (accessory === Accessory.Guitar && detail) spr(c, A, pick(S.guitarStrapF, S.guitarB), 0, up, P.plain);
+  // The walking stick and the briefcase hang by the near hand (not while sitting).
+  if ((accessory === Accessory.Cane || accessory === Accessory.Briefcase) && detail && showLegs) spr(c, A, accessory === Accessory.Cane ? pick(S.caneF, S.caneB) : pick(S.briefcaseF, S.briefcaseB), 0, up, P.plain);
 
   let hx: number;
   let hy: number;
@@ -387,6 +392,7 @@ export function drawCharacter(c: SkCanvas, A: RenderAssets, d: Packed, o: number
     spr(c, A, L.faceAccessory[accessory]!, headX, headUp, P.plain);
   }
   spr(c, A, viewB ? L.hair.B[hair]! : L.hair.F[hair]!, headX, headUp, hairPaint);
+  if (accessory === Accessory.Headphones) spr(c, A, pick(S.headphonesF, S.headphonesB), headX, headUp, P.plain);
   spr(c, A, viewB ? L.hat.B[hat]! : L.hat.F[hat]!, headX, headUp, P.plain);
 
   if (held >= Held.PlateBase) {

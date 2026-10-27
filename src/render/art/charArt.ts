@@ -165,7 +165,10 @@ const hairShort = part((c, v) => {
   lbox(c, v, fringe);
 });
 const hairBob = part((c, v) => {
-  lbox(c, v, { f: -0.03, r: 0, z: 24.5, lf: 0.245, lr: 0.312, h: 16, color: W, shade: WHITE });
+  // From behind, one long slab. From the front only the lock down the near side: anything
+  // behind the face is still painted after it, so the slab (or a far lock) covered the face.
+  if (v === 'B') lbox(c, v, { f: -0.03, r: 0, z: 24.5, lf: 0.245, lr: 0.312, h: 16, color: W, shade: WHITE });
+  else lbox(c, v, { f: -0.02, r: -0.148, z: 24.5, lf: 0.27, lr: 0.02, h: 15, color: W, shade: WHITE });
   lbox(c, v, capBox(5.5));
   lbox(c, v, { f: 0.146, r: 0, z: 35.5, lf: 0.018, lr: 0.3, h: 3.5, color: W, shade: WHITE });
 });
@@ -352,6 +355,126 @@ const backpackStraps = overlay(
   null,
 );
 
+// ---------- the new customers (owner M52) ----------
+
+// Hats.
+const hatHard = part((c, v) => {
+  lbox(c, v, { f: 0.02, r: 0, z: 38.5, lf: 0.4, lr: 0.36, h: 1.4, color: '#F2B632' });
+  lbox(c, v, { f: 0, r: 0, z: 39.9, lf: 0.31, lr: 0.31, h: 6, color: '#F7C948' });
+  lbox(c, v, { f: 0, r: 0, z: 45.9, lf: 0.06, lr: 0.22, h: 1.3, color: '#E0A82A' });
+});
+const hatBeret = part((c, v) => {
+  lbox(c, v, { f: -0.02, r: 0.03, z: 39, lf: 0.34, lr: 0.36, h: 3, color: '#B3202E' });
+  lbox(c, v, { f: -0.02, r: 0.03, z: 42, lf: 0.04, lr: 0.04, h: 1.4, color: '#7A1420' });
+});
+const hatHeadband = part((c, v) => {
+  const band: LBox = { f: 0, r: 0, z: 36, lf: 0.306, lr: 0.306, h: 2.4, color: '#E5483B' };
+  lbox(c, v, band);
+  front(c, v, band, () => rectIn(c, 0.12, 36.6, 0.06, 1.2, '#FFFFFF'));
+});
+const hatParty = part((c, v) => {
+  const cols = ['#9E7DDB', '#F4D04D', '#47B2BE', '#F38DB3', '#9E7DDB'];
+  cols.forEach((color, i) => {
+    const w = 0.22 - i * 0.045;
+    lbox(c, v, { f: 0, r: 0, z: 38 + i * 2.6, lf: w, lr: w, h: 2.6, color });
+  });
+  lbox(c, v, { f: 0, r: 0, z: 51, lf: 0.07, lr: 0.07, h: 2, color: '#FFFFFF' });
+});
+const hatTop = part((c, v) => {
+  lbox(c, v, { f: 0, r: 0, z: 38.5, lf: 0.44, lr: 0.44, h: 1.3, color: '#1E1C24' });
+  lbox(c, v, { f: 0, r: 0, z: 39.8, lf: 0.27, lr: 0.27, h: 2.2, color: '#B3202E' });
+  lbox(c, v, { f: 0, r: 0, z: 42, lf: 0.27, lr: 0.27, h: 10, color: '#24222C' });
+});
+
+// Clothes (on the tinted torso).
+const cardigan = overlay(
+  (c) => {
+    rectIn(c, 0.105, 10, 0.03, 13.5, '#000000', 0.18);
+    for (const b of [20, 16.5, 13]) rectIn(c, 0.143, b, 0.018, 1.3, '#F2E6C8');
+    rectIn(c, 0.02, 12, 0.06, 3, '#000000', 0.12);
+    rectIn(c, 0.17, 12, 0.06, 3, '#000000', 0.12);
+  },
+  (c) => rectIn(c, 0, 10, 0.15, 2, '#000000', 0.15),
+  null,
+);
+const tracksuit = overlay(
+  (c) => {
+    rectIn(c, 0.118, 10, 0.012, 13.5, '#E9E3DA');
+    rectIn(c, 0.105, 21.6, 0.04, 1.6, '#E9E3DA');
+    rectIn(c, 0.005, 10, 0.02, 14, '#FFFFFF');
+    rectIn(c, 0.225, 10, 0.02, 14, '#FFFFFF');
+  },
+  (c) => {
+    rectIn(c, 0.055, 10, 0.016, 14, '#FFFFFF');
+    rectIn(c, 0.08, 10, 0.016, 14, '#FFFFFF');
+  },
+  (c) => rectIn(c, 0.08, 17, 0.08, 4, '#FFFFFF', 0.85),
+);
+const VIS = '#FF8A1E';
+const SILVER = '#E3E7EC';
+const hiVis = overlay(
+  (c) => {
+    rectIn(c, 0, 10, 0.1, 13.5, VIS);
+    rectIn(c, 0.15, 10, 0.1, 13.5, VIS);
+    rectIn(c, 0, 14, 0.25, 1.6, SILVER);
+    rectIn(c, 0.015, 18, 0.07, 1.4, SILVER);
+    rectIn(c, 0.165, 18, 0.07, 1.4, SILVER);
+  },
+  (c) => {
+    rectIn(c, 0, 10, 0.15, 13.5, VIS);
+    rectIn(c, 0, 14, 0.15, 1.6, SILVER);
+  },
+  (c) => {
+    rectIn(c, 0, 10, 0.24, 13.5, VIS);
+    rectIn(c, 0, 14, 0.24, 1.6, SILVER);
+    rectIn(c, 0.02, 18.5, 0.2, 1.6, SILVER);
+  },
+);
+const sparkleDots = (c: SkCanvas, span: number) => {
+  for (const [a, b, col] of [[0.1, 21, '#FFFFFF'], [0.55, 19, '#FFE38A'], [0.3, 16, '#BFE6FF'], [0.8, 14.5, '#FFFFFF'], [0.2, 12, '#FFE38A'], [0.65, 11.5, '#FF8FB1'], [0.45, 22.5, '#BFE6FF']] as const) {
+    rectIn(c, a * span, b, span * 0.08, 1.1, col);
+  }
+};
+const sequin = overlay(
+  (c) => sparkleDots(c, 0.24),
+  (c) => sparkleDots(c, 0.14),
+  (c) => sparkleDots(c, 0.24),
+);
+
+// Accessories.
+/** A wooden walking stick by the near hand, tip on the floor, its crook in the hand. */
+const cane = part((c, v) => {
+  lbox(c, v, { f: 0.1, r: -ARM_R - 0.03, z: 0, lf: 0.028, lr: 0.028, h: 10.5, color: '#8E5A3C' });
+  lbox(c, v, { f: 0.06, r: -ARM_R - 0.03, z: 10.5, lf: 0.08, lr: 0.03, h: 1.3, color: '#6E4228' });
+});
+/** Over-ear headphones: a band over the head, a cup on each ear. */
+const headphones = part((c, v) => {
+  lbox(c, v, { f: 0.0, r: 0, z: 42.2, lf: 0.05, lr: 0.32, h: 1.3, color: '#2E2A36' });
+  for (const r of [-0.165, 0.165]) lbox(c, v, { f: 0, r, z: 29, lf: 0.11, lr: 0.05, h: 7, color: '#E5483B' });
+});
+/** A guitar case on the back, its neck up past the shoulder. */
+const guitar = part((c, v) => {
+  const body: LBox = { f: -0.13, r: 0.04, z: 8, lf: 0.07, lr: 0.22, h: 12, color: '#2E2A36' };
+  lbox(c, v, body);
+  lbox(c, v, { f: -0.13, r: 0.04, z: 20, lf: 0.06, lr: 0.08, h: 12, color: '#24222C' });
+  back(c, v, body, () => rectIn(c, 0.05, 14, 0.12, 1.6, '#F2C14E'));
+});
+const guitarStrap = overlay((c) => rectIn(c, 0.04, 12, 0.022, 12, '#5A3A28'), null, null);
+/** A leather briefcase hanging from the near hand. */
+const briefcase = part((c, v) => {
+  lbox(c, v, { f: 0.02, r: -ARM_R - 0.045, z: 2.5, lf: 0.2, lr: 0.05, h: 7, color: '#6B3A22' });
+  lbox(c, v, { f: 0.02, r: -ARM_R - 0.045, z: 9.5, lf: 0.07, lr: 0.03, h: 1.2, color: '#3A2214' });
+});
+/** A gold monocle on one eye, its chain down to the collar. */
+const monocle = face((c) => {
+  rectIn(c, 0.15, 30, 0.085, 1, '#D9A631');
+  rectIn(c, 0.15, 37, 0.085, 1, '#D9A631');
+  rectIn(c, 0.15, 30, 0.012, 8, '#D9A631');
+  rectIn(c, 0.223, 30, 0.012, 8, '#D9A631');
+  rectIn(c, 0.162, 31, 0.061, 6, '#DFF2FF', 0.5);
+  rectIn(c, 0.226, 24, 0.008, 6, '#D9A631');
+});
+
 // ---------- held items (anchored at the hand, drawn in screen space) ----------
 
 function miniBurger(c: SkCanvas, x: number, y: number, z: number) {
@@ -443,5 +566,10 @@ export const characterSprites = {
   sunglasses, glasses, cameraF: camera.F, cameraB: camera.B,
   backpackF: backpack.F, backpackB: backpack.B, backpackStrapsF: backpackStraps.F, backpackStrapsB: backpackStraps.B,
   trayFull, trayEmpty, trayDirty, phone, spatula, menu, clipboard, flyers, notebook,
+  hatHardF: hatHard.F, hatHardB: hatHard.B, hatBeretF: hatBeret.F, hatBeretB: hatBeret.B, hatHeadbandF: hatHeadband.F, hatHeadbandB: hatHeadband.B,
+  hatPartyF: hatParty.F, hatPartyB: hatParty.B, hatTopF: hatTop.F, hatTopB: hatTop.B,
+  cardiganF: cardigan.F, cardiganB: cardigan.B, tracksuitF: tracksuit.F, tracksuitB: tracksuit.B, hiVisF: hiVis.F, hiVisB: hiVis.B, sequinF: sequin.F, sequinB: sequin.B,
+  caneF: cane.F, caneB: cane.B, headphonesF: headphones.F, headphonesB: headphones.B, guitarF: guitar.F, guitarB: guitar.B,
+  guitarStrapF: guitarStrap.F, guitarStrapB: guitarStrap.B, briefcaseF: briefcase.F, briefcaseB: briefcase.B, monocle,
 };
 

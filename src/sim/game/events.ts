@@ -124,6 +124,12 @@ export const Ev = {
   StockOut: 62,
   SupplyVan: 63,
   SupplyPaid: 64,
+  /** An influencer posted about a five-star visit (more guests come); (x,y) = them. */
+  Influencer: 65,
+  /** A new sticker in the customer album (src/sim/album.ts). a = its index */
+  AlbumNew: 66,
+  /** An album reward was taken. a = gems */
+  AlbumClaim: 67,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

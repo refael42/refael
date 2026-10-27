@@ -1,3 +1,4 @@
+import { CUSTOMER_TYPES } from '../../data/customers';
 import { seasonBonus, seasonCount } from '../season';
 import { BAR, DRINKS, drinksAt } from '../../data/bar';
 import { DISHES } from '../../data/dishes';
@@ -63,13 +64,14 @@ function chooseDrink(s: GameState, c: Customer, salt: number, bar: boolean): num
 /** A guest at a table ordered their meal: now and then a drink with it, once there is a bartender. */
 export function maybeOrderDrink(s: GameState, c: Customer): void {
   if (!bartendersOn(s) || c.stool >= 0 || c.drinkOrder >= 0) return;
-  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance) return;
+  // Some guests always want one (out for the night, owner M52).
+  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0)) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), false);
 }
 
 /** A guest having a meal at the bar: now and then a drink with it, made right in front of them. */
 export function maybeBarDrink(s: GameState, c: Customer): void {
-  if (!bartendersOn(s) || c.drinkOrder >= 0 || hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance) return;
+  if (!bartendersOn(s) || c.drinkOrder >= 0 || hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0)) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), true);
 }
 

@@ -1,3 +1,4 @@
+import { copyAlbum, newAlbum, type AlbumState } from '../album';
 import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
 import { TALENT, type TalentLevels } from '../../data/talents';
@@ -502,6 +503,8 @@ export interface GameSetup {
   season?: SeasonState;
   /** Each ingredient's supplier (the storeroom itself starts full). */
   suppliers?: readonly number[];
+  /** The customer album (the player's: it goes along to a new branch). */
+  album?: AlbumState;
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -594,6 +597,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     closed: false,
     closedAt: 0,
     jam: 0,
+    musicUntil: 0,
+    musicCalm: 1,
     placed: [],
     works: (setup.works ?? []).map((w, i) => ({ ...w, at: w.at ? { ...w.at } : null, id: i + 1, lastTap: -Infinity })),
     nextWorkId: (setup.works?.length ?? 0) + 1,
@@ -611,6 +616,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     chef: setup.chef ? { level: setup.chef.level, xp: setup.chef.xp, pending: [] } : newChef(),
     season: setup.season ? copySeason(setup.season) : newSeason(),
     supply: newSupply({ mods, time: 0 }, setup.suppliers),
+    album: setup.album ? copyAlbum(setup.album) : newAlbum(),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),
     restroom: { dirt: 0, stalls: map.restroom.stalls.map(() => -1), cleaner: -1 },
     guide: setup.guide ? { ...newGuide(), ...setup.guide, visits: setup.guide.visits.map((v: { day: number; score: number }) => ({ ...v })) } : newGuide(),

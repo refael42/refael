@@ -1,3 +1,4 @@
+import { albumServed } from '../album';
 import { noteBill } from '../supply';
 import { seasonBonus, seasonCount } from '../season';
 import { requestTip, rollRequest } from './service';
@@ -62,7 +63,9 @@ function queueSpot(s: GameState, c: Customer, slot: number): Point {
 }
 
 function pickType(s: GameState): CustomerType {
-  const types = CUSTOMER_TYPE_LIST.filter((t) => s.stats.served >= (t.minServed ?? 0));
+  // Some come once the place is known, some only to the grander buildings, some only at night (owner M52).
+  const evening = s.dayTime / DAY.seconds;
+  const types = CUSTOMER_TYPE_LIST.filter((t) => s.stats.served >= (t.minServed ?? 0) && s.mods.building >= (t.minTier ?? 0) && evening >= (t.evening ?? 0));
   const total = types.reduce((sum, t) => sum + t.weight, 0);
   let roll = next(s.rng) * total;
   for (const t of types) {
@@ -254,9 +257,21 @@ function endWait(c: Customer): void {
   c.patience = -1;
 }
 
-function drainPatience(c: Customer, dt: number): void {
-  // The head chef came out to greet them: they wait happily for longer.
-  c.patienceLeft = Math.max(0, c.patienceLeft - (c.attention ? dt * GUIDE.attentionPatience : dt));
+/** A musician eating plays (owner M52): the room waits more calmly while they do. */
+function playMusic(s: GameState, c: Customer): void {
+  const calm = CUSTOMER_TYPES[c.type].music;
+  if (!calm) return;
+  s.musicUntil = s.time + 0.5;
+  s.musicCalm = calm;
+  // A note now and then over their head.
+  if (c.emote === Emote.None && (s.tick + c.id) % 150 === 0) emote(c, Emote.Music);
+}
+
+function drainPatience(s: GameState, c: Customer, dt: number): void {
+  // The head chef came out to greet them: they wait happily for longer. A musician playing over
+  // their meal calms the whole room (owner M52).
+  const music = s.time < s.musicUntil ? s.musicCalm : 1;
+  c.patienceLeft = Math.max(0, c.patienceLeft - (c.attention ? dt * GUIDE.attentionPatience : dt) * music);
   c.patience = c.patienceLeft / c.patienceMax;
   c.expression = c.patience > 0.5 ? Expression.Happy : c.patience > 0.25 ? Expression.Neutral : Expression.Angry;
   if (c.patience <= 0.25 && !c.angryEmoted) {
@@ -389,6 +404,9 @@ export function dishPrice(s: GameState, dish: number): Big {
 
 function chooseDish(s: GameState, type: CustomerType): number {
   const menu: DishDef[] = DISHES.filter((d) => s.mods.menu[d.id]);
+  // Someone with favorites (the athlete's light dishes, the builder's meat) orders one of those when there is one.
+  const fav = type.favorites ? menu.filter((d) => type.favorites!.includes(d.id)) : [];
+  if (fav.length > 0) return pick(s.rng, fav).id;
   if (type.order === 'priciest') return menu.reduce((a, b) => (dishPrice(s, b.id).gt(dishPrice(s, a.id)) ? b : a)).id;
   if (type.order === 'cheapest') return menu.reduce((a, b) => (dishPrice(s, b.id).lt(dishPrice(s, a.id)) ? b : a)).id;
   return pick(s.rng, menu).id;
@@ -446,7 +464,14 @@ function pay(s: GameState, c: Customer): void {
   if (tip.gt(0)) emit(s, Ev.Tip, c.x, c.y, tip.toNumber());
   if (s.combo >= 2) emit(s, Ev.Combo, c.x, c.y, s.combo);
   emit(s, Ev.Service, c.x, c.y, stars);
-  // The season pass's missions (src/sim/season.ts).
+  // The influencer posts about a five-star visit: more people come for a while (owner M52).
+  const buzzFor = CUSTOMER_TYPES[c.type].buzzSeconds;
+  if (buzzFor && stars >= 5) {
+    s.buzzUntil = Math.max(s.buzzUntil, s.time + buzzFor);
+    emit(s, Ev.Influencer, c.x, c.y);
+  }
+  // The customer album (owner M52) and the season pass's missions (src/sim/season.ts).
+  albumServed(s, c);
   seasonCount(s, 'serve');
   if (stars >= 5) seasonCount(s, 'fiveStar');
   if (c.dessertServed) seasonCount(s, 'dessert');
@@ -541,7 +566,7 @@ function updateBarDiner(s: GameState, c: Customer, dt: number): void {
       break;
     case CustomerState.Waiting: {
       const flying = s.orders.some((o) => o.id === c.order && (o.state === OrderState.Flying || o.state === OrderState.Carried));
-      if (!flying) drainPatience(c, dt);
+      if (!flying) drainPatience(s, c, dt);
       if (c.patienceLeft <= 0) {
         for (const m of partyOf(s, c)) if (m.stool >= 0) offStool(s, m);
         walkout(s, c);
@@ -549,7 +574,8 @@ function updateBarDiner(s: GameState, c: Customer, dt: number): void {
       break;
     }
     case CustomerState.Eating:
-      if (c.stateTime >= dishDef(c.dish).eatSeconds) {
+      playMusic(s, c);
+      if (c.stateTime >= dishDef(c.dish).eatSeconds / (CUSTOMER_TYPES[c.type].eatSpeed ?? 1)) {
         // The empty plate goes back over the counter to the dish pile.
         c.barDish = -1;
         c.sipping = -1;
@@ -590,7 +616,7 @@ function updateDessertGuest(s: GameState, c: Customer, dt: number): void {
     return;
   }
   if (c.dessertPhase === 'wait') {
-    drainPatience(c, dt);
+    drainPatience(s, c, dt);
     if (c.patienceLeft > 0) return;
     // It never came: no dessert, and the bill (the wait counts against the service).
     s.desserts = s.desserts.filter((d) => d.customer !== c.id);
@@ -652,7 +678,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           setPose(c, Pose.Idle);
           c.facing = Facing.BackLeft;
         }
-        drainPatience(c, dt);
+        drainPatience(s, c, dt);
         // Standing still and running out of patience: tapping a foot (just the look).
         if (c.path.length === 0) setPose(c, c.patience < ANIM.impatientBelow ? Pose.Impatient : Pose.Idle);
         if (c.patienceLeft <= 0) walkout(s, c);
@@ -687,7 +713,7 @@ export function updateCustomers(s: GameState, dt: number): void {
         // Patience pauses while the dish is already on its way to them.
         const flying = s.orders.some((o) => o.id === c.order && (o.state === OrderState.Flying || o.state === OrderState.Carried));
         if (!flying) {
-          drainPatience(c, dt);
+          drainPatience(s, c, dt);
           if (c.patienceLeft <= 0) walkout(s, c);
         }
         // Some pass the wait on their phone, until they get fed up (just the look; by their id).
@@ -697,8 +723,9 @@ export function updateCustomers(s: GameState, dt: number): void {
         break;
       }
       case CustomerState.Eating:
+        playMusic(s, c);
         if (c.dessertPhase) updateDessertGuest(s, c, dt);
-        else if (c.stateTime >= dishDef(c.dish).eatSeconds) {
+        else if (c.stateTime >= dishDef(c.dish).eatSeconds / (CUSTOMER_TYPES[c.type].eatSpeed ?? 1)) {
           // Done with the main course: the dessert menu, sometimes (owner M45).
           if (wantsDessert(s, c)) {
             c.dessertPhase = 'menu';

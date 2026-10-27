@@ -1,3 +1,5 @@
+import type { AlbumState } from '../album';
+import type { StickerId } from '../../data/album';
 import type { SupplyState } from '../supply';
 import type { SeasonState } from '../season';
 import type { CustomerTypeId } from '../../data/customers';
@@ -276,6 +278,9 @@ export type Command =
   /** Suppliers (src/sim/supply.ts): an ingredient's supplier; an urgent delivery now. */
   | { type: 'supplier'; ingredient: number; supplier: number }
   | { type: 'urgentOrder' }
+  /** The customer album: a sticker's next reward; a page's. */
+  | { type: 'albumSticker'; id: StickerId }
+  | { type: 'albumPage'; page: number }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -601,6 +606,9 @@ export interface GameState {
   closedAt: number;
   /** Seconds the kitchen has been behind while waiters stood free (src/sim/game/jam.ts; not saved). */
   jam: number;
+  /** A musician is playing over their meal until then: patience drains `musicCalm` times as fast (owner M52; not saved). */
+  musicUntil: number;
+  musicCalm: number;
   /** Decor placed in build mode (tile centers); `item` is a DecorId. */
   placed: PlacedDecor[];
   /** Big upgrades a crew is working on (they count when done). */
@@ -632,6 +640,8 @@ export interface GameState {
   season: SeasonState;
   /** Suppliers and the storeroom (owner M51, src/sim/supply.ts): stock, suppliers, the van. */
   supply: SupplyState;
+  /** The customer album (owner M52, src/sim/album.ts): kinds of guest served, rewards taken. Kept across branches. */
+  album: AlbumState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

@@ -1,3 +1,4 @@
+import { ALBUM, ALBUM_PAGES } from '../../data/album';
 import { HERO, HEROES } from '../../data/offers';
 import { BAR, BAR_STAGES } from '../../data/bar';
 import { TIERS } from '../../data/buildings';
@@ -250,6 +251,8 @@ export function computeMods(levels: Levels, perks: Perks = {}, trophies = 0): Mo
     if (item.stat === 'price') m.price = m.price.map((p) => p * item.mult);
     else m[item.stat] *= item.mult;
   }
+  // The customer album's full pages (owner M52, src/data/album.ts): each lifts one thing, for good.
+  for (const page of ALBUM_PAGES) if (perks[ALBUM.perkPrefix + page.id]) m[page.perk.stat] *= page.perk.mult;
   // Heroes from the paid offers (src/data/offers.ts): each lifts one thing, everywhere, for good.
   for (const h of HEROES) {
     if (!perks[HERO.perkPrefix + h.id]) continue;

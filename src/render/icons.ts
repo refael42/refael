@@ -5,6 +5,7 @@ import { wheelIcons, type WheelIcon } from './art/wheelArt';
 import type { SpriteDef } from './sprite';
 import { spriteDef, type SpriteName } from './sprites';
 import { HERO_BY_ID } from '../data/offers';
+import type { Look } from '../data/looks';
 import { packCharacter } from '../sim/snapshot';
 import { Emote, Expression, Facing, Held, Pose } from '../sim/types';
 import { portraitAssets } from './assets';
@@ -58,14 +59,22 @@ const HERO_HELD: Record<string, number> = { cook: Held.Spatula, waiter: Held.Tra
  * character code (mythic ring and all), facing the viewer, `px` device pixels square.
  */
 export function heroIcon(id: string, px: number): string {
-  const key = `hero:${id}@${px}`;
-  const hit = cache.get(key);
-  if (hit) return hit;
   const hero = HERO_BY_ID[id];
   if (!hero) return '';
+  return portrait(`hero:${id}@${px}`, hero.look, (HERO_HELD[hero.role] ?? Held.None) as Held, 2 + 10 * 4, px);
+}
+
+/** A guest of the customer album (src/data/album.ts) as a portrait: `rank` draws a child, or a VIP's glow. */
+export function lookIcon(key: string, look: Look, rank: number, px: number): string {
+  return portrait(`look:${key}@${px}`, look, Held.None, rank, px);
+}
+
+function portrait(key: string, look: Look, held: Held, rank: number, px: number): string {
+  const hit = cache.get(key);
+  if (hit) return hit;
   const data = packCharacter({
     id: 7,
-    look: hero.look,
+    look,
     x: 0,
     y: 0,
     prevX: 0,
@@ -73,13 +82,13 @@ export function heroIcon(id: string, px: number): string {
     facing: Facing.FrontRight,
     pose: Pose.Idle,
     poseTime: 0,
-    held: (HERO_HELD[hero.role] ?? Held.None) as Held,
+    held,
     expression: Expression.Happy,
     emote: Emote.None,
     emoteTime: 0,
     patience: -1,
     bubble: 0,
-    rank: 2 + 10 * 4,
+    rank,
   });
   const surface = Skia.Surface.Make(px, px);
   if (!surface) return '';

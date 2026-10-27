@@ -66,6 +66,7 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.Wheel:
     case Ev.FestivalClaim:
     case Ev.SeasonClaim:
+    case Ev.AlbumClaim:
     case Ev.Deal:
       return ['cash', true];
     case Ev.FestivalStart:
@@ -74,6 +75,8 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.SeasonTier:
       return ['fanfare', true];
     case Ev.SeasonMission:
+    case Ev.AlbumNew:
+    case Ev.Influencer:
       return ['sparkle', true];
     case Ev.Weekend:
     case Ev.RareApplicant:

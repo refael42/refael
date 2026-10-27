@@ -34,17 +34,18 @@ export const PANTS_COLORS = ['#3D4E73', '#30303C', '#8A6A50', '#5F7F52', '#CDB99
 export const SHIRT = { tomato: 0, orange: 1, mustard: 2, mint: 3, teal: 4, blue: 5, lavender: 6, pink: 7, white: 8, charcoal: 9, navy: 10 } as const;
 export const PANTS = { denim: 0, black: 1, brown: 2, olive: 3, khaki: 4 } as const;
 
-export const Outfit = { Tee: 0, Suit: 1, Hawaiian: 2, Hoodie: 3, Chef: 4, Waiter: 5, Washer: 6 } as const;
+// Cardigan..Sequin (owner M52): the new customers' clothes (never random: their types set them).
+export const Outfit = { Tee: 0, Suit: 1, Hawaiian: 2, Hoodie: 3, Chef: 4, Waiter: 5, Washer: 6, Cardigan: 7, Tracksuit: 8, HiVis: 9, Sequin: 10 } as const;
 export type Outfit = (typeof Outfit)[keyof typeof Outfit];
 
 export const Hair = { None: 0, Short: 1, Bob: 2, Ponytail: 3, Curly: 4, Spiky: 5, Bun: 6 } as const;
 export type Hair = (typeof Hair)[keyof typeof Hair];
 export const HAIR_STYLE_COUNT = 7;
 
-export const Hat = { None: 0, Toque: 1, Cap: 2, SunHat: 3, Beanie: 4, Bandana: 5 } as const;
+export const Hat = { None: 0, Toque: 1, Cap: 2, SunHat: 3, Beanie: 4, Bandana: 5, HardHat: 6, Beret: 7, Headband: 8, PartyHat: 9, TopHat: 10 } as const;
 export type Hat = (typeof Hat)[keyof typeof Hat];
 
-export const Accessory = { None: 0, Sunglasses: 1, Glasses: 2, Camera: 3, Backpack: 4 } as const;
+export const Accessory = { None: 0, Sunglasses: 1, Glasses: 2, Camera: 3, Backpack: 4, Cane: 5, Headphones: 6, Guitar: 7, Briefcase: 8, Monocle: 9 } as const;
 export type Accessory = (typeof Accessory)[keyof typeof Accessory];
 
 export interface Look {

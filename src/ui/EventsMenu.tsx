@@ -13,6 +13,7 @@ import { OfferChip, openOffer } from './Offers';
 import { ReviewsChip } from './Reviews';
 import { DealChip } from './Shop';
 import { SeasonChip, seasonWaiting } from './Season';
+import { AlbumChip, albumWaiting } from './Album';
 import { SIDE, SideButton } from './SideButton';
 
 // One "events" button instead of a row of six round ones under the rating (owner M40: "a less
@@ -31,7 +32,8 @@ const readAttention = (s: GameState) => {
   const deal = dealAt(s, Date.now());
   const dealOn = !!deal && !deal.bought;
   const season = seasonWaiting(s);
-  return { count: prizes + reviews + season + (offer ? 1 : 0) + (dealOn ? 1 : 0), ready: prizes > 0 || reviews > 0 || season > 0, hurry: offer?.hurry ?? false, offerLeft: offer?.left ?? null };
+  const album = albumWaiting(s);
+  return { count: prizes + reviews + season + album + (offer ? 1 : 0) + (dealOn ? 1 : 0), ready: prizes > 0 || reviews > 0 || season > 0 || album > 0, hurry: offer?.hurry ?? false, offerLeft: offer?.left ?? null };
 };
 
 interface Props {
@@ -41,13 +43,14 @@ interface Props {
   onOffers: () => void;
   onFestival: () => void;
   onSeason: () => void;
+  onAlbum: () => void;
   onShop: () => void;
   onReviews: () => void;
   onGuide: () => void;
   style: StyleProp<ViewStyle>;
 }
 
-export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onShop, onReviews, onGuide, style }: Props) {
+export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onAlbum, onShop, onReviews, onGuide, style }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const a = usePoll(gameRef, readAttention, 1);
@@ -78,6 +81,7 @@ export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onSh
           {full && <FestivalChip gameRef={gameRef} onPress={pick(onFestival)} style={styles.item} />}
           {full && <DealChip gameRef={gameRef} onPress={pick(onShop)} style={styles.item} />}
           <ReviewsChip gameRef={gameRef} onPress={pick(onReviews)} style={styles.item} />
+          <AlbumChip gameRef={gameRef} onPress={pick(onAlbum)} style={styles.item} />
           <GuideChip gameRef={gameRef} onPress={pick(onGuide)} style={styles.item} />
           <CityChip gameRef={gameRef} style={styles.item} />
         </View>

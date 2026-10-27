@@ -95,7 +95,8 @@ function pay(s: GameState, coins: Big): void {
  */
 export function maybeReview(s: GameState, c: Customer, stars: number, paid: Big): void {
   if (c.party !== c.id || s.stats.served < REVIEW.afterServed || s.time - s.lastReviewTime < REVIEW.minGapSeconds) return;
-  if (next(s.rng) >= REVIEW.chance) return;
+  // The food blogger nearly always writes (owner M52).
+  if (next(s.rng) >= (CUSTOMER_TYPES[c.type].reviewChance ?? REVIEW.chance)) return;
   s.lastReviewTime = s.time;
   if (stars === 5) {
     s.buzzUntil = s.time + REVIEW.buzzSeconds;
