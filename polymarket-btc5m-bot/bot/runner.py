@@ -35,7 +35,7 @@ async def geoblock_status() -> dict:
 class Runner:
     def __init__(self, settings: Settings):
         self.s = settings
-        self.ledger = Ledger(settings.data_dir, settings.mode, settings.paper_start_balance)
+        self.ledger = Ledger(settings.data_dir, settings.mode, settings.paper_start_balance, settings.strategy)
         self.public = AsyncPublicClient()
         self.broker: PaperBroker | LiveBroker
         self._last_settle_check: dict[int, float] = {}
@@ -53,10 +53,18 @@ class Runner:
         else:
             self.broker = PaperBroker(self.public, self.ledger)
         balance = await self.broker.balance()
-        log.info(
-            "Started in %s mode. Balance $%.2f. Entering each window at +%ss, formula=%s",
-            self.s.mode.upper(), balance, self.s.entry_second, self.s.stake_formula,
-        )
+        if self.s.strategy == "market_maker":
+            log.info(
+                "Started market maker in %s mode. Balance $%.2f. Quoting +%ss to +%ss of each window, "
+                "%s shares per bid, %s below fair, up to $%s per window",
+                self.s.mode.upper(), balance, self.s.mm_start_second, self.s.mm_stop_second,
+                self.s.mm_order_shares, self.s.mm_half_spread, self.s.mm_max_spend_per_window,
+            )
+        else:
+            log.info(
+                "Started in %s mode. Balance $%.2f. Entering each window at +%ss, formula=%s",
+                self.s.mode.upper(), balance, self.s.entry_second, self.s.stake_formula,
+            )
 
     async def close(self) -> None:
         if isinstance(self.broker, LiveBroker):

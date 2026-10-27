@@ -52,10 +52,13 @@ class BetRecord:
 
 
 class Ledger:
-    def __init__(self, data_dir: Path, mode: str, paper_start_balance: Decimal):
+    def __init__(self, data_dir: Path, mode: str, paper_start_balance: Decimal, strategy: str = "majority"):
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.path = data_dir / f"{mode}-ledger.json"
-        self.csv_path = data_dir / f"{mode}-trades.csv"
+        # The market maker keeps its own files so its results never mix with the majority bot's.
+        name = mode if strategy == "majority" else f"{mode}-mm"
+        self.market_maker = strategy == "market_maker"
+        self.path = data_dir / f"{name}-ledger.json"
+        self.csv_path = data_dir / f"{name}-trades.csv"
         self.bets: list[BetRecord] = []
         self.attempted: dict[str, str] = {}  # window start -> what happened
         self.paper_balance = paper_start_balance
@@ -102,6 +105,12 @@ class Ledger:
     def add(self, bet: BetRecord) -> None:
         self.bets.append(bet)
 
+    def find(self, window_start: int, side: str) -> BetRecord | None:
+        for b in reversed(self.bets):
+            if b.window_start == window_start and b.side == side:
+                return b
+        return None
+
     def open_bets(self) -> list[BetRecord]:
         return [b for b in self.bets if b.status == "open"]
 
@@ -117,6 +126,8 @@ class Ledger:
         return total
 
     def summary(self) -> str:
+        if self.market_maker:
+            return self._mm_summary()
         settled = [b for b in self.bets if b.status in ("won", "lost")]
         if not self.bets:
             return "No bets yet."
@@ -137,5 +148,31 @@ class Ledger:
                 f"(the win rate needed just to break even)",
                 f"Staked ${staked:.2f}, fees ${fees:.2f}, P&L ${pnl:+.2f} "
                 f"({(pnl / staked * 100) if staked else 0:+.2f}% of staked)",
+            ]
+        return "\n".join(lines)
+
+    def _mm_summary(self) -> str:
+        """Market maker: one window can hold both sides, so report per window."""
+        windows: dict[int, list[BetRecord]] = {}
+        for b in self.bets:
+            windows.setdefault(b.window_start, []).append(b)
+        if not windows:
+            return "No fills yet."
+        done = {w: bs for w, bs in windows.items() if all(b.status in ("won", "lost", "void") for b in bs)}
+        spent = sum((b.cost_d for bs in done.values() for b in bs), Decimal(0))
+        pnl = sum((b.pnl_d for bs in done.values() for b in bs), Decimal(0))
+        shares = sum((b.shares_d for bs in done.values() for b in bs), Decimal(0))
+        paired = Decimal(0)
+        for bs in done.values():
+            up = sum((b.shares_d for b in bs if b.side == "Up"), Decimal(0))
+            down = sum((b.shares_d for b in bs if b.side == "Down"), Decimal(0))
+            paired += 2 * min(up, down)
+        winning = sum(1 for bs in done.values() if sum((b.pnl_d for b in bs), Decimal(0)) > 0)
+        lines = [f"Windows with fills: {len(windows)} ({len(windows) - len(done)} still open)"]
+        if done:
+            lines += [
+                f"Profitable windows {winning} of {len(done)}; "
+                f"{(paired / shares * 100) if shares else 0:.0f}% of shares ended in Up+Down pairs",
+                f"Spent ${spent:.2f}, P&L ${pnl:+.2f} ({(pnl / spent * 100) if spent else 0:+.2f}% of spent)",
             ]
         return "\n".join(lines)

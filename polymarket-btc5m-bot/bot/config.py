@@ -10,6 +10,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 
 STAKE_FORMULAS = ("fraction", "confidence", "fixed")
+STRATEGIES = ("majority", "market_maker")
 
 
 def load_dotenv(path: Path) -> None:
@@ -49,6 +50,7 @@ def _int(name: str, default: int) -> int:
 @dataclass(frozen=True)
 class Settings:
     mode: str  # "paper" or "live"
+    strategy: str  # "majority" (bet with the crowd) or "market_maker"
 
     # Account (live mode only)
     private_key: str
@@ -85,6 +87,17 @@ class Settings:
     # Paper mode
     paper_start_balance: Decimal
 
+    # Market maker (STRATEGY=market_maker)
+    mm_half_spread: Decimal  # bid this far below the fair price on each side
+    mm_order_shares: Decimal  # size of each bid (Polymarket minimum is 5)
+    mm_max_imbalance_shares: Decimal  # most extra shares of one side we will hold
+    mm_skew_per_share: Decimal  # move quotes this much per share of imbalance
+    mm_max_spend_per_window: Decimal  # most money committed in one window
+    mm_start_second: int  # start quoting this many seconds into the window
+    mm_stop_second: int  # cancel everything at this second
+    mm_refresh_seconds: Decimal  # how often to re-price the bids
+    mm_min_price: Decimal  # stop quoting when either side is cheaper than this
+
     data_dir: Path
 
     @property
@@ -99,6 +112,10 @@ def load_settings() -> Settings:
     if mode not in ("paper", "live"):
         raise ValueError(f"MODE must be 'paper' or 'live', got {mode!r}")
 
+    strategy = _str("STRATEGY", "majority").lower()
+    if strategy not in STRATEGIES:
+        raise ValueError(f"STRATEGY must be one of {', '.join(STRATEGIES)}")
+
     stake_formula = _str("STAKE_FORMULA", "fraction").lower()
     if stake_formula not in STAKE_FORMULAS:
         raise ValueError(f"STAKE_FORMULA must be one of {', '.join(STAKE_FORMULAS)}")
@@ -109,6 +126,7 @@ def load_settings() -> Settings:
 
     settings = Settings(
         mode=mode,
+        strategy=strategy,
         private_key=_str("POLYMARKET_PRIVATE_KEY"),
         wallet_address=_str("POLYMARKET_WALLET_ADDRESS"),
         relayer_api_key=_str("POLYMARKET_RELAYER_API_KEY"),
@@ -127,6 +145,15 @@ def load_settings() -> Settings:
         max_daily_loss_usd=_dec("MAX_DAILY_LOSS_USD", "20"),
         stop_below_balance_usd=_dec("STOP_BELOW_BALANCE_USD", "0"),
         paper_start_balance=_dec("PAPER_START_BALANCE", "100"),
+        mm_half_spread=_dec("MM_HALF_SPREAD", "0.01"),
+        mm_order_shares=_dec("MM_ORDER_SHARES", "5"),
+        mm_max_imbalance_shares=_dec("MM_MAX_IMBALANCE_SHARES", "15"),
+        mm_skew_per_share=_dec("MM_SKEW_PER_SHARE", "0.002"),
+        mm_max_spend_per_window=_dec("MM_MAX_SPEND_PER_WINDOW", "25"),
+        mm_start_second=_int("MM_START_SECOND", 0),
+        mm_stop_second=_int("MM_STOP_SECOND", 180),
+        mm_refresh_seconds=_dec("MM_REFRESH_SECONDS", "2"),
+        mm_min_price=_dec("MM_MIN_PRICE", "0.15"),
         data_dir=data_dir,
     )
     validate(settings)
@@ -144,6 +171,16 @@ def validate(s: Settings) -> None:
         raise ValueError("BET_FRACTION must be between 0 and 1 (0.02 = 2%)")
     if s.max_bet_usd < s.min_bet_usd:
         raise ValueError("MAX_BET_USD must be at least MIN_BET_USD")
+    if not 0 <= s.mm_start_second < s.mm_stop_second <= 295:
+        raise ValueError("Need 0 <= MM_START_SECOND < MM_STOP_SECOND <= 295")
+    if s.mm_order_shares < 5:
+        raise ValueError("MM_ORDER_SHARES must be at least 5 (Polymarket minimum order size)")
+    if s.mm_max_imbalance_shares < s.mm_order_shares:
+        raise ValueError("MM_MAX_IMBALANCE_SHARES must be at least MM_ORDER_SHARES")
+    if not 0 <= s.mm_half_spread < Decimal("0.5"):
+        raise ValueError("MM_HALF_SPREAD must be between 0 and 0.5")
+    if s.mm_refresh_seconds < 1:
+        raise ValueError("MM_REFRESH_SECONDS must be at least 1")
     if s.live:
         if not s.private_key:
             raise ValueError("Live mode needs POLYMARKET_PRIVATE_KEY")

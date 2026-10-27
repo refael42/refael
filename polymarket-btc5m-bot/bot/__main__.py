@@ -16,7 +16,8 @@ def setup_logging(settings) -> None:
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(message)s", "%Y-%m-%d %H:%M:%S")
     console = logging.StreamHandler(sys.stdout)
     console.setFormatter(fmt)
-    file = logging.FileHandler(settings.data_dir / f"{settings.mode}-bot.log", encoding="utf-8")
+    name = settings.mode if settings.strategy == "majority" else f"{settings.mode}-mm"
+    file = logging.FileHandler(settings.data_dir / f"{name}-bot.log", encoding="utf-8")
     file.setFormatter(fmt)
     root = logging.getLogger()
     root.setLevel(logging.INFO)
@@ -61,6 +62,12 @@ async def cmd_check(settings) -> None:
         print(f"  Up   mid {quote.mid_up:.3f}  ask {quote.ask_up}")
         print(f"  Down mid {quote.mid_down:.3f}  ask {quote.ask_down}")
         print(f"  Taker fee rate {window.fee_rate}, {int(time.time()) - start}s into the window")
+        if settings.strategy == "market_maker":
+            from .mm import Inventory, make_quotes
+
+            q = make_quotes(settings, quote.mid_up, quote.ask_up, quote.ask_down, Inventory())
+            print(f"  Market maker would bid now: Up {q.up}, Down {q.down} {q.reason}")
+            return
         d = decide(settings, balance, quote)
         if isinstance(d, Bet):
             print(f"  If the bot entered now: BUY {d.side} for ${d.stake_usd} (crowd {d.confidence:.3f}, max price {d.max_price})")
@@ -68,15 +75,20 @@ async def cmd_check(settings) -> None:
             print(f"  If the bot entered now: skip ({d.reason})")
 
 
-async def cmd_backtest(settings, hours: float, entries: list[int], flat: bool) -> None:
+async def cmd_backtest(settings, hours: float, entries: list[int], flat: bool, grid: bool, touch: bool) -> None:
+    print(f"Loading {hours:g}h of finished windows (cached after the first run)...")
+    if settings.strategy == "market_maker":
+        from .mm_backtest import run_mm_backtest
+
+        print(await run_mm_backtest(settings, hours, grid=grid, touch=touch))
+        return
     from .backtest import run_backtest
 
-    print(f"Loading {hours:g}h of finished windows (cached after the first run)...")
     print(await run_backtest(settings, hours, entries, flat=flat))
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="python -m bot", description="Polymarket BTC 5-minute majority bot")
+    parser = argparse.ArgumentParser(prog="python -m bot", description="Polymarket BTC 5-minute bot")
     sub = parser.add_subparsers(dest="cmd", required=True)
     sub.add_parser("run", help="run the bot (paper or live, see MODE in .env)")
     sub.add_parser("check", help="test the connection and show the current window, no trading")
@@ -85,6 +97,8 @@ def main() -> None:
     bt.add_argument("--hours", type=float, default=48, help="how far back (default 48)")
     bt.add_argument("--entries", default="0,60,120,180,240", help="entry seconds to compare")
     bt.add_argument("--flat", action="store_true", help="bet $1 every time instead of your formula")
+    bt.add_argument("--grid", action="store_true", help="market maker: compare several spreads and stop times")
+    bt.add_argument("--touch", action="store_true", help="market maker: optimistic fills (at our price too)")
     args = parser.parse_args()
 
     try:
@@ -93,11 +107,13 @@ def main() -> None:
         sys.exit(f"Settings error: {exc}")
 
     if args.cmd == "run":
+        from .mm_runner import MarketMakerRunner
         from .runner import Runner
 
         setup_logging(settings)
+        runner = MarketMakerRunner(settings) if settings.strategy == "market_maker" else Runner(settings)
         try:
-            asyncio.run(Runner(settings).run_forever())
+            asyncio.run(runner.run_forever())
         except KeyboardInterrupt:
             print("\nStopped.")
     elif args.cmd == "check":
@@ -105,14 +121,14 @@ def main() -> None:
     elif args.cmd == "stats":
         from .ledger import Ledger
 
-        ledger = Ledger(settings.data_dir, settings.mode, settings.paper_start_balance)
-        print(f"[{settings.mode}]")
+        ledger = Ledger(settings.data_dir, settings.mode, settings.paper_start_balance, settings.strategy)
+        print(f"[{settings.mode}, {settings.strategy}]")
         print(ledger.summary())
         if not settings.live:
             print(f"Paper balance ${ledger.paper_balance:.2f}")
     elif args.cmd == "backtest":
         entries = [int(x) for x in args.entries.split(",") if x.strip()]
-        asyncio.run(cmd_backtest(settings, args.hours, entries, args.flat))
+        asyncio.run(cmd_backtest(settings, args.hours, entries, args.flat, args.grid, args.touch))
 
 
 if __name__ == "__main__":

@@ -14,6 +14,7 @@ from bot.strategy import Bet, Quote, Skip, decide, majority, settle, split_stake
 def make_settings(**overrides) -> Settings:
     base = Settings(
         mode="paper",
+        strategy="majority",
         private_key="",
         wallet_address="",
         relayer_api_key="",
@@ -32,6 +33,15 @@ def make_settings(**overrides) -> Settings:
         max_daily_loss_usd=D("20"),
         stop_below_balance_usd=D("0"),
         paper_start_balance=D("100"),
+        mm_half_spread=D("0.01"),
+        mm_order_shares=D("5"),
+        mm_max_imbalance_shares=D("15"),
+        mm_skew_per_share=D("0.002"),
+        mm_max_spend_per_window=D("25"),
+        mm_start_second=0,
+        mm_stop_second=180,
+        mm_refresh_seconds=D("2"),
+        mm_min_price=D("0.15"),
         data_dir=Path("data"),
     )
     return replace(base, **overrides)
