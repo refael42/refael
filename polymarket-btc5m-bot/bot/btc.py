@@ -78,14 +78,20 @@ class LiveBtc:
                 await asyncio.sleep(1)
 
     async def _fill_gaps(self) -> None:
+        """Fill holes from Binance's REST mirror: right away while the stream is
+        silent, and any hole in the last half hour so the volatility estimate and
+        price to beat stay usable after a stream outage."""
         async with httpx.AsyncClient(timeout=20) as http:
             while True:
-                await asyncio.sleep(15)
+                await asyncio.sleep(2)
                 now = int(time.time())
                 self.series.trim(now - VOL_LOOKBACK - 3600)
+                gap = self.series.first_gap(now - VOL_LOOKBACK - 60, now - 3)
+                if gap is None:
+                    continue
                 try:
-                    if not self.series.covers(now - 120, now - 3, max_gap=1):
-                        for s, p in (await fetch_klines(http, now - 120, now)).items():
-                            self.series.add(s, p)
+                    for s, p in (await fetch_klines(http, gap, now)).items():
+                        self.series.add(s, p)
                 except (httpx.HTTPError, ValueError) as exc:
                     log.warning("BTC backfill failed: %s", exc)
+                    await asyncio.sleep(5)

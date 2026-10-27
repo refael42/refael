@@ -154,7 +154,7 @@ def load_settings() -> Settings:
         mm_max_spend_per_window=_dec("MM_MAX_SPEND_PER_WINDOW", "25"),
         mm_start_second=_int("MM_START_SECOND", 0),
         mm_stop_second=_int("MM_STOP_SECOND", 180),
-        mm_refresh_seconds=_dec("MM_REFRESH_SECONDS", "2"),
+        mm_refresh_seconds=_dec("MM_REFRESH_SECONDS", "1"),
         mm_min_price=_dec("MM_MIN_PRICE", "0.15"),
         mm_fair_source=_str("MM_FAIR_SOURCE", "btc").lower(),
         mm_vol_scale=float(_dec("MM_VOL_SCALE", "1.5")),

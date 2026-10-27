@@ -39,6 +39,8 @@ class FairTest(unittest.TestCase):
         self.assertEqual(s.price(3), 101.0)  # carries the last price forward
         self.assertTrue(s.covers(1, 4, max_gap=2))
         self.assertFalse(s.covers(1, 4, max_gap=1))
+        self.assertEqual(s.first_gap(1, 4), 3)
+        self.assertIsNone(s.first_gap(1, 2))
         s.trim(3)
         self.assertEqual(sorted(s.prices), [4])
         flat = BtcSeries({t: 50.0 for t in range(0, 100)})

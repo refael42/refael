@@ -69,6 +69,13 @@ class BtcSeries:
             i += 1
         return prev is not None and prev >= b - max_gap and self.price(a) is not None
 
+    def first_gap(self, a: int, b: int) -> int | None:
+        """First second in a..b with no data of its own, or None if all are there."""
+        for t in range(a, b + 1):
+            if t not in self.prices:
+                return t
+        return None
+
     def average(self, a: int, b: int) -> float:
         return sum(self.price(t) for t in range(a, b + 1)) / (b - a + 1)
 
