@@ -42,6 +42,8 @@ def make_settings(**overrides) -> Settings:
         mm_stop_second=180,
         mm_refresh_seconds=D("2"),
         mm_min_price=D("0.15"),
+        mm_fair_source="market",
+        mm_vol_scale=1.5,
         data_dir=Path("data"),
     )
     return replace(base, **overrides)

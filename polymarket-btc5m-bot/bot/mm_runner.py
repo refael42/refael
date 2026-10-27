@@ -13,10 +13,12 @@ from polymarket import PolymarketError
 from polymarket.streams import MarketSpec
 
 from .broker import LiveBroker
+from .btc import LiveBtc
+from .fair import price_to_beat, prob_up
 from .ledger import BetRecord
 from .maker import LiveMaker, MakerFill, PaperMaker
 from .market import WINDOW_SECONDS, Window, load_quote, load_window, window_start
-from .mm import SIDES, Inventory, make_quotes
+from .mm import SIDES, Inventory, Quotes, make_quotes
 from .runner import Runner
 
 log = logging.getLogger("bot")
@@ -28,11 +30,17 @@ class MarketMakerRunner(Runner):
     def __init__(self, settings):
         super().__init__(settings)
         self.maker: PaperMaker | LiveMaker
+        self.btc: LiveBtc | None = None
+        self._last_fair: Decimal | None = None
+        self._last_mid: Decimal | None = None
         self._reconciled: set[int] = set()
 
     async def run_forever(self) -> None:
         await self.start()
         self.maker = LiveMaker(self.broker.client) if isinstance(self.broker, LiveBroker) else PaperMaker()
+        if self.s.mm_fair_source == "btc":
+            self.btc = LiveBtc(self.public)
+            await self.btc.start()
         settler = asyncio.create_task(self._settle_loop())
         s = self.s
         try:
@@ -50,6 +58,8 @@ class MarketMakerRunner(Runner):
                 self.ledger.save()
         finally:
             settler.cancel()
+            if self.btc is not None:
+                await self.btc.close()
             await self.maker.close()
             self.ledger.save()
             await self.close()
@@ -105,8 +115,9 @@ class MarketMakerRunner(Runner):
             self.ledger.paper_balance -= fill.shares * fill.price
         self._upsert(window, fill.side, inv.shares(fill.side), inv.cost(fill.side))
         log.info(
-            "%s | filled %s %.2f @ %s | holding Up %.0f / Down %.0f, spent $%.2f",
-            window.question, fill.side, fill.shares, fill.price, inv.up_shares, inv.down_shares, inv.spent,
+            "%s | filled %s %.2f @ %s (fair Up %s, market %s) | holding Up %.0f / Down %.0f, spent $%.2f",
+            window.question, fill.side, fill.shares, fill.price, self._last_fair, self._last_mid,
+            inv.up_shares, inv.down_shares, inv.spent,
         )
 
     async def _watch_trades(self, window: Window, inv: Inventory) -> None:
@@ -128,6 +139,15 @@ class MarketMakerRunner(Runner):
                 log.warning("Trade stream dropped (%s), reconnecting", exc)
                 await asyncio.sleep(1)
 
+    def _fair(self, start: int, beat: float | None, sigma: float | None, market_mid: Decimal) -> Decimal | None:
+        """Fair price of Up: from the BTC model, or Polymarket's own midpoint."""
+        if self.btc is None:
+            return market_mid
+        if not self.btc.fresh or beat is None or sigma is None:
+            return None
+        p = prob_up(self.btc.series, self.btc.series.last_second, start, beat, sigma, self.s.mm_vol_scale)
+        return Decimal(str(round(min(max(p, 0.001), 0.999), 4)))
+
     async def make_market(self, start: int) -> str:
         s = self.s
         window = await load_window(self.public, s.market_prefix, start)
@@ -145,10 +165,20 @@ class MarketMakerRunner(Runner):
             return f"skip: {blocked}"
 
         inv = self._inventory(start)
+        beat = sigma = None
+        if self.btc is not None:
+            if not self.btc.series.covers(start - 1800, start):
+                log.info("%s | not quoting: not enough BTC price history yet", window.question)
+                return "skip: no BTC history"
+            beat = price_to_beat(self.btc.series, start)
+            sigma = self.btc.series.volatility(start)
         watcher = asyncio.create_task(self._watch_trades(window, inv)) if isinstance(self.maker, PaperMaker) else None
         stop_at = start + s.mm_stop_second
         last_reason = None
-        log.info("%s | quoting until +%ss", window.question, s.mm_stop_second)
+        log.info(
+            "%s | quoting until +%ss%s", window.question, s.mm_stop_second,
+            f", BTC price to beat {beat:,.2f}" if beat else "",
+        )
         try:
             while time.time() < stop_at:
                 t0 = time.time()
@@ -156,7 +186,12 @@ class MarketMakerRunner(Runner):
                     quote = await load_quote(self.public, window)
                     for fill in await self.maker.poll(window):
                         self._record(window, inv, fill)
-                    q = make_quotes(s, quote.mid_up, quote.ask_up, quote.ask_down, inv)
+                    fair = self._fair(start, beat, sigma, quote.mid_up)
+                    if fair is None:
+                        q = Quotes(None, None, "BTC price feed is stale, not quoting")
+                    else:
+                        q = make_quotes(s, fair, quote.ask_up, quote.ask_down, inv)
+                    self._last_fair, self._last_mid = fair, quote.mid_up
                     if q.reason and q.reason != last_reason:
                         log.info("%s | %s", window.question, q.reason)
                     last_reason = q.reason

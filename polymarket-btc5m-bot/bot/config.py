@@ -97,6 +97,8 @@ class Settings:
     mm_stop_second: int  # cancel everything at this second
     mm_refresh_seconds: Decimal  # how often to re-price the bids
     mm_min_price: Decimal  # stop quoting when either side is cheaper than this
+    mm_fair_source: str  # "btc": fair value from the BTC price (bot/fair.py); "market": Polymarket's midpoint
+    mm_vol_scale: float  # widen the BTC model's volatility by this factor (fat tails)
 
     data_dir: Path
 
@@ -145,7 +147,7 @@ def load_settings() -> Settings:
         max_daily_loss_usd=_dec("MAX_DAILY_LOSS_USD", "20"),
         stop_below_balance_usd=_dec("STOP_BELOW_BALANCE_USD", "0"),
         paper_start_balance=_dec("PAPER_START_BALANCE", "100"),
-        mm_half_spread=_dec("MM_HALF_SPREAD", "0.01"),
+        mm_half_spread=_dec("MM_HALF_SPREAD", "0.05"),
         mm_order_shares=_dec("MM_ORDER_SHARES", "5"),
         mm_max_imbalance_shares=_dec("MM_MAX_IMBALANCE_SHARES", "15"),
         mm_skew_per_share=_dec("MM_SKEW_PER_SHARE", "0.002"),
@@ -154,6 +156,8 @@ def load_settings() -> Settings:
         mm_stop_second=_int("MM_STOP_SECOND", 180),
         mm_refresh_seconds=_dec("MM_REFRESH_SECONDS", "2"),
         mm_min_price=_dec("MM_MIN_PRICE", "0.15"),
+        mm_fair_source=_str("MM_FAIR_SOURCE", "btc").lower(),
+        mm_vol_scale=float(_dec("MM_VOL_SCALE", "1.5")),
         data_dir=data_dir,
     )
     validate(settings)
@@ -179,6 +183,10 @@ def validate(s: Settings) -> None:
         raise ValueError("MM_MAX_IMBALANCE_SHARES must be at least MM_ORDER_SHARES")
     if not 0 <= s.mm_half_spread < Decimal("0.5"):
         raise ValueError("MM_HALF_SPREAD must be between 0 and 0.5")
+    if s.mm_fair_source not in ("btc", "market"):
+        raise ValueError("MM_FAIR_SOURCE must be 'btc' or 'market'")
+    if s.mm_vol_scale <= 0:
+        raise ValueError("MM_VOL_SCALE must be positive")
     if s.mm_refresh_seconds < 1:
         raise ValueError("MM_REFRESH_SECONDS must be at least 1")
     if s.live:

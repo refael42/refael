@@ -1,9 +1,10 @@
 """Replay the market maker on real past trades.
 
 For every finished window we download every fill (maker and taker side).
-Every MM_REFRESH_SECONDS the simulated bot prices its bids with make_quotes(),
-using as "fair price" the median of the last few trade prices it could
-already have seen. A bid counts as filled only when a real trade sold to
+Every MM_REFRESH_SECONDS the simulated bot prices its bids with make_quotes().
+The "fair price" is the BTC model (bot/fair.py, Binance 1-second prices up to
+the previous second) with MM_FAIR_SOURCE=btc, or else the median of the last
+few Polymarket trade prices it could already have seen. A bid counts as filled only when a real trade sold to
 someone else's bid at a *worse* price than ours in the following seconds (we
 would have been hit first). With --touch, a sale at exactly our price counts
 too, which is the optimistic bound. Maker fees are zero; maker rebates and
@@ -21,9 +22,12 @@ from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from pathlib import Path
 
+import httpx
 from polymarket import AsyncPublicClient, PolymarketError
 
+from .btc import fetch_klines
 from .config import Settings
+from .fair import VOL_LOOKBACK, BtcSeries, price_to_beat, prob_up
 from .market import WINDOW_SECONDS, load_window, window_start
 from .mm import SIDES, TICK, Inventory, bid_hit, floor_tick, make_quotes
 
@@ -103,7 +107,22 @@ class WindowResult:
     pnl: Decimal
 
 
-def simulate_window(s: Settings, tape: WindowTape, touch: bool = False) -> WindowResult:
+async def load_btc(cache: Path, first: int, last: int) -> BtcSeries:
+    """Binance 1-second BTC prices for seconds first..last, cached on disk."""
+    prices: dict[int, float] = {}
+    if cache.exists():
+        prices = {int(k): v for k, v in json.loads(cache.read_text(encoding="utf-8")).items()}
+    have = BtcSeries(prices)
+    if not have.covers(first, last, max_gap=1):
+        async with httpx.AsyncClient(timeout=30) as http:
+            prices.update(await fetch_klines(http, first, last))
+        tmp = cache.with_suffix(".tmp")
+        tmp.write_text(json.dumps(prices), encoding="utf-8")
+        os.replace(tmp, cache)
+    return BtcSeries(prices)
+
+
+def simulate_window(s: Settings, tape: WindowTape, touch: bool = False, btc: BtcSeries | None = None) -> WindowResult:
     inv = Inventory()
     orders: dict[str, tuple[Decimal, Decimal]] = {}  # side -> (price, remaining shares)
     step = int(s.mm_refresh_seconds)
@@ -115,15 +134,24 @@ def simulate_window(s: Settings, tape: WindowTape, touch: bool = False) -> Windo
     while ki < len(fills) and fills[ki].ts < begin:
         ki += 1
 
+    if btc is not None:
+        beat = price_to_beat(btc, tape.start)
+        sigma = btc.volatility(tape.start)
+
     t = begin
     while t < stop:
-        # What the bot could know at time t: trades up to the previous second.
+        # What the bot could know at time t: trades and BTC prices up to the previous second.
         while fi < len(tape.fair_points) and tape.fair_points[fi][0] < t:
             recent.append(tape.fair_points[fi][1])
             fi += 1
-        fair = statistics.median(recent[-FAIR_LOOKBACK:]) if recent else Decimal("0.5")
-        ask_up = floor_tick(fair) + TICK
-        ask_down = floor_tick(1 - fair) + TICK
+        market = statistics.median(recent[-FAIR_LOOKBACK:]) if recent else Decimal("0.5")
+        fair = market
+        if btc is not None:
+            p = prob_up(btc, t - 1, tape.start, beat, sigma, s.mm_vol_scale)
+            fair = Decimal(str(round(min(max(p, 0.001), 0.999), 4)))
+        # Bids must stay below the market's best ask, estimated from recent trades.
+        ask_up = floor_tick(market) + TICK
+        ask_down = floor_tick(1 - market) + TICK
         q = make_quotes(s, fair, ask_up, ask_down, inv)
         for side in SIDES:
             price = q.price(side)
@@ -207,16 +235,25 @@ async def run_mm_backtest(settings: Settings, hours: float, grid: bool = False, 
     tapes = await load_tapes(settings.market_prefix, hours, cache)
     if not tapes:
         return "No finished windows found."
-    header = f"{len(tapes)} finished windows, fills counted {'at our price or worse (optimistic)' if touch else 'only below our price (conservative)'}"
+    btc = None
+    if settings.mm_fair_source == "btc":
+        btc = await load_btc(
+            settings.data_dir / "btc-1s.json", tapes[0].start - VOL_LOOKBACK - 60, tapes[-1].start + WINDOW_SECONDS
+        )
+        tapes = [t for t in tapes if btc.covers(t.start - VOL_LOOKBACK, t.start + settings.mm_stop_second)]
+    header = (
+        f"{len(tapes)} finished windows, fair value from {'the BTC price' if btc else 'Polymarket trades'}, "
+        f"fills counted {'at our price or worse (optimistic)' if touch else 'only below our price (conservative)'}"
+    )
     combos = [settings]
     if grid:
         combos = [
             replace(settings, mm_half_spread=Decimal(h), mm_stop_second=stop)
-            for h in ("0.005", "0.01", "0.02", "0.03")
-            for stop in (120, 180, 240)
+            for h in ("0.01", "0.02", "0.03", "0.04", "0.05", "0.06")
+            for stop in (180, 240)
         ]
     rows = []
     for s in combos:
         label = f"half_spread={s.mm_half_spread} stop={s.mm_stop_second}s"
-        rows.append(summarize(label, [simulate_window(s, t, touch) for t in tapes]))
+        rows.append(summarize(label, [simulate_window(s, t, touch, btc) for t in tapes]))
     return header + "\n\n" + report(rows)
