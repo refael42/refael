@@ -204,6 +204,8 @@ export function createBot(options: BotOptions): Bot {
     for (const i of claimable(s)) queueCommand(s, { type: 'claim', quest: i });
     // Review bonuses, as a player opening the reviews page would.
     if (s.reviews.some((r) => !r.claimed)) queueCommand(s, { type: 'review', id: -1 });
+    // A private event's call: always yes (src/sim/occasions.ts).
+    if (s.occasion.current?.phase === 'offer') queueCommand(s, { type: 'booking', accept: true });
     const rushGoal = questLevel(s.quests.level).goals.some((g, i) => g.kind === 'rush' && !s.quests.claimed.includes(i) && !goalDone(g, s));
     if (rushGoal && !s.rush.on && s.rush.charge >= 1) queueCommand(s, { type: 'rush', on: true });
     else if (s.rush.on && s.rush.charge < 0.7) queueCommand(s, { type: 'rush', on: false });

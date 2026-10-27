@@ -74,6 +74,12 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.SeasonGold:
     case Ev.SeasonTier:
       return ['fanfare', true];
+    case Ev.OccasionArrive:
+      return ['fanfare', true];
+    case Ev.OccasionCall:
+      return ['tick', false];
+    case Ev.OccasionEnd:
+      return ['cash', true];
     case Ev.SeasonMission:
     case Ev.AlbumNew:
     case Ev.Influencer:

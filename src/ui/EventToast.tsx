@@ -11,19 +11,21 @@ import type { HudIcon } from '../render/art/hudArt';
 import { FESTIVAL_THEMES } from '../data/events';
 import { INGREDIENTS } from '../data/supply';
 import { STICKERS } from '../data/album';
+import { OCCASIONS } from '../data/occasions';
 
 // A short note at the top for the special moments: a VIP walks in, a VIP's bonus, a present on
 // the sidewalk and what was inside, a festival starting or a festival prize ready, the tourist
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd];
 
 interface Toast {
   id: number;
   type: number;
   coins: number;
   gems: number;
+  c: number;
 }
 
 export function EventToast({ gameRef, style }: { gameRef: { current: GameState | null }; style?: StyleProp<ViewStyle> }) {
@@ -41,7 +43,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
         if (e.type === Ev.DeliveryOrder && e.c !== 1) continue;
         // Talent points a card already shows (the wheel, a chef level, the daily gift...) need no note.
         if (e.type === Ev.TalentPoints && e.b === 1) continue;
-        if (TYPES.includes(e.type)) setToast({ id: e.id, type: e.type, coins: e.a, gems: e.b });
+        if (TYPES.includes(e.type)) setToast({ id: e.id, type: e.type, coins: e.a, gems: e.b, c: e.c });
       }
     }, 200);
     return () => clearInterval(timer);
@@ -52,9 +54,10 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
     return () => clearTimeout(id);
   }, [toast]);
   if (!toast) return null;
-  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold || toast.type === Ev.StockOut || toast.type === Ev.AlbumNew || toast.type === Ev.Influencer;
+  const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold || toast.type === Ev.StockOut || toast.type === Ev.AlbumNew || toast.type === Ev.Influencer || toast.type === Ev.OccasionCall || toast.type === Ev.OccasionArrive || toast.type === Ev.OccasionEnd;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
-  const rewards: { icon: HudIcon; text: string }[] = festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
+  // A private event's end: its gems (c).
+  const rewards: { icon: HudIcon; text: string }[] = toast.type === Ev.OccasionEnd ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
     ...(toast.gems > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.gems}` }] : []),
   ];
@@ -115,6 +118,17 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t('toast.albumNew').replace('{n}', t(`album.name.${STICKERS[toast.coins]?.id ?? 'regular'}`));
     case Ev.Influencer:
       return t('toast.influencer');
+    // Private events (a = the kind; b = guests, or at the end the average stars in tenths, -1 walked out, -2 called off).
+    case Ev.OccasionCall:
+      return t('toast.occCall').replace('{e}', t(`occ.name.${OCCASIONS[toast.coins]?.id ?? 'birthday'}`)).replace('{n}', String(toast.gems));
+    case Ev.OccasionArrive:
+      return t('toast.occArrive').replace('{e}', t(`occ.name.${OCCASIONS[toast.coins]?.id ?? 'birthday'}`));
+    case Ev.OccasionEnd: {
+      const name = t(`occ.name.${OCCASIONS[toast.coins]?.id ?? 'birthday'}`);
+      if (toast.gems === -1) return t('toast.occWalked').replace('{e}', name);
+      if (toast.gems === -2) return t('toast.occOff').replace('{e}', name);
+      return t('toast.occDone').replace('{e}', name).replace('{s}', (toast.gems / 10).toFixed(1));
+    }
     case Ev.StockOut:
       return t('toast.stockOut').replace('{i}', t(`supply.ingr.${INGREDIENTS[toast.coins] ?? 'veg'}`));
     default:

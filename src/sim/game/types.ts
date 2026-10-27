@@ -1,4 +1,5 @@
 import type { AlbumState } from '../album';
+import type { OccasionState } from '../occasions';
 import type { StickerId } from '../../data/album';
 import type { SupplyState } from '../supply';
 import type { SeasonState } from '../season';
@@ -109,6 +110,8 @@ export interface Customer extends CharacterView {
   attention?: boolean;
   /** Waiter table visits while they wait for their food (src/sim/game/care.ts). */
   cared?: number;
+  /** Came for a private event (src/sim/occasions.ts): its booking's id. */
+  occasion?: number;
   /** A restroom visit (owner M36): where they are in it, their stall, when this part ends (sim time). */
   wc?: { step: 'toDoor' | 'wait' | 'toStall' | 'inside' | 'toSink' | 'wash'; stall: number; until: number };
   /** In a stall with the door shut: not drawn. */
@@ -141,6 +144,8 @@ export interface Table {
   drinks: number[];
   /** Dirty plates left behind for whoever clears it. */
   plates: number;
+  /** Kept for a private event's party (src/sim/occasions.ts): nobody else is seated at it. */
+  booked?: boolean;
   progress: number;
   since: number;
 }
@@ -281,6 +286,8 @@ export type Command =
   /** The customer album: a sticker's next reward; a page's. */
   | { type: 'albumSticker'; id: StickerId }
   | { type: 'albumPage'; page: number }
+  /** A private event's call: yes or no. */
+  | { type: 'booking'; accept: boolean }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -609,6 +616,8 @@ export interface GameState {
   /** A musician is playing over their meal until then: patience drains `musicCalm` times as fast (owner M52; not saved). */
   musicUntil: number;
   musicCalm: number;
+  /** Private events: the phone, the booking in progress (src/sim/occasions.ts; not saved). */
+  occasion: OccasionState;
   /** Decor placed in build mode (tile centers); `item` is a DecorId. */
   placed: PlacedDecor[];
   /** Big upgrades a crew is working on (they count when done). */

@@ -3,7 +3,8 @@ import { noteBill } from '../supply';
 import { seasonBonus, seasonCount } from '../season';
 import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
-import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType } from '../../data/customers';
+import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType, type CustomerTypeId } from '../../data/customers';
+import { OCCASION, OCCASION_BY_ID } from '../../data/occasions';
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { GUIDE } from '../../data/guide';
@@ -186,6 +187,29 @@ export function touristArrives(s: GameState, at: Point): Customer | null {
   return c;
 }
 
+/**
+ * A booked party (src/sim/occasions.ts) comes up the street together, past the line, to wait by
+ * the door for their table: `types` by turns, `kids` of them children. Returns the leader.
+ */
+export function partyArrives(s: GameState, types: readonly CustomerTypeId[], size: number, kids: number, booking: number): Customer {
+  const start = pick(s.rng, s.map.spawns);
+  const wait = s.map.doors[0]?.outside ?? s.map.queue[0]!;
+  let leader: Customer | null = null;
+  for (let m = 0; m < size; m++) {
+    const o = m === 0 ? { x: 0, y: 0 } : PARTY.spawnOffsets[(m - 1) % PARTY.spawnOffsets.length]!;
+    const type = CUSTOMER_TYPES[types[m % types.length]!];
+    const c = newCustomer(s, type, { x: start.x + o.x, y: start.y + o.y }, -1, leader ? leader.id : -1, size);
+    c.occasion = booking;
+    if (m > 0 && hash01(c.id * 5.31 + 0.2) < kids) c.rank = KID_RANK;
+    // They gather beside the door (beside the line, not in it).
+    const q = m === 0 ? { x: 0, y: 0 } : PARTY.queueOffsets[(m - 1) % PARTY.queueOffsets.length]!;
+    c.path = route(s, c, { x: wait.x - 0.9 + q.x, y: wait.y + 0.6 + q.y });
+    s.customers.push(c);
+    leader ??= c;
+  }
+  return leader!;
+}
+
 /** A newcomer heading for the line; `party` = their leader's id (-1: they lead), `slot` = their place in line. */
 function newCustomer(s: GameState, type: CustomerType, start: Point, slot: number, party: number, partySize: number): Customer {
   const id = s.nextId++;
@@ -235,7 +259,8 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     sipping: -1,
   };
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
-  c.path = route(s, start, queueSpot(s, c, leader.queueSlot));
+  // A booked party has no place in line (src/sim/occasions.ts): it heads for the door.
+  c.path = leader.queueSlot >= 0 ? route(s, start, queueSpot(s, c, leader.queueSlot)) : [];
   return c;
 }
 
@@ -308,6 +333,8 @@ export function sendHome(s: GameState, c: Customer): void {
 /** Closing (for building work, or the player's sign): the line goes home, smiling (no rating hit). */
 export function sendLineHome(s: GameState): void {
   for (const c of s.customers) {
+    // A booked party is still welcome behind the closed sign (not during building work).
+    if (c.occasion !== undefined && !s.construction) continue;
     if (c.state === CustomerState.Arriving || c.state === CustomerState.Queued) {
       c.emote = Emote.Music;
       c.emoteTime = 0;
@@ -329,6 +356,9 @@ function vacate(s: GameState, t: Table): void {
 /** Ran out of patience: no money, lower rating, and everyone sees them go (with their friends). */
 function walkout(s: GameState, c: Customer): void {
   s.stats.walkouts += 1;
+  // A private event walking out: the booking failed (src/sim/occasions.ts ends it).
+  const b = s.occasion.current;
+  if (c.occasion !== undefined && b && b.id === c.occasion) b.phase = 'failed';
   walkoutReview(s, c);
   changeRating(s, ECONOMY.rating.walkout, c);
   const table = c.table >= 0 ? s.tables[c.table]! : null;
@@ -360,7 +390,7 @@ export function tableFor(s: GameState, size: number, from: Point): Table | undef
   let table: Table | undefined;
   let best = Infinity;
   for (const t of s.tables) {
-    if (t.state !== TableState.Free || t.seats < size) continue;
+    if (t.state !== TableState.Free || t.seats < size || t.booked) continue;
     const score = Math.hypot(t.x - from.x, t.y - from.y) + (t.seats - size) * 6;
     if (score < best) {
       best = score;
@@ -374,12 +404,19 @@ export function tableFor(s: GameState, size: number, from: Point): Table | undef
 /** Sends the party to a free table; `hostId`: the host walking them there (and bringing the menus). */
 export function seatCustomer(s: GameState, c: Customer, hostId = -1): boolean {
   const leader = leaderOf(s, c);
-  const table = tableFor(s, leader.partySize, leader);
+  // A booked party sits only at the table kept for them.
+  const table = leader.occasion !== undefined ? s.tables.find((t) => t.booked && t.state === TableState.Free && t.seats >= leader.partySize) : tableFor(s, leader.partySize, leader);
   if (!table) {
     emote(c, Emote.Exclaim);
     emit(s, Ev.NoTable, c.x, c.y);
     return false;
   }
+  seatAt(s, leader, table, hostId);
+  return true;
+}
+
+/** The party of `leader` to `table` (free): each to a chair. */
+export function seatAt(s: GameState, leader: Customer, table: Table, hostId = -1): void {
   table.state = TableState.Reserved;
   table.since = s.time;
   partyOf(s, leader).forEach((m, seat) => {
@@ -394,7 +431,6 @@ export function seatCustomer(s: GameState, c: Customer, hostId = -1): boolean {
     m.menuFrom = hostId;
     setState(m, CustomerState.ToTable);
   });
-  return true;
 }
 
 /** What one dish sells for right now: base price x its recipe level x kitchen quality. */
@@ -441,7 +477,9 @@ function pay(s: GameState, c: Customer): void {
   // So do the festival trophies, and tourists on holiday pay more.
   // The guide's stars too: people come for them and pay for them.
   // ...and the season pass's medals (owner M50).
-  const extra = festivalBonus(s) * seasonBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s);
+  // A private event's guest pays the event's price (src/data/occasions.ts).
+  const event = occasionOf(s, c);
+  const extra = festivalBonus(s) * seasonBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s) * (event?.fee ?? 1);
   // A dessert eaten is on the bill too (a share of the main course, src/data/desserts.ts).
   const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra * (1 + dessertShare(c))).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
@@ -458,6 +496,12 @@ function pay(s: GameState, c: Customer): void {
   s.stats.served += 1;
   // What a guest pays, tip and all: the storeroom's ingredients are priced by it (src/sim/supply.ts).
   noteBill(s, price.add(tip));
+  if (event) {
+    const b = s.occasion.current!;
+    b.stars += stars;
+    b.paid += 1;
+    b.earned = b.earned.add(price).add(tip);
+  }
   chefXp(s, 'served');
   if (stars >= 5) chefXp(s, 'fiveStar');
   emit(s, Ev.Coins, c.x, c.y, price.toNumber());
@@ -518,7 +562,7 @@ const MENU_OPENS = 0.45;
 function orderMeal(s: GameState, c: Customer): void {
   c.dish = c.inspector
     ? inspectorDish(s, c, DISHES.filter((d) => s.mods.menu[d.id]).map((d) => d.id), (dish) => dishPrice(s, dish).toNumber())
-    : chooseDish(s, CUSTOMER_TYPES[c.type]);
+    : setMenuDish(s, c) ?? chooseDish(s, CUSTOMER_TYPES[c.type]);
   const id = s.nextId++;
   s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
   // Owner M49: spicy, vegan or gluten-free, please (shown on their bubble and the ticket).
@@ -529,8 +573,22 @@ function orderMeal(s: GameState, c: Customer): void {
   if (c.attention) s.orders.unshift(s.orders.pop()!);
   c.held = Held.None;
   c.bubble = Bubble.DishBase + c.dish;
-  startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day));
+  startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day) * (occasionOf(s, c)?.patience ?? 1));
   setState(c, CustomerState.Waiting);
+}
+
+/** The private event they came for, while it is on (src/data/occasions.ts). */
+export function occasionOf(s: GameState, c: Customer) {
+  const b = s.occasion.current;
+  return c.occasion !== undefined && b && b.id === c.occasion ? OCCASION_BY_ID[b.kind] : undefined;
+}
+
+/** A guest of a private event has the set menu: one of its dishes, by their chair (null: not one, or off the menu). */
+function setMenuDish(s: GameState, c: Customer): number | null {
+  const b = s.occasion.current;
+  if (c.occasion === undefined || !b || b.id !== c.occasion || b.dishes.length === 0) return null;
+  const dish = b.dishes[Math.max(0, c.seat) % b.dishes.length]!;
+  return s.mods.menu[dish] ? dish : null;
 }
 
 /**
@@ -658,7 +716,8 @@ export function updateCustomers(s: GameState, dt: number): void {
           // The party's leader asks for a table and keeps the time; friends just wait with them.
           if (c.party === c.id) {
             c.bubble = Bubble.Seat;
-            startWait(c, CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience * weatherPatience(s.day));
+            // A booked party waits at the door for its table, not in line (src/sim/occasions.ts).
+            startWait(c, c.occasion !== undefined ? OCCASION.doorPatience : CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience * weatherPatience(s.day));
           }
           setState(c, CustomerState.Queued);
         }

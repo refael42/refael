@@ -59,6 +59,7 @@ import { FestivalPanel, useFestivalClock } from './Festival';
 import { SeasonPanel } from './Season';
 import { SupplyButton, SupplyPanel } from './Supply';
 import { AlbumPanel } from './Album';
+import { OccasionButton, OccasionPanel } from './Occasion';
 import { OffersPanel, readOfferPopup, useOffersClock } from './Offers';
 import { useReminders } from '../notify/useReminders';
 import { HUD } from '../render/draw/hud';
@@ -353,6 +354,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [season, setSeason] = useState(false);
   const [supply, setSupply] = useState(false);
   const [album, setAlbum] = useState(false);
+  const [occasion, setOccasion] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
   // hero turn, when nothing else is on screen.
@@ -603,6 +605,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
           <SupplyButton gameRef={gameRef} onPress={() => setSupply(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 320 }} />
+          <OccasionButton gameRef={gameRef} onPress={() => setOccasion(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 382 }} />
         </>
       )}
       {!onboarding && !build && tutorial >= TUTORIAL_STEPS.length && (
@@ -629,6 +632,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {occasion && <OccasionPanel gameRef={gameRef} onCommand={command} onClose={() => setOccasion(false)} />}
       {album && <AlbumPanel gameRef={gameRef} onCommand={command} onClose={() => setAlbum(false)} />}
       {supply && <SupplyPanel gameRef={gameRef} onCommand={command} onClose={() => setSupply(false)} />}
       {season && <SeasonPanel gameRef={gameRef} onCommand={command} onClose={() => setSeason(false)} purchases={purchases} />}

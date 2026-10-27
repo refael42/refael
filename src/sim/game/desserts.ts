@@ -1,4 +1,5 @@
 import { DESSERT, DESSERTS } from '../../data/desserts';
+import { OCCASION_BY_ID } from '../../data/occasions';
 import type { Point } from '../../data/maps';
 import { KITCHEN } from '../../data/staff';
 import { hash01 } from '../retention';
@@ -23,6 +24,12 @@ export interface DessertOrder {
   waiter: number;
 }
 
+/** A guest of a private event that ends with a cake. */
+const cakeFor = (s: GameState, c: Customer): boolean => {
+  const b = s.occasion.current;
+  return c.occasion !== undefined && !!b && b.id === c.occasion && OCCASION_BY_ID[b.kind].cake;
+};
+
 /** Desserts open at the chef's level (their indexes). */
 export const openDesserts = (s: GameState): number[] => DESSERTS.flatMap((d, i) => (s.chef.level >= d.level ? [i] : []));
 
@@ -31,6 +38,8 @@ export function wantsDessert(s: GameState, c: Customer): boolean {
   if (c.table < 0 || c.inspector || c.dessertPhase) return false;
   const open = openDesserts(s).length;
   if (open === 0) return false;
+  // A private event with a cake: everyone stays for it (src/data/occasions.ts).
+  if (cakeFor(s, c)) return true;
   const chance = Math.min(DESSERT.maxChance, DESSERT.chance + DESSERT.perDessert * (open - 1));
   return hash01(c.id * 3.31 + 0.57) < chance;
 }
@@ -38,6 +47,8 @@ export function wantsDessert(s: GameState, c: Customer): boolean {
 /** Their choice: any open dessert, the newest a little more often. */
 export function chooseDessert(s: GameState, c: Customer): number {
   const open = openDesserts(s);
+  // The event's cake: the finest dessert open, the same for the whole table.
+  if (cakeFor(s, c)) return open[open.length - 1] ?? 0;
   const pick = Math.floor(Math.sqrt(hash01(c.id * 5.17 + 0.23)) * open.length);
   return open[Math.min(open.length - 1, pick)] ?? 0;
 }

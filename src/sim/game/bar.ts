@@ -16,6 +16,13 @@ import { CustomerState, OrderState, type Customer, type DrinkOrder, type GameSta
 import { gainXp } from './workers';
 import { freeStools } from '../economy/upgrades';
 import { gainXp as chefXp } from '../chef';
+import { OCCASION_BY_ID } from '../../data/occasions';
+
+/** A private event's guests drink more (a wedding most; src/data/occasions.ts). */
+const eventDrinks = (s: GameState, c: Customer): number => {
+  const b = s.occasion.current;
+  return c.occasion !== undefined && b && b.id === c.occasion ? OCCASION_BY_ID[b.kind].drinks : 0;
+};
 
 // The bar (owner: "bartenders who shake cocktails, plain drinks too: a ready drink goes on the
 // bar's pass and a waiter takes it; later guests sit at the bar and the bartenders serve them").
@@ -65,13 +72,13 @@ function chooseDrink(s: GameState, c: Customer, salt: number, bar: boolean): num
 export function maybeOrderDrink(s: GameState, c: Customer): void {
   if (!bartendersOn(s) || c.stool >= 0 || c.drinkOrder >= 0) return;
   // Some guests always want one (out for the night, owner M52).
-  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0)) return;
+  if (hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0) + eventDrinks(s, c)) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), false);
 }
 
 /** A guest having a meal at the bar: now and then a drink with it, made right in front of them. */
 export function maybeBarDrink(s: GameState, c: Customer): void {
-  if (!bartendersOn(s) || c.drinkOrder >= 0 || hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0)) return;
+  if (!bartendersOn(s) || c.drinkOrder >= 0 || hash01(c.id * 2.71 + 0.33) >= BAR.drinkChance + s.mods.drinkChance + (CUSTOMER_TYPES[c.type].drinkBonus ?? 0) + eventDrinks(s, c)) return;
   newDrink(s, c, chooseDrink(s, c, 0.7, false), true);
 }
 

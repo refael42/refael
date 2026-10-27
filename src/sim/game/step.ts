@@ -1,4 +1,6 @@
 import { updateSupply, vanStop } from '../supply';
+import { updateOccasions } from '../occasions';
+import { OCCASIONS } from '../../data/occasions';
 import { heatOf } from './service';
 import { heroesJoin } from '../offers';
 import { releaseRestroom, updateRestroomProps } from './restroom';
@@ -77,6 +79,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateGift(s);
   updateBus(s);
   updateSupply(s);
+  updateOccasions(s);
   updateWalkers(s, dt);
   updateCrew(s, dt);
   // Heroes the player owns walk in wherever they are missing (a new branch, a new building).
@@ -130,6 +133,15 @@ function dynamicProps(s: GameState): PropView[] {
     if (c.dessertPhase !== 'eat' || c.table < 0 || c.dessert === undefined) continue;
     const p = dishSpot(s.tables[c.table]!, c.seat);
     out.push(prop(SYNTH * 4 + c.id, PropKind.Dessert, p.x, p.y, { variant: c.dessert, lift: TABLE_TOP, depthBias: 1 }));
+  }
+  // A private event's table: a reserved card while it is kept, balloons once the party sits.
+  const booking = s.occasion.current;
+  const booked = booking && booking.table >= 0 && booking.phase !== 'offer' ? s.tables[booking.table] : undefined;
+  if (booking && booked) {
+    const seated = booking.phase === 'seated';
+    // Balloons at the far end of a long table (out of the plates' way), the card in the middle.
+    const back = booked.backIds.length;
+    out.push(prop(SYNTH - 63, PropKind.Occasion, booked.x + (seated ? 0.28 : 0), booked.y - (seated ? back + 0.3 : back / 2), { variant: OCCASIONS.findIndex((o) => o.id === booking.kind), active: seated, lift: TABLE_TOP, depthBias: 1.5 }));
   }
   // The prep stock (owner M49): a shelf over the end of the pass, past the ticket rail, a bowl on it per unit ready.
   if (s.prep > 0 || s.staff.some((st) => st.role === 'cook')) {

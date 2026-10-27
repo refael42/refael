@@ -177,6 +177,8 @@ export const PropKind = {
   PrepStock: 60,
   /** The supplier's van at the curb (owner M51): since = set off, progress = leaves the curb, variant 1 = urgent. */
   Van: 61,
+  /** A private event's table (src/sim/occasions.ts): the reserved card, or (active) balloons; variant = the kind. */
+  Occasion: 62,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

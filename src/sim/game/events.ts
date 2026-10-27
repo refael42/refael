@@ -130,6 +130,15 @@ export const Ev = {
   AlbumNew: 66,
   /** An album reward was taken. a = gems */
   AlbumClaim: 67,
+  /**
+   * Private events (src/sim/occasions.ts), at the door: the phone rings (a = the kind, b = guests);
+   * booked (same); the party came (same); it ended (a = the kind, b = average stars in tenths,
+   * c = gems; b = -1 walked out, -2 called off).
+   */
+  OccasionCall: 68,
+  OccasionBooked: 69,
+  OccasionArrive: 70,
+  OccasionEnd: 71,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

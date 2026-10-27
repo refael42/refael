@@ -18,6 +18,7 @@ import { FESTIVAL_THEMES } from '../data/events';
 import { fxSprites } from './art/fxArt';
 import { REQUEST_BADGES, serviceSprites } from './art/serviceArt';
 import { CRATES, supplySprites } from './art/supplyArt';
+import { BALLOONS, occasionSprites } from './art/occasionArt';
 import { dessertSprites } from './art/dessertArt';
 import { DESSERTS } from '../data/desserts';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
@@ -31,7 +32,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites, ...serviceSprites, ...supplySprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites, ...serviceSprites, ...supplySprites, ...occasionSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -70,7 +71,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites | keyof typeof serviceSprites | keyof typeof supplySprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites | keyof typeof serviceSprites | keyof typeof supplySprites | keyof typeof occasionSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
@@ -156,6 +157,8 @@ export const LAYERS = {
   prepBowl: [0, 1, 2, 3].map((i) => INDEX[`prepBowl${i}`]!),
   /** The storeroom's crates by ingredient (owner M51, src/data/supply.ts order). */
   crate: CRATES.map((name) => INDEX[name]!),
+  /** A private event's balloons on its table, by OCCASIONS order (src/data/occasions.ts). */
+  balloons: BALLOONS.map((name) => INDEX[name]!),
   /** The padlock sign on later land, by that building's tier. */
   lockSign: LOCK_BOARDS.map((_, tier) => INDEX[`lockSign${tier}`]!),
   /** Couriers' scooters by slot: parked, and with the courier riding it. */

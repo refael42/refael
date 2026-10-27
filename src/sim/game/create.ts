@@ -1,3 +1,4 @@
+import { newOccasions } from '../occasions';
 import { copyAlbum, newAlbum, type AlbumState } from '../album';
 import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
@@ -599,6 +600,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     jam: 0,
     musicUntil: 0,
     musicCalm: 1,
+    occasion: newOccasions(),
     placed: [],
     works: (setup.works ?? []).map((w, i) => ({ ...w, at: w.at ? { ...w.at } : null, id: i + 1, lastTap: -Infinity })),
     nextWorkId: (setup.works?.length ?? 0) + 1,

@@ -511,6 +511,12 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     const moving = k < 1 || m > 0;
     const shake = moving ? Math.sin(t * 30) * 0.5 : Math.sin(t * 22 + seed) * 0.35;
     spr(c, A, S.bus, ox(dx, 0), oy(dx, 0, 0) + shake, plain);
+  } else if (kind === PropKind.Occasion) {
+    // A private event's table: the reserved card, then the party's balloons, bobbing a little.
+    if (d[o + PF.active]! > 0) {
+      const sway = Math.sin(t * 1.6 + seed) * 4;
+      sprXf(c, A, A.L.balloons[variant % A.L.balloons.length]!, 0, -Math.abs(Math.sin(t * 1.3 + seed)) * 1.5, sway, 1, 1, plain);
+    } else spr(c, A, S.reservedCard, 0, 0, plain);
   } else if (kind === PropKind.Van) {
     // The supplier's van (owner M51): drives up like the bus, unloads a crate of each ingredient
     // beside it while it waits at the curb, and pulls away with the storeroom full.
