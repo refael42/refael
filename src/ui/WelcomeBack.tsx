@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { STORE_BUILD } from '../config';
+import { watchAd } from '../ads';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { OFFLINE } from '../data/economy';
@@ -14,6 +14,10 @@ interface Props {
   manager?: string;
   /** Called with the multiplier the player ended up with (1, or the ad bonus). */
   onCollect: (multiplier: number) => void;
+  /** A rewarded ad can double it (an ad network or the test ad, and today's limit not reached). */
+  canAd: boolean;
+  /** The ad was watched to the end (counts toward today's limit). */
+  onAd: () => void;
 }
 
 const ROLL_MS = 1100;
@@ -21,7 +25,6 @@ const ROLL_MS = 1100;
 const ROLL_DELAY_MS = 380;
 /** At most this many number updates a second: the text re-renders only when it changes. */
 const ROLL_FPS = 24;
-const FAKE_AD_SECONDS = 3;
 
 /**
  * Counts up from 0 with an ease-out, after a short wait. A modal shown once per session; the
@@ -78,10 +81,10 @@ function Duration({ seconds }: { seconds: number }) {
   );
 }
 
-export function WelcomeBack({ earnings, manager, onCollect }: Props) {
+export function WelcomeBack({ earnings, manager, onCollect, canAd, onAd }: Props) {
   const t = useT();
   const [multiplier, setMultiplier] = useState(1);
-  const [adLeft, setAdLeft] = useState(0);
+  const [watching, setWatching] = useState(false);
   const amount = useRollingNumber(earnings.coins.mul(multiplier));
   const pop = useSharedValue(0.6);
   useEffect(() => {
@@ -89,17 +92,16 @@ export function WelcomeBack({ earnings, manager, onCollect }: Props) {
   }, [pop]);
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: pop.value }] }));
 
-  useEffect(() => {
-    if (adLeft <= 0) return;
-    const id = setTimeout(() => {
-      if (adLeft === 1) {
-        setMultiplier(OFFLINE.adMultiplier);
-        pop.value = withSequence(withTiming(1.12, { duration: 120 }), withSpring(1, { damping: 7 }));
-      }
-      setAdLeft(adLeft - 1);
-    }, 1000);
-    return () => clearTimeout(id);
-  }, [adLeft, pop]);
+  // The rewarded ad (owner: idea 12): watched to the end, the amount doubles with a pop.
+  const watch = async () => {
+    setWatching(true);
+    const ok = await watchAd();
+    setWatching(false);
+    if (!ok) return;
+    onAd();
+    setMultiplier(OFFLINE.adMultiplier);
+    pop.value = withSequence(withTiming(1.12, { duration: 120 }), withSpring(1, { damping: 7 }));
+  };
 
   const capped = earnings.paidSeconds < earnings.awaySeconds;
   return (
@@ -118,16 +120,14 @@ export function WelcomeBack({ earnings, manager, onCollect }: Props) {
           <View style={styles.coin} />
           <Text style={styles.amount}>{amount}</Text>
         </View>
-        {adLeft > 0 ? (
+        {watching ? (
           <View style={styles.ad}>
             <Text style={styles.adText}>{t('ui.adPlaying')}</Text>
-            <Text style={styles.adCount}>{adLeft}</Text>
           </View>
         ) : (
           <View style={styles.buttons}>
-            {/* A stand-in for a real ad: never in a store build (the stores turn down placeholder ads; the game shows none). */}
-            {multiplier === 1 && !STORE_BUILD && (
-              <Pressable accessibilityRole="button" onPress={() => setAdLeft(FAKE_AD_SECONDS)} style={[styles.button, styles.adButton]}>
+            {multiplier === 1 && canAd && (
+              <Pressable accessibilityRole="button" onPress={() => void watch()} style={[styles.button, styles.adButton]}>
                 <Text style={styles.buttonText}>{t('ui.adDouble')}</Text>
               </Pressable>
             )}
@@ -175,5 +175,4 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFFFFF', fontWeight: '900', fontSize: 16 },
   ad: { flexDirection: 'row', alignItems: 'center', gap: 10, height: 48, marginTop: 6 },
   adText: { color: '#C9B3D6', fontSize: 13, fontWeight: '700' },
-  adCount: { color: '#FFE9A8', fontSize: 22, fontWeight: '900' },
 });

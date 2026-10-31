@@ -1,4 +1,6 @@
 import type { AlbumState } from '../album';
+import type { AdsState } from '../ads';
+import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
 import type { StickerId } from '../../data/album';
 import type { SupplyState } from '../supply';
@@ -288,6 +290,8 @@ export type Command =
   | { type: 'albumPage'; page: number }
   /** A private event's call: yes or no. */
   | { type: 'booking'; accept: boolean }
+  /** A rewarded ad was watched to the end (`day`: the phone's, src/sim/season.ts localDay). */
+  | { type: 'adReward'; reward: AdReward; day: number }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -651,6 +655,8 @@ export interface GameState {
   supply: SupplyState;
   /** The customer album (owner M52, src/sim/album.ts): kinds of guest served, rewards taken. Kept across branches. */
   album: AlbumState;
+  /** Rewarded ads watched today (src/sim/ads.ts). */
+  ads: AdsState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

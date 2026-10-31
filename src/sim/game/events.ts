@@ -139,6 +139,8 @@ export const Ev = {
   OccasionBooked: 69,
   OccasionArrive: 70,
   OccasionEnd: 71,
+  /** A rewarded ad paid out (src/sim/ads.ts). a = the reward (AD_REWARDS index), b = gems */
+  AdReward: 72,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

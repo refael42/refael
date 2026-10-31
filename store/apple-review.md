@@ -150,6 +150,16 @@ The game is in Hebrew and English (Settings > Language).
 
 ---
 
+## 9. פרסומות עם פרס (כשיתווספו)
+
+היום אין במשחק פרסומות אמיתיות, ובגרסה לחנות כפתורי הפרסומות מוסתרים. כשמוסיפים את AdMob (החבילה react-native-google-mobile-ads), צריך לעדכן:
+
+- **App Privacy ב-App Store Connect:** לסמן איסוף של "Device ID", "Advertising Data" ו-"Product Interaction" לצורך Third-Party Advertising. גם ב-Google Play צריך לעדכן את ה-Data safety.
+- **פרסומות לא מותאמות אישית:** אם מבקשים רק פרסומות לא מותאמות (non-personalized), לא צריך את חלון ה-ATT של אפל. אם רוצים פרסומות מותאמות, חייבים להוסיף את חלון ה-ATT ולעדכן את `NSPrivacyTracking`.
+- **הסכמה באירופה (GDPR):** להפעיל את טופס ההסכמה של Google (UMP) לפני שמציגים את הפרסומת הראשונה.
+- **מדיניות הפרטיות:** להוסיף פסקה על פרסומות ועל AdMob ב-store/privacy-policy.md.
+- **דירוג תוכן:** להגביל את הפרסומות לדירוג PG (maxAdContentRating), כדי שיתאימו לדירוג הגיל ‎9+‎.
+
 ## מקורות
 
 - [App Review Guidelines (Apple)](https://developer.apple.com/app-store/review/guidelines/): סעיפים 2.1, 2.3, 2.5.19, 3.1.1, 4.5.4, 5.1.1, 5.1.2.

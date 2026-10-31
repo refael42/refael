@@ -79,6 +79,7 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.OccasionCall:
       return ['tick', false];
     case Ev.OccasionEnd:
+    case Ev.AdReward:
       return ['cash', true];
     case Ev.SeasonMission:
     case Ev.AlbumNew:

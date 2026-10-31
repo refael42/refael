@@ -60,6 +60,13 @@ import { SeasonPanel } from './Season';
 import { SupplyButton, SupplyPanel } from './Supply';
 import { AlbumPanel } from './Album';
 import { OccasionButton, OccasionPanel } from './Occasion';
+import { FreePanel } from './FreeRewards';
+import { getAds } from '../ads';
+import { adOpen } from '../sim/ads';
+import { localDay } from '../sim/season';
+
+const phoneDay = () => localDay(Date.now(), new Date().getTimezoneOffset());
+import { DemoAd } from './DemoAd';
 import { OffersPanel, readOfferPopup, useOffersClock } from './Offers';
 import { useReminders } from '../notify/useReminders';
 import { HUD } from '../render/draw/hud';
@@ -355,6 +362,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [supply, setSupply] = useState(false);
   const [album, setAlbum] = useState(false);
   const [occasion, setOccasion] = useState(false);
+  const [free, setFree] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
   // hero turn, when nothing else is on screen.
@@ -550,6 +558,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
     },
     [tap, open, showStaff, close],
   );
+  // The welcome-back card's rewarded ad: when there are ads and today's limit allows.
+  const offlineAd = !!getAds() && !!gameRef.current && adOpen(gameRef.current, 'offline', phoneDay());
   const collect = (multiplier: number) => {
     if (welcome) command({ type: 'grant', coins: toSave(welcome.coins.mul(multiplier)) });
     setWelcome(null);
@@ -571,6 +581,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onFestival={() => setFestival(true)}
           onSeason={() => setSeason(true)}
           onAlbum={() => setAlbum(true)}
+          onFree={() => setFree(true)}
           onShop={() => setShop(true)}
           onReviews={() => setReviews(true)}
           onGuide={() => setGuide(true)}
@@ -632,6 +643,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {free && <FreePanel gameRef={gameRef} onCommand={command} onClose={() => setFree(false)} />}
       {occasion && <OccasionPanel gameRef={gameRef} onCommand={command} onClose={() => setOccasion(false)} />}
       {album && <AlbumPanel gameRef={gameRef} onCommand={command} onClose={() => setAlbum(false)} />}
       {supply && <SupplyPanel gameRef={gameRef} onCommand={command} onClose={() => setSupply(false)} />}
@@ -701,7 +713,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {rankBanner !== null && levelBanner === null && <LevelBanner level={rankBanner} rank={{ opens: rankBanner * RANK.levels }} onDone={endRankBanner} />}
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {newsDue && !welcome && <NewsCard onClose={() => setSeenNews(NEWS.version)} />}
-      {welcome && !onboarding && splashGone && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} />}
+      {welcome && !onboarding && splashGone && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} canAd={offlineAd} onAd={() => command({ type: 'adReward', reward: 'offline', day: phoneDay() })} />}
+      {/* The test ad (web and test builds) plays over everything. */}
+      <DemoAd />
       {loaded && !profile && (
         <Welcome
           // A player who already has a restaurant only picks names: no lessons, no tutorial.

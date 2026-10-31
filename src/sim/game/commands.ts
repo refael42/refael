@@ -31,6 +31,7 @@ import { claimFestival, syncFestival } from '../festival';
 import { startBus } from './bus';
 import { markShown, seeOffers } from '../offers';
 import { acceptBooking, declineBooking } from '../occasions';
+import { grantAd } from '../ads';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -194,6 +195,9 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'albumPage':
       claimPage(s, cmd.page);
+      return;
+    case 'adReward':
+      grantAd(s, cmd.reward, cmd.day);
       return;
     case 'booking':
       if (cmd.accept) acceptBooking(s);
