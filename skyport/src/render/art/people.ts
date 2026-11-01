@@ -35,6 +35,8 @@ export const OUTFITS: readonly Outfit[] = [
   { id: 'fueler', skin: '#d9a07a', hair: '#2b2b2b', hairStyle: 'short', shirt: '#3a4a5e', pants: '#3a4a5e', shoes: '#1d1d22', vest: '#ff8a1f', hat: { kind: 'cap', color: '#ff8a1f' }, size: 1 },
   { id: 'crew', skin: '#f2c7a5', hair: '#6b4226', hairStyle: 'short', shirt: '#2f3b52', pants: '#2f3b52', shoes: '#1d1d22', vest: '#d7f23a', hat: { kind: 'headset', color: '#30343c' }, size: 1 },
   { id: 'pilot', skin: '#e8b996', hair: '#4a3020', hairStyle: 'short', shirt: '#ffffff', pants: '#1d2a4d', shoes: '#111111', hat: { kind: 'cap', color: '#1d2a4d' }, size: 1 },
+  { id: 'agent', skin: '#f0c9a8', hair: '#3b2a20', hairStyle: 'bun', shirt: '#6366f1', pants: '#1e293b', shoes: '#111111', size: 1 },
+  { id: 'atc', skin: '#c58c63', hair: '#2b2b2b', hairStyle: 'bun', shirt: '#e0e7ff', pants: '#1e293b', shoes: '#111111', hat: { kind: 'headset', color: '#334155' }, size: 1 },
 ];
 
 export const PAX_OUTFITS = ['tourist', 'business', 'businessW', 'family', 'kid', 'student', 'vip', 'elder'] as const;

@@ -2,7 +2,8 @@ import { clearLanding, clearTakeoff, startBoarding } from './flights';
 import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
-import { requestFuel } from './vehicles';
+import { hire } from './staff';
+import { requestService } from './vehicles';
 
 /** UI entry point: commands are applied at the start of the next step. */
 export function queueCommand(s: GameState, cmd: Command): void {
@@ -32,9 +33,22 @@ export function applyCommand(s: GameState, cmd: Command): void {
     case 'sendFuel': {
       const f = findFlight(s, cmd.flightId);
       if (!f) return reject(s, REJECT.unknownFlight, cmd.flightId);
-      const r = requestFuel(s, f);
+      const r = requestService(s, f, 'fuel');
       if (r === 'rejected') return reject(s, REJECT.notReady, f.id);
       if (r === 'queued') pushEvent(s, 'fuelQueued', f.x, f.y, f.id);
+      return;
+    }
+    case 'sendBags': {
+      const f = findFlight(s, cmd.flightId);
+      if (!f) return reject(s, REJECT.unknownFlight, cmd.flightId);
+      const r = requestService(s, f, 'bags');
+      if (r === 'rejected') return reject(s, REJECT.notReady, f.id);
+      if (r === 'queued') pushEvent(s, 'bagsQueued', f.x, f.y, f.id);
+      return;
+    }
+    case 'hire': {
+      const code = hire(s, cmd.applicantId);
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
       return;
     }
     case 'startBoarding': {

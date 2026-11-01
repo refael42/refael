@@ -16,7 +16,13 @@ export type GameEventKind =
   | 'takeoffCleared'
   | 'liftoff'
   | 'paid'
-  | 'diverted';
+  | 'diverted'
+  | 'bagsQueued'
+  | 'bagsStart'
+  | 'bagsDone'
+  | 'hired'
+  | 'wagesPaid'
+  | 'notEnoughMoney';
 
 export interface GameEvent {
   id: number;
@@ -31,14 +37,16 @@ export interface GameEvent {
 }
 
 /** Why a command was refused (event cmdRejected, field a). */
-export const REJECT = { noStand: 1, notReady: 2, unknownFlight: 3 } as const;
+export const REJECT = { noStand: 1, notReady: 2, unknownFlight: 3, noMoney: 4, limit: 5 } as const;
 
 export type Command =
   | { type: 'debugAddMoney'; amount: number }
   | { type: 'clearLanding'; flightId: number }
   | { type: 'sendFuel'; flightId: number }
   | { type: 'startBoarding'; flightId: number }
-  | { type: 'clearTakeoff'; flightId: number };
+  | { type: 'clearTakeoff'; flightId: number }
+  | { type: 'sendBags'; flightId: number }
+  | { type: 'hire'; applicantId: number };
 
 export type FlightPhase =
   | 'inbound'
@@ -58,11 +66,19 @@ export type FlightPhase =
   | 'diverted';
 
 /** What the flight is waiting for the player (or staff) to do. */
-export const WANT = { none: 0, clearLanding: 1, fuel: 2, board: 3, clearTakeoff: 4 } as const;
+export const WANT = { none: 0, clearLanding: 1, fuel: 2, board: 3, clearTakeoff: 4, bags: 5 } as const;
 export type Want = (typeof WANT)[keyof typeof WANT];
 
-/** Fuel service: 0 none, 1 requested (queued), 2 truck driving, 3 fueling, 4 done. */
+/** Service progress (fuel, bags): 0 none, 1 requested (queued), 2 vehicle driving, 3 working, 4 done. */
 export const FUEL = { none: 0, queued: 1, driving: 2, fueling: 3, done: 4 } as const;
+export const SVC = FUEL;
+
+/** One leg of a ground route on the taxi graph (see graph.ts). */
+export interface GroundRouteState {
+  edges: number[];
+  path: number[];
+  nodeDist: number[];
+}
 
 export interface Flight {
   id: number;
@@ -118,6 +134,23 @@ export interface Flight {
   paid: number;
   /** Timer for spawning passengers one by one. */
   paxTimer: number;
+  /** Bitmask of pending actions (1 << WANT value). */
+  wants: number;
+  bagsIn: number;
+  bagsOut: number;
+  bagState: number;
+  /** 0..1 progress of unloading + loading. */
+  bagWork: number;
+  /** Ground route on the taxi graph (null in the air / on the runway). */
+  groute: GroundRouteState | null;
+  /** Index of the route edge the plane is on. */
+  gIdx: number;
+  /** Edges reserved by this plane. */
+  gHeld: number[];
+  /** Node held at the route start until the tail clears it (-1 none). */
+  gStart: number;
+  /** Stopped because the way ahead is reserved by someone else. */
+  gWaiting: boolean;
 }
 
 /** Person states. */
@@ -143,9 +176,11 @@ export interface Person {
 
 export type VehicleState = 'idle' | 'toPlane' | 'fueling' | 'return';
 
+export type ServiceKind = 'fuel' | 'bags';
+
 export interface Vehicle {
   id: number;
-  kind: 'fuel';
+  kind: ServiceKind;
   x: number;
   y: number;
   px: number;
@@ -172,6 +207,32 @@ export interface Stats {
   late: number;
   diverted: number;
   earned: Big;
+  wages: Big;
+}
+
+export interface StaffMember {
+  id: number;
+  /** Index into STAFF_ROLES. */
+  role: number;
+  /** Indices into FIRST_NAMES / LAST_NAMES. */
+  first: number;
+  last: number;
+  /** 0.8 .. 1.3, higher reacts faster. */
+  speed: number;
+  wage: number;
+  hiredAt: number;
+  /** Sim time until which the worker is busy. */
+  busyUntil: number;
+}
+
+export interface Applicant {
+  id: number;
+  role: number;
+  first: number;
+  last: number;
+  speed: number;
+  cost: number;
+  wage: number;
 }
 
 export interface GameState {
@@ -193,6 +254,19 @@ export interface GameState {
   stands: Stand[];
   /** Flight ids waiting for the fuel truck. */
   fuelQueue: number[];
+  /** Flight ids waiting for the baggage cart. */
+  bagQueue: number[];
+  /** Taxi graph reservations: flight id per edge / node (0 = free). */
+  edgeHold: number[];
+  nodeHold: number[];
+  /** How many of the layout's stands are built. */
+  standsBuilt: number;
+  /** Traffic multiplier (marketing raises it). */
+  traffic: number;
+  staff: StaffMember[];
+  applicants: Applicant[];
+  /** Last game day whose wages were paid. */
+  wageDay: number;
   nextId: number;
   nextArrival: number;
   spotCursor: number;

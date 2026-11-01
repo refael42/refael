@@ -53,5 +53,8 @@ export default [
       await page.waitForTimeout(500);
     },
   },
+  { name: 'm2-crew-phone', viewport: { width: 390, height: 844 }, query: '/?seed=4&stands=3&crew=1&warp=150&speed=1', wait: 3000, touch: true },
+  { name: 'm2-crew-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&stands=3&crew=1&warp=210', wait: 3000, touch: true },
+  { name: 'm2-staff-panel', viewport: { width: 390, height: 844 }, query: '/?seed=4&money=400&panel=staff', wait: 2000, touch: true },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

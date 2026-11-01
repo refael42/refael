@@ -13,10 +13,15 @@ export interface DebugParams {
   /** Perf experiments: skip the ground picture / static sprites. */
   noBg: boolean;
   noStatics: boolean;
+  /** Start with this many stands built, all staff hired (screenshots). */
+  stands: number;
+  crew: boolean;
+  money: number;
+  panel: string | null;
 }
 
 export function readDebugParams(): DebugParams {
-  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false };
+  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null };
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return out;
   const q = new URLSearchParams(window.location.search);
   const num = (k: string) => {
@@ -32,5 +37,9 @@ export function readDebugParams(): DebugParams {
   out.hook = q.get('hook') === '1';
   out.noBg = q.get('nobg') === '1';
   out.noStatics = q.get('nostatics') === '1';
+  out.stands = Math.max(0, Math.min(9, num('stands')));
+  out.crew = q.get('crew') === '1';
+  out.money = Math.max(0, num('money'));
+  out.panel = q.get('panel');
   return out;
 }

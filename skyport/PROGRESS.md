@@ -21,7 +21,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M0 Infrastructure | done | see below |
 | M1 Dirt strip | done | see below |
 | Modern restyle | done | requested by the owner, see below |
-| M2 First staff | next | |
+| M2 First staff | done | see below |
+| M3 Economy & upgrades | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -64,6 +65,24 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   with a route line and colored action button, iOS-style switch and segmented language control,
   dark loading screen with glow.
 - This replaces the spec's "dark outlines" style; the rest of section 17 still applies.
+
+### M2 — first staff (done)
+- Taxi graph (`src/sim/game/graph.ts`): one-way edges, a DAG from the runway exit to the stands
+  to the hold-short point. Planes reserve each edge together with its end node before entering
+  and release them when the tail clears.
+- Deadlock rule (found by the 2000-flight test): a departure may leave its stand only after
+  reserving the whole shared stretch up to the first "safe" (departure-only) edge, so departures
+  only wait at their stand or in the departure queue, never on the arrival lane.
+- Three stand plots on the apron (one built; M3 builds the rest).
+- Baggage service: a tug with carts unloads and loads; doors close only after bags and boarding;
+  fueling not during boarding. Pending actions are a bitmask; the card shows one button each.
+- Staff: tower controller (landings/takeoffs), fueler, baggage handler and check-in agent
+  (boarding; it is a "start" role in the spec and boarding otherwise stays manual). One applicant
+  per role, hire cost and daily wage, max 2 per role. Applicants use hash01, not the shared RNG.
+- UI: bottom bar, staff sheet, multi-action flight card, "waiting for taxiway" marker.
+- Tests: graph is a DAG; 2000 flights on 3 stands — 0 diverted, min ground separation 1.66 tiles,
+  longest ground wait 17 s, runway exclusive; hiring limits/money; a full crew runs the airfield;
+  wages once per game day; hiring does not touch the shared RNG.
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).

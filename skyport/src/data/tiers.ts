@@ -14,6 +14,11 @@ export interface StandDef {
   to: string;
 }
 
+export interface ServiceHome {
+  home: P2;
+  via: P2;
+}
+
 export interface TierLayout {
   world: { w: number; h: number };
   /** Fenced, playable area. */
@@ -28,11 +33,18 @@ export interface TierLayout {
     threshold: P3;
     touchdown: P3;
   };
-  /** Ground route from the runway exit to the stand lane, and from the lane to the hold-short point. */
+  /**
+   * Taxiway graph: one-way edges (directed), so the ground flow is a DAG from
+   * the runway exit to the stands and from the stands to the hold-short point.
+   * Stand edges (lane -> stand -> lane) are added from the stand list.
+   */
   taxi: {
     nodes: Readonly<Record<string, P2>>;
-    arrival: readonly string[];
-    departure: readonly string[];
+    edges: readonly (readonly [string, string])[];
+    /** Where rolling-out planes leave the runway. */
+    exit: string;
+    /** Where departures wait for takeoff clearance. */
+    holdShort: string;
     /** Points from the hold-short node onto the runway, ending aligned for takeoff. */
     lineUp: readonly P2[];
   };
@@ -42,8 +54,11 @@ export interface TierLayout {
   hutDoor: P2;
   waitSpots: readonly P2[];
   pump: P2;
-  truckHome: P2;
-  truckVia: P2;
+  /** Parking spots of the service vehicles. */
+  fuel: ServiceHome;
+  bags: ServiceHome;
+  /** Where idle staff stand. */
+  staffSpots: Readonly<Record<string, P2>>;
   windsock: P2;
   road: readonly P2[];
   parking: { x0: number; y0: number; x1: number; y1: number };
@@ -77,17 +92,29 @@ const DIRT_STRIP: TierLayout = {
   taxi: {
     nodes: {
       E: [28.4, 26],
-      T1: [28.6, 24.6],
-      La: [27.4, 23.8],
-      Lb: [25.4, 23.8],
-      Lc: [23.0, 23.8],
-      Ld: [20.6, 23.8],
-      T2: [16.6, 23.7],
-      T3: [14.6, 23.8],
-      H: [14.2, 24.6],
+      T1: [28.6, 24.7],
+      La: [27.6, 23.9],
+      Lb: [25.8, 23.9],
+      Lc: [23.8, 23.9],
+      Ld: [21.8, 23.9],
+      Le: [19.8, 23.9],
+      T2: [16.8, 23.8],
+      T3: [14.6, 23.9],
+      H: [14.2, 24.7],
     },
-    arrival: ['E', 'T1', 'La', 'Lb'],
-    departure: ['Lc', 'Ld', 'T2', 'T3', 'H'],
+    edges: [
+      ['E', 'T1'],
+      ['T1', 'La'],
+      ['La', 'Lb'],
+      ['Lb', 'Lc'],
+      ['Lc', 'Ld'],
+      ['Ld', 'Le'],
+      ['Le', 'T2'],
+      ['T2', 'T3'],
+      ['T3', 'H'],
+    ],
+    exit: 'E',
+    holdShort: 'H',
     lineUp: [
       [14.25, 25.5],
       [14.7, 25.95],
@@ -103,36 +130,41 @@ const DIRT_STRIP: TierLayout = {
       [52, 21, 7.5],
     ],
   },
-  stands: [{ id: 'S1', pos: [24.2, 22.3], size: 'small', from: 'Lb', to: 'Lc' }],
-  hut: [21, 18.6],
-  hutDoor: [22.45, 20.05],
-  waitSpots: [
-    [21.35, 20.5],
-    [21.75, 20.75],
-    [22.15, 20.5],
-    [22.85, 20.6],
-    [23.25, 20.4],
-    [21.55, 21.05],
-    [22.0, 21.15],
-    [23.0, 21.0],
-    [23.45, 20.85],
-    [21.2, 20.95],
-    [22.5, 21.35],
-    [23.6, 21.3],
+  stands: [
+    { id: 'S1', pos: [24.8, 21.9], size: 'small', from: 'Lb', to: 'Lc' },
+    { id: 'S2', pos: [22.8, 21.9], size: 'small', from: 'Lc', to: 'Ld' },
+    { id: 'S3', pos: [20.8, 21.9], size: 'small', from: 'Ld', to: 'Le' },
   ],
-  pump: [26.3, 19.5],
-  truckHome: [25.9, 21.0],
-  truckVia: [25.5, 21.9],
+  hut: [21, 17.9],
+  hutDoor: [22.45, 19.35],
+  waitSpots: [
+    [21.35, 19.8],
+    [21.75, 20.05],
+    [22.15, 19.8],
+    [22.85, 19.9],
+    [23.25, 19.7],
+    [21.55, 20.35],
+    [22.0, 20.45],
+    [23.0, 20.3],
+    [23.45, 20.15],
+    [21.2, 20.25],
+    [22.5, 20.6],
+    [23.65, 20.55],
+  ],
+  pump: [26.6, 18.9],
+  fuel: { home: [26.6, 20.5], via: [26.4, 21.5] },
+  bags: { home: [19.5, 20.2], via: [19.6, 21.1] },
+  staffSpots: { atc: [21.2, 19.5], fueler: [27.4, 19.9], porter: [19.1, 19.6], agent: [23.4, 19.45] },
   windsock: [20, 27.9],
   road: [
-    [22.1, 18.4],
+    [22.1, 17.8],
     [22.1, 17.0],
     [22.4, 12],
     [21.6, 6],
     [22.2, 0],
   ],
   parking: { x0: 23.0, y0: 15.4, x1: 25.6, y1: 17.6 },
-  camera: { center: [20.6, 23.4], zoom: 0.72 },
+  camera: { center: [20.8, 23.0], zoom: 0.72 },
 };
 
 export const TIERS: readonly TierDef[] = [{ id: 1, key: 'dirtStrip', layout: DIRT_STRIP }];

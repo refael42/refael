@@ -189,7 +189,8 @@ export class Big {
     if (this.m === 0) return 0;
     if (this.e > 308) return this.m > 0 ? Infinity : -Infinity;
     if (this.e < -308) return 0;
-    return this.m * pow10(this.e);
+    // via a decimal string so 1.09e2 is exactly 109 (not 109.00000000000001)
+    return Number(this.m.toPrecision(15) + 'e' + this.e);
   }
 
   floor(): Big {

@@ -6,7 +6,8 @@ import { BlurStyle, ClipOp, Skia, type SkCanvas, type SkPicture } from '@shopify
 
 import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
-import { routeArrival, routeDeparture, routeLineUp } from '../sim/game/layout';
+import { findRoute, graphOf, routeGeometry } from '../sim/game/graph';
+import { routeLineUp } from '../sim/game/layout';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
 import { HALF_H, HALF_W, isoX, isoY } from './iso';
 import { TREE_KINDS, TREE_SIZES, type SpriteSet } from './sprites';
@@ -99,7 +100,7 @@ function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: num
   g.c.drawPath(b.build(), g.s);
 }
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBuilt = 1): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
@@ -186,16 +187,30 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
     g.rect(P.x0, P.y0, P.x1, P.y1, '#a7b0bb');
     for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
 
-    // apron: light gravel with a soft edge
-    const st = L.stands[0];
-    const apron = [L.hut[0] - 0.6, L.hut[1] + 1.3, st.pos[0] + 2.2, L.hut[1] + 1.3, st.pos[0] + 2.6, st.pos[1] + 1.6, L.hut[0] - 0.3, st.pos[1] + 1.4];
+    // apron: light gravel with a soft edge, under the hut front and every stand
+    const xs = L.stands.map((st) => st.pos[0]);
+    const ax0 = Math.min(L.hut[0] - 0.8, ...xs) - 1.2;
+    const ax1 = Math.max(...xs) + 2.6;
+    const ay0 = L.hut[1] + 1.25;
+    const ay1 = Math.max(...L.stands.map((st) => st.pos[1])) + 1.1;
+    const apron = [ax0, ay0, ax1, ay0, ax1 + 0.3, ay1, ax0 + 0.2, ay1];
     g.f.setMaskFilter(blur(5));
     g.poly(apron, 'rgba(120,100,60,0.35)');
     g.f.setMaskFilter(null);
     g.poly(apron, GRAVEL);
 
     // taxi tracks and the runway: smooth dirt with a darker rim and a lighter worn center
-    const tracks = [routeArrival(L, 0), routeDeparture(L, 0), routeLineUp(L)];
+    const gr = graphOf(tier);
+    const main = findRoute(gr, gr.exit, gr.holdShort);
+    const tracks: number[][] = [routeLineUp(L)];
+    if (main) tracks.push(routeGeometry(gr, main).path);
+    L.stands.forEach((st, i) => {
+      if (i >= standsBuilt) return;
+      const sn = gr.standNode[i];
+      const inE = gr.out[gr.ids.indexOf(st.from)].find((e) => gr.edges[e].to === sn);
+      const outE = gr.out[sn][0];
+      if (inE !== undefined && outE !== undefined) tracks.push(routeGeometry(gr, [inE, outE]).path);
+    });
     for (const path of tracks) ribbon(g, path, 0.86, DIRT_EDGE);
     const R = L.runway;
     const hw = R.width / 2;
@@ -223,10 +238,20 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
     g.f.setColor(Skia.Color('#ffffff'));
     c.drawPath(lights.build(), g.f);
 
-    // stand: a clean painted ring with a lead-in line
-    g.ellipse(st.pos[0], st.pos[1], 0.78, 0.78, '#ffffff');
-    g.ellipse(st.pos[0], st.pos[1], 0.66, 0.66, GRAVEL);
-    g.line(st.pos[0] + 0.55, st.pos[1] + 0.8, st.pos[0] - 0.35, st.pos[1] - 0.55, '#fbbf24', 3.4);
+    // stands: a painted ring with a lead-in line; future stands are dashed plots
+    L.stands.forEach((st, i) => {
+      if (i < standsBuilt) {
+        g.ellipse(st.pos[0], st.pos[1], 0.78, 0.78, '#ffffff');
+        g.ellipse(st.pos[0], st.pos[1], 0.66, 0.66, GRAVEL);
+        g.line(st.pos[0] + 0.55, st.pos[1] + 0.8, st.pos[0] - 0.35, st.pos[1] - 0.55, '#fbbf24', 3.4);
+      } else {
+        for (let k = 0; k < 16; k += 2) {
+          const a0 = (k / 16) * Math.PI * 2;
+          const a1 = ((k + 1) / 16) * Math.PI * 2;
+          g.line(st.pos[0] + Math.cos(a0) * 0.75, st.pos[1] + Math.sin(a0) * 0.75, st.pos[0] + Math.cos(a1) * 0.75, st.pos[1] + Math.sin(a1) * 0.75, 'rgba(100,116,139,0.55)', 2.4);
+        }
+      }
+    });
 
     // fence: slim light posts and rails, with a gate for the road
     const sides: [number, number, number, number][] = [
@@ -288,9 +313,8 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
     }
   }
   // a little grove near the hut
-  treeAt(19.6, 18.4, 501);
-  treeAt(19.9, 19.6, 502);
-  treeAt(27.8, 18.3, 503);
+  treeAt(18.6, 17.9, 501);
+  treeAt(28.4, 17.8, 503);
   // scattered trees in the countryside
   for (let i = 0; i < 70; i++) {
     const x = hash01(2000 + i) * W;

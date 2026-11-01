@@ -2,6 +2,8 @@
  * A simple player: answers every request after a reaction delay. Used by
  * tests and the balance script (pure, deterministic).
  */
+import { STAFF_ROLES } from '../../data/staff';
+import { MAX_PER_ROLE, staffCount } from './staff';
 import { WANT, type Command, type GameState } from './types';
 
 export interface BotOptions {
@@ -31,7 +33,26 @@ export function botCommands(s: GameState, opts: BotOptions = { reaction: 1 }): C
       case WANT.clearTakeoff:
         out.push({ type: 'clearTakeoff', flightId: f.id });
         break;
+      case WANT.bags:
+        out.push({ type: 'sendBags', flightId: f.id });
+        break;
     }
+    // also handle a second pending service at the stand
+    if (f.want === WANT.bags && (f.wants & (1 << WANT.fuel)) !== 0) out.push({ type: 'sendFuel', flightId: f.id });
   }
   return out;
+}
+
+/** Hires the cheapest useful worker when there is comfortable money. */
+export function botHires(s: GameState, keep = 1.3): Command[] {
+  const order = ['porter', 'agent', 'fueler', 'atc'];
+  for (const id of order) {
+    const role = STAFF_ROLES.findIndex((r) => r.id === id);
+    if (role < 0 || staffCount(s, role) >= 1) continue;
+    const a = s.applicants.find((x) => x.role === role);
+    if (a && s.money.gte(a.cost * keep)) return [{ type: 'hire', applicantId: a.id }];
+    return [];
+  }
+  void MAX_PER_ROLE;
+  return [];
 }

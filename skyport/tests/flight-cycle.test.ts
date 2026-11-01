@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { eventsSince, FUEL, queueCommand, REJECT, runFor, stepGame, WANT, type GameState } from '../src/sim';
+import { eventsSince, FUEL, queueCommand, REJECT, runFor, stepGame, WANT, wantsAction, type GameState } from '../src/sim';
 import { newGame, play } from './helpers';
 
 const ORDER = [
@@ -103,7 +103,8 @@ describe('flight lifecycle (dirt strip)', () => {
     for (let i = 0; i < 30 * 60 && phase(f) !== 'deboarding'; i++) stepGame(s);
     expect(phase(f)).toBe('deboarding');
     expect(s.stands[0].occupant).toBe(f.id);
-    expect(f.want).toBe(WANT.fuel);
+    expect(wantsAction(f, WANT.fuel)).toBe(true);
+    expect(wantsAction(f, WANT.bags)).toBe(true);
   });
 
   it('rejects landing when no stand is free', () => {
@@ -139,12 +140,17 @@ describe('flight lifecycle (dirt strip)', () => {
     expect(f.fuel).toBeCloseTo(f.fuelNeed, 5);
     while (phase(f) !== 'turnaround') stepGame(s);
     stepGame(s);
-    expect(f.want).toBe(WANT.board);
+    expect(wantsAction(f, WANT.board)).toBe(true);
     queueCommand(s, { type: 'startBoarding', flightId: f.id });
     for (let i = 0; i < 30 * 60 && phase(f) === 'turnaround'; i++) stepGame(s);
     expect(phase(f)).toBe('boarding');
-    for (let i = 0; i < 30 * 60 && phase(f) === 'boarding'; i++) stepGame(s);
+    // doors stay open until the bags are loaded
+    for (let i = 0; i < 30 * 20; i++) stepGame(s);
     expect(f.boarded).toBe(f.paxOut);
+    expect(phase(f)).toBe('boarding');
+    queueCommand(s, { type: 'sendBags', flightId: f.id });
+    for (let i = 0; i < 30 * 60 && phase(f) === 'boarding'; i++) stepGame(s);
+    expect(f.bagState).toBe(FUEL.done);
     expect(['doorsClosed', 'taxiOut']).toContain(phase(f));
   });
 
@@ -166,8 +172,14 @@ describe('flight lifecycle (dirt strip)', () => {
     for (let i = 0; i < 30 * 300 && paid === 0; i++) {
       if (i % 3 === 0) {
         for (const f of s.flights) {
-          const map = { [WANT.clearLanding]: 'clearLanding', [WANT.fuel]: 'sendFuel', [WANT.board]: 'startBoarding', [WANT.clearTakeoff]: 'clearTakeoff' } as const;
-          const t = map[f.want as 1 | 2 | 3 | 4];
+          const map = {
+            [WANT.clearLanding]: 'clearLanding',
+            [WANT.fuel]: 'sendFuel',
+            [WANT.board]: 'startBoarding',
+            [WANT.clearTakeoff]: 'clearTakeoff',
+            [WANT.bags]: 'sendBags',
+          } as const;
+          const t = map[f.want as 1 | 2 | 3 | 4 | 5];
           if (t) queueCommand(s, { type: t, flightId: f.id });
         }
       }

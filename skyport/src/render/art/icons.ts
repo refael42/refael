@@ -9,7 +9,7 @@ import { shade } from './color';
 export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
-  'actLand', 'actFuel', 'actBoard', 'actTakeoff',
+  'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -19,6 +19,7 @@ export const ACTION_COLORS = {
   fuel: '#f59e0b',
   board: '#3b82f6',
   takeoff: '#6366f1',
+  bags: '#8b5cf6',
 } as const;
 
 const SLATE = '#334155';
@@ -63,14 +64,23 @@ function drawPlane(canvas: SkCanvas, f: SkPaint, color: string, rotateDeg: numbe
 }
 
 /** Glyph used inside a round action bubble (white on color). */
-function actionGlyph(canvas: SkCanvas, kind: 'land' | 'fuel' | 'board' | 'takeoff', f: SkPaint) {
+function actionGlyph(canvas: SkCanvas, kind: 'land' | 'fuel' | 'board' | 'takeoff' | 'bags', f: SkPaint) {
   canvas.save();
   canvas.translate(32, 28);
   canvas.scale(0.52, 0.52);
   canvas.translate(-32, -32);
   if (kind === 'land') drawPlane(canvas, f, '#ffffff', 135);
   else if (kind === 'takeoff') drawPlane(canvas, f, '#ffffff', 45);
-  else if (kind === 'fuel') {
+  else if (kind === 'bags') {
+    f.setColor(Skia.Color('#ffffff'));
+    canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(10, 18, 44, 38), 8, 8), f);
+    const st = Skia.Paint();
+    st.setAntiAlias(true);
+    st.setStyle(PaintStyle.Stroke);
+    st.setStrokeWidth(5);
+    st.setColor(Skia.Color('#ffffff'));
+    canvas.drawPath(path([24, 18, 24, 9, 40, 9, 40, 18], false), st);
+  } else if (kind === 'fuel') {
     const b = Skia.PathBuilder.Make();
     b.moveTo(32, 4);
     b.cubicTo(43, 19, 54, 31, 54, 42);
@@ -280,11 +290,41 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       canvas.drawPath(path([24, 48, 32, 59, 40, 48]), f);
       break;
     }
+    case 'team': {
+      circ(22, 20, 9, '#93c5fd');
+      circ(42, 20, 9, '#3b82f6');
+      const b1 = Skia.PathBuilder.Make();
+      b1.moveTo(6, 52);
+      b1.cubicTo(6, 38, 13, 32, 22, 32);
+      b1.cubicTo(31, 32, 36, 38, 36, 52);
+      b1.close();
+      f.setColor(Skia.Color('#93c5fd'));
+      canvas.drawPath(b1.build(), f);
+      const b2 = Skia.PathBuilder.Make();
+      b2.moveTo(26, 56);
+      b2.cubicTo(26, 40, 33, 33, 42, 33);
+      b2.cubicTo(51, 33, 58, 40, 58, 56);
+      b2.close();
+      f.setColor(Skia.Color('#3b82f6'));
+      canvas.drawPath(b2.build(), f);
+      break;
+    }
+    case 'wait': {
+      f.setColor(Skia.Color('rgba(15,23,42,0.3)'));
+      f.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, 3, true));
+      canvas.drawCircle(32, 33, 20, f);
+      f.setMaskFilter(null);
+      circ(32, 31, 20, '#ffffff');
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawPath(path([22, 18, 42, 18, 34, 31, 42, 44, 22, 44, 30, 31]), f);
+      break;
+    }
     case 'actLand':
     case 'actFuel':
     case 'actBoard':
-    case 'actTakeoff': {
-      const kind = name === 'actLand' ? 'land' : name === 'actFuel' ? 'fuel' : name === 'actBoard' ? 'board' : 'takeoff';
+    case 'actTakeoff':
+    case 'actBags': {
+      const kind = name === 'actLand' ? 'land' : name === 'actFuel' ? 'fuel' : name === 'actBoard' ? 'board' : name === 'actBags' ? 'bags' : 'takeoff';
       const col = ACTION_COLORS[kind];
       // soft drop shadow
       f.setColor(Skia.Color('rgba(15,23,42,0.35)'));

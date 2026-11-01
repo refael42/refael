@@ -20,7 +20,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags'];
 
 /** Heading in radians -> sprite direction index. */
 export function dirIndex(heading: number): number {

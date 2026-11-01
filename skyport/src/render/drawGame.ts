@@ -1,12 +1,15 @@
 /** Writes the game state into the frame snapshot (JS thread, every frame). */
 import { planeArt } from '../data/aircraft';
+import { STAFF_ROLES } from '../data/staff';
+import { layoutOf } from '../sim/game/layout';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import type { IconName } from './art/icons';
+import { OUTFITS } from './art/people';
 import type { Camera } from './camera';
 import type { Effects } from './effects';
 import { isoX, isoY, Z_PX } from './iso';
 import type { SnapWriter } from './scene';
-import { dirIndex, type SpriteSet } from './sprites';
+import { dirIndex, VEHICLE_KINDS, type SpriteSet } from './sprites';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
@@ -14,7 +17,10 @@ const WANT_ICON: Record<number, IconName> = {
   [WANT.fuel]: 'actFuel',
   [WANT.board]: 'actBoard',
   [WANT.clearTakeoff]: 'actTakeoff',
+  [WANT.bags]: 'actBags',
 };
+
+const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
 export function bubbleAnchor(f: { x: number; y: number; z: number; aircraft: number }, zoom: number): { x: number; y: number } {
@@ -76,8 +82,27 @@ export function drawGame(
     const sy = isoY(x, y);
     if (!visible(sx, sy, 40)) continue;
     const d = dirIndex(v.heading);
-    w.shadow(sp.vehicleShadow(0, d), sx + 2, sy + 2, 1, 0.28);
-    w.sprite(sp.vehicle(0, d), sx, sy, 1, x + y);
+    const k = Math.max(0, VEHICLE_KINDS.indexOf(v.kind));
+    w.shadow(sp.vehicleShadow(k, d), sx + 2, sy + 2, 1, 0.28);
+    w.sprite(sp.vehicle(k, d), sx, sy, 1, x + y);
+  }
+
+  // idle staff at their posts (fueler and porter ride their vehicles while working)
+  const L = layoutOf(s.tier);
+  const seen = new Array(STAFF_ROLES.length).fill(0);
+  for (const m of s.staff) {
+    const role = STAFF_ROLES[m.role];
+    const spot = L.staffSpots[role.id];
+    if (!spot) continue;
+    const n = seen[m.role]++;
+    if (role.id !== 'atc') {
+      const kind = role.id === 'fueler' ? 'fuel' : 'bags';
+      const busy = s.vehicles.filter((v) => v.kind === kind && v.state !== 'idle').length;
+      if (n < busy) continue;
+    }
+    const x = spot[0] + n * 0.45;
+    const y = spot[1] + n * 0.2;
+    w.sprite(sp.person(STAFF_OUTFIT[m.role], false, n % 2 === 1, 4), isoX(x, y), isoY(x, y), 1, x + y);
   }
 
   // people
@@ -171,7 +196,9 @@ function drawFlight(
   const barY = b.y + (f.want !== WANT.none ? 16 * Math.max(1, inv * 0.75) : 14 * inv);
   if (f.phase === 'deboarding' && f.paxIn > 0) w.bar(b.x, barY, 44, f.deboarded / f.paxIn, 0x3d8bfd);
   if (f.fuelState === FUEL.fueling) w.bar(b.x, barY + 8 * inv, 44, f.fuelNeed > 0 ? f.fuel / f.fuelNeed : 1, 0xff9f1c);
-  if (f.phase === 'boarding' && f.paxOut > 0) w.bar(b.x, barY, 44, f.boarded / f.paxOut, 0x3fcf6e);
+  if (f.phase === 'boarding' && f.paxOut > 0) w.bar(b.x, barY, 44, f.boarded / f.paxOut, 0x10b981);
+  if (f.bagState === FUEL.fueling) w.bar(b.x, barY + 16 * inv, 44, f.bagWork, 0x8b5cf6);
+  if (f.gWaiting && f.want === WANT.none) w.over(sp.icon('wait'), b.x, b.y - 4 * inv, 0.9 * inv);
   if ((f.phase === 'holding' || f.phase === 'inbound') && !f.landCleared && f.patience < 0.999) {
     w.bar(b.x, barY, 44, f.patience, f.patience < 0.35 ? 0xff6b5e : 0xffd23f);
   }

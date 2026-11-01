@@ -3,6 +3,7 @@ import { DT } from './constants';
 import { pruneEvents } from './events';
 import { updateDepartingPax, updateFlights, updateSpawning } from './flights';
 import { updatePeople } from './people';
+import { payWages, updateStaff } from './staff';
 import type { GameState } from './types';
 import { updateVehicles } from './vehicles';
 
@@ -16,10 +17,12 @@ export function stepGame(s: GameState, dt: number = DT): void {
   s.tick++;
   s.time = s.tick * dt;
   updateSpawning(s);
+  updateStaff(s);
   updateFlights(s, dt);
   updateDepartingPax(s);
   updateVehicles(s, dt);
   updatePeople(s, dt);
+  payWages(s);
   pruneEvents(s);
 }
 

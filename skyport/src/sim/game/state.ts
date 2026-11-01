@@ -2,26 +2,15 @@ import { tierDef } from '../../data/tiers';
 import { Big } from '../big';
 import { normalizeSeed } from '../rng';
 import { SAVE_VERSION } from './constants';
-import type { GameState, Vehicle } from './types';
+import { ensureHoldArrays } from './graph';
+import { refreshApplicants } from './staff';
+import type { GameState } from './types';
+import { makeVehicle } from './vehicles';
 
 export function createGame(seed: number): GameState {
   const s = normalizeSeed(seed);
   const L = tierDef(1).layout;
-  const truck: Vehicle = {
-    id: 1,
-    kind: 'fuel',
-    x: L.truckHome[0],
-    y: L.truckHome[1],
-    px: L.truckHome[0],
-    py: L.truckHome[1],
-    heading: Math.PI * 0.75,
-    speed: 0,
-    path: [],
-    pathPos: 0,
-    state: 'idle',
-    flight: 0,
-  };
-  return {
+  const game: GameState = {
     version: SAVE_VERSION,
     seed: s,
     rng: s,
@@ -33,17 +22,28 @@ export function createGame(seed: number): GameState {
     rating: 3,
     flights: [],
     people: [],
-    vehicles: [truck],
+    vehicles: [makeVehicle(1, 'fuel', L), makeVehicle(2, 'bags', L)],
     stands: L.stands.map(() => ({ occupant: 0, reserved: 0 })),
     fuelQueue: [],
-    nextId: 2,
+    bagQueue: [],
+    edgeHold: [],
+    nodeHold: [],
+    standsBuilt: 1,
+    traffic: 1,
+    staff: [],
+    applicants: [],
+    wageDay: 1,
+    nextId: 3,
     nextArrival: 2,
     spotCursor: 0,
-    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0) },
+    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0), wages: Big.fromNumber(0) },
     events: [],
     nextEventId: 1,
     queue: [],
   };
+  ensureHoldArrays(game);
+  refreshApplicants(game);
+  return game;
 }
 
 export function findFlight(s: GameState, id: number) {

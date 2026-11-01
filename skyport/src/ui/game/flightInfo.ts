@@ -2,7 +2,7 @@ import { AIRCRAFT } from '../../data/aircraft';
 import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import type { TKey } from '../../i18n';
-import { clockText, FUEL, WANT, type Flight } from '../../sim';
+import { clockText, FUEL, SVC, WANT, type Flight } from '../../sim';
 import { ACTION_COLORS, type IconName } from '../../render/art/icons';
 
 export function flightCode(f: Flight): string {
@@ -15,13 +15,16 @@ export function cityKey(i: number): TKey {
 
 export const WANT_ACTION: Record<
   number,
-  { key: TKey; icon: IconName; color: string; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' } | undefined
+  { key: TKey; icon: IconName; color: string; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' | 'sendBags' } | undefined
 > = {
   [WANT.clearLanding]: { key: 'action.clearLanding', icon: 'land', color: ACTION_COLORS.land, cmd: 'clearLanding' },
   [WANT.fuel]: { key: 'action.fuel', icon: 'fuel', color: ACTION_COLORS.fuel, cmd: 'sendFuel' },
   [WANT.board]: { key: 'action.board', icon: 'pax', color: ACTION_COLORS.board, cmd: 'startBoarding' },
   [WANT.clearTakeoff]: { key: 'action.clearTakeoff', icon: 'takeoff', color: ACTION_COLORS.takeoff, cmd: 'clearTakeoff' },
+  [WANT.bags]: { key: 'action.bags', icon: 'bag', color: ACTION_COLORS.bags, cmd: 'sendBags' },
 };
+
+const ORDER = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
 
 /** Flat, comparable view of a flight for the card (polled twice a second). */
 export interface FlightView {
@@ -44,6 +47,11 @@ export interface FlightView {
   slot: string;
   onTime: number;
   want: number;
+  /** Pending actions, comma separated WANT values (string keeps the shallow compare simple). */
+  actions: string;
+  bags: number;
+  bagsActive: boolean;
+  waiting: boolean;
 }
 
 export function viewOf(f: Flight): FlightView {
@@ -68,6 +76,10 @@ export function viewOf(f: Flight): FlightView {
     slot: f.slot > 0 ? clockText(f.slot) : '',
     onTime: f.onTime,
     want: f.want,
+    actions: ORDER.filter((w) => (f.wants & (1 << w)) !== 0).join(','),
+    bags: Math.round(f.bagWork * 100) / 100,
+    bagsActive: f.bagState >= SVC.driving,
+    waiting: f.gWaiting,
   };
 }
 

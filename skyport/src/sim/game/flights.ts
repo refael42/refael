@@ -1,35 +1,24 @@
-/** Flight lifecycle: spawn, approach, landing, taxi, turnaround, departure. */
-import { AIRCRAFT } from '../../data/aircraft';
+/** Flight lifecycle: spawn, approach, landing, taxi (graph), turnaround, departure. */
+import { AIRCRAFT, planeArt } from '../../data/aircraft';
 import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import type { TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
 import { flightRevenue, nextRating } from './economy';
 import { pushEvent } from './events';
-import {
-  doorPoint,
-  layoutOf,
-  routeArrival,
-  routeDeparture,
-  routeDivert,
-  routeFinal,
-  routeLanding,
-  routeLineUp,
-  routeRollout,
-  routeTakeoff,
-} from './layout';
+import { canEnter, findRoute, firstSafe, graphOf, groundMove, releaseAll, releaseEdge, routeGeometry, tryReserve, tryReserveRun } from './graph';
+import { doorPoint, layoutOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
 import { angleDiff, makeSample, pathLength, samplePath, type Path } from './path';
-import { spawnArrivingPax, spawnDepartingPax, releaseBoarding, sendPaxHome } from './people';
-import { FUEL, WANT, type Flight, type FlightPhase, type GameState } from './types';
+import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
+import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Want } from './types';
 
 const SAMPLE = makeSample();
 
-/** Seconds between arrivals at the dirt strip. */
+/** Seconds between arrivals at the dirt strip (divided by traffic). */
 export const ARRIVAL_GAP: readonly [number, number] = [34, 52];
-/** Most flights airborne (inbound/holding) at once. */
-const MAX_AIRBORNE = 3;
 const HOLD_PATIENCE_S = 75;
-const TAXI_SLOW_ZONE = 0.6;
+/** Order in which a tap on the plane handles pending actions. */
+const WANT_ORDER: readonly Want[] = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
 
 /** Phases that use the runway; at most one flight may be in them. */
 export function onRunway(f: Flight, L: TierLayout): boolean {
@@ -45,13 +34,8 @@ export function onRunway(f: Flight, L: TierLayout): boolean {
   }
 }
 
-/** Runway is free for a new landing or a line-up (final counts as busy). */
-export function runwayFree(s: GameState, self: Flight, L: TierLayout): boolean {
-  for (const f of s.flights) {
-    if (f === self) continue;
-    if (f.phase === 'final' || onRunway(f, L)) return false;
-  }
-  return true;
+export function isGround(f: Flight): boolean {
+  return f.z <= 0.001 && f.phase !== 'final' && f.phase !== 'holding' && f.phase !== 'inbound' && f.phase !== 'diverted';
 }
 
 function setPhase(f: Flight, phase: FlightPhase): void {
@@ -96,7 +80,8 @@ export function spawnFlight(s: GameState): Flight | null {
   const hold = L.approach.hold;
   const ang = Math.atan2(sp[1] - hold[1], sp[0] - hold[0]);
   const edge: Path = [sp[0], sp[1], sp[2], hold[0] + Math.cos(ang) * L.approach.holdRadius, hold[1] + Math.sin(ang) * L.approach.holdRadius, hold[2]];
-  const heading = Math.atan2(hold[1] - sp[1], hold[0] - sp[0]);
+  const paxIn = randInt(s, ac.paxMin, ac.paxMax);
+  const paxOut = randInt(s, ac.paxMin, ac.paxMax);
   const f: Flight = {
     id: s.nextId++,
     airline: ch.al,
@@ -112,13 +97,13 @@ export function spawnFlight(s: GameState): Flight | null {
     px: sp[0],
     py: sp[1],
     pz: sp[2],
-    heading,
+    heading: Math.atan2(hold[1] - sp[1], hold[0] - sp[0]),
     speed: ac.approachSpeed * 1.2,
     path: edge,
     pathPos: 0,
     stand: -1,
-    paxIn: randInt(s, ac.paxMin, ac.paxMax),
-    paxOut: randInt(s, ac.paxMin, ac.paxMax),
+    paxIn,
+    paxOut,
     deboarded: 0,
     paxSpawned: 0,
     boarded: 0,
@@ -141,6 +126,17 @@ export function spawnFlight(s: GameState): Flight | null {
     onTime: 0,
     paid: 0,
     paxTimer: 1.5,
+    wants: 1 << WANT.clearLanding,
+    // one checked bag per passenger, a few extra on bigger planes (no RNG: keeps old games identical)
+    bagsIn: paxIn + Math.floor(paxIn / 4),
+    bagsOut: paxOut + Math.floor(paxOut / 4),
+    bagState: FUEL.none,
+    bagWork: 0,
+    groute: null,
+    gIdx: 0,
+    gHeld: [],
+    gStart: -1,
+    gWaiting: false,
   };
   s.flights.push(f);
   pushEvent(s, 'landingRequest', f.x, f.y, f.id);
@@ -149,23 +145,33 @@ export function spawnFlight(s: GameState): Flight | null {
 
 export function updateSpawning(s: GameState): void {
   if (s.time < s.nextArrival) return;
-  if (airborneCount(s) >= MAX_AIRBORNE) {
+  if (airborneCount(s) >= s.standsBuilt + 2) {
     s.nextArrival = s.time + 5;
     return;
   }
   spawnFlight(s);
-  s.nextArrival = s.time + randRange(s, ARRIVAL_GAP[0], ARRIVAL_GAP[1]);
+  const t = Math.max(0.2, s.traffic);
+  s.nextArrival = s.time + randRange(s, ARRIVAL_GAP[0], ARRIVAL_GAP[1]) / t;
 }
 
-/** Moves along the current path; returns true at the end. */
-function follow(f: Flight, dt: number, keepHeading = false): boolean {
+/** Follows f.path (air / runway legs); returns true at the end. */
+function follow(f: Flight, dt: number): boolean {
   f.pathPos += f.speed * dt;
   samplePath(f.path, f.pathPos, SAMPLE);
   f.x = SAMPLE.x;
   f.y = SAMPLE.y;
   f.z = SAMPLE.z;
-  if (!keepHeading) f.heading = SAMPLE.heading;
+  f.heading = SAMPLE.heading;
   return SAMPLE.left <= 1e-6;
+}
+
+function placeOnRoute(f: Flight): void {
+  if (!f.groute) return;
+  samplePath(f.groute.path, f.pathPos, SAMPLE);
+  f.x = SAMPLE.x;
+  f.y = SAMPLE.y;
+  f.z = 0;
+  if (f.pathPos > 0.001) f.heading = SAMPLE.heading;
 }
 
 function turnToward(f: Flight, target: number, rate: number, dt: number): void {
@@ -174,8 +180,8 @@ function turnToward(f: Flight, target: number, rate: number, dt: number): void {
   f.heading += Math.abs(d) <= step ? d : Math.sign(d) * step;
 }
 
-function freeStand(s: GameState): number {
-  for (let i = 0; i < s.stands.length; i++) if (s.stands[i].occupant === 0 && s.stands[i].reserved === 0) return i;
+export function freeStand(s: GameState): number {
+  for (let i = 0; i < Math.min(s.standsBuilt, s.stands.length); i++) if (s.stands[i].occupant === 0 && s.stands[i].reserved === 0) return i;
   return -1;
 }
 
@@ -185,7 +191,6 @@ function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
   for (const o of s.flights) {
     if (o === f) continue;
     if (o.phase === 'final' || onRunway(o, L)) return false;
-    // first come first served among cleared arrivals
     if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.id < f.id) return false;
   }
   return true;
@@ -203,10 +208,9 @@ function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
 }
 
 function startFinal(f: Flight, L: TierLayout): void {
-  const ac = AIRCRAFT[f.aircraft];
   setPhase(f, 'final');
   setPath(f, routeFinal(L, f.x, f.y, f.z, f.heading));
-  f.speed = ac.approachSpeed;
+  f.speed = AIRCRAFT[f.aircraft].approachSpeed;
 }
 
 export function divert(s: GameState, f: Flight): void {
@@ -218,7 +222,6 @@ export function divert(s: GameState, f: Flight): void {
   f.landCleared = false;
   setPhase(f, 'diverted');
   setPath(f, routeDivert(f.x, f.y, f.z, f.heading));
-  f.want = WANT.none;
   f.mood = 0;
   s.stats.diverted++;
   s.rating = nextRating(s.rating, 0);
@@ -234,28 +237,59 @@ export function clearLanding(s: GameState, f: Flight): boolean {
   s.stands[st].reserved = f.id;
   f.stand = st;
   f.landCleared = true;
-  f.want = WANT.none;
   if (s.time - f.readyAt < 4) f.mood = Math.min(1, f.mood + 0.04);
   pushEvent(s, 'landingCleared', f.x, f.y, f.id);
   return true;
 }
 
+function tailClear(f: Flight): number {
+  return planeArt(f.aircraft).length * 0.5 + 0.35;
+}
+
+function beginArrivalRoute(s: GameState, f: Flight): void {
+  const g = graphOf(s.tier);
+  const route = findRoute(g, g.exit, g.standNode[f.stand]);
+  if (!route) throw new Error('no route to stand');
+  f.groute = routeGeometry(g, route);
+  f.gIdx = 0;
+  f.gStart = -1;
+}
+
 function dock(s: GameState, f: Flight): void {
+  const g = graphOf(s.tier);
   const ac = AIRCRAFT[f.aircraft];
   const st = s.stands[f.stand];
   st.occupant = f.id;
   st.reserved = 0;
+  // the stand edge is no longer needed; keep the stand node while parked
+  for (const e of f.gHeld.slice()) releaseEdge(s, f, e);
+  s.nodeHold[g.standNode[f.stand]] = f.id;
+  f.groute = null;
   f.speed = 0;
   f.dockedAt = s.time;
   f.slot = s.time + ac.baseTurnaround;
-  f.readyAt = s.time;
-  f.want = f.fuelState === FUEL.none ? WANT.fuel : WANT.none;
   f.paxTimer = 0.4;
   setPhase(f, 'deboarding');
   pushEvent(s, 'docked', f.x, f.y, f.id);
 }
 
-function leaveStand(s: GameState, f: Flight, L: TierLayout): void {
+/** Tries to start taxiing out; false while the taxiway ahead is taken. */
+function tryLeaveStand(s: GameState, f: Flight): boolean {
+  const g = graphOf(s.tier);
+  const from = g.standNode[f.stand];
+  const route = findRoute(g, from, g.holdShort);
+  if (!route) return false;
+  // never stop on the shared lane: take the whole stretch up to a waiting spot at once
+  const k = firstSafe(g, route);
+  if (!tryReserveRun(s, f, route, k < 0 ? route.length - 1 : k)) {
+    f.gWaiting = true;
+    return false;
+  }
+  f.gWaiting = false;
+  f.groute = routeGeometry(g, route, [f.x, f.y]);
+  f.gIdx = 0;
+  f.gStart = from;
+  f.pathPos = 0;
   const st = s.stands[f.stand];
   if (st && st.occupant === f.id) st.occupant = 0;
   f.offBlockAt = s.time;
@@ -267,13 +301,9 @@ function leaveStand(s: GameState, f: Flight, L: TierLayout): void {
     s.stats.late++;
     f.mood = Math.max(0, f.mood - 0.1);
   }
-  setPath(f, routeDeparture(L, f.stand));
-  f.speed = AIRCRAFT[f.aircraft].taxiSpeed;
+  f.speed = 0;
   setPhase(f, 'taxiOut');
-  if (!f.takeoffCleared) {
-    f.want = WANT.clearTakeoff;
-    f.readyAt = s.time;
-  }
+  return true;
 }
 
 function pay(s: GameState, f: Flight): void {
@@ -287,9 +317,34 @@ function pay(s: GameState, f: Flight): void {
   pushEvent(s, 'paid', f.x, f.y, amount.m, amount.e, f.id);
 }
 
-/** Ground waiting for the player makes passengers grumpy. */
+/** Recomputes what the flight is waiting for (bitmask + the top action). */
+export function refreshWants(s: GameState, f: Flight): void {
+  let w = 0;
+  const p = f.phase;
+  if ((p === 'inbound' || p === 'holding') && !f.landCleared) w |= 1 << WANT.clearLanding;
+  const atStand = p === 'deboarding' || p === 'turnaround' || p === 'boarding';
+  if (atStand && f.bagState === FUEL.none) w |= 1 << WANT.bags;
+  if ((p === 'deboarding' || p === 'turnaround') && f.fuelState === FUEL.none) w |= 1 << WANT.fuel;
+  if (p === 'turnaround' && f.fuelState === FUEL.done && !f.boardingStarted) w |= 1 << WANT.board;
+  if ((p === 'taxiOut' || p === 'holdShort') && !f.takeoffCleared) w |= 1 << WANT.clearTakeoff;
+  if (w & ~f.wants) f.readyAt = s.time;
+  f.wants = w;
+  f.want = WANT.none;
+  for (const k of WANT_ORDER) {
+    if (w & (1 << k)) {
+      f.want = k;
+      break;
+    }
+  }
+}
+
+export function wantsAction(f: Flight, w: Want): boolean {
+  return (f.wants & (1 << w)) !== 0;
+}
+
+/** Waiting for the player (or for the taxiway) makes passengers grumpy. */
 function waitingDrain(s: GameState, f: Flight, dt: number): void {
-  if (f.want !== WANT.none && s.time - f.readyAt > 3) f.mood = Math.max(0, f.mood - 0.012 * dt);
+  if ((f.want !== WANT.none && s.time - f.readyAt > 3) || f.gWaiting) f.mood = Math.max(0, f.mood - 0.012 * dt);
 }
 
 export function updateFlights(s: GameState, dt: number): void {
@@ -302,7 +357,12 @@ export function updateFlights(s: GameState, dt: number): void {
     f.pz = f.z;
     f.phaseT += dt;
     const keep = updateFlight(s, f, dt, L);
-    if (keep) s.flights[w++] = f;
+    if (keep) {
+      refreshWants(s, f);
+      s.flights[w++] = f;
+    } else {
+      releaseAll(s, f);
+    }
   }
   s.flights.length = w;
 }
@@ -321,7 +381,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
         const h = L.approach.hold;
         f.holdAngle = Math.atan2(f.y - h[1], f.x - h[0]);
         let level = 0;
-        for (const o of s.flights) if (o !== f && o.phase === 'holding' && o.holdLevel === level) level++;
+        while (s.flights.some((o) => o !== f && o.phase === 'holding' && o.holdLevel === level)) level++;
         f.holdLevel = level;
       }
       return true;
@@ -334,7 +394,6 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       const tx = h[0] + Math.cos(f.holdAngle) * R;
       const ty = h[1] + Math.sin(f.holdAngle) * R;
       const tz = h[2] + f.holdLevel * 0.7;
-      // ease onto the circle
       const k = Math.min(1, dt * 2.5);
       f.x += (tx - f.x) * k;
       f.y += (ty - f.y) * k;
@@ -367,25 +426,34 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
         setPhase(f, 'rollout');
         setPath(f, routeRollout(L));
         f.z = 0;
+        beginArrivalRoute(s, f);
         pushEvent(s, 'touchdown', f.x, f.y, f.id);
       }
       return true;
     }
     case 'rollout': {
       const len = pathLength(f.path);
+      const left = len - f.pathPos;
       const t = Math.min(1, f.pathPos / Math.max(0.01, len));
-      f.speed = ac.approachSpeed * 0.85 * (1 - t) + ac.taxiSpeed * t;
+      let v = ac.approachSpeed * 0.85 * (1 - t) + ac.taxiSpeed * t;
+      const first = f.groute ? f.groute.edges[0] : -1;
+      // leave the runway only onto a taxiway we hold; otherwise stop at the exit
+      if (first >= 0 && left < 2.4 && !f.gHeld.includes(first) && !tryReserve(s, f, first)) {
+        v = Math.min(v, Math.max(0, left) * 1.2);
+        f.gWaiting = true;
+      } else f.gWaiting = false;
+      f.speed = v;
       if (follow(f, dt)) {
+        if (first >= 0 && !f.gHeld.includes(first) && !canEnter(s, f, first)) return true;
         setPhase(f, 'taxiIn');
-        setPath(f, routeArrival(L, f.stand));
+        f.pathPos = 0;
         f.speed = ac.taxiSpeed;
       }
       return true;
     }
     case 'taxiIn': {
-      samplePath(f.path, f.pathPos, SAMPLE);
-      f.speed = ac.taxiSpeed * Math.max(0.3, Math.min(1, SAMPLE.left / TAXI_SLOW_ZONE));
-      if (follow(f, dt)) dock(s, f);
+      if (groundMove(s, f, dt, ac.taxiSpeed, tailClear(f))) dock(s, f);
+      else placeOnRoute(f);
       return true;
     }
     case 'deboarding': {
@@ -402,36 +470,33 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
     }
     case 'turnaround': {
       waitingDrain(s, f, dt);
-      if (f.fuelState === FUEL.done && !f.boardingStarted && f.want !== WANT.board) {
-        f.want = WANT.board;
-        f.readyAt = s.time;
-      }
       return true;
     }
     case 'boarding': {
+      waitingDrain(s, f, dt);
       releaseBoarding(s, f, dt, L);
-      if (f.boarded >= f.paxSpawned && f.paxSpawned >= f.paxOut) {
+      if (f.boarded >= f.paxSpawned && f.paxSpawned >= f.paxOut && f.bagState === FUEL.done) {
         setPhase(f, 'doorsClosed');
         pushEvent(s, 'boardingDone', f.x, f.y, f.id);
       }
       return true;
     }
     case 'doorsClosed': {
-      if (f.phaseT >= 1.2) leaveStand(s, f, L);
+      if (f.phaseT >= 1.2) {
+        if (!tryLeaveStand(s, f)) waitingDrain(s, f, dt);
+      }
       return true;
     }
     case 'taxiOut': {
-      if (f.takeoffCleared && canLineUp(s, f, L)) {
-        // keep rolling straight onto the runway
-        if (follow(f, dt)) beginLineUp(f, L);
-        return true;
-      }
-      samplePath(f.path, f.pathPos, SAMPLE);
-      f.speed = ac.taxiSpeed * Math.max(0.3, Math.min(1, SAMPLE.left / TAXI_SLOW_ZONE));
-      if (follow(f, dt)) {
-        setPhase(f, 'holdShort');
-        f.speed = 0;
-        if (!f.takeoffCleared) pushEvent(s, 'takeoffRequest', f.x, f.y, f.id);
+      const arrived = groundMove(s, f, dt, ac.taxiSpeed, tailClear(f));
+      placeOnRoute(f);
+      if (arrived) {
+        if (f.takeoffCleared && canLineUp(s, f, L)) beginLineUp(f, L);
+        else {
+          setPhase(f, 'holdShort');
+          f.speed = 0;
+          if (!f.takeoffCleared) pushEvent(s, 'takeoffRequest', f.x, f.y, f.id);
+        }
       }
       return true;
     }
@@ -443,6 +508,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
     case 'lineUp': {
       f.speed = ac.taxiSpeed * 0.8;
       if (follow(f, dt)) {
+        releaseAll(s, f);
         setPhase(f, 'takeoff');
         setPath(f, routeTakeoff(L));
         f.speed = ac.taxiSpeed * 0.6;
@@ -469,15 +535,14 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
 }
 
 function beginLineUp(f: Flight, L: TierLayout): void {
+  f.groute = null;
   setPhase(f, 'lineUp');
   setPath(f, routeLineUp(L));
-  f.want = WANT.none;
 }
 
 export function clearTakeoff(s: GameState, f: Flight): boolean {
   if ((f.phase !== 'taxiOut' && f.phase !== 'holdShort') || f.takeoffCleared) return false;
   f.takeoffCleared = true;
-  f.want = WANT.none;
   if (s.time - f.readyAt < 4) f.mood = Math.min(1, f.mood + 0.03);
   pushEvent(s, 'takeoffCleared', f.x, f.y, f.id);
   return true;
@@ -486,7 +551,6 @@ export function clearTakeoff(s: GameState, f: Flight): boolean {
 export function startBoarding(s: GameState, f: Flight): boolean {
   if (f.phase !== 'turnaround' || f.fuelState !== FUEL.done || f.boardingStarted) return false;
   f.boardingStarted = true;
-  f.want = WANT.none;
   if (s.time - f.readyAt < 4) f.mood = Math.min(1, f.mood + 0.04);
   f.paxTimer = 0;
   setPhase(f, 'boarding');
@@ -500,7 +564,6 @@ export function updateDepartingPax(s: GameState): void {
   for (const f of s.flights) {
     if (f.phase === 'diverted' || f.paxSpawned >= f.paxOut) continue;
     if (f.phase === 'taxiOut' || f.phase === 'holdShort' || f.phase === 'lineUp' || f.phase === 'takeoff') continue;
-    // one passenger every 0.9 s, starting a second after the flight appears
     const due = Math.floor((s.time - f.spawnedAt - 1) / 0.9) + 1;
     if (due > f.paxSpawned) {
       spawnDepartingPax(s, f, L);

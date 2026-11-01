@@ -19,24 +19,8 @@ function node(L: TierLayout, id: string): P2 {
   return n;
 }
 
-export function routeArrival(L: TierLayout, stand: number): Path {
-  const st = L.stands[stand];
-  const pts = L.taxi.arrival.map((id) => node(L, id));
-  const upTo = L.taxi.arrival.indexOf(st.from);
-  const used = upTo >= 0 ? pts.slice(0, upTo + 1) : pts;
-  return chaikin(p3([...used, st.pos]), 3);
-}
-
-export function routeDeparture(L: TierLayout, stand: number): Path {
-  const st = L.stands[stand];
-  const ids = L.taxi.departure;
-  const from = ids.indexOf(st.to);
-  const pts = (from >= 0 ? ids.slice(from) : ids).map((id) => node(L, id));
-  return chaikin(p3([st.pos, ...pts]), 3);
-}
-
 export function holdShortPoint(L: TierLayout): P2 {
-  return node(L, L.taxi.departure[L.taxi.departure.length - 1]);
+  return node(L, L.taxi.holdShort);
 }
 
 export function routeLineUp(L: TierLayout): Path {
@@ -52,7 +36,7 @@ export function routeTakeoff(L: TierLayout): Path {
 
 export function routeRollout(L: TierLayout): Path {
   const td = L.approach.touchdown;
-  const e = node(L, L.taxi.arrival[0]);
+  const e = node(L, L.taxi.exit);
   return [td[0], td[1], 0, e[0], e[1], 0];
 }
 
@@ -94,14 +78,3 @@ export function doorPoint(L: TierLayout, aircraft: number, x: number, y: number,
   return [x + Math.cos(heading) * u + nx * v, y + Math.sin(heading) * u + ny * v];
 }
 
-/** Where the fuel truck parks (opposite side from the door) and its approach point. */
-export function fuelPoint(L: TierLayout, aircraft: number, x: number, y: number, heading: number): { at: P2; approach: P2 } {
-  const art = planeArt(aircraft);
-  const side = -doorSide(L, x, y, heading);
-  const [nx, ny] = leftOf(heading);
-  const v = side * (art.radius + 0.5);
-  const u = art.length * 0.05;
-  const at: P2 = [x + Math.cos(heading) * u + nx * v, y + Math.sin(heading) * u + ny * v];
-  const approach: P2 = [at[0] - Math.cos(heading) * 0.9 + nx * side * 0.3, at[1] - Math.sin(heading) * 0.9 + ny * side * 0.3];
-  return { at, approach };
-}

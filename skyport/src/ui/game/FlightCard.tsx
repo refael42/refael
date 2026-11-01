@@ -26,10 +26,10 @@ function Chip({ children, tone }: { children: React.ReactNode; tone?: 'good' | '
   return <View style={[styles.chip, { backgroundColor: bg }]}>{children}</View>;
 }
 
-export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v: FlightView; onClose: () => void; onAction: () => void }) {
+export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v: FlightView; onClose: () => void; onAction: (want: number) => void }) {
   const t = useT();
   const dir = useDir();
-  const act = WANT_ACTION[v.want];
+  const acts = v.actions ? v.actions.split(',').map(Number) : [];
   const moodColor = v.mood > 0.66 ? C.green : v.mood > 0.4 ? C.amber : C.red;
   const ta = { textAlign: dir.textAlign, writingDirection: dir.writingDirection } as const;
   return (
@@ -94,20 +94,36 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
         {v.airborne ? <Meter label={t('card.patience')} value={v.patience} color={v.patience < 0.35 ? C.red : C.amber} /> : null}
         {v.phase === 'deboarding' ? <Meter label={t('card.deboarding')} value={v.deboard} color={C.blue} /> : null}
         {v.fuelActive ? <Meter label={t('card.fuel')} value={v.fuel} color={C.amber} /> : null}
+        {v.bagsActive ? <Meter label={t('card.bags')} value={v.bags} color="#8b5cf6" /> : null}
         {v.phase === 'boarding' ? <Meter label={t('card.boarding')} value={v.board} color={C.green} /> : null}
       </View>
-      {act ? (
-        <Pressable
-          onPress={onAction}
-          style={({ pressed }) => [styles.action, { backgroundColor: act.color, flexDirection: dir.row }, pressed && styles.pressed]}
-        >
-          <View style={styles.actionIcon}>
-            <Icon name={act.icon} size={22} />
-          </View>
-          <Text style={styles.actionText} numberOfLines={1}>
-            {t(act.key)}
-          </Text>
-        </Pressable>
+      {v.waiting ? (
+        <View style={[styles.waiting, { flexDirection: dir.row }]}>
+          <Icon name="hourglass" size={16} />
+          <Text style={styles.waitingText}>{t('card.waitTaxi')}</Text>
+        </View>
+      ) : null}
+      {acts.length > 0 ? (
+        <View style={[styles.actions, { flexDirection: dir.row }]}>
+          {acts.map((w) => {
+            const act = WANT_ACTION[w];
+            if (!act) return null;
+            return (
+              <Pressable
+                key={w}
+                onPress={() => onAction(w)}
+                style={({ pressed }) => [styles.action, { backgroundColor: act.color, flexDirection: dir.row }, pressed && styles.pressed]}
+              >
+                <View style={styles.actionIcon}>
+                  <Icon name={act.icon} size={20} />
+                </View>
+                <Text style={styles.actionText} numberOfLines={1}>
+                  {t(act.key)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
       ) : null}
     </View>
   );
@@ -145,8 +161,11 @@ const styles = StyleSheet.create({
   meterValue: { color: C.textFaint, fontSize: 11, fontWeight: '700', width: 34, textAlign: 'center', fontVariant: ['tabular-nums'] },
   track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: C.track, overflow: 'hidden' },
   fill: { position: 'absolute', top: 0, bottom: 0, borderRadius: 4 },
-  action: { marginTop: 2, borderRadius: 16, height: 52, alignItems: 'center', justifyContent: 'center', gap: 10, ...SHADOW },
-  actionIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
-  actionText: { color: '#fff', fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
+  actions: { flexWrap: 'wrap', gap: 8, marginTop: 2 },
+  action: { flexGrow: 1, flexBasis: 150, borderRadius: 16, height: 50, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', gap: 8, ...SHADOW },
+  actionIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#ffffff', alignItems: 'center', justifyContent: 'center' },
+  actionText: { color: '#fff', fontSize: 15, fontWeight: '800', letterSpacing: -0.2, flexShrink: 1 },
+  waiting: { alignItems: 'center', gap: 6, backgroundColor: '#fffbeb', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
+  waitingText: { color: '#92400e', fontSize: 13, fontWeight: '700' },
   pressed: { transform: [{ scale: 0.98 }], opacity: 0.92 },
 });
