@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { NAMES } from '../data/names';
+import { nameIn, NAMES } from '../data/names';
 import { RARITY, type Rarity } from '../data/rarity';
 import { ROLE_LIST, STAFF, STAT_IDS, type Role } from '../data/staff';
 import { TRAITS, type TraitId } from '../data/traits';
@@ -38,7 +38,7 @@ const ICON_PX = 36;
 const roleIcon = (role: Role) => spriteIcon(ROLE_ICON[role], Math.round(ICON_PX * PixelRatio.get()));
 /** A hero (paid offer) shows their portrait and their own name; anyone else their job's icon and a name from the list. */
 const personIcon = (p: { role: Role; hero?: string }) => (p.hero ? heroIcon(p.hero, Math.round(ICON_PX * 1.4 * PixelRatio.get())) : roleIcon(p.role));
-const personName = (p: { name: number; hero?: string }, lang: 'he' | 'en', t: (k: string) => string) => (p.hero ? t(`hero.${p.hero}`) : NAMES[p.name]![lang]);
+const personName = (p: { name: number; hero?: string }, lang: string, t: (k: string) => string) => (p.hero ? t(`hero.${p.hero}`) : nameIn(NAMES[p.name]!, lang));
 
 interface PersonRow extends Person {
   id: number;

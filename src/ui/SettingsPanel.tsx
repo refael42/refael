@@ -4,7 +4,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import { STORE_BUILD } from '../config';
 import { useLivePurchases } from '../iap/livePurchases';
 import { noteText } from './Shop';
-import { useT } from '../i18n';
+import { LANG_LABEL, LANGS, useT } from '../i18n';
 import { spriteIcon } from '../render/icons';
 import { eraseSave } from '../store/persistence';
 import { useSettings } from '../store/settings';
@@ -83,9 +83,9 @@ export function SettingsPanel({ onClose, onHowTo, onNames, onStats, onPrivacy }:
             <View style={styles.row}>
               <Text style={styles.rowLabel}>{t('set.language')}</Text>
               <View style={styles.chips}>
-                {(['he', 'en'] as const).map((l) => (
+                {LANGS.map((l) => (
                   <Pressable key={l} onPress={() => setLang(l)} style={[styles.chip, lang === l && styles.chipOn]}>
-                    <Text style={[styles.chipText, lang === l && styles.chipTextOn]}>{l === 'he' ? 'עברית' : 'English'}</Text>
+                    <Text style={[styles.chipText, lang === l && styles.chipTextOn]}>{LANG_LABEL[l]}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 12, paddingBottom: 14, gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: panel.row, borderRadius: 14, paddingHorizontal: 12, minHeight: 48, gap: 10 },
   rowLabel: { color: '#FFF4E3', fontWeight: '800', fontSize: 14, flexShrink: 1 },
-  chips: { flexDirection: 'row', gap: 6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6, flexShrink: 1 },
   chip: { height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: '#24122A', justifyContent: 'center', borderWidth: 1.5, borderColor: '#5A3A64' },
   chipOn: { backgroundColor: gold, borderColor: gold },
   chipText: { color: '#E8D7F0', fontWeight: '800', fontSize: 13 },

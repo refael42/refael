@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 import { NAME_MAX, RESTAURANT_NAMES } from '../data/tutorial';
-import { isRTL, useT } from '../i18n';
+import { isRTL, LANG_LABEL, LANGS, useT, type Lang } from '../i18n';
 import { useSettings, type Profile } from '../store/settings';
 import { cardStyles, HowToPlayCards } from './HowToPlay';
 import { gold } from './theme';
@@ -13,7 +13,7 @@ import { GameIcon } from './GameIcon';
 
 export type WelcomePage = 'hello' | 'names' | 'howto';
 
-const randomName = (lang: 'he' | 'en', not?: string) => {
+const randomName = (lang: Lang, not?: string) => {
   const names = RESTAURANT_NAMES[lang].filter((n) => n !== not);
   return names[Math.floor(Math.random() * names.length)]!;
 };
@@ -55,9 +55,9 @@ export function Welcome({ pages, initial, onDone }: Props) {
             <Text style={styles.title}>{t('welcome.title')}</Text>
             <Text style={styles.body}>{t('welcome.body')}</Text>
             <View style={styles.chips}>
-              {(['he', 'en'] as const).map((l) => (
+              {LANGS.map((l) => (
                 <Pressable key={l} onPress={() => setLang(l)} style={[styles.chip, lang === l && styles.chipOn]}>
-                  <Text style={[styles.chipText, lang === l && styles.chipTextOn]}>{l === 'he' ? 'עברית' : 'English'}</Text>
+                  <Text style={[styles.chipText, lang === l && styles.chipTextOn]}>{LANG_LABEL[l]}</Text>
                 </Pressable>
               ))}
             </View>
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
   backdrop: { ...cardStyles.backdrop, justifyContent: 'flex-start', paddingTop: 18 },
   title: { color: '#FFE9A8', fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 4 },
   body: { color: '#F3E6FA', fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 21, marginBottom: 10 },
-  chips: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 12 },
   chip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 16, borderWidth: 2, borderColor: '#5A3A6A', backgroundColor: '#3A1D40' },
   chipOn: { borderColor: gold, backgroundColor: '#5A2A66' },
   chipText: { color: '#C9B3D6', fontWeight: '800', fontSize: 15 },

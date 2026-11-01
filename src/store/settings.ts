@@ -2,7 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import type { BulkStep } from '../data/works';
 
-type Lang = 'he' | 'en';
+import type { Lang } from '../i18n';
+
+/** Kept here too (the i18n module imports this store, so only its type comes across). */
+const LANGS: readonly string[] = ['he', 'en', 'ar', 'ru', 'es'];
 export type View = 'game' | 'cast';
 
 /** Who runs the place: shown on banners and greetings. Local only, no account. */
@@ -110,7 +113,7 @@ export async function loadSettings(deviceLang: Lang): Promise<void> {
     // Unreadable settings are not worth a crash: fall back to defaults.
   }
   useSettings.setState({
-    lang: saved.lang === 'he' || saved.lang === 'en' ? saved.lang : deviceLang,
+    lang: typeof saved.lang === 'string' && LANGS.includes(saved.lang) ? (saved.lang as Lang) : deviceLang,
     showPerf: saved.showPerf === true,
     profile: readProfile(saved.profile),
     tutorial: typeof saved.tutorial === 'number' && saved.tutorial >= 0 ? Math.floor(saved.tutorial) : 0,

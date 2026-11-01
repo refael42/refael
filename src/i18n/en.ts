@@ -424,6 +424,7 @@ export const en = {
   'toast.celebComing': 'A limo pulls up: the {n} is on the way in!',
   'toast.celebLoved': 'The {n} loved it! The whole city is talking',
   'toast.celebMeh': 'The {n} was not impressed...',
+  'news.languages': '🌍 More languages: the game now speaks Arabic (right to left), Russian and Spanish too, besides Hebrew and English. Pick one in the settings; on the first run the game opens in the phone\'s language.',
   'news.celebs': '🌟 Celebrities: now and then a limo pulls up, the cameras flash, and a star walks in and sits down without waiting in line. Demanding, and they pay a fortune. Five stars bring a wave of guests and gems, and every star is a sticker on a new album page.',
   'album.title': 'Customer album',
   'album.found': '{n} of {m} stickers',

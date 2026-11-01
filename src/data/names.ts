@@ -1,15 +1,29 @@
-// First names for applicants, written in both languages so a person keeps their name when the
-// player switches language.
+// First names for applicants, written in every script the game shows so a person keeps their
+// name when the player switches language (Spanish uses the Latin spelling).
 
-export const NAMES: readonly { he: string; en: string }[] = [
-  { he: 'נועה', en: 'Noa' }, { he: 'יובל', en: 'Yuval' }, { he: 'עומר', en: 'Omer' }, { he: 'שירה', en: 'Shira' },
-  { he: 'איתי', en: 'Itai' }, { he: 'מאיה', en: 'Maya' }, { he: 'ליאור', en: 'Lior' }, { he: 'טל', en: 'Tal' },
-  { he: 'רוני', en: 'Roni' }, { he: 'דנה', en: 'Dana' }, { he: 'גל', en: 'Gal' }, { he: 'עמית', en: 'Amit' },
-  { he: 'עדי', en: 'Adi' }, { he: 'אורי', en: 'Ori' }, { he: 'שי', en: 'Shai' }, { he: 'נועם', en: 'Noam' },
-  { he: 'יעל', en: 'Yael' }, { he: 'עדן', en: 'Eden' }, { he: 'עידו', en: 'Ido' }, { he: 'ליה', en: 'Lia' },
-  { he: 'רון', en: 'Ron' }, { he: 'הילה', en: 'Hila' }, { he: 'תום', en: 'Tom' }, { he: 'אביב', en: 'Aviv' },
-  { he: 'ענבר', en: 'Inbar' }, { he: 'זיו', en: 'Ziv' }, { he: 'תמר', en: 'Tamar' }, { he: 'יונתן', en: 'Yonatan' },
-  { he: 'מיכל', en: 'Michal' }, { he: 'דניאל', en: 'Daniel' }, { he: 'אלה', en: 'Ella' }, { he: 'בן', en: 'Ben' },
-  { he: 'סהר', en: 'Sahar' }, { he: 'אגם', en: 'Agam' }, { he: 'רז', en: 'Raz' }, { he: 'אופיר', en: 'Ofir' },
-  { he: 'סתיו', en: 'Stav' }, { he: 'הדר', en: 'Hadar' }, { he: 'ים', en: 'Yam' }, { he: 'אליה', en: 'Elia' },
+export interface PersonName {
+  he: string;
+  en: string;
+  ar: string;
+  ru: string;
+}
+
+const n = (he: string, en: string, ar: string, ru: string): PersonName => ({ he, en, ar, ru });
+
+export const NAMES: readonly PersonName[] = [
+  n('נועה', 'Noa', 'نوعا', 'Ноа'), n('יובל', 'Yuval', 'يوفال', 'Юваль'), n('עומר', 'Omer', 'عومر', 'Омер'), n('שירה', 'Shira', 'شيرا', 'Шира'),
+  n('איתי', 'Itai', 'إيتاي', 'Итай'), n('מאיה', 'Maya', 'مايا', 'Майя'), n('ליאור', 'Lior', 'ليؤور', 'Лиор'), n('טל', 'Tal', 'طال', 'Таль'),
+  n('רוני', 'Roni', 'روني', 'Рони'), n('דנה', 'Dana', 'دانا', 'Дана'), n('גל', 'Gal', 'غال', 'Гал'), n('עמית', 'Amit', 'عميت', 'Амит'),
+  n('עדי', 'Adi', 'عدي', 'Ади'), n('אורי', 'Ori', 'أوري', 'Ори'), n('שי', 'Shai', 'شاي', 'Шай'), n('נועם', 'Noam', 'نوعام', 'Ноам'),
+  n('יעל', 'Yael', 'ياعيل', 'Яэль'), n('עדן', 'Eden', 'عيدن', 'Эден'), n('עידו', 'Ido', 'عيدو', 'Идо'), n('ליה', 'Lia', 'ليا', 'Лия'),
+  n('רון', 'Ron', 'رون', 'Рон'), n('הילה', 'Hila', 'هيلا', 'Хила'), n('תום', 'Tom', 'توم', 'Том'), n('אביב', 'Aviv', 'أفيف', 'Авив'),
+  n('ענבר', 'Inbar', 'عنبر', 'Инбар'), n('זיו', 'Ziv', 'زيف', 'Зив'), n('תמר', 'Tamar', 'تمار', 'Тамар'), n('יונתן', 'Yonatan', 'يوناتان', 'Йонатан'),
+  n('מיכל', 'Michal', 'ميخال', 'Михаль'), n('דניאל', 'Daniel', 'دانيال', 'Даниэль'), n('אלה', 'Ella', 'إيلا', 'Элла'), n('בן', 'Ben', 'بن', 'Бен'),
+  n('סהר', 'Sahar', 'سهر', 'Сахар'), n('אגם', 'Agam', 'أغام', 'Агам'), n('רז', 'Raz', 'راز', 'Раз'), n('אופיר', 'Ofir', 'أوفير', 'Офир'),
+  n('סתיו', 'Stav', 'ستاف', 'Став'), n('הדר', 'Hadar', 'هدار', 'Хадар'), n('ים', 'Yam', 'يام', 'Ям'), n('אליה', 'Elia', 'إيليا', 'Элия'),
 ];
+
+/** A name in the player's language; Spanish (and anything else in Latin script) uses the English spelling. */
+export function nameIn(name: PersonName, lang: string): string {
+  return lang === 'he' || lang === 'ar' || lang === 'ru' ? name[lang] : name.en;
+}

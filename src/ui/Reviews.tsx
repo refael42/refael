@@ -3,7 +3,7 @@ import { SIDE, SideButton } from './SideButton';
 import { Image, PixelRatio, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { tapFeedback } from '../audio/sound';
 import { dishDef } from '../data/dishes';
-import { NAMES } from '../data/names';
+import { nameIn, NAMES } from '../data/names';
 import { useT } from '../i18n';
 import { hudIcon } from '../render/icons';
 import { usePoll } from '../render/useSimulation';
@@ -123,7 +123,7 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
                 <View style={styles.rowMain}>
                   <View style={styles.rowHead}>
                     <Stars n={r.stars} size={15} />
-                    <Text style={styles.meta}>{`${name ? name[lang] : ''} · ${t('reviews.day').replace('{n}', String(r.day))}`}</Text>
+                    <Text style={styles.meta}>{`${name ? nameIn(name, lang) : ''} · ${t('reviews.day').replace('{n}', String(r.day))}`}</Text>
                   </View>
                   <Text style={styles.quote}>{`“${text(r)}”`}</Text>
                   <Scores r={r} />

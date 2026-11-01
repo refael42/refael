@@ -12,7 +12,15 @@
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "SKIncludeConsumableInAppPurchaseHistory": true
+        "SKIncludeConsumableInAppPurchaseHistory": true,
+        "CFBundleLocalizations": [
+          "en",
+          "he",
+          "ar",
+          "ru",
+          "es"
+        ],
+        "CFBundleAllowMixedLocalizations": true
       },
       "privacyManifests": {
         "NSPrivacyTracking": false,

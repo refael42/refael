@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { NAMES } from '../data/names';
+import { nameIn, NAMES } from '../data/names';
 import { STAFF } from '../data/staff';
 import { isRTL, useT } from '../i18n';
 import { usePoll } from '../render/useSimulation';
@@ -41,7 +41,7 @@ export function Notices({ gameRef, onCommand }: { gameRef: { current: GameState 
     <View style={styles.stack}>
       {items.slice(-3).map(({ notice: n, name, wage }) => (
         <View key={n.id} style={[styles.card, (n.kind === 'quit' || n.kind === 'payday') && styles.bad]}>
-          {(n.kind === 'raise' || n.kind === 'trial' || n.kind === 'quit') && <Text style={styles.name}>{NAMES[name]![lang]}</Text>}
+          {(n.kind === 'raise' || n.kind === 'trial' || n.kind === 'quit') && <Text style={styles.name}>{nameIn(NAMES[name]!, lang)}</Text>}
           {n.kind === 'raise' && (
             <>
               <Text style={styles.text}>{t('ui.raiseAsk')}</Text>

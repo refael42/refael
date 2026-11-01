@@ -15,6 +15,9 @@ export const TUTORIAL = {
 export const RESTAURANT_NAMES = {
   en: ['Falafel Palace', 'Shuk Bites', 'Golden Pita', 'Sunset Grill', 'Hummus House', 'Night Market', 'Seaside Shawarma', 'Lucky Fries'],
   he: ['ארמון הפלאפל', 'ביס מהשוק', 'הפיתה הזהובה', 'גריל השקיעה', 'בית החומוס', 'שוק הלילה', 'שווארמה על הים', 'הצ׳יפס של המזל'],
+  ar: ['قصر الفلافل', 'لقمة السوق', 'الكماجة الذهبية', 'شواية الغروب', 'بيت الحمص', 'سوق الليل', 'شاورما البحر', 'بطاطس الحظ'],
+  ru: ['Дворец фалафеля', 'Вкус рынка', 'Золотая пита', 'Гриль на закате', 'Дом хумуса', 'Ночной рынок', 'Шаурма у моря', 'Счастливая картошка'],
+  es: ['Palacio del Falafel', 'Bocados del Mercado', 'La Pita Dorada', 'Parrilla del Atardecer', 'Casa del Hummus', 'Mercado Nocturno', 'Shawarma del Mar', 'Patatas de la Suerte'],
 } as const;
 
 /** Names are short enough for the banners. */

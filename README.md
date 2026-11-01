@@ -342,7 +342,7 @@ restaurant that grows into an empire. Expo (React Native) + Skia; runs on Androi
 | `src/render` | Skia renderer: procedural low-poly art → atlas, isometric drawing, FX, camera; HUD/splash icons |
 | `src/ui` | React Native screen, HUD, opening animation, first-run screens, tutorial, panels |
 | `src/store` | Zustand stores |
-| `src/i18n` | Hebrew + English strings |
+| `src/i18n` | Strings in Hebrew, English, Arabic (right to left), Russian and Spanish; tests/i18n.test.ts checks every key and placeholder |
 | `tests` | Vitest unit tests |
 | `store` | App Store / Google Play material: texts (he/en), privacy policy, products, questionnaires, release guide in Hebrew, screenshots (`npm run store:check` checks the text lengths) |
 
