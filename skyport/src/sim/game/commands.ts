@@ -2,7 +2,7 @@ import { clearLanding, clearTakeoff, startBoarding } from './flights';
 import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
-import { hire } from './staff';
+import { answerRaise, confirmTrial, fire, hire, negotiate, spendTalent, startTrial, transfer } from './staff';
 import { buyUpgrade, rushBuild } from './upgrades';
 import { requestService } from './vehicles';
 
@@ -56,8 +56,30 @@ export function applyCommand(s: GameState, cmd: Command): void {
       rushBuild(s);
       return;
     }
-    case 'hire': {
-      const code = hire(s, cmd.applicantId);
+    case 'hire':
+    case 'negotiate':
+    case 'trial':
+    case 'confirmTrial':
+    case 'fire':
+    case 'transfer':
+    case 'talent':
+    case 'answerRaise': {
+      const code =
+        cmd.type === 'hire'
+          ? hire(s, cmd.applicantId)
+          : cmd.type === 'negotiate'
+            ? negotiate(s, cmd.applicantId)
+            : cmd.type === 'trial'
+              ? startTrial(s, cmd.applicantId)
+              : cmd.type === 'confirmTrial'
+                ? confirmTrial(s, cmd.staffId, !!cmd.keep)
+                : cmd.type === 'fire'
+                  ? fire(s, cmd.staffId)
+                  : cmd.type === 'transfer'
+                    ? transfer(s, cmd.staffId, Math.floor(cmd.role))
+                    : cmd.type === 'talent'
+                      ? spendTalent(s, cmd.staffId, Math.floor(cmd.talent))
+                      : answerRaise(s, cmd.staffId, Math.floor(cmd.answer));
       if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
       return;
     }

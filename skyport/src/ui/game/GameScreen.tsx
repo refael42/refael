@@ -17,7 +17,7 @@ import { recordFrame, useFrameLoop } from '../../render/useFrameLoop';
 import { buildWorld } from '../../render/world';
 import { useSettings } from '../../settings/store';
 import { AIRCRAFT, planeArt } from '../../data/aircraft';
-import { STAFF_ROLES } from '../../data/staff';
+import { RARITIES, STAFF_ROLES } from '../../data/staff';
 import {
   applyOffline,
   bestOffer,
@@ -155,6 +155,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const lang = useLang();
   const [bump, setBump] = useState(0);
   const toastId = useRef(1);
+  /** Names of people by id, so a "quit" toast can still name them. */
+  const lastNames = useRef(new Map<number, string>());
   const indicators = useRef<Indicator[]>([]);
   const safe = useRef({ top: 90, bottom: 0 });
   const lastToastKey = useRef<Record<string, number>>({});
@@ -230,6 +232,36 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           case 'wagesPaid':
             toast('coin', t('toast.wages', { amount: formatBig(e.a) }), 'info');
             break;
+          case 'applicantArrived': {
+            const R = RARITIES[e.b];
+            if (R && e.b >= 1) toast('team', t('toast.applicant', { rarity: t(`rarity.${R.id}` as TKey), role: t(`role.${STAFF_ROLES[e.a]?.id ?? 'atc'}` as TKey) }), 'good');
+            break;
+          }
+          case 'negotiated':
+            toast('team', e.a === 1 ? t('toast.negotiateOk') : t('toast.negotiateNo'), e.a === 1 ? 'good' : 'warn');
+            break;
+          case 'levelUp': {
+            const m = s.staff.find((x) => x.id === e.c);
+            if (m) toast('star', t('toast.levelUp', { name: personName(m, lang), n: e.a }), 'good');
+            break;
+          }
+          case 'raiseRequest': {
+            const m = s.staff.find((x) => x.id === e.c);
+            if (m) toast('coin', t('toast.raise', { name: personName(m, lang) }), 'info');
+            break;
+          }
+          case 'quit':
+          case 'fired': {
+            const name = lastNames.current.get(e.c);
+            if (name) toast('warn', t(e.kind === 'quit' ? 'toast.quit' : 'toast.fired', { name }), 'warn');
+            break;
+          }
+          case 'trialEnded':
+            toast('clock', t('toast.trialEnded'), 'info');
+            break;
+          case 'oops':
+            toast('bag', t('toast.oops'), 'warn', 'oops');
+            break;
           case 'milestone':
             toast('star', t('toast.milestone'), 'good');
             break;
@@ -282,10 +314,17 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       const st = ctrl.state;
       setStandsBuilt((old) => (old === st.standsBuilt ? old : st.standsBuilt));
       setRev((r) => r + 1);
-      const sv: StaffView = { money: st.money.toNumber(), staff: st.staff.slice(), applicants: st.applicants.slice(), wages: wagesPerDay(st) };
-      setStaffView((old) =>
-        old && old.money === sv.money && old.staff.length === sv.staff.length && old.applicants.map((a) => a.id).join() === sv.applicants.map((a) => a.id).join() ? old : sv,
-      );
+      // copies, so the panel re-renders when people change (polled, not every frame)
+      const sv: StaffView = {
+        money: st.money.toNumber(),
+        staff: st.staff.map((m) => ({ ...m, traits: m.traits.slice(), talents: m.talents.slice() })),
+        applicants: st.applicants.map((a) => ({ ...a, traits: a.traits.slice(), talents: a.talents.slice() })),
+        wages: wagesPerDay(st),
+        time: st.time,
+        tier: st.tier,
+      };
+      setStaffView(sv);
+      for (const m of st.staff) lastNames.current.set(m.id, personName(m, lang));
     }, 250);
     return () => clearInterval(id);
   }, [ctrl]);
@@ -414,7 +453,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const wide = size.w > size.h * 1.25;
   const canHire =
     !!staffView &&
-    staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0);
+    (staffView.staff.some((m) => m.raise > 0 || m.trialUntil === 1 || m.points > 0) ||
+      staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0));
   const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
@@ -503,7 +543,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       ) : null}
       {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
       {panel === 'staff' && staffView ? (
-        <StaffPanel view={staffView} onHire={(id) => ctrl.send({ type: 'hire', applicantId: id })} onClose={() => setPanel(null)} />
+        <StaffPanel view={staffView} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} />
       ) : null}
       {settings ? (
         <SettingsPanel

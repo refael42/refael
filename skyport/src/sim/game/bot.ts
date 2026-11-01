@@ -44,18 +44,35 @@ export function botCommands(s: GameState, opts: BotOptions = { reaction: 1 }): C
   return out;
 }
 
-/** Hires the cheapest useful worker when there is comfortable money. */
+/**
+ * Hires for empty roles first (best speed for the price), then a second
+ * controller once there are several stands; spends talent points on speed,
+ * confirms good trials and accepts raises it can afford.
+ */
 export function botHires(s: GameState, keep = 1.3): Command[] {
+  const out: Command[] = [];
+  for (const m of s.staff) {
+    if (m.points > 0) out.push({ type: 'talent', staffId: m.id, talent: m.talents[0] < 5 ? 0 : m.talents[4] < 5 ? 4 : 1 });
+    if (m.raise > 0) out.push({ type: 'answerRaise', staffId: m.id, answer: s.money.gte(m.raise * 20) ? 1 : 2 });
+    if (m.trialUntil === 1) out.push({ type: 'confirmTrial', staffId: m.id, keep: true });
+  }
   const order = ['porter', 'agent', 'fueler', 'atc'];
-  for (const id of order) {
-    const role = STAFF_ROLES.findIndex((r) => r.id === id);
-    if (role < 0 || staffCount(s, role) >= 1) continue;
-    const a = s.applicants.find((x) => x.role === role);
-    if (a && s.money.gte(a.cost * keep)) return [{ type: 'hire', applicantId: a.id }];
-    return [];
+  const wants = order.map((id) => STAFF_ROLES.findIndex((r) => r.id === id));
+  if (s.standsBuilt >= 2) wants.push(STAFF_ROLES.findIndex((r) => r.id === 'atc'));
+  const counted = new Map<number, number>();
+  for (const role of wants) {
+    if (role < 0) continue;
+    const need = (counted.get(role) ?? 0) + 1;
+    counted.set(role, need);
+    if (staffCount(s, role) >= need) continue;
+    const pool = s.applicants.filter((a) => a.role === role && s.money.gte(a.cost * keep));
+    if (pool.length === 0) return out;
+    pool.sort((a, b) => b.speed / Math.sqrt(b.wage) - a.speed / Math.sqrt(a.wage));
+    out.push({ type: 'hire', applicantId: pool[0].id });
+    return out;
   }
   void MAX_PER_ROLE;
-  return [];
+  return out;
 }
 
 /** Buys the best-value upgrade it can afford (keeps a small reserve for staff). */

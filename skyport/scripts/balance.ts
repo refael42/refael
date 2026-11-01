@@ -16,6 +16,9 @@ const seed = arg('seed', 1);
 const minutes = arg('minutes', 90);
 const reaction = arg('reaction', 1.5);
 const quiet = process.argv.includes('--quiet');
+/** Human-like play: at most this many taps per minute (0 = unlimited). */
+const apm = arg('apm', 0);
+const noStaff = process.argv.includes('--no-staff');
 
 const s = createGame(seed);
 const started = Date.now();
@@ -29,11 +32,18 @@ let lastEvent = 0;
 let prevRate = 0;
 let bestJump = 1;
 let bestJumpAt = 0;
+let taps = 0;
 const STEPS_PER_MIN = 30 * 60;
 for (let m = 1; m <= minutes; m++) {
   for (let i = 0; i < STEPS_PER_MIN; i++) {
-    if (i % 4 === 0) for (const c of botCommands(s, { reaction })) queueCommand(s, c);
-    if (i % 150 === 0) for (const c of [...botHires(s), ...botBuys(s)]) queueCommand(s, c);
+    if (i % 4 === 0) {
+      for (const c of botCommands(s, { reaction })) {
+        if (apm > 0 && taps >= (s.time / 60) * apm) break;
+        taps++;
+        queueCommand(s, c);
+      }
+    }
+    if (i % 150 === 0) for (const c of [...(noStaff ? [] : botHires(s)), ...botBuys(s)]) queueCommand(s, c);
     stepGame(s);
     for (const e of eventsSince(s, lastEvent)) {
       lastEvent = e.id;
@@ -69,6 +79,9 @@ const report = {
   seed,
   minutes,
   reaction,
+  apm: apm || 'unlimited',
+  staffAllowed: !noStaff,
+  playerTaps: taps,
   money: formatBig(s.money),
   incomePerMinute: Math.round(incomeRate(s) * 60),
   served: st.served,

@@ -34,6 +34,7 @@ export function createGame(seed: number): GameState {
     staff: [],
     applicants: [],
     wageDay: 1,
+    nextApplicantAt: 90,
     upg: {},
     upgRev: 0,
     builds: [],

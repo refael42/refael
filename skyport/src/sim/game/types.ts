@@ -28,7 +28,18 @@ export type GameEventKind =
   | 'milestone'
   | 'buildStart'
   | 'buildDone'
-  | 'offline';
+  | 'offline'
+  | 'applicantArrived'
+  | 'applicantLeft'
+  | 'negotiated'
+  | 'levelUp'
+  | 'raiseRequest'
+  | 'raiseAnswered'
+  | 'quit'
+  | 'trialEnded'
+  | 'fired'
+  | 'oops'
+  | 'onBreak';
 
 export interface GameEvent {
   id: number;
@@ -53,6 +64,14 @@ export type Command =
   | { type: 'clearTakeoff'; flightId: number }
   | { type: 'sendBags'; flightId: number }
   | { type: 'hire'; applicantId: number }
+  | { type: 'negotiate'; applicantId: number }
+  | { type: 'trial'; applicantId: number }
+  | { type: 'confirmTrial'; staffId: number; keep: boolean }
+  | { type: 'fire'; staffId: number }
+  | { type: 'transfer'; staffId: number; role: number }
+  | { type: 'talent'; staffId: number; talent: number }
+  /** answer: 0 decline, 1 accept, 2 counter-offer half. */
+  | { type: 'answerRaise'; staffId: number; answer: number }
   /** count: levels to buy, -1 = as many as you can afford. */
   | { type: 'buyUpgrade'; id: string; count: number }
   | { type: 'rushBuild' };
@@ -229,29 +248,55 @@ export interface Build {
   total: number;
 }
 
-export interface StaffMember {
+/** What staff and applicants have in common (a "CV"). */
+export interface Person0 {
   id: number;
   /** Index into STAFF_ROLES. */
   role: number;
   /** Indices into FIRST_NAMES / LAST_NAMES. */
   first: number;
   last: number;
-  /** 0.8 .. 1.3, higher reacts faster. */
+  /** Natural speed (rarity included), higher reacts faster. */
   speed: number;
+  /** Index into RARITIES. */
+  rarity: number;
+  /** Indices into TRAITS. */
+  traits: number[];
+  level: number;
+  /** Points in each of the TALENTS. */
+  talents: number[];
+  /** CV one-liner index. */
+  cv: number;
   wage: number;
+}
+
+export interface StaffMember extends Person0 {
   hiredAt: number;
   /** Sim time until which the worker is busy. */
   busyUntil: number;
+  xp: number;
+  /** Unspent talent points. */
+  points: number;
+  /** 0..1, multiplies speed (0.8x .. 1.2x); at 0 they quit. */
+  mood: number;
+  /** 0..1, drained by work; below 0.12 they take a break. */
+  energy: number;
+  breakUntil: number;
+  /** > 0 while on a trial shift (ends at this time). */
+  trialUntil: number;
+  /** Hire fee still owed if the trial is confirmed. */
+  trialCost: number;
+  /** Requested wage increase (0 = none) and when it was asked. */
+  raise: number;
+  raiseAt: number;
 }
 
-export interface Applicant {
-  id: number;
-  role: number;
-  first: number;
-  last: number;
-  speed: number;
+export interface Applicant extends Person0 {
   cost: number;
-  wage: number;
+  arrivedAt: number;
+  expiresAt: number;
+  /** Already tried to negotiate (one attempt). */
+  negotiated: boolean;
 }
 
 export interface GameState {
@@ -286,6 +331,8 @@ export interface GameState {
   applicants: Applicant[];
   /** Last game day whose wages were paid. */
   wageDay: number;
+  /** When the next applicant knocks on the door. */
+  nextApplicantAt: number;
   /** Upgrade levels by id. */
   upg: Record<string, number>;
   /** Bumped whenever a level changes (effects cache key). */

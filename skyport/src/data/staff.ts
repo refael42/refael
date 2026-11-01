@@ -59,3 +59,48 @@ export const LAST_NAMES: readonly { en: string; he: string }[] = [
   { en: 'Ben-David', he: 'בן דוד' },
   { en: 'Navon', he: 'נבון' },
 ];
+
+/** Rarity: rarer people are faster, start at a higher level, and cost more. */
+export interface RarityDef {
+  id: 'common' | 'rare' | 'epic' | 'legendary' | 'mythic';
+  weight: number;
+  statMul: number;
+  levels: readonly [number, number];
+  wageMul: number;
+  color: string;
+}
+
+export const RARITIES: readonly RarityDef[] = [
+  { id: 'common', weight: 60, statMul: 1.0, levels: [1, 2], wageMul: 1.0, color: '#64748b' },
+  { id: 'rare', weight: 26, statMul: 1.12, levels: [2, 4], wageMul: 1.3, color: '#3b82f6' },
+  { id: 'epic', weight: 10, statMul: 1.25, levels: [3, 6], wageMul: 1.7, color: '#8b5cf6' },
+  { id: 'legendary', weight: 3.5, statMul: 1.42, levels: [5, 9], wageMul: 2.4, color: '#f59e0b' },
+  { id: 'mythic', weight: 0.5, statMul: 1.65, levels: [8, 12], wageMul: 3.2, color: '#ec4899' },
+];
+
+/** Personality traits (good and not so good). */
+export type TraitId = 'diligent' | 'clumsy' | 'charming' | 'nightOwl' | 'gossip' | 'workaholic';
+
+export interface TraitDef {
+  id: TraitId;
+  /** Relative chance to appear. */
+  weight: number;
+  good: boolean;
+}
+
+export const TRAITS: readonly TraitDef[] = [
+  { id: 'diligent', weight: 3, good: true },
+  { id: 'charming', weight: 3, good: true },
+  { id: 'nightOwl', weight: 2, good: true },
+  { id: 'workaholic', weight: 2, good: true },
+  { id: 'clumsy', weight: 2, good: false },
+  { id: 'gossip', weight: 2, good: false },
+];
+
+/** Talents bought with talent points (one point per level-up), max 5 each. */
+export const TALENTS = ['speed', 'stamina', 'precision', 'charm', 'efficiency', 'loyalty'] as const;
+export type TalentId = (typeof TALENTS)[number];
+export const TALENT_MAX = 5;
+
+/** Number of CV one-liners (i18n keys cv.0 .. cv.N-1). */
+export const CV_LINES = 12;

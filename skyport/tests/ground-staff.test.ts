@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { STAFF_ROLES } from '../src/data/staff';
+import { RARITIES, STAFF_ROLES } from '../src/data/staff';
 import {
   botCommands,
   createGame,
@@ -10,6 +10,7 @@ import {
   graphOf,
   isGround,
   layoutOf,
+  makeApplicant,
   onRunway,
   queueCommand,
   REJECT,
@@ -100,7 +101,7 @@ describe('staff', () => {
     expect(s.applicants.map((a) => a.role).sort()).toEqual(STAFF_ROLES.map((_, i) => i));
     for (const a of s.applicants) {
       expect(a.speed).toBeGreaterThanOrEqual(0.8);
-      expect(a.speed).toBeLessThanOrEqual(1.3);
+      expect(a.speed).toBeLessThanOrEqual(1.3 * RARITIES[a.rarity].statMul + 1e-9);
       expect(a.cost).toBeGreaterThan(0);
     }
   });
@@ -114,8 +115,9 @@ describe('staff', () => {
     expect(eventsSince(s, 0).some((e) => e.kind === 'cmdRejected' && e.a === REJECT.noMoney)).toBe(true);
     s.money = s.money.add(100000);
     for (let i = 0; i < 4; i++) {
-      const next = s.applicants.find((x) => x.role === a.role);
-      if (next) queueCommand(s, { type: 'hire', applicantId: next.id });
+      const next = s.applicants.find((x) => x.role === a.role) ?? makeApplicant(s, a.role);
+      if (!s.applicants.includes(next)) s.applicants.push(next);
+      queueCommand(s, { type: 'hire', applicantId: next.id });
       stepGame(s);
     }
     expect(s.staff.filter((m) => m.role === a.role).length).toBe(2);

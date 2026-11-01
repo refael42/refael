@@ -23,7 +23,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | Modern restyle | done | requested by the owner, see below |
 | M2 First staff | done | see below |
 | M3 Economy & upgrades | done | see below |
-| M4 Full staff system | next | |
+| M4 Full staff system | done | see below |
+| M5 Airport tiers | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -107,6 +108,26 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   crew/rush, vehicles, effects raise pay, save round trip, hostile save file, future/corrupt files,
   v1 migration, offline floor/cap/clock-backwards, construction while away.
   Browser: upgrades sheet, 25-min bot game, welcome-back from a fixture, real save -> reload.
+
+### M4 — full staff system (done)
+- Applicants arrive on their own (every ~75–135 s, up to 5, each leaves after ~10 min) with a
+  CV line, rarity (common 60% … mythic 0.5%), 1–2 traits, a level and pre-spent talents.
+  Rarer = faster, higher level, pricier. The first pool is one modest applicant per role.
+- Hire, negotiate (one try: cheaper deal or they walk away; harder for rare people), or a trial
+  shift (2 min, fee paid only if you keep them; one trial at a time).
+- Work gives XP; level-ups give talent points (speed, stamina, precision, charm, efficiency,
+  loyalty; max 5 each). Energy drains per job; tired people take a 25 s break.
+  Mood drifts with rest, fair pay and gossiping coworkers; speed × (0.8 + 0.4 × mood); quit at 0.
+- Traits: diligent (+10%), charming (happier passengers), night owl, workaholic, clumsy
+  (drops bags: the job takes longer), gossip.
+- Raises: rare, one open request at a time; yes / half / no (half may be refused); unanswered
+  for a day counts as no. Fire (team mood dips) and transfer to another role.
+- All of it uses per-game hashes (seed mixed in), never the shared RNG.
+- Balance: at a human pace of 6 taps/min, a crew earns ~4,400 coins/min vs ~460 without staff
+  (and 25 diversions). `npm run balance -- --seed 1 --apm 6 [--no-staff]`.
+- UI: staff sheet with Team / Applicants tabs, CV cards, talents, transfer, fire, raise and trial
+  banners; badge on the Staff button when something needs you. Save version 3 (+ migration).
+- Heroes (mythic free characters from packs/events) come with the shop (M18).
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).

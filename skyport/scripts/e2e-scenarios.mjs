@@ -1,7 +1,7 @@
 /** A mid-game save written 'hoursAgo' hours ago (fixture for load/offline tests). */
 const fixture = (hoursAgo) =>
   JSON.stringify({
-    v: 2,
+    v: 3,
     savedAt: Date.now() - hoursAgo * 3600 * 1000,
     game: {
       seed: 5,
@@ -96,7 +96,7 @@ export default [
       const raw = await page.evaluate(() => localStorage.getItem('skyport.save.v1'));
       if (!raw) throw new Error('no autosave after 11 s');
       const file = JSON.parse(raw);
-      if (file.v !== 2) throw new Error('unexpected save version ' + file.v);
+      if (!(file.v >= 3)) throw new Error('unexpected save version ' + file.v);
       const before = await page.evaluate(() => window.__skyport.stats());
       await page.goto(page.url().replace(/\?.*$/, '?save=1&hook=1'));
       await page.waitForTimeout(2500);
@@ -107,5 +107,7 @@ export default [
       console.log(`     save/reload: before t=${before.time.toFixed(0)} money=${before.money} -> after t=${after.time.toFixed(0)} money=${after.money}`);
     },
   },
+  { name: 'm4-team', viewport: { width: 390, height: 844 }, query: '/?seed=4&crew=1&warp=900&auto=1&panel=staff', wait: 2500, touch: true },
+  { name: 'm4-applicants', viewport: { width: 390, height: 844 }, query: '/?seed=8&warp=500&money=3000&panel=staff', wait: 2500, touch: true },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];
