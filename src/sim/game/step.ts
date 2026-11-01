@@ -1,6 +1,7 @@
 import { updateSupply, vanStop } from '../supply';
 import { updateOccasions } from '../occasions';
 import { updateAchievements } from '../achievements';
+import { updateLab } from '../lab';
 import { panSpot, updateFlip } from '../flip';
 import { limoStop, updateCelebs } from '../celebs';
 import { CELEB } from '../../data/celebs';
@@ -89,6 +90,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateFlip(s);
   updateCelebs(s);
   if (s.tick % 60 === 30) updateAchievements(s);
+  updateLab(s);
   updateWalkers(s, dt);
   updateCrew(s, dt);
   // Heroes the player owns walk in wherever they are missing (a new branch, a new building).

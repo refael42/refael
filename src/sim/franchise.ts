@@ -1,4 +1,5 @@
 import { APPLICANTS } from '../data/staff';
+import { labForLater } from './lab';
 import { FRANCHISE } from '../data/franchise';
 import { GIFT } from '../data/retention';
 import { mapForTier } from '../data/maps';
@@ -35,7 +36,7 @@ export function openBranch(s: GameState): boolean {
   if (!canOpenBranch(s)) return false;
   const gained = trophiesFor(s.stats.earned);
   const city = s.city + 1;
-  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city, daily: s.daily, wheel: s.wheel, festival: s.festival, flash: s.flash, purchases: s.purchases, offers: s.offers, season: s.season, album: s.album, ads: s.ads, holidayGifts: s.holidays.gifted, achievements: s.achievements, truck: s.truck });
+  const fresh = createGame(mapForTier(0), s.tick + 7919 * city, { gems: s.gems, perks: s.perks, trophies: s.trophies + gained, city, daily: s.daily, wheel: s.wheel, festival: s.festival, flash: s.flash, purchases: s.purchases, offers: s.offers, season: s.season, album: s.album, ads: s.ads, holidayGifts: s.holidays.gifted, achievements: s.achievements, truck: s.truck, lab: labForLater(s) });
   const keep = {
     tick: s.tick,
     time: s.time,

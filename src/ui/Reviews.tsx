@@ -83,7 +83,7 @@ export function ReviewsPanel({ gameRef, onCommand, onClose }: { gameRef: { curre
     tapFeedback();
     onCommand({ type: 'review', id });
   };
-  const text = (r: Review) => t(`review.${r.kind}.${r.line}`).split('{dish}').join(t(dishDef(r.dish).nameKey));
+  const text = (r: Review) => t(`review.${r.kind}.${r.line}`).split('{dish}').join(r.sig ?? t(dishDef(r.dish).nameKey));
   return (
     <Overlay onClose={onClose} card={styles.card}>
       <View style={styles.header}>

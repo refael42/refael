@@ -16,6 +16,7 @@ import { SeasonChip, seasonWaiting } from './Season';
 import { AlbumChip, albumWaiting } from './Album';
 import { FreeChip, freeWaiting } from './FreeRewards';
 import { AchievementsChip, achievementsWaiting } from './Achievements';
+import { LabChip } from './Lab';
 import { SIDE, SideButton } from './SideButton';
 
 // One "events" button instead of a row of six round ones under the rating (owner M40: "a less
@@ -50,13 +51,14 @@ interface Props {
   onAlbum: () => void;
   onFree: () => void;
   onAchievements: () => void;
+  onLab: () => void;
   onShop: () => void;
   onReviews: () => void;
   onGuide: () => void;
   style: StyleProp<ViewStyle>;
 }
 
-export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onAlbum, onFree, onAchievements, onShop, onReviews, onGuide, style }: Props) {
+export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onAlbum, onFree, onAchievements, onLab, onShop, onReviews, onGuide, style }: Props) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const a = usePoll(gameRef, readAttention, 1);
@@ -89,6 +91,7 @@ export function EventsMenu({ gameRef, full, onOffers, onFestival, onSeason, onAl
           <ReviewsChip gameRef={gameRef} onPress={pick(onReviews)} style={styles.item} />
           <AlbumChip gameRef={gameRef} onPress={pick(onAlbum)} style={styles.item} />
           <AchievementsChip gameRef={gameRef} onPress={pick(onAchievements)} style={styles.item} />
+          <LabChip gameRef={gameRef} onPress={pick(onLab)} style={styles.item} />
           {full && <FreeChip gameRef={gameRef} onPress={pick(onFree)} style={styles.item} />}
           <GuideChip gameRef={gameRef} onPress={pick(onGuide)} style={styles.item} />
           <CityChip gameRef={gameRef} style={styles.item} />

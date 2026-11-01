@@ -4,6 +4,7 @@ import type { HolidayState } from '../holidays';
 import type { AchievementState } from '../achievements';
 import type { FlipState } from '../flip';
 import type { TruckState } from '../truck';
+import type { LabState } from '../lab';
 import type { CelebState } from '../celebs';
 import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
@@ -310,6 +311,9 @@ export type Command =
   | { type: 'truckCollect'; now: number }
   | { type: 'truckRush'; now: number }
   | { type: 'truckUpgrade' }
+  /** The recipe lab: test a combination (a dish + sauce + topping, a plate and a name); put a creation on (or off) the menu. */
+  | { type: 'labTest'; base: number; sauce: number; topping: number; plate: number; name: string }
+  | { type: 'labServe'; index: number; on: boolean }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -517,6 +521,8 @@ export interface Review {
   /** The reviewer's first name: an index into NAMES. */
   name: number;
   dish: number;
+  /** The chef's own name for the dish when it was a signature dish (src/sim/lab.ts). */
+  sig?: string;
   /** Bonus coins it brings (zero below four stars), taken on the reviews page. */
   bonus: Big;
   claimed: boolean;
@@ -683,6 +689,8 @@ export interface GameState {
   flip: FlipState;
   /** The food truck (the player's: saved, goes along to a branch; src/sim/truck.ts). */
   truck: TruckState;
+  /** The recipe lab (the player's: saved, goes along to a branch; src/sim/lab.ts). */
+  lab: LabState;
   /** The phone's clock as last passed in by the UI (ms; 0 = not yet). Not saved. */
   phoneNow: number;
   /** Celebrities' visits (src/sim/celebs.ts; not saved). */

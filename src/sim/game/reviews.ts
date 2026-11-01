@@ -1,4 +1,5 @@
 import { CUSTOMER_TYPES, KID_RANK } from '../../data/customers';
+import { signatureFor } from '../lab';
 import { NAMES } from '../../data/names';
 import { HAPPY_WEIGHTS, REVIEW, REVIEW_LINES, REVIEW_SCORES, SERVICE, type ReviewKind } from '../../data/reviews';
 import { big, type Big } from '../big';
@@ -73,7 +74,8 @@ export function reviewScores(r: Pick<Review, 'id' | 'stars' | 'kind'>): ReviewSc
 
 /** Adds a review to the page; the oldest goes when it is full (its bonus paid if never taken). */
 function addReview(s: GameState, r: Omit<Review, 'id' | 'day' | 'claimed'>): Review {
-  const review: Review = { ...r, id: s.reviewSeq++, day: s.day, claimed: r.bonus.lte(0) };
+  const sig = signatureFor(s, r.dish)?.name;
+  const review: Review = { ...r, ...(sig ? { sig } : {}), id: s.reviewSeq++, day: s.day, claimed: r.bonus.lte(0) };
   s.reviews.push(review);
   while (s.reviews.length > REVIEW.keep) {
     const old = s.reviews.shift()!;

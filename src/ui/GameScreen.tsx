@@ -62,6 +62,7 @@ import { AlbumPanel } from './Album';
 import { OccasionButton, OccasionPanel } from './Occasion';
 import { FreePanel } from './FreeRewards';
 import { AchievementsPanel } from './Achievements';
+import { LabPanel } from './Lab';
 import { FlipGame } from './FlipGame';
 import { TruckButton, TruckPanel } from './Truck';
 import { getAds } from '../ads';
@@ -375,6 +376,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [occasion, setOccasion] = useState(false);
   const [free, setFree] = useState(false);
   const [achievements, setAchievements] = useState(false);
+  const [lab, setLab] = useState(false);
   const [truck, setTruck] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
@@ -596,6 +598,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onAlbum={() => setAlbum(true)}
           onFree={() => setFree(true)}
           onAchievements={() => setAchievements(true)}
+          onLab={() => setLab(true)}
           onShop={() => setShop(true)}
           onReviews={() => setReviews(true)}
           onGuide={() => setGuide(true)}
@@ -660,6 +663,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
       {truck && <TruckPanel gameRef={gameRef} onCommand={command} onClose={() => setTruck(false)} />}
       {achievements && <AchievementsPanel gameRef={gameRef} onCommand={command} onClose={() => setAchievements(false)} />}
+      {lab && <LabPanel gameRef={gameRef} onCommand={command} onClose={() => setLab(false)} />}
       {free && <FreePanel gameRef={gameRef} onCommand={command} onClose={() => setFree(false)} />}
       {occasion && <OccasionPanel gameRef={gameRef} onCommand={command} onClose={() => setOccasion(false)} />}
       {album && <AlbumPanel gameRef={gameRef} onCommand={command} onClose={() => setAlbum(false)} />}

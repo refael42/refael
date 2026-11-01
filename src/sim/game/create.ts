@@ -5,6 +5,7 @@ import { newHolidays } from '../holidays';
 import { newFlip } from '../flip';
 import { newCelebs } from '../celebs';
 import { copyTruck, newTruck, type TruckState } from '../truck';
+import { copyLab, newLab, type LabState } from '../lab';
 import { copyAchievements, newAchievements, type AchievementState } from '../achievements';
 import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
@@ -520,6 +521,8 @@ export interface GameSetup {
   achievements?: AchievementState;
   /** The food truck. */
   truck?: TruckState;
+  /** The recipe lab (a test's end in seconds from now). */
+  lab?: LabState;
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -636,6 +639,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     holidays: newHolidays(setup.holidayGifts),
     flip: newFlip(),
     truck: setup.truck ? copyTruck(setup.truck) : newTruck(),
+    lab: setup.lab ? copyLab(setup.lab) : newLab(),
     phoneNow: 0,
     celebs: newCelebs(),
     achievements: setup.achievements ? copyAchievements(setup.achievements) : newAchievements(),
