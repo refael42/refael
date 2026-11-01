@@ -33,6 +33,7 @@ import { markShown, seeOffers } from '../offers';
 import { acceptBooking, declineBooking } from '../occasions';
 import { grantAd } from '../ads';
 import { syncHolidays } from '../holidays';
+import { claimAchievement } from '../achievements';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -198,6 +199,9 @@ function apply(s: GameState, cmd: Command): void {
       return;
     case 'albumPage':
       claimPage(s, cmd.page);
+      return;
+    case 'achievement':
+      claimAchievement(s, cmd.id);
       return;
     case 'adReward':
       grantAd(s, cmd.reward, cmd.day);

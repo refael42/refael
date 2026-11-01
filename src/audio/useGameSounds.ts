@@ -76,11 +76,13 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['fanfare', true];
     case Ev.OccasionArrive:
     case Ev.HolidayStart:
+    case Ev.Achievement:
       return ['fanfare', true];
     case Ev.OccasionCall:
       return ['tick', false];
     case Ev.OccasionEnd:
     case Ev.AdReward:
+    case Ev.AchievementClaim:
       return ['cash', true];
     case Ev.SeasonMission:
     case Ev.AlbumNew:

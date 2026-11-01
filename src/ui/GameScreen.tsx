@@ -61,6 +61,7 @@ import { SupplyButton, SupplyPanel } from './Supply';
 import { AlbumPanel } from './Album';
 import { OccasionButton, OccasionPanel } from './Occasion';
 import { FreePanel } from './FreeRewards';
+import { AchievementsPanel } from './Achievements';
 import { getAds } from '../ads';
 import { adOpen } from '../sim/ads';
 import { localDay } from '../sim/season';
@@ -363,6 +364,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [album, setAlbum] = useState(false);
   const [occasion, setOccasion] = useState(false);
   const [free, setFree] = useState(false);
+  const [achievements, setAchievements] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
   // hero turn, when nothing else is on screen.
@@ -582,6 +584,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           onSeason={() => setSeason(true)}
           onAlbum={() => setAlbum(true)}
           onFree={() => setFree(true)}
+          onAchievements={() => setAchievements(true)}
           onShop={() => setShop(true)}
           onReviews={() => setReviews(true)}
           onGuide={() => setGuide(true)}
@@ -643,6 +646,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {achievements && <AchievementsPanel gameRef={gameRef} onCommand={command} onClose={() => setAchievements(false)} />}
       {free && <FreePanel gameRef={gameRef} onCommand={command} onClose={() => setFree(false)} />}
       {occasion && <OccasionPanel gameRef={gameRef} onCommand={command} onClose={() => setOccasion(false)} />}
       {album && <AlbumPanel gameRef={gameRef} onCommand={command} onClose={() => setAlbum(false)} />}

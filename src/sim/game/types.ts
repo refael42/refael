@@ -1,6 +1,8 @@
 import type { AlbumState } from '../album';
 import type { AdsState } from '../ads';
 import type { HolidayState } from '../holidays';
+import type { AchievementState } from '../achievements';
+import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
 import type { StickerId } from '../../data/album';
@@ -293,6 +295,8 @@ export type Command =
   | { type: 'booking'; accept: boolean }
   /** A rewarded ad was watched to the end (`day`: the phone's, src/sim/season.ts localDay). */
   | { type: 'adReward'; reward: AdReward; day: number }
+  /** An achievement's next medal. */
+  | { type: 'achievement'; id: AchievementId }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -660,6 +664,8 @@ export interface GameState {
   ads: AdsState;
   /** The real holiday on now, and the holiday gifts given (src/sim/holidays.ts). */
   holidays: HolidayState;
+  /** Achievements (the player's, across branches; src/sim/achievements.ts). */
+  achievements: AchievementState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

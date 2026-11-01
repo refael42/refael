@@ -143,6 +143,10 @@ export const Ev = {
   AdReward: 72,
   /** A real holiday began (src/sim/holidays.ts). a = its index in HOLIDAYS, b = the gift's gems (0: given before) */
   HolidayStart: 73,
+  /** An achievement reached a new medal (src/sim/achievements.ts). a = its index, b = medals now */
+  Achievement: 74,
+  /** An achievement's medal was taken. a = gems */
+  AchievementClaim: 75,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
