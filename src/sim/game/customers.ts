@@ -38,6 +38,7 @@ import { BUS } from '../../data/events';
 import { barStoolsFor, cancelDrinks, maybeBarDrink, maybeOrderDrink, offStool, STOOL_LIFT, takeStool, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
 import { signatureOrder, signaturePrice } from '../lab';
+import { styleOrder, stylePrice } from '../styles';
 
 /** Purim costumes: hats and face pieces (src/data/looks.ts). */
 const COSTUME_HATS = [Hat.PartyHat, Hat.TopHat, Hat.Beret, Hat.HardHat, Hat.SunHat, Hat.Toque, Hat.Headband] as const;
@@ -468,7 +469,7 @@ export function seatAt(s: GameState, leader: Customer, table: Table, hostId = -1
 
 /** What one dish sells for right now: base price x its recipe level x kitchen quality. */
 export function dishPrice(s: GameState, dish: number): Big {
-  return big(dishDef(dish).price).mul(s.mods.price[dish]! * s.mods.quality * holidayPrice(s, dish) * signaturePrice(s, dish)).floor();
+  return big(dishDef(dish).price).mul(s.mods.price[dish]! * s.mods.quality * holidayPrice(s, dish) * signaturePrice(s, dish) * stylePrice(s, dish)).floor();
 }
 
 function chooseDish(s: GameState, type: CustomerType, id = 0): number {
@@ -479,6 +480,9 @@ function chooseDish(s: GameState, type: CustomerType, id = 0): number {
   // The chef's signature dishes (src/sim/lab.ts) draw guests of their own, the same way.
   const signature = signatureOrder(s, id);
   if (signature >= 0) return signature;
+  // ...and so do the restaurant style's dishes (src/sim/styles.ts).
+  const styled = styleOrder(s, id);
+  if (styled >= 0) return styled;
   // Someone with favorites (the athlete's light dishes, the builder's meat) orders one of those when there is one.
   const fav = type.favorites ? menu.filter((d) => type.favorites!.includes(d.id)) : [];
   if (fav.length > 0) return pick(s.rng, fav).id;

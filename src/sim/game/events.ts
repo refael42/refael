@@ -160,6 +160,8 @@ export const Ev = {
   CelebDone: 83,
   /** The recipe lab (src/sim/lab.ts): a test is done (a = stars, b = gems for a first perfect one, c = the dish). */
   LabDone: 84,
+  /** The restaurant took a new style (src/sim/styles.ts; a = which). */
+  StyleChanged: 85,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

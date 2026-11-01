@@ -9,6 +9,7 @@ import { box, onFaceX, onFaceY, onTop, rectIn } from './iso3d';
 import { fill, path, stroke } from './kit';
 import { propSprites } from './propArt';
 import { cityOf, type CityDef } from '../../data/franchise';
+import { STYLES, type StyleDef } from '../../data/styles';
 
 // The static world: floors, back walls and outdoor ground, recorded once as a vector picture
 // (crisp at every zoom). Everything standing on the floor is a sorted prop instead.
@@ -29,14 +30,17 @@ export interface BackgroundDef {
   kitchenX?: number;
   /** The branch's city: the ground, the sidewalk and the trees outside. */
   city?: number;
+  /** The restaurant's style (src/data/styles.ts): the dining floor and the walls. */
+  style?: number;
 }
 
 
 
 /** What the game map looks like as a background. */
-export function mapBackground(map: MapDef, city = 0): BackgroundDef {
+export function mapBackground(map: MapDef, city = 0, style = 0): BackgroundDef {
   const { width, height, areas, building, wallHeight, backdrop } = map;
-  return { width, height, areas, building, wallHeight, backdrop, wall: map.theme.wall, doorX: map.doors[0]?.inside.x, kitchenX: map.kitchenX, city };
+  const wall = STYLES[style]?.wall ?? map.theme.wall;
+  return { width, height, areas, building, wallHeight, backdrop, wall, doorX: map.doors[0]?.inside.x, kitchenX: map.kitchenX, city, style };
 }
 
 const TREE_ART = { palm: propSprites.treePalm, round: propSprites.treeRound, olive: propSprites.treeOlive, cypress: propSprites.treeCypress } as const;
@@ -291,7 +295,7 @@ function roomFloor(c: SkCanvas, a: Area, onRed: boolean): boolean {
       // long edge, a small gold-and-rose motif on every tile.
       const along = w >= h;
       // On the first diner's red carpet a deep burgundy, or it would vanish into the floor.
-      const [base, mid, motif] = onRed ? ['#4A0812', '#5E0E1A', '#8E1E30'] : ['#8E1426', '#A81C30', '#C8384A'];
+      const [base, mid, motif] = styleRunner ?? (onRed ? ['#4A0812', '#5E0E1A', '#8E1E30'] : ['#8E1426', '#A81C30', '#C8384A']);
       c.drawRect(Skia.XYWHRect(a.x0, a.y0, w, h), fill(base));
       const edges = along
         ? [Skia.XYWHRect(a.x0, a.y0 + 0.07, w, 0.05), Skia.XYWHRect(a.x0, a.y1 - 0.12, w, 0.05)]
@@ -319,8 +323,73 @@ function roomFloor(c: SkCanvas, a: Area, onRed: boolean): boolean {
   }
 }
 
-function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef, onRed = false) {
+/** The style's runner colors while a background is recorded (null = the red carpet runner). */
+let styleRunner: readonly [string, string, string] | null = null;
+
+const DINING_FLOORS = new Set<string>(['dining', 'emerald', 'royal', 'marble', 'velvet', 'ocean', 'starlight', 'gold']);
+
+/**
+ * A style's dining floor (owner idea 6): tatami mats for the Japanese room, terracotta tiles with
+ * cream grout for the Italian trattoria, white-and-blue talavera tiles for the Mexican cantina.
+ */
+function styledFloor(c: SkCanvas, a: Area, st: StyleDef) {
+  const [base, second, pattern, border] = st.colors;
+  const w = a.x1 - a.x0;
+  const h = a.y1 - a.y0;
+  if (st.floor === 'tatami') {
+    // Mats of two tiles, laid crosswise in turn, each edged in dark green cloth, the straw woven.
+    for (let ty = a.y0; ty < a.y1; ty += 2) {
+      for (let tx = a.x0; tx < a.x1; tx += 2) {
+        const flip = (Math.round(tx / 2) + Math.round(ty / 2)) % 2 === 0;
+        const mats = flip ? [[tx, ty, 2, 1], [tx, ty + 1, 2, 1]] : [[tx, ty, 1, 2], [tx + 1, ty, 1, 2]];
+        mats.forEach(([x, y, mw, mh], k) => {
+          const rw = Math.min(mw!, a.x1 - x!);
+          const rh = Math.min(mh!, a.y1 - y!);
+          if (rw <= 0 || rh <= 0) return;
+          c.drawRect(Skia.XYWHRect(x!, y!, rw, rh), fill(k % 2 === 0 ? base : second));
+          // The weave: fine lines along the mat.
+          if (mw! > mh!) for (let yy = y! + 0.1; yy < y! + rh; yy += 0.1) c.drawLine(x!, yy, x! + rw, yy, stroke(darken(base, 0.12), 0.012, 0.5));
+          else for (let xx = x! + 0.1; xx < x! + rw; xx += 0.1) c.drawLine(xx, y!, xx, y! + rh, stroke(darken(base, 0.12), 0.012, 0.5));
+          c.drawRect(Skia.XYWHRect(x! + 0.03, y! + 0.03, rw - 0.06, rh - 0.06), stroke(pattern, 0.06));
+        });
+      }
+    }
+  } else if (st.floor === 'terracotta') {
+    // Half-tile terracotta squares, two tones, cream grout, a green-and-red diamond inlay now and then.
+    for (let ty = a.y0; ty < a.y1; ty += 0.5) {
+      for (let tx = a.x0; tx < a.x1; tx += 0.5) {
+        c.drawRect(Skia.XYWHRect(tx, ty, 0.5, 0.5), fill(hash(tx * 2, ty * 2) > 0.5 ? base : second));
+        c.drawRect(Skia.XYWHRect(tx, ty, 0.5, 0.5), stroke(pattern, 0.03));
+      }
+    }
+    for (let ty = a.y0 + 1; ty < a.y1; ty += 2) {
+      for (let tx = a.x0 + 1; tx < a.x1; tx += 2) {
+        c.drawPath(path.poly([[tx, ty - 0.14], [tx + 0.14, ty], [tx, ty + 0.14], [tx - 0.14, ty]]), fill('#2F7A3A'));
+        c.drawPath(path.poly([[tx, ty - 0.07], [tx + 0.07, ty], [tx, ty + 0.07], [tx - 0.07, ty]]), fill('#C8302E'));
+      }
+    }
+  } else {
+    // Talavera: white tiles with a blue four-petal flower and a yellow heart; orange edges every other tile.
+    for (let ty = a.y0; ty < a.y1; ty++) {
+      for (let tx = a.x0; tx < a.x1; tx++) {
+        c.drawRect(Skia.XYWHRect(tx, ty, 1, 1), fill(base));
+        const cx = tx + 0.5;
+        const cy = ty + 0.5;
+        for (const [dx, dy] of [[0, -0.2], [0.2, 0], [0, 0.2], [-0.2, 0]] as const) c.drawOval(Skia.XYWHRect(cx + dx - 0.11, cy + dy - 0.11, 0.22, 0.22), fill(second));
+        c.drawCircle(cx, cy, 0.08, fill(pattern));
+        for (const [dx, dy] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]] as const) c.drawCircle(cx + dx, cy + dy, 0.09, fill(second, 0.8));
+        c.drawRect(Skia.XYWHRect(tx + 0.02, ty + 0.02, 0.96, 0.96), stroke((tx + ty) % 2 === 0 ? border : '#C8D6E8', 0.035));
+      }
+    }
+  }
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.25, a.y0 + 0.25, w - 0.5, h - 0.5), stroke(border, 0.5));
+  c.drawRect(Skia.XYWHRect(a.x0 + 0.3, a.y0 + 0.3, w - 0.6, h - 0.6), stroke(GOLD, 0.05));
+}
+
+function floor(c: SkCanvas, a: Area, doorX: number, city: CityDef, onRed = false, style = 0) {
   if (roomFloor(c, a, onRed)) return;
+  const st = STYLES[style];
+  if (style > 0 && st && DINING_FLOORS.has(a.floor)) return styledFloor(c, a, st);
   const w = a.x1 - a.x0;
   const h = a.y1 - a.y0;
   const painters: Record<Exclude<FloorStyle, RoomFloor | 'runner'>, () => void> = {
@@ -547,8 +616,10 @@ export function recordBackground(def: BackgroundDef): SkPicture {
   const c = rec.beginRecording(Skia.XYWHRect(bounds.minX - 20, bounds.minY - 20, bounds.maxX - bounds.minX + 40, bounds.maxY - bounds.minY + 40));
   onTop(c, 0, () => {
     // The first diner's dining floor is a red carpet: its runners go darker on it.
-    const onRed = def.areas.some((a) => a.floor === 'dining');
-    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city, onRed);
+    const style = def.style ?? 0;
+    styleRunner = style > 0 ? (STYLES[style]?.runner ?? null) : null;
+    const onRed = style === 0 && def.areas.some((a) => a.floor === 'dining');
+    for (const a of def.areas) floor(c, a, def.doorX ?? 12.5, city, onRed, style);
   });
   for (const a of def.areas) if (a.floor === 'lot' || a.floor === 'locked') lotFence(c, a);
   // Back to front, so nearer trees overlap farther ones.

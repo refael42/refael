@@ -14,6 +14,7 @@ import { STICKERS } from '../data/album';
 import { OCCASIONS } from '../data/occasions';
 import { AD_REWARDS, ADS } from '../data/ads';
 import { HOLIDAYS } from '../data/holidays';
+import { STYLES } from '../data/styles';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { CELEBS } from '../data/celebs';
 import { dishDef } from '../data/dishes';
@@ -23,7 +24,7 @@ import { dishDef } from '../data/dishes';
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement, Ev.FlipPan, Ev.FlipDone, Ev.TruckBack, Ev.CelebComing, Ev.CelebDone, Ev.LabDone];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement, Ev.FlipPan, Ev.FlipDone, Ev.TruckBack, Ev.CelebComing, Ev.CelebDone, Ev.LabDone, Ev.StyleChanged];
 
 interface Toast {
   id: number;
@@ -65,7 +66,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
   const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold || toast.type === Ev.StockOut || toast.type === Ev.AlbumNew || toast.type === Ev.Influencer || toast.type === Ev.OccasionCall || toast.type === Ev.OccasionArrive || toast.type === Ev.OccasionEnd;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
   // A private event's end: its gems (c).
-  const rewards: { icon: HudIcon; text: string }[] = toast.type === Ev.CelebComing ? [] : toast.type === Ev.LabDone ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.CelebDone ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : toast.type === Ev.FlipDone ? [...(toast.gems > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.gems)}` }] : []), ...(toast.c > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.c}` }] : [])] : toast.type === Ev.Achievement || toast.type === Ev.FlipPan ? [] : toast.type === Ev.HolidayStart ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.OccasionEnd ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
+  const rewards: { icon: HudIcon; text: string }[] = toast.type === Ev.CelebComing || toast.type === Ev.StyleChanged ? [] : toast.type === Ev.LabDone ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.CelebDone ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : toast.type === Ev.FlipDone ? [...(toast.gems > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.gems)}` }] : []), ...(toast.c > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.c}` }] : [])] : toast.type === Ev.Achievement || toast.type === Ev.FlipPan ? [] : toast.type === Ev.HolidayStart ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.OccasionEnd ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
     ...(toast.gems > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.gems}` }] : []),
   ];
@@ -136,6 +137,8 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
     case Ev.TruckBack:
       return t('toast.truckBack');
     // The recipe lab: a test is done (a = stars, b = gems for a first perfect one).
+    case Ev.StyleChanged:
+      return t('toast.style').replace('{s}', t(`style.name.${STYLES[toast.coins]?.id ?? 'classic'}`));
     case Ev.LabDone:
       return t(toast.gems > 0 ? 'toast.labPerfect' : 'toast.labDone').replace('{s}', String(toast.coins));
     case Ev.FlipPan:

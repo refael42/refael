@@ -7,7 +7,9 @@ import { MIX, MUSIC_VOLUME, VOICES, type SoundId } from '../data/audio';
 // without sound, a browser that blocks audio until the first tap, or a missing vibration motor
 // must never stop the game, so every call is wrapped and failures are ignored.
 
-const SOURCES: Readonly<Record<SoundId | 'music', number>> = {
+type Track = 'music' | 'music_japanese' | 'music_italian' | 'music_mexican';
+
+const SOURCES: Readonly<Record<SoundId | Track, number>> = {
   tap: require('../../assets/sounds/tap.wav'),
   coin: require('../../assets/sounds/coin.wav'),
   serve: require('../../assets/sounds/serve.wav'),
@@ -24,12 +26,18 @@ const SOURCES: Readonly<Record<SoundId | 'music', number>> = {
   tick: require('../../assets/sounds/tick.wav'),
   jackpot: require('../../assets/sounds/jackpot.wav'),
   music: require('../../assets/sounds/music.wav'),
+  // The restaurant styles' own music (src/data/styles.ts).
+  music_japanese: require('../../assets/sounds/music_japanese.wav'),
+  music_italian: require('../../assets/sounds/music_italian.wav'),
+  music_mexican: require('../../assets/sounds/music_mexican.wav'),
 };
 
 const on = { sound: true, music: true, haptics: true };
 const pools: Partial<Record<SoundId, { players: AudioPlayer[]; next: number }>> = {};
 const lastPlay: Partial<Record<SoundId, number>> = {};
 let music: AudioPlayer | null = null;
+let track: Track = 'music';
+let playing: Track | null = null;
 let ready = false;
 let foreground = true;
 /** Browsers refuse to play anything before the first tap (and log an error if asked): wait for it. */
@@ -87,12 +95,26 @@ export function playSound(id: SoundId): void {
   });
 }
 
+/** The loop to play (the restaurant's style); switches over when it changes. */
+export function setMusicTrack(next: Track): void {
+  if (next === track) return;
+  track = next;
+  syncMusic();
+}
+
 /** Music plays while it is switched on and the app is in front (browsers: after the first tap). */
 export function syncMusic(): void {
   safe(() => {
     const want = on.music && foreground && ready && unlocked;
+    // A new style: the old loop stops and the new one starts from the top.
+    if (music && playing !== track) {
+      music.pause();
+      music.remove();
+      music = null;
+    }
     if (want && !music) {
-      music = createAudioPlayer(SOURCES.music);
+      music = createAudioPlayer(SOURCES[track]);
+      playing = track;
       music.loop = true;
       music.volume = MUSIC_VOLUME;
     }

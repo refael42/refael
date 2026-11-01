@@ -256,7 +256,121 @@ function music() {
   return wav(b, 0.6);
 }
 
+// ---------- the restaurant styles' music (owner idea 6: each style has its own music) ----------
+
+/** Japanese: a koto plucking a pentatonic tune over a soft drone, a breathy flute, low taiko thumps (96 BPM). */
+function musicJapanese() {
+  const beat = 60 / 96;
+  const bars = 8;
+  const b = buffer(bars * 4 * beat);
+  const koto = (n, at, len, vol = 0.2) => {
+    tone(b, { at: at * beat, dur: len * beat, freq: hz(n), wave: 'tri', vol, decay: 4.5, attack: 0.003 });
+    tone(b, { at: at * beat, dur: len * beat * 0.6, freq: hz(n) * 2, wave: 'sine', vol: vol * 0.25, decay: 9 });
+  };
+  // A, C, D, E, G: a calm minor pentatonic.
+  const tune = [
+    ['A4', 0, 1], ['C5', 1, 1], ['D5', 2, 1], ['E5', 3, 1], ['G5', 4, 1.5], ['E5', 5.5, 0.5], ['D5', 6, 2],
+    ['C5', 8, 1], ['D5', 9, 0.5], ['C5', 9.5, 0.5], ['A4', 10, 2], ['G4', 12, 1], ['A4', 13, 1], ['C5', 14, 2],
+    ['E5', 16, 1], ['G5', 17, 1], ['A5', 18, 1.5], ['G5', 19.5, 0.5], ['E5', 20, 1], ['D5', 21, 1], ['E5', 22, 2],
+    ['D5', 24, 1], ['C5', 25, 1], ['A4', 26, 1], ['G4', 27, 1], ['A4', 28, 4],
+  ];
+  for (const [n, at, len] of tune) koto(n, at, len);
+  for (let bar = 0; bar < bars; bar++) {
+    const t0 = bar * 4 * beat;
+    // A drone on A and E, and a taiko thump on 1 (and a lighter one on 3).
+    tone(b, { at: t0, dur: 4 * beat, freq: hz('A2'), wave: 'sine', vol: 0.12, decay: 0.6, attack: 0.3 });
+    tone(b, { at: t0, dur: 4 * beat, freq: hz('E3'), wave: 'sine', vol: 0.06, decay: 0.6, attack: 0.3 });
+    tone(b, { at: t0, dur: 0.35, freq: [110, 48], wave: 'sine', vol: 0.4, decay: 9 });
+    tone(b, { at: t0 + 2 * beat, dur: 0.3, freq: [120, 55], wave: 'sine', vol: 0.22, decay: 10 });
+    hiss(b, { at: t0 + 3.5 * beat, dur: 0.08, vol: 0.05, decay: 30, bright: 0.8 });
+    // Koto arpeggio on the off beats, quietly.
+    for (const [k, n] of [[0.5, 'E4'], [1.5, 'A4'], [2.5, 'E4'], [3.5, 'C5']]) koto(n, bar * 4 + k, 0.5, 0.06);
+  }
+  // A shakuhachi-like flute on the last half: a breathy sine with a slow vibrato.
+  for (const [n, at, len] of [['E5', 16, 3], ['D5', 20, 2], ['A4', 24, 4]]) {
+    tone(b, { at: at * beat, dur: len * beat, freq: hz(n), wave: 'sine', vol: 0.09, decay: 0.8, attack: 0.15, vibrato: 4 });
+    hiss(b, { at: at * beat, dur: 0.25, vol: 0.03, decay: 8, bright: 0.6, attack: 0.05 });
+  }
+  return wav(b, 0.6);
+}
+
+/** Italian: a trattoria tarantella, mandolin tremolo on the tune, accordion chords, a bouncing bass (132 BPM). */
+function musicItalian() {
+  const beat = 60 / 132;
+  const bars = 8;
+  const b = buffer(bars * 4 * beat);
+  // Am - Dm - E - Am, twice.
+  const chords = [['A2', 'A3', 'C4', 'E4'], ['D3', 'D4', 'F4', 'A4'], ['E2', 'E4', 'G#4', 'B4'], ['A2', 'A3', 'C4', 'E4']];
+  const tune = [
+    ['E5', 0, 1], ['A5', 1, 1], ['G#5', 2, 0.5], ['A5', 2.5, 0.5], ['B5', 3, 1],
+    ['A5', 4, 1], ['F5', 5, 1], ['D5', 6, 2],
+    ['E5', 8, 0.5], ['F5', 8.5, 0.5], ['G#5', 9, 1], ['B5', 10, 1], ['G#5', 11, 1],
+    ['A5', 12, 1], ['E5', 13, 1], ['C5', 14, 2],
+    ['A5', 16, 1], ['C6', 17, 1], ['B5', 18, 0.5], ['A5', 18.5, 0.5], ['G#5', 19, 1],
+    ['F5', 20, 1], ['A5', 21, 1], ['D6', 22, 2],
+    ['B5', 24, 0.5], ['A5', 24.5, 0.5], ['G#5', 25, 1], ['E5', 26, 1], ['B4', 27, 1],
+    ['A4', 28, 1], ['C5', 29, 1], ['A4', 30, 2],
+  ];
+  // The mandolin: every note a quick tremolo of plucks.
+  for (const [n, at, len] of tune) {
+    for (let k = 0; k < len * 4; k++) tone(b, { at: (at + k / 4) * beat, dur: beat / 4, freq: hz(n), wave: 'saw', vol: 0.06, decay: 14, attack: 0.002 });
+    tone(b, { at: at * beat, dur: len * beat, freq: hz(n), wave: 'tri', vol: 0.08, decay: 2.5 });
+  }
+  for (let bar = 0; bar < bars; bar++) {
+    const [root, ...upper] = chords[bar % 4];
+    const t0 = bar * 4 * beat;
+    // Oom-pah: the bass on 1 and 3, the accordion's chord on 2 and 4.
+    for (const k of [0, 2]) tone(b, { at: t0 + k * beat, dur: beat * 0.8, freq: hz(root) * (k === 2 ? 1.5 : 1), wave: 'tri', vol: 0.3, decay: 4 });
+    for (const k of [1, 3]) for (const n of upper) {
+      tone(b, { at: t0 + k * beat, dur: beat * 0.6, freq: hz(n), wave: 'square', vol: 0.025, decay: 3, attack: 0.02, vibrato: 1.5 });
+      tone(b, { at: t0 + k * beat, dur: beat * 0.6, freq: hz(n) * 1.004, wave: 'saw', vol: 0.02, decay: 3, attack: 0.02 });
+    }
+    // A tambourine jingle on every off beat.
+    for (let k = 0; k < 4; k++) hiss(b, { at: t0 + (k + 0.5) * beat, dur: 0.06, vol: 0.05, decay: 35, bright: 0.95 });
+  }
+  return wav(b, 0.6);
+}
+
+/** Mexican: a mariachi waltz-time romp, trumpets in thirds, guitarrón oom-pah-pah, vihuela strums (3/4, 168 BPM). */
+function musicMexican() {
+  const beat = 60 / 168;
+  const bars = 16;
+  const b = buffer(bars * 3 * beat);
+  // G - D7 - D7 - G, then C - G - D7 - G.
+  const chords = [['G2', 'B3', 'D4', 'G4'], ['D2', 'C4', 'F#4', 'A4'], ['D2', 'C4', 'F#4', 'A4'], ['G2', 'B3', 'D4', 'G4'], ['C3', 'C4', 'E4', 'G4'], ['G2', 'B3', 'D4', 'G4'], ['D2', 'C4', 'F#4', 'A4'], ['G2', 'B3', 'D4', 'G4']];
+  // The tune in beats (3 a bar): the second trumpet plays a third under it.
+  const tune = [
+    ['D5', 0, 1], ['G5', 1, 1], ['B5', 2, 1], ['A5', 3, 2], ['F#5', 5, 1], ['A5', 6, 1], ['C6', 7, 1], ['B5', 8, 1], ['G5', 9, 3],
+    ['E5', 12, 1], ['G5', 13, 1], ['C6', 14, 1], ['B5', 15, 2], ['G5', 17, 1], ['A5', 18, 1], ['F#5', 19, 1], ['D5', 20, 1], ['G5', 21, 3],
+    ['B5', 24, 1], ['D6', 25, 1], ['B5', 26, 1], ['A5', 27, 2], ['C6', 29, 1], ['A5', 30, 1], ['F#5', 31, 1], ['A5', 32, 1], ['G5', 33, 3],
+    ['C6', 36, 1], ['B5', 37, 1], ['A5', 38, 1], ['G5', 39, 2], ['E5', 41, 1], ['F#5', 42, 1], ['A5', 43, 1], ['F#5', 44, 1], ['G5', 45, 3],
+  ];
+  const third = { 'D5': 'B4', 'G5': 'D5', 'B5': 'G5', 'A5': 'F#5', 'F#5': 'D5', 'C6': 'A5', 'E5': 'C5', 'D6': 'B5' };
+  const trumpet = (n, at, len, vol) => {
+    tone(b, { at: at * beat, dur: len * beat * 0.92, freq: hz(n), wave: 'saw', vol, decay: 1.6, attack: 0.03, vibrato: 3 });
+    tone(b, { at: at * beat, dur: len * beat * 0.92, freq: hz(n), wave: 'square', vol: vol * 0.5, decay: 1.6, attack: 0.03 });
+  };
+  for (const [n, at, len] of tune) {
+    trumpet(n, at, len, 0.07);
+    if (third[n]) trumpet(third[n], at, len, 0.045);
+  }
+  for (let bar = 0; bar < bars; bar++) {
+    const [root, ...upper] = chords[bar % 8];
+    const t0 = bar * 3 * beat;
+    // Guitarrón on 1, the vihuela's bright strum on 2 and 3.
+    tone(b, { at: t0, dur: beat * 0.9, freq: hz(root), wave: 'tri', vol: 0.34, decay: 4 });
+    for (const k of [1, 2]) {
+      upper.forEach((n, i) => tone(b, { at: t0 + k * beat + i * 0.012, dur: beat * 0.5, freq: hz(n), wave: 'saw', vol: 0.03, decay: 9 }));
+      hiss(b, { at: t0 + k * beat, dur: 0.05, vol: 0.04, decay: 40, bright: 0.85 });
+    }
+  }
+  return wav(b, 0.6);
+}
+
 mkdirSync(OUT, { recursive: true });
 for (const [name, make] of Object.entries(SOUNDS)) writeFileSync(join(OUT, `${name}.wav`), make());
 writeFileSync(join(OUT, 'music.wav'), music());
-console.log(`Wrote ${Object.keys(SOUNDS).length + 1} files to ${OUT}`);
+writeFileSync(join(OUT, 'music_japanese.wav'), musicJapanese());
+writeFileSync(join(OUT, 'music_italian.wav'), musicItalian());
+writeFileSync(join(OUT, 'music_mexican.wav'), musicMexican());
+console.log(`Wrote ${Object.keys(SOUNDS).length + 4} files to ${OUT}`);

@@ -37,6 +37,7 @@ import { claimAchievement } from '../achievements';
 import { finishFlip, panSpot, startFlip } from '../flip';
 import { collectTruck, rushTruck, sendTruck, upgradeTruck } from '../truck';
 import { setSignature, startTest } from '../lab';
+import { setStyle } from '../styles';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -326,6 +327,8 @@ function apply(s: GameState, cmd: Command): void {
     startTest(s, cmd.base, cmd.sauce, cmd.topping, cmd.plate, cmd.name);
   } else if (cmd.type === 'labServe') {
     setSignature(s, cmd.index, cmd.on);
+  } else if (cmd.type === 'style') {
+    setStyle(s, cmd.id);
   } else if (cmd.type === 'flip') {
     startFlip(s);
   } else if (cmd.type === 'flipDone') {

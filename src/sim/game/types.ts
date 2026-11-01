@@ -5,6 +5,7 @@ import type { AchievementState } from '../achievements';
 import type { FlipState } from '../flip';
 import type { TruckState } from '../truck';
 import type { LabState } from '../lab';
+import type { StyleState } from '../styles';
 import type { CelebState } from '../celebs';
 import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
@@ -314,6 +315,8 @@ export type Command =
   /** The recipe lab: test a combination (a dish + sauce + topping, a plate and a name); put a creation on (or off) the menu. */
   | { type: 'labTest'; base: number; sauce: number; topping: number; plate: number; name: string }
   | { type: 'labServe'; index: number; on: boolean }
+  /** A new restaurant style (src/data/styles.ts). */
+  | { type: 'style'; id: number }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -691,6 +694,8 @@ export interface GameState {
   truck: TruckState;
   /** The recipe lab (the player's: saved, goes along to a branch; src/sim/lab.ts). */
   lab: LabState;
+  /** The restaurant's style (the player's: saved, goes along to a branch; src/sim/styles.ts). */
+  style: StyleState;
   /** The phone's clock as last passed in by the UI (ms; 0 = not yet). Not saved. */
   phoneNow: number;
   /** Celebrities' visits (src/sim/celebs.ts; not saved). */

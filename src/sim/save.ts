@@ -4,6 +4,7 @@ import { cleanGifted } from './holidays';
 import { cleanAchievements, copyAchievements, type AchievementState } from './achievements';
 import { cleanTruck, copyTruck, type TruckState } from './truck';
 import { cleanLab, cleanName, labForLater, type LabState } from './lab';
+import { cleanStyle, type StyleState } from './styles';
 import { INGREDIENTS, SUPPLIERS, SUPPLY } from '../data/supply';
 import { cleanSeason, copySeason, type SeasonState } from './season';
 import { HERO, HERO_BY_ID } from '../data/offers';
@@ -110,6 +111,8 @@ export interface SaveData {
   truck?: TruckState;
   /** The recipe lab (M61; older saves: an empty notebook). A test's end is in seconds left. */
   lab?: LabState;
+  /** The restaurant's style (M62; older saves: classic). */
+  style?: StyleState;
   /** Talent points not spent yet (M46; older saves: the starting points). */
   talentPoints?: number;
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
@@ -261,6 +264,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     achievements: copyAchievements(s.achievements),
     truck: copyTruck(s.truck),
     lab: labForLater(s),
+    style: { ...s.style },
     talentPoints: s.talentPoints,
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
@@ -434,6 +438,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     achievements: cleanAchievements(o.achievements),
     truck: cleanTruck(o.truck),
     lab: cleanLab(o.lab),
+    style: cleanStyle(o.style),
     suppliers: Array.isArray(o.suppliers) ? INGREDIENTS.map((_, i) => { const v = (o.suppliers as unknown[])[i]; return finite(v) && v >= 0 && v < SUPPLIERS.length ? Math.floor(v) : SUPPLY.start; }) : undefined,
     // A save from before talents: a few points to try them with.
     talentPoints: finite(o.talentPoints) && o.talentPoints >= 0 ? Math.floor(o.talentPoints) : TALENT.welcome,
@@ -601,6 +606,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     achievements: save.achievements,
     truck: save.truck,
     lab: save.lab,
+    style: save.style,
     talentPoints: save.talentPoints,
     guide: save.guide,
     kitchen: save.kitchen,
