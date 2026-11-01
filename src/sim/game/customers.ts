@@ -1,3 +1,4 @@
+import { Accessory, Hat } from '../../data/looks';
 import { albumServed } from '../album';
 import { noteBill } from '../supply';
 import { seasonBonus, seasonCount } from '../season';
@@ -5,6 +6,8 @@ import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType, type CustomerTypeId } from '../../data/customers';
 import { OCCASION, OCCASION_BY_ID } from '../../data/occasions';
+import { HOLIDAY } from '../../data/holidays';
+import { holidayArrivals, holidayNow, holidayPrice } from '../holidays';
 import { weatherArrivals, weatherPatience } from '../weather';
 import { DISHES, dishDef, type DishDef } from '../../data/dishes';
 import { GUIDE } from '../../data/guide';
@@ -33,6 +36,10 @@ import { attentionTip, guideArrivals, guidePrice, inspectorDish, inspectorDue, i
 import { BUS } from '../../data/events';
 import { barStoolsFor, cancelDrinks, maybeBarDrink, maybeOrderDrink, offStool, STOOL_LIFT, takeStool, updateBarGuest } from './bar';
 import { CustomerState, OrderState, TableState, type Customer, type GameState, type Table } from './types';
+
+/** Purim costumes: hats and face pieces (src/data/looks.ts). */
+const COSTUME_HATS = [Hat.PartyHat, Hat.TopHat, Hat.Beret, Hat.HardHat, Hat.SunHat, Hat.Toque, Hat.Headband] as const;
+const COSTUME_FACES = [Accessory.Sunglasses, Accessory.Monocle, Accessory.Glasses, Accessory.None] as const;
 
 /** About one guest in three checks their phone while waiting for the food. */
 const phoneUser = (c: Customer) => c.id % 3 === 1;
@@ -92,7 +99,7 @@ export function route(s: GameState, from: Point, to: Point): Point[] {
 export function updateArrivals(s: GameState): void {
   if (s.construction || s.closed || s.time < s.nextArrival) return;
   const buzz = buzzing(s) ? 1 + REVIEW.buzzArrivals : 1;
-  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds) * guideArrivals(s)) / 60;
+  const perSecond = ((ECONOMY.baseArrivalsPerMinute + ECONOMY.arrivalsPerStar * s.rating) * s.mods.arrivals * buzz * weatherArrivals(s.day) * weekArrivals(s.day, s.dayTime / DAY.seconds) * guideArrivals(s) * holidayArrivals(s)) / 60;
   const gap = -Math.log(1 - next(s.rng)) / perSecond;
   s.nextArrival = s.time + Math.min(ECONOMY.maxArrivalGapSeconds, gap);
   const slot = freeQueueSlot(s);
@@ -258,6 +265,11 @@ function newCustomer(s: GameState, type: CustomerType, start: Point, slot: numbe
     rounds: 0,
     sipping: -1,
   };
+  // Purim (src/data/holidays.ts): everyone comes in costume, a funny hat and something on the face.
+  if (holidayNow(s)?.costumes) {
+    c.look.hat = COSTUME_HATS[Math.floor(hash01(id * 1.37 + 0.11) * COSTUME_HATS.length)]!;
+    c.look.accessory = COSTUME_FACES[Math.floor(hash01(id * 2.11 + 0.37) * COSTUME_FACES.length)]!;
+  }
   const leader = party < 0 ? c : s.customers.find((o) => o.id === party)!;
   // A booked party has no place in line (src/sim/occasions.ts): it heads for the door.
   c.path = leader.queueSlot >= 0 ? route(s, start, queueSpot(s, c, leader.queueSlot)) : [];
@@ -435,11 +447,14 @@ export function seatAt(s: GameState, leader: Customer, table: Table, hostId = -1
 
 /** What one dish sells for right now: base price x its recipe level x kitchen quality. */
 export function dishPrice(s: GameState, dish: number): Big {
-  return big(dishDef(dish).price).mul(s.mods.price[dish]! * s.mods.quality).floor();
+  return big(dishDef(dish).price).mul(s.mods.price[dish]! * s.mods.quality * holidayPrice(s, dish)).floor();
 }
 
-function chooseDish(s: GameState, type: CustomerType): number {
+function chooseDish(s: GameState, type: CustomerType, id = 0): number {
   const menu: DishDef[] = DISHES.filter((d) => s.mods.menu[d.id]);
+  // A holiday's dish (src/data/holidays.ts) is what many come for, when it is on the menu (by their id: the dice are left alone).
+  const special = holidayNow(s)?.dish;
+  if (special !== undefined && s.mods.menu[special] && hash01(id * 2.93 + 0.71) < HOLIDAY.dishChance) return special;
   // Someone with favorites (the athlete's light dishes, the builder's meat) orders one of those when there is one.
   const fav = type.favorites ? menu.filter((d) => type.favorites!.includes(d.id)) : [];
   if (fav.length > 0) return pick(s.rng, fav).id;
@@ -562,7 +577,7 @@ const MENU_OPENS = 0.45;
 function orderMeal(s: GameState, c: Customer): void {
   c.dish = c.inspector
     ? inspectorDish(s, c, DISHES.filter((d) => s.mods.menu[d.id]).map((d) => d.id), (dish) => dishPrice(s, dish).toNumber())
-    : setMenuDish(s, c) ?? chooseDish(s, CUSTOMER_TYPES[c.type]);
+    : setMenuDish(s, c) ?? chooseDish(s, CUSTOMER_TYPES[c.type], c.id);
   const id = s.nextId++;
   s.orders.push({ id, customer: c.id, dish: c.dish, state: OrderState.Queued, progress: 0, slot: -1, since: s.time, landsAt: 0, waiter: -1, quality: 1, delivery: false });
   // Owner M49: spicy, vegan or gluten-free, please (shown on their bubble and the ticket).

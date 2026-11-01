@@ -1,5 +1,6 @@
 import type { AlbumState } from '../album';
 import type { AdsState } from '../ads';
+import type { HolidayState } from '../holidays';
 import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
 import type { StickerId } from '../../data/album';
@@ -657,6 +658,8 @@ export interface GameState {
   album: AlbumState;
   /** Rewarded ads watched today (src/sim/ads.ts). */
   ads: AdsState;
+  /** The real holiday on now, and the holiday gifts given (src/sim/holidays.ts). */
+  holidays: HolidayState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

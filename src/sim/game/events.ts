@@ -141,6 +141,8 @@ export const Ev = {
   OccasionEnd: 71,
   /** A rewarded ad paid out (src/sim/ads.ts). a = the reward (AD_REWARDS index), b = gems */
   AdReward: 72,
+  /** A real holiday began (src/sim/holidays.ts). a = its index in HOLIDAYS, b = the gift's gems (0: given before) */
+  HolidayStart: 73,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

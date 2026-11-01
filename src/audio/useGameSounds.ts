@@ -75,6 +75,7 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
     case Ev.SeasonTier:
       return ['fanfare', true];
     case Ev.OccasionArrive:
+    case Ev.HolidayStart:
       return ['fanfare', true];
     case Ev.OccasionCall:
       return ['tick', false];

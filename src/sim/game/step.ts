@@ -1,6 +1,7 @@
 import { updateSupply, vanStop } from '../supply';
 import { updateOccasions } from '../occasions';
 import { OCCASIONS } from '../../data/occasions';
+import { HOLIDAYS } from '../../data/holidays';
 import { heatOf } from './service';
 import { heroesJoin } from '../offers';
 import { releaseRestroom, updateRestroomProps } from './restroom';
@@ -243,7 +244,16 @@ function dynamicProps(s: GameState): PropView[] {
     out.push(prop(SYNTH - 400 - st.slot, PropKind.Scooter, p.x, p.y, { variant: st.slot, active: job !== null, since: job?.left ?? 0, progress: job?.back ?? 0 }));
   }
   // The weekend: flags along the front of the restaurant.
-  if (isWeekend(s.day)) {
+  // A real holiday (src/data/holidays.ts): its garland instead of the weekend's flags; Hanukkah's menorah by the door.
+  const holiday = s.holidays.on;
+  if (holiday >= 0) {
+    const b = s.map.building;
+    for (let x = b.x0 + 0.5, i = 0; x < b.x1; x++, i++) out.push(prop(SYNTH - 300 - i, PropKind.HolidayGarland, x, b.y1, { variant: holiday, level: i % 2, depthBias: 0.6 }));
+    if (HOLIDAYS[holiday]!.id === 'hanukkah') {
+      const door = s.map.doors[0]?.outside ?? s.map.queue[0]!;
+      out.push(prop(SYNTH - 64, PropKind.Menorah, door.x + 1.1, door.y - 0.35, { level: Math.min(8, s.holidays.day + 1), depthBias: 0.5 }));
+    }
+  } else if (isWeekend(s.day)) {
     const b = s.map.building;
     for (let x = b.x0 + 0.5, i = 0; x < b.x1; x++, i++) out.push(prop(SYNTH - 300 - i, PropKind.Bunting, x, b.y1, { variant: i % 2, depthBias: 0.6 }));
   }

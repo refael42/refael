@@ -18,6 +18,10 @@ import { drawDoor, drawRoomSign, drawWc } from './drawRoom';
 import { HEAT } from '../../data/service';
 import { SUPPLY } from '../../data/supply';
 
+/** Hanukkah's menorah (src/render/art/holidayArt.ts): its eight candles right to left, the height of their holders. */
+const MENORAH_CX = [20.8, 15.6, 10.4, 5.2, -5.2, -10.4, -15.6, -20.8];
+const MENORAH_TOP = -36;
+
 const EXPAND_TIER = EXPAND.tier;
 /** The supplier's van drives in from this far left and off this far right (tiles), like the bus. */
 const VAN_DRIVE = SUPPLY.driveSeconds;
@@ -618,6 +622,21 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
   } else if (kind === PropKind.Bunting) {
     // Flapping a little in the breeze.
     sprXf(c, A, variant === 1 ? S.bunting1 : S.bunting0, 0, Math.sin(t * 2.2 + seed) * 0.8, Math.sin(t * 1.7 + seed) * 1.2, 1, 1, plain);
+  } else if (kind === PropKind.HolidayGarland) {
+    const pair = A.L.garland[variant % A.L.garland.length]!;
+    sprXf(c, A, pair[d[o + PF.level]! % 2]!, 0, Math.sin(t * 2.2 + seed) * 0.8, Math.sin(t * 1.7 + seed) * 1.2, 1, 1, plain);
+  } else if (kind === PropKind.Menorah) {
+    // Hanukkah: one more candle each night, the servant always lit; the flames flicker.
+    spr(c, A, S.menorah, 0, 0, plain);
+    const lit = Math.min(8, d[o + PF.level]!);
+    for (let i = 0; i < 9; i++) {
+      if (i < 8 && i >= lit) continue;
+      const cx = i < 8 ? MENORAH_CX[i]! : 0;
+      const cy = i < 8 ? MENORAH_TOP : MENORAH_TOP - 6;
+      const flick = Math.sin(t * 9 + i * 1.7 + seed) * 4;
+      sprXf(c, A, S.menorahCandle, cx, cy, flick, 1, 1, plain);
+    }
+    if (lit > 0) sprFade(c, A, S.glowHalo, 0, MENORAH_TOP - 4, 0.45, 0.35 + Math.sin(t * 5 + seed) * 0.08);
   } else if (kind === PropKind.Trophy) {
     spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
     sparkles(c, A, 0, -52, t, 10, seed, 1);

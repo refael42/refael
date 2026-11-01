@@ -179,6 +179,10 @@ export const PropKind = {
   Van: 61,
   /** A private event's table (src/sim/occasions.ts): the reserved card, or (active) balloons; variant = the kind. */
   Occasion: 62,
+  /** A real holiday's garland along the front (variant = the holiday, level = which of its two tiles). */
+  HolidayGarland: 63,
+  /** Hanukkah's menorah by the door (level = candles lit tonight). */
+  Menorah: 64,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

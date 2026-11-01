@@ -32,6 +32,7 @@ import { startBus } from './bus';
 import { markShown, seeOffers } from '../offers';
 import { acceptBooking, declineBooking } from '../occasions';
 import { grantAd } from '../ads';
+import { syncHolidays } from '../holidays';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -174,6 +175,8 @@ function apply(s: GameState, cmd: Command): void {
       claimFestival(s);
       return;
     case 'season':
+      // Real holidays go by the same clock (src/sim/holidays.ts).
+      syncHolidays(s, cmd.now, cmd.tzMin);
       return syncSeason(s, cmd.now, cmd.tzMin);
     case 'seasonClaim':
       claimSeason(s, cmd.track);
