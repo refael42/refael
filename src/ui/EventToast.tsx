@@ -22,7 +22,7 @@ import { dishDef } from '../data/dishes';
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement, Ev.FlipPan, Ev.FlipDone];
 
 interface Toast {
   id: number;
@@ -48,6 +48,8 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
         // Talent points a card already shows (the wheel, a chef level, the daily gift...) need no note.
         if (e.type === Ev.TalentPoints && e.b === 1) continue;
         if (e.type === Ev.AdReward && AD_REWARDS[e.a] === 'offline') continue;
+        // A game that missed every flip says so on its own card.
+        if (e.type === Ev.FlipDone && e.a === 0) continue;
         if (TYPES.includes(e.type)) setToast({ id: e.id, type: e.type, coins: e.a, gems: e.b, c: e.c });
       }
     }, 200);
@@ -62,7 +64,7 @@ export function EventToast({ gameRef, style }: { gameRef: { current: GameState |
   const festive = toast.type === Ev.FestivalStart || toast.type === Ev.FestivalStep || toast.type === Ev.Bus || toast.type === Ev.Weekend || toast.type === Ev.DeliveryOrder || toast.type === Ev.DeliveryCancel || toast.type === Ev.RareApplicant || toast.type === Ev.SeasonStart || toast.type === Ev.SeasonTier || toast.type === Ev.SeasonGold || toast.type === Ev.StockOut || toast.type === Ev.AlbumNew || toast.type === Ev.Influencer || toast.type === Ev.OccasionCall || toast.type === Ev.OccasionArrive || toast.type === Ev.OccasionEnd;
   // The reward after the words, with the coin and gem icons (owner M41: no emojis).
   // A private event's end: its gems (c).
-  const rewards: { icon: HudIcon; text: string }[] = toast.type === Ev.Achievement ? [] : toast.type === Ev.HolidayStart ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.OccasionEnd ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
+  const rewards: { icon: HudIcon; text: string }[] = toast.type === Ev.FlipDone ? [...(toast.gems > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.gems)}` }] : []), ...(toast.c > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.c}` }] : [])] : toast.type === Ev.Achievement || toast.type === Ev.FlipPan ? [] : toast.type === Ev.HolidayStart ? (toast.gems > 0 ? [{ icon: 'hudGem', text: `+${toast.gems}` }] : []) : toast.type === Ev.OccasionEnd ? (toast.c > 0 ? [{ icon: 'hudGem', text: `+${toast.c}` }] : []) : festive ? [] : toast.type === Ev.TalentPoints ? [{ icon: 'iconTalent', text: `+${toast.coins}` }] : [
     ...(toast.coins > 0 ? [{ icon: 'hudCoin' as const, text: `+${formatNumber(toast.coins)}` }] : []),
     ...(toast.gems > 0 ? [{ icon: 'hudGem' as const, text: `+${toast.gems}` }] : []),
   ];
@@ -124,6 +126,11 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
     case Ev.Influencer:
       return t('toast.influencer');
     // Private events (a = the kind; b = guests, or at the end the average stars in tenths, -1 walked out, -2 called off).
+    // The golden pan (src/sim/flip.ts): it showed up; the game paid (a = perfect flips, b = coins, c = gems).
+    case Ev.FlipPan:
+      return t('toast.flipPan');
+    case Ev.FlipDone:
+      return t('toast.flipDone').replace('{n}', String(toast.coins));
     // A new achievement medal (a = which, src/data/achievements.ts).
     case Ev.Achievement:
       return t('toast.achievement').replace('{a}', t(`ach.name.${ACHIEVEMENTS[toast.coins]?.id ?? 'served'}`));

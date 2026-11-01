@@ -183,6 +183,8 @@ export const PropKind = {
   HolidayGarland: 63,
   /** Hanukkah's menorah by the door (level = candles lit tonight). */
   Menorah: 64,
+  /** The golden pan over a stove (src/sim/flip.ts), waiting for a tap. */
+  GoldenPan: 65,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

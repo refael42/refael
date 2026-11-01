@@ -637,6 +637,12 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
       sprXf(c, A, S.menorahCandle, cx, cy, flick, 1, 1, plain);
     }
     if (lit > 0) sprFade(c, A, S.glowHalo, 0, MENORAH_TOP - 4, 0.45, 0.35 + Math.sin(t * 5 + seed) * 0.08);
+  } else if (kind === PropKind.GoldenPan) {
+    // Bobbing and tilting over the stove, glowing, sparkling: tap me.
+    const bob = Math.sin(t * 4 + seed) * 3;
+    sprFade(c, A, S.glowHalo, 0, bob - 4, 1.4, 0.6 + Math.sin(t * 6) * 0.15);
+    sprXf(c, A, S.goldPan, 0, bob, Math.sin(t * 3 + seed) * 10, 1.6, 1.6, plain);
+    sparkles(c, A, 0, bob - 10, t, 14, seed, 2);
   } else if (kind === PropKind.Trophy) {
     spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
     sparkles(c, A, 0, -52, t, 10, seed, 1);

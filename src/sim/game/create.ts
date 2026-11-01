@@ -2,6 +2,7 @@ import { newOccasions } from '../occasions';
 import { copyAlbum, newAlbum, type AlbumState } from '../album';
 import { newAds, type AdsState } from '../ads';
 import { newHolidays } from '../holidays';
+import { newFlip } from '../flip';
 import { copyAchievements, newAchievements, type AchievementState } from '../achievements';
 import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
@@ -629,6 +630,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     supply: newSupply({ mods, time: 0 }, setup.suppliers),
     album: setup.album ? copyAlbum(setup.album) : newAlbum(),
     holidays: newHolidays(setup.holidayGifts),
+    flip: newFlip(),
     achievements: setup.achievements ? copyAchievements(setup.achievements) : newAchievements(),
     ads: setup.ads ? { day: setup.ads.day, used: { ...setup.ads.used } } : newAds(),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),

@@ -2,6 +2,7 @@ import type { AlbumState } from '../album';
 import type { AdsState } from '../ads';
 import type { HolidayState } from '../holidays';
 import type { AchievementState } from '../achievements';
+import type { FlipState } from '../flip';
 import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
@@ -297,6 +298,9 @@ export type Command =
   | { type: 'adReward'; reward: AdReward; day: number }
   /** An achievement's next medal. */
   | { type: 'achievement'; id: AchievementId }
+  /** The golden pan: tapped (the game opens), and the game's result (perfect flips). */
+  | { type: 'flip' }
+  | { type: 'flipDone'; hits: number }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -666,6 +670,8 @@ export interface GameState {
   holidays: HolidayState;
   /** Achievements (the player's, across branches; src/sim/achievements.ts). */
   achievements: AchievementState;
+  /** The golden pan's mini-game (src/sim/flip.ts; not saved). */
+  flip: FlipState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

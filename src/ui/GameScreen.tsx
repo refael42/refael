@@ -62,6 +62,7 @@ import { AlbumPanel } from './Album';
 import { OccasionButton, OccasionPanel } from './Occasion';
 import { FreePanel } from './FreeRewards';
 import { AchievementsPanel } from './Achievements';
+import { FlipGame } from './FlipGame';
 import { getAds } from '../ads';
 import { adOpen } from '../sim/ads';
 import { localDay } from '../sim/season';
@@ -718,6 +719,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {banner !== null && <TierBanner tier={banner} restaurant={profile?.restaurant} onDone={endBanner} />}
       {newsDue && !welcome && <NewsCard onClose={() => setSeenNews(NEWS.version)} />}
       {welcome && !onboarding && splashGone && <WelcomeBack earnings={welcome} manager={profile?.manager} onCollect={collect} canAd={offlineAd} onAd={() => command({ type: 'adReward', reward: 'offline', day: phoneDay() })} />}
+      <FlipGame gameRef={gameRef} onCommand={command} />
       {/* The test ad (web and test builds) plays over everything. */}
       <DemoAd />
       {loaded && !profile && (

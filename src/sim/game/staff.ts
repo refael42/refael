@@ -23,6 +23,7 @@ import { counterBefore, readyDrink, updateBartender, updateDrinkRun } from './ba
 import { readyDessert, updateDessertRun } from './desserts';
 import { chefTouch, inspectPlate, recordPlate } from './guide';
 import { careTable, updateCare } from './care';
+import { flipSpeed } from '../flip';
 import { cookRequest, cookTimeMult, prepCap, prepWork, servedPlate, takeOffPass, usePrep } from './service';
 
 /** Where a waiter stands to serve or clear a table: the open side, facing the table. */
@@ -312,7 +313,7 @@ function updateCook(s: GameState, st: Staff, dt: number): boolean {
   st.facing = sv.facing;
   if (job.phase === 'cooking') {
     if (order.progress < 1) {
-      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate) / (dishDef(order.dish).cookSeconds * cookTimeMult(order)));
+      order.progress = Math.min(1, order.progress + (dt * s.mods.cookSpeed * rate * flipSpeed(s)) / (dishDef(order.dish).cookSeconds * cookTimeMult(order)));
       setPose(st, STATION_POSE[sv.type] ?? Pose.Cook);
       st.held = STATION_TOOL[sv.type] ?? Held.Spatula;
       return true;

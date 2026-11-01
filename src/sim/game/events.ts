@@ -147,6 +147,9 @@ export const Ev = {
   Achievement: 74,
   /** An achievement's medal was taken. a = gems */
   AchievementClaim: 75,
+  /** The golden pan (src/sim/flip.ts) appeared on the stove at (x,y); the game ended (a = perfect flips, b = coins, c = gems). */
+  FlipPan: 76,
+  FlipDone: 77,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

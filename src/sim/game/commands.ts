@@ -34,6 +34,7 @@ import { acceptBooking, declineBooking } from '../occasions';
 import { grantAd } from '../ads';
 import { syncHolidays } from '../holidays';
 import { claimAchievement } from '../achievements';
+import { finishFlip, panSpot, startFlip } from '../flip';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -49,7 +50,7 @@ export function queueCommand(s: GameState, command: Command): void {
 }
 
 /** Pixel heights of each target's visual center above the floor (for screen-space hit tests). */
-const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60, gift: 16 } as const;
+const HEIGHT = { dish: 30, table: 22, customer: 22, sink: 26, work: 60, gift: 16, pan: 40 } as const;
 
 /** Everything the player can tap right now. The UI projects these and picks the nearest. */
 export function tapTargets(s: GameState): TapTarget[] {
@@ -83,6 +84,11 @@ export function tapTargets(s: GameState): TapTarget[] {
     out.push({ x: p.x, y: p.y, height: HEIGHT.dish, command: { type: 'serveDrink', drink: d.id } });
   }
   if (s.dirtyPlates > 0) out.push({ x: s.map.dirtyStack.x, y: s.map.dirtyStack.y, height: HEIGHT.sink, command: { type: 'wash' } });
+  // The golden pan on a stove (src/sim/flip.ts).
+  if (s.flip.stove >= 0 && !s.flip.playing) {
+    const at = panSpot(s);
+    out.push({ x: at.x, y: at.y, height: HEIGHT.pan, command: { type: 'flip' } });
+  }
   // The present on the sidewalk.
   if (s.gift) out.push({ x: s.gift.x, y: s.gift.y, height: HEIGHT.gift, command: { type: 'gift' } });
   // A big upgrade in progress: tap the timer over it to speed the crew up.
@@ -305,6 +311,10 @@ function apply(s: GameState, cmd: Command): void {
     openBranch(s);
   } else if (cmd.type === 'gift') {
     openGift(s);
+  } else if (cmd.type === 'flip') {
+    startFlip(s);
+  } else if (cmd.type === 'flipDone') {
+    finishFlip(s, cmd.hits);
   } else if (cmd.type === 'daily') {
     claimDaily(s, cmd.today, cmd.yesterday);
   } else if (cmd.type === 'spin') {

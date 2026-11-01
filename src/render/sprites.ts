@@ -21,6 +21,7 @@ import { CRATES, supplySprites } from './art/supplyArt';
 import { BALLOONS, occasionSprites } from './art/occasionArt';
 import { adSprites } from './art/adArt';
 import { GARLANDS, garlandSprites, holidaySprites } from './art/holidayArt';
+import { flipSprites } from './art/flipArt';
 import { dessertSprites } from './art/dessertArt';
 import { DESSERTS } from '../data/desserts';
 import { GLYPH_ADVANCE, GLYPH_CHARS, glyphSprites } from './art/glyphArt';
@@ -34,7 +35,7 @@ import { BACK_KINDS, PREP_KINDS } from '../data/maps';
 import { BlendMode, Skia, TileMode } from '@shopify/react-native-skia';
 import { sprite, type SpriteDef } from './sprite';
 
-const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites, ...serviceSprites, ...supplySprites, ...occasionSprites, ...adSprites, ...holidaySprites, ...garlandSprites };
+const BASE = { ...characterSprites, ...propSprites, ...stationSprites, ...kitchenSprites, ...tableSprites, ...barSprites, ...decorSprites, ...dishSprites, ...moreDishSprites, ...crewSprites, ...hubSprites, ...barDecorSprites, ...workSprites, ...eventSprites, ...deliverySprites, ...parkSprites, ...fxSprites, ...glyphSprites, ...roomSprites, ...dessertSprites, ...siteSprites, ...hostSprites, ...serviceSprites, ...supplySprites, ...occasionSprites, ...adSprites, ...holidaySprites, ...garlandSprites, ...flipSprites };
 
 /** Stations whose top looks get a golden aura (from the gold milestone on). */
 const GLOW_BASES = [...STATION_SPRITES, 'stove', 'sink', 'fridge', 'table', 'tableSquare', 'tableSmall', 'tableRound4', 'tableLongBack', 'tableLongMid', 'tableLongFront', 'booth', 'boothSeat', 'boothRest', 'barY', 'barXBack', 'barCornerBack', 'barCornerFront', 'barXFront', 'barStool', 'packTable', 'chair', 'chairSeat', 'chairRest', 'plantPalm', 'plantBush', 'neonBoard', 'streetSign', 'flowers', 'floorLamp', 'aquarium', 'statue', 'fountain', 'piano'];
@@ -73,7 +74,7 @@ for (const base of GLOW_BASES) {
 }
 
 const ALL = { ...BASE, ...GLOWS };
-export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites | keyof typeof serviceSprites | keyof typeof supplySprites | keyof typeof occasionSprites | keyof typeof adSprites | keyof typeof holidaySprites;
+export type SpriteName = keyof typeof characterSprites | keyof typeof propSprites | keyof typeof stationSprites | keyof typeof kitchenSprites | keyof typeof tableSprites | keyof typeof barSprites | keyof typeof decorSprites | keyof typeof dishSprites | keyof typeof moreDishSprites | keyof typeof crewSprites | keyof typeof hubSprites | keyof typeof barDecorSprites | keyof typeof workSprites | keyof typeof eventSprites | keyof typeof deliverySprites | keyof typeof parkSprites | keyof typeof fxSprites | keyof typeof dessertSprites | keyof typeof siteSprites | keyof typeof hostSprites | keyof typeof serviceSprites | keyof typeof supplySprites | keyof typeof occasionSprites | keyof typeof adSprites | keyof typeof holidaySprites | keyof typeof flipSprites;
 
 export const SPRITE_DEFS: SpriteDef[] = Object.values(ALL);
 
