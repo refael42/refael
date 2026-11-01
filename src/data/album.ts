@@ -1,4 +1,5 @@
 import type { CustomerTypeId } from './customers';
+import { CELEBS, type CelebId } from './celebs';
 import { Accessory, Hair, Hat, Outfit, PANTS, SHIRT, type Look } from './looks';
 
 // The customer album (owner M52: "add idea 9, a customer album, and more customers"). Every kind
@@ -8,7 +9,7 @@ import { Accessory, Hair, Hat, Outfit, PANTS, SHIRT, type Look } from './looks';
 // gems; a full page gives a lasting bonus for the whole restaurant (in every branch), a page all
 // in gold a big bag of gems. Rules in src/sim/album.ts.
 
-export type StickerId = CustomerTypeId | 'vip' | 'kid' | 'banquet' | 'inspector';
+export type StickerId = CustomerTypeId | 'vip' | 'kid' | 'banquet' | 'inspector' | CelebId;
 
 export interface StickerDef {
   id: StickerId;
@@ -21,10 +22,10 @@ export interface StickerDef {
 const look = (outfit: Outfit, hair: Hair, hairColor: number, skin: number, shirt: number, pants: number, hat: Hat, accessory: Accessory): Look => ({ outfit, hair, hairColor, skin, shirt, pants, hat, accessory });
 
 export interface AlbumPage {
-  id: 'street' | 'city' | 'stars';
+  id: 'street' | 'city' | 'stars' | 'celebs';
   stickers: readonly StickerDef[];
   /** A full page: this lifts for good (multiplier). */
-  perk: { stat: 'patience' | 'tips' | 'arrivals'; mult: number };
+  perk: { stat: 'patience' | 'tips' | 'arrivals' | 'quality'; mult: number };
   color: string;
 }
 
@@ -67,6 +68,13 @@ export const ALBUM_PAGES: readonly AlbumPage[] = [
       { id: 'banquet', look: look(Outfit.Hawaiian, Hair.Curly, 1, 4, SHIRT.orange, PANTS.khaki, Hat.PartyHat, Accessory.None) },
       { id: 'inspector', look: look(Outfit.Suit, Hair.Short, 0, 1, SHIRT.charcoal, PANTS.black, Hat.None, Accessory.Glasses) },
     ],
+  },
+  // Owner M59: the celebrities (src/data/celebs.ts), one each; the full page makes every dish worth more.
+  {
+    id: 'celebs',
+    color: '#C2406A',
+    perk: { stat: 'quality', mult: 1.05 },
+    stickers: CELEBS.map((c) => ({ id: c.id, look: c.look, rank: 3 })),
   },
 ];
 

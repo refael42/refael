@@ -187,6 +187,10 @@ export const PropKind = {
   GoldenPan: 65,
   /** The food truck parked across the road (variant 1 = gold, active = back with its takings). */
   FoodTruck: 66,
+  /** A celebrity's limo at the curb (since = set off toward it, progress = pulls away, 0 = not yet). */
+  Limo: 67,
+  /** Cameras flashing around a celebrity (at them). */
+  Paparazzi: 68,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

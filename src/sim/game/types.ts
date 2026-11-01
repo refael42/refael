@@ -4,6 +4,7 @@ import type { HolidayState } from '../holidays';
 import type { AchievementState } from '../achievements';
 import type { FlipState } from '../flip';
 import type { TruckState } from '../truck';
+import type { CelebState } from '../celebs';
 import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
@@ -119,6 +120,8 @@ export interface Customer extends CharacterView {
   cared?: number;
   /** Came for a private event (src/sim/occasions.ts): its booking's id. */
   occasion?: number;
+  /** A celebrity (index in CELEBS, src/data/celebs.ts). */
+  celebrity?: number;
   /** A restroom visit (owner M36): where they are in it, their stall, when this part ends (sim time). */
   wc?: { step: 'toDoor' | 'wait' | 'toStall' | 'inside' | 'toSink' | 'wash'; stall: number; until: number };
   /** In a stall with the door shut: not drawn. */
@@ -682,6 +685,8 @@ export interface GameState {
   truck: TruckState;
   /** The phone's clock as last passed in by the UI (ms; 0 = not yet). Not saved. */
   phoneNow: number;
+  /** Celebrities' visits (src/sim/celebs.ts; not saved). */
+  celebs: CelebState;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

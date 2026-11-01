@@ -3,6 +3,7 @@ import { copyAlbum, newAlbum, type AlbumState } from '../album';
 import { newAds, type AdsState } from '../ads';
 import { newHolidays } from '../holidays';
 import { newFlip } from '../flip';
+import { newCelebs } from '../celebs';
 import { copyTruck, newTruck, type TruckState } from '../truck';
 import { copyAchievements, newAchievements, type AchievementState } from '../achievements';
 import { newSupply } from '../supply';
@@ -636,6 +637,7 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     flip: newFlip(),
     truck: setup.truck ? copyTruck(setup.truck) : newTruck(),
     phoneNow: 0,
+    celebs: newCelebs(),
     achievements: setup.achievements ? copyAchievements(setup.achievements) : newAchievements(),
     ads: setup.ads ? { day: setup.ads.day, used: { ...setup.ads.used } } : newAds(),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),

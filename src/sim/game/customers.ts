@@ -6,6 +6,7 @@ import { requestTip, rollRequest } from './service';
 import { leaveAfterMeal, updateRestroomGuest } from './restroom';
 import { CUSTOMER_TYPE_LIST, CUSTOMER_TYPES, KID_RANK, PARTY, PATIENCE_ICON, type CustomerType, type CustomerTypeId } from '../../data/customers';
 import { OCCASION, OCCASION_BY_ID } from '../../data/occasions';
+import { CELEB } from '../../data/celebs';
 import { HOLIDAY } from '../../data/holidays';
 import { holidayArrivals, holidayNow, holidayPrice } from '../holidays';
 import { weatherArrivals, weatherPatience } from '../weather';
@@ -217,6 +218,20 @@ export function partyArrives(s: GameState, types: readonly CustomerTypeId[], siz
   return leader!;
 }
 
+/**
+ * A celebrity (src/sim/celebs.ts) steps out of the limo at `start` and heads for the door, past
+ * the line, to be shown to a table. Returns them.
+ */
+export function celebArrives(s: GameState, look: Customer['look'], start: Point, celeb: number): Customer {
+  const c = newCustomer(s, CUSTOMER_TYPES.tycoon, start, -1, -1, 1);
+  c.look = { ...look };
+  c.celebrity = celeb;
+  const wait = s.map.doors[0]?.outside ?? s.map.queue[0]!;
+  c.path = route(s, c, { x: wait.x - 0.6, y: wait.y + 0.3 });
+  s.customers.push(c);
+  return c;
+}
+
 /** A newcomer heading for the line; `party` = their leader's id (-1: they lead), `slot` = their place in line. */
 function newCustomer(s: GameState, type: CustomerType, start: Point, slot: number, party: number, partySize: number): Customer {
   const id = s.nextId++;
@@ -346,7 +361,7 @@ export function sendHome(s: GameState, c: Customer): void {
 export function sendLineHome(s: GameState): void {
   for (const c of s.customers) {
     // A booked party is still welcome behind the closed sign (not during building work).
-    if (c.occasion !== undefined && !s.construction) continue;
+    if ((c.occasion !== undefined || c.celebrity !== undefined) && !s.construction) continue;
     if (c.state === CustomerState.Arriving || c.state === CustomerState.Queued) {
       c.emote = Emote.Music;
       c.emoteTime = 0;
@@ -371,6 +386,11 @@ function walkout(s: GameState, c: Customer): void {
   // A private event walking out: the booking failed (src/sim/occasions.ts ends it).
   const b = s.occasion.current;
   if (c.occasion !== undefined && b && b.id === c.occasion) b.phase = 'failed';
+  // A celebrity walking out: the papers have it.
+  if (c.celebrity !== undefined) {
+    changeRating(s, CELEB.badRating, c);
+    emit(s, Ev.CelebDone, c.x, c.y, c.celebrity, 0, 0);
+  }
   walkoutReview(s, c);
   changeRating(s, ECONOMY.rating.walkout, c);
   const table = c.table >= 0 ? s.tables[c.table]! : null;
@@ -494,7 +514,7 @@ function pay(s: GameState, c: Customer): void {
   // ...and the season pass's medals (owner M50).
   // A private event's guest pays the event's price (src/data/occasions.ts).
   const event = occasionOf(s, c);
-  const extra = festivalBonus(s) * seasonBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s) * (event?.fee ?? 1);
+  const extra = festivalBonus(s) * seasonBonus(s) * (c.tourist ? 1 + BUS.payBonus : 1) * guidePrice(s) * (event?.fee ?? 1) * (c.celebrity !== undefined ? CELEB.price : 1);
   // A dessert eaten is on the bill too (a share of the main course, src/data/desserts.ts).
   const price = dishPrice(s, c.dish).mul(c.dishQuality * serviceMult(stars) * boostNow(s) * extra * (1 + dessertShare(c))).floor();
   s.combo = s.time - s.lastPayTime <= ECONOMY.comboWindowSeconds ? Math.min(ECONOMY.comboMax, s.combo + 1) : 1;
@@ -528,6 +548,15 @@ function pay(s: GameState, c: Customer): void {
   if (buzzFor && stars >= 5) {
     s.buzzUntil = Math.max(s.buzzUntil, s.time + buzzFor);
     emit(s, Ev.Influencer, c.x, c.y);
+  }
+  // A celebrity (src/data/celebs.ts): five stars and the whole city hears of it; below three, the papers say so.
+  if (c.celebrity !== undefined) {
+    const gems = stars >= 5 ? CELEB.gems : 0;
+    if (stars >= 5) {
+      s.buzzUntil = Math.max(s.buzzUntil, s.time + CELEB.buzzSeconds);
+      s.gems += gems;
+    } else if (stars < 3) changeRating(s, CELEB.badRating, c);
+    emit(s, Ev.CelebDone, c.x, c.y, c.celebrity, stars, gems);
   }
   // The customer album (owner M52) and the season pass's missions (src/sim/season.ts).
   albumServed(s, c);
@@ -588,7 +617,7 @@ function orderMeal(s: GameState, c: Customer): void {
   if (c.attention) s.orders.unshift(s.orders.pop()!);
   c.held = Held.None;
   c.bubble = Bubble.DishBase + c.dish;
-  startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day) * (occasionOf(s, c)?.patience ?? 1));
+  startWait(c, CUSTOMER_TYPES[c.type].foodPatience * s.mods.patience * weatherPatience(s.day) * (occasionOf(s, c)?.patience ?? 1) * (c.celebrity !== undefined ? CELEB.patience : 1));
   setState(c, CustomerState.Waiting);
 }
 
@@ -732,7 +761,7 @@ export function updateCustomers(s: GameState, dt: number): void {
           if (c.party === c.id) {
             c.bubble = Bubble.Seat;
             // A booked party waits at the door for its table, not in line (src/sim/occasions.ts).
-            startWait(c, c.occasion !== undefined ? OCCASION.doorPatience : CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience * weatherPatience(s.day));
+            startWait(c, c.celebrity !== undefined ? CELEB.doorPatience : c.occasion !== undefined ? OCCASION.doorPatience : CUSTOMER_TYPES[c.type].queuePatience * s.mods.patience * weatherPatience(s.day));
           }
           setState(c, CustomerState.Queued);
         }

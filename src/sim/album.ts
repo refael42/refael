@@ -1,5 +1,6 @@
 import { ALBUM, ALBUM_PAGES, STICKERS, type StickerId } from '../data/album';
 import { KID_RANK } from '../data/customers';
+import { CELEBS } from '../data/celebs';
 import { computeMods } from './economy/upgrades';
 import { emit, Ev } from './game/events';
 import type { Customer, GameState } from './game/types';
@@ -58,11 +59,13 @@ function count(s: GameState, id: StickerId): void {
 
 /** A guest paid: their kind's sticker counts one more (and the special ones they also are). */
 export function albumServed(s: GameState, c: Customer): void {
-  count(s, c.type);
+  // A celebrity is their own sticker (not the kind they were dressed up as).
+  if (c.celebrity === undefined) count(s, c.type);
   if (c.vip) count(s, 'vip');
   if (c.rank === KID_RANK) count(s, 'kid');
   if (c.inspector) count(s, 'inspector');
   if (c.party === c.id && c.partySize >= ALBUM.banquetSize) count(s, 'banquet');
+  if (c.celebrity !== undefined) count(s, CELEBS[c.celebrity]!.id);
 }
 
 /** Takes a sticker's next reward (the sticker, then its stars in order). */

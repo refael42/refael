@@ -20,7 +20,7 @@ export const newTruck = (): TruckState => ({ level: 0, trip: null, trips: 0 });
 export const copyTruck = (t: TruckState): TruckState => ({ level: t.level, trip: t.trip ? { ...t.trip } : null, trips: t.trips });
 
 /** Where it parks while home: across the road from the door, a little to its left (in view). */
-export const truckSpot = (s: GameState): { x: number; y: number } => ({ x: Math.max(3, (s.map.doors[0]?.outside.x ?? s.map.busStop.x) - 4), y: s.map.busStop.y + 1.95 });
+export const truckSpot = (s: GameState): { x: number; y: number } => ({ x: Math.max(3, (s.map.doors[0]?.outside.x ?? s.map.busStop.x) - 7.5), y: s.map.busStop.y + 1.95 });
 
 export const truckOpen = (s: GameState): boolean => s.stats.served >= TRUCK.minServed || s.truck.trips > 0 || s.truck.level > 0;
 

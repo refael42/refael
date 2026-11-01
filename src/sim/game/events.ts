@@ -154,6 +154,10 @@ export const Ev = {
   TruckOut: 78,
   TruckBack: 79,
   TruckLevel: 80,
+  /** Celebrities (src/sim/celebs.ts): the limo is coming (a = the star), the star is here, their visit ended (a = the star, b = service stars, c = gems). */
+  CelebComing: 81,
+  CelebArrive: 82,
+  CelebDone: 83,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 

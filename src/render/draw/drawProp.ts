@@ -21,6 +21,10 @@ import { SUPPLY } from '../../data/supply';
 /** Hanukkah's menorah (src/render/art/holidayArt.ts): its eight candles right to left, the height of their holders. */
 const MENORAH_CX = [20.8, 15.6, 10.4, 5.2, -5.2, -10.4, -15.6, -20.8];
 const MENORAH_TOP = -36;
+/** A celebrity's limo: seconds driving in or out (src/data/celebs.ts driveSeconds) and how far (tiles). */
+const LIMO_DRIVE = 4;
+const LIMO_FROM = 14;
+const LIMO_TO = 16;
 
 const EXPAND_TIER = EXPAND.tier;
 /** The supplier's van drives in from this far left and off this far right (tiles), like the bus. */
@@ -648,6 +652,23 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     if (active) sprFade(c, A, S.glowHalo, 0, -30, 1.6, 0.5 + Math.sin(t * 5) * 0.15);
     spr(c, A, variant === 1 ? S.foodTruckGold : S.foodTruck, 0, Math.sin(t * 20 + seed) * 0.25, plain);
     if (active) sparkles(c, A, 0, -50, t, 26, seed, 3);
+  } else if (kind === PropKind.Limo) {
+    // Glides up to the curb (ease-out) and, when the star is done, pulls away (ease-in).
+    const since = d[o + PF.since]!;
+    const leave = d[o + PF.progress]!;
+    const k = clamp01((t - since) / LIMO_DRIVE);
+    const m = leave > 0 ? clamp01((t - leave) / LIMO_DRIVE) : 0;
+    const dx = -LIMO_FROM * (1 - k) * (1 - k) * (1 - k) + LIMO_TO * m * m;
+    spr(c, A, S.limo, ox(dx, 0), oy(dx, 0, 0), plain);
+  } else if (kind === PropKind.Paparazzi) {
+    // Cameras flashing around the star, here and there, a few at a time.
+    for (let i = 0; i < 4; i++) {
+      const ph = fract(t * 0.9 + i * 0.27 + seed);
+      if (ph > 0.18) continue;
+      const a = (i * 2.4 + Math.floor(t * 0.9 + i * 0.27 + seed) * 1.7) % (Math.PI * 2);
+      const s = 1 - ph / 0.18;
+      sprXf(c, A, S.cameraFlash, Math.cos(a) * 22, -40 + Math.sin(a) * 18, 0, 0.5 + s * 0.6, 0.5 + s * 0.6, plain);
+    }
   } else if (kind === PropKind.Trophy) {
     spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
     sparkles(c, A, 0, -52, t, 10, seed, 1);

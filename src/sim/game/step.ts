@@ -2,6 +2,8 @@ import { updateSupply, vanStop } from '../supply';
 import { updateOccasions } from '../occasions';
 import { updateAchievements } from '../achievements';
 import { panSpot, updateFlip } from '../flip';
+import { limoStop, updateCelebs } from '../celebs';
+import { CELEB } from '../../data/celebs';
 import { truckOpen, truckSpot } from '../truck';
 import { OCCASIONS } from '../../data/occasions';
 import { HOLIDAYS } from '../../data/holidays';
@@ -29,7 +31,7 @@ import { dishSpot, updateArrivals, updateCustomers } from './customers';
 import { emit, Ev, packEvents, pruneEvents } from './events';
 import { anchorPoints, hostStandAt, siteOf } from './purchase';
 import { landFlyingDishes, updateStaff, updateTables } from './staff';
-import { OrderState, TableState, type GameState } from './types';
+import { CustomerState, OrderState, TableState, type GameState } from './types';
 import { updateWalkers } from './walkers';
 import { updateJam } from './jam';
 import { updateCrew } from './crew';
@@ -85,6 +87,7 @@ export function stepGame(s: GameState, dt: number): void {
   updateSupply(s);
   updateOccasions(s);
   updateFlip(s);
+  updateCelebs(s);
   if (s.tick % 60 === 30) updateAchievements(s);
   updateWalkers(s, dt);
   updateCrew(s, dt);
@@ -155,6 +158,14 @@ function dynamicProps(s: GameState): PropView[] {
     const back = trip !== null && s.phoneNow >= trip.end;
     if (!trip || back) out.push(prop(SYNTH - 66, PropKind.FoodTruck, truckSpot(s).x, truckSpot(s).y, { variant: s.truck.level >= 5 ? 1 : 0, active: back, depthBias: 2 }));
   }
+  // A celebrity's limo at the curb (driving up, waiting, pulling away), and the cameras around the star.
+  const visit = s.celebs.visit;
+  if (visit || s.time < s.celebs.leftAt + CELEB.driveSeconds) {
+    const at = limoStop(s);
+    out.push(prop(SYNTH - 67, PropKind.Limo, at.x, at.y, { since: visit ? visit.arrived : s.celebs.leftAt - 60, progress: visit ? 0 : s.celebs.leftAt, depthBias: 2 }));
+  }
+  const star = visit ? s.customers.find((c) => c.id === visit.customer) : undefined;
+  if (star && !star.hidden && star.state !== CustomerState.Leaving) out.push(prop(SYNTH - 68, PropKind.Paparazzi, star.x, star.y, { depthBias: 4 }));
   // The golden pan over its stove (src/sim/flip.ts).
   if (s.flip.stove >= 0 && !s.flip.playing) {
     const pan = panSpot(s);
