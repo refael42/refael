@@ -1,7 +1,10 @@
 import { applyCommand } from './commands';
 import { DT } from './constants';
 import { pruneEvents } from './events';
+import { updateDepartingPax, updateFlights, updateSpawning } from './flights';
+import { updatePeople } from './people';
 import type { GameState } from './types';
+import { updateVehicles } from './vehicles';
 
 /** Advances the game by one fixed step. dt must be DT (kept for clarity). */
 export function stepGame(s: GameState, dt: number = DT): void {
@@ -12,6 +15,11 @@ export function stepGame(s: GameState, dt: number = DT): void {
   }
   s.tick++;
   s.time = s.tick * dt;
+  updateSpawning(s);
+  updateFlights(s, dt);
+  updateDepartingPax(s);
+  updateVehicles(s, dt);
+  updatePeople(s, dt);
   pruneEvents(s);
 }
 

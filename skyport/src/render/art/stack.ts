@@ -89,7 +89,7 @@ export function drawStack(
   order.sort((a, b) => a.d - b.d || a.i - b.i);
 
   const step = 1 / (Z_PX * sc); // one atlas pixel of height
-  const ow = opts.outlineWidth ?? 2.6 * (sc / 2);
+  const ow = opts.outlineWidth ?? 2.6;
   s.setStrokeWidth(ow);
   s.setColor(Skia.Color(opts.outlineColor ?? OUTLINE));
 

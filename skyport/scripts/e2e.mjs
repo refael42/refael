@@ -53,7 +53,13 @@ for (const sc of scenarios) {
     await page.goto(base + (sc.query ?? '/'), { waitUntil: 'load' });
     await page.waitForSelector('canvas', { timeout: 30000 });
     await page.waitForTimeout(sc.wait ?? 1500);
-    if (sc.actions) await sc.actions(page);
+    if (sc.actions) {
+      try {
+        await sc.actions(page);
+      } catch (e) {
+        errors.push('action failed: ' + (e && e.message ? e.message : String(e)));
+      }
+    }
     const file = join(out, `${sc.name}-${lang}.png`);
     await page.screenshot({ path: file });
     const ms = Date.now() - t0;

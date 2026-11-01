@@ -35,7 +35,7 @@
     "balance": "tsx scripts/balance.ts",
     "export:web": "node scripts/copy-canvaskit.mjs && expo export --platform web",
     "e2e": "node scripts/e2e.mjs",
-    "verify": "npm run typecheck && npm test"
+    "verify": "npm run typecheck && npm test && npm run balance -- --seed 1 --quiet"
   },
   "private": true
 }

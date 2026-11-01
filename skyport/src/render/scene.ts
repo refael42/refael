@@ -4,7 +4,7 @@
  * The JS thread writes one flat Float32Array per frame (SnapWriter). The
  * worklet `renderScene` reads only that array plus the atlas resources and
  * records a Skia picture. Layout:
- *   header (HEADER floats) | shadows | sprites (depth sorted) | overlay | bars
+ *   header (HEADER floats) | shadows | sprites (depth sorted) | fx | overlay | bars
  */
 import {
   BlendMode,
@@ -21,6 +21,7 @@ import {
 } from '@shopify/react-native-skia';
 
 import { ATLAS_SCALE, RECT_STRIDE } from './atlas';
+import type { GroundTile } from './ground';
 
 export const HEADER = 12;
 export const H_SHADOWS = 0;
@@ -32,6 +33,7 @@ export const H_CAMY = 5;
 export const H_ZOOM = 6;
 export const H_SKY = 7; // packed 0xRRGGBB background color
 export const H_DARK = 8; // night darkness 0..1
+export const H_FX = 9;
 
 export const SHADOW_STRIDE = 5; // sprite, x, y, scale, alpha
 export const SPRITE_STRIDE = 4; // sprite, x, y, scale
@@ -41,7 +43,8 @@ export const MAX_SHADOWS = 600;
 export const MAX_SPRITES = 3000;
 export const MAX_OVERLAY = 800;
 export const MAX_BARS = 200;
-export const POOL = MAX_SHADOWS + MAX_SPRITES + MAX_OVERLAY;
+export const MAX_FX = 300;
+export const POOL = MAX_SHADOWS + MAX_SPRITES + MAX_OVERLAY + MAX_FX;
 
 export class SnapWriter {
   private shadows = new Float32Array(MAX_SHADOWS * SHADOW_STRIDE);
@@ -50,6 +53,8 @@ export class SnapWriter {
   private order = new Float64Array(MAX_SPRITES);
   private overlay = new Float32Array(MAX_OVERLAY * SPRITE_STRIDE);
   private bars = new Float32Array(MAX_BARS * BAR_STRIDE);
+  private fxs = new Float32Array(MAX_FX * SHADOW_STRIDE);
+  nFx = 0;
   nShadows = 0;
   nSprites = 0;
   nOverlay = 0;
@@ -65,6 +70,7 @@ export class SnapWriter {
     this.nSprites = 0;
     this.nOverlay = 0;
     this.nBars = 0;
+    this.nFx = 0;
     this.camX = camX;
     this.camY = camY;
     this.zoom = zoom;
@@ -79,6 +85,24 @@ export class SnapWriter {
     a[o + 2] = y;
     a[o + 3] = scale;
     a[o + 4] = alpha;
+  }
+
+  /** Ground decal in its own colors (drawn with the shadows, under everything). */
+  decal(sprite: number, x: number, y: number, scale: number, alpha: number): void {
+    // alpha above 1 tells the renderer "keep colors" (shadows are tinted black)
+    this.shadow(sprite, x, y, scale, 1 + Math.max(0, Math.min(1, alpha)));
+  }
+
+  /** Sprite with its own colors and an alpha, drawn after the sorted sprites. */
+  fx(sprite: number, x: number, y: number, scale: number, alpha: number): void {
+    if (this.nFx >= MAX_FX || sprite < 0 || alpha <= 0.003) return;
+    const o = this.nFx++ * SHADOW_STRIDE;
+    const a = this.fxs;
+    a[o] = sprite;
+    a[o + 1] = x;
+    a[o + 2] = y;
+    a[o + 3] = scale;
+    a[o + 4] = Math.min(1, alpha);
   }
 
   /** depth: larger = closer to the viewer (drawn later). */
@@ -123,7 +147,7 @@ export class SnapWriter {
     const ord = this.order.subarray(0, n);
     for (let i = 0; i < n; i++) ord[i] = Math.round(this.keys[i] * 256) * 8192 + i;
     ord.sort();
-    const total = HEADER + this.nShadows * SHADOW_STRIDE + n * SPRITE_STRIDE + this.nOverlay * SPRITE_STRIDE + this.nBars * BAR_STRIDE;
+    const total = HEADER + this.nShadows * SHADOW_STRIDE + n * SPRITE_STRIDE + this.nFx * SHADOW_STRIDE + this.nOverlay * SPRITE_STRIDE + this.nBars * BAR_STRIDE;
     const out = new Float32Array(total);
     out[H_SHADOWS] = this.nShadows;
     out[H_SPRITES] = n;
@@ -134,6 +158,7 @@ export class SnapWriter {
     out[H_ZOOM] = this.zoom;
     out[H_SKY] = this.sky;
     out[H_DARK] = this.dark;
+    out[H_FX] = this.nFx;
     let p = HEADER;
     out.set(this.shadows.subarray(0, this.nShadows * SHADOW_STRIDE), p);
     p += this.nShadows * SHADOW_STRIDE;
@@ -146,6 +171,8 @@ export class SnapWriter {
       out[p++] = this.sprites[o + 2];
       out[p++] = this.sprites[o + 3];
     }
+    out.set(this.fxs.subarray(0, this.nFx * SHADOW_STRIDE), p);
+    p += this.nFx * SHADOW_STRIDE;
     out.set(this.overlay.subarray(0, this.nOverlay * SPRITE_STRIDE), p);
     p += this.nOverlay * SPRITE_STRIDE;
     out.set(this.bars.subarray(0, this.nBars * BAR_STRIDE), p);
@@ -158,6 +185,10 @@ export interface RenderRes {
   image: SkImage;
   rects: Float32Array;
   bg: SkPicture | null;
+  /** Baked ground tiles (preferred over bg when present). */
+  tiles: GroundTile[];
+  tileSrc: SkHostRect;
+  tileDst: SkHostRect;
   srcPool: SkHostRect[];
   xfPool: SkRSXform[];
   colPool: SkColor[];
@@ -166,7 +197,7 @@ export interface RenderRes {
   barPaint: SkPaint;
 }
 
-export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture | null): RenderRes {
+export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture | null, tiles: GroundTile[] = []): RenderRes {
   const srcPool: SkHostRect[] = [];
   const xfPool: SkRSXform[] = [];
   const colPool: SkColor[] = [];
@@ -174,7 +205,7 @@ export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture
     srcPool.push(Skia.XYWHRect(0, 0, 1, 1));
     xfPool.push(Skia.RSXform(1, 0, 0, 0));
   }
-  for (let i = 0; i < MAX_SHADOWS; i++) colPool.push(Skia.Color('black'));
+  for (let i = 0; i < MAX_SHADOWS + MAX_FX; i++) colPool.push(Skia.Color('black'));
   const paint = Skia.Paint();
   paint.setAntiAlias(true);
   const shadowPaint = Skia.Paint();
@@ -182,7 +213,7 @@ export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture
   const barPaint = Skia.Paint();
   barPaint.setAntiAlias(true);
   barPaint.setStyle(PaintStyle.Fill);
-  return { image, rects, bg, srcPool, xfPool, colPool, paint, shadowPaint, barPaint };
+  return { image, rects, bg, tiles, tileSrc: Skia.XYWHRect(0, 0, 1, 1), tileDst: Skia.XYWHRect(0, 0, 1, 1), srcPool, xfPool, colPool, paint, shadowPaint, barPaint };
 }
 
 const INV_ATLAS = 1 / ATLAS_SCALE;
@@ -204,54 +235,59 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
   c.save();
   c.translate(width / 2 - snap[H_CAMX] * zoom, height / 2 - snap[H_CAMY] * zoom);
   c.scale(zoom, zoom);
-  if (res.bg) c.drawPicture(res.bg);
+  if (res.tiles.length > 0) {
+    // visible part of the world in world-screen px
+    const vx0 = snap[H_CAMX] - width / 2 / zoom;
+    const vy0 = snap[H_CAMY] - height / 2 / zoom;
+    const vx1 = snap[H_CAMX] + width / 2 / zoom;
+    const vy1 = snap[H_CAMY] + height / 2 / zoom;
+    for (let i = 0; i < res.tiles.length; i++) {
+      const t = res.tiles[i];
+      if (t.x + t.w < vx0 || t.x > vx1 || t.y + t.h < vy0 || t.y > vy1) continue;
+      res.tileSrc.setXYWH(0, 0, t.image.width(), t.image.height());
+      // a hair of overlap hides seams between tiles
+      res.tileDst.setXYWH(t.x, t.y, t.w + 0.6 / zoom, t.h + 0.6 / zoom);
+      c.drawImageRect(t.image, res.tileSrc, res.tileDst, res.paint);
+    }
+  } else if (res.bg) c.drawPicture(res.bg);
 
   const R = res.rects;
   let p = HEADER;
   let pool = 0;
 
-  // shadows: tinted by per-sprite alpha
-  const ns = snap[H_SHADOWS];
-  if (ns > 0) {
-    for (let i = 0; i < ns; i++) {
-      const s = snap[p];
-      const ro = s * RECT_STRIDE;
-      const sc = snap[p + 3] * INV_ATLAS;
-      res.srcPool[pool + i].setXYWH(R[ro], R[ro + 1], R[ro + 2], R[ro + 3]);
-      res.xfPool[pool + i].set(sc, 0, snap[p + 1] - R[ro + 4] * sc, snap[p + 2] - R[ro + 5] * sc);
-      const col = res.colPool[i];
-      col[0] = 0;
-      col[1] = 0;
-      col[2] = 0;
-      col[3] = snap[p + 4];
-      p += SHADOW_STRIDE;
+  // shadows (black), sorted sprites, fx (own colors, alpha), overlay
+  for (let pass = 0; pass < 4; pass++) {
+    const n = snap[pass === 0 ? H_SHADOWS : pass === 1 ? H_SPRITES : pass === 2 ? H_FX : H_OVERLAY];
+    const tinted = pass === 0 || pass === 2;
+    const stride = tinted ? SHADOW_STRIDE : SPRITE_STRIDE;
+    if (n > 0) {
+      for (let i = 0; i < n; i++) {
+        const s = snap[p];
+        const ro = s * RECT_STRIDE;
+        const sc = snap[p + 3] * INV_ATLAS;
+        res.srcPool[pool + i].setXYWH(R[ro], R[ro + 1], R[ro + 2], R[ro + 3]);
+        res.xfPool[pool + i].set(sc, 0, snap[p + 1] - R[ro + 4] * sc, snap[p + 2] - R[ro + 5] * sc);
+        if (tinted) {
+          const col = res.colPool[i];
+          let al = snap[p + 4];
+          let v = pass === 0 ? 0 : 1;
+          if (al > 1) {
+            v = 1;
+            al -= 1;
+          }
+          col[0] = v;
+          col[1] = v;
+          col[2] = v;
+          col[3] = al;
+        }
+        p += stride;
+      }
+      const srcs = res.srcPool.slice(pool, pool + n);
+      const dsts = res.xfPool.slice(pool, pool + n);
+      if (tinted) c.drawAtlas(res.image, srcs, dsts, res.shadowPaint, BlendMode.Modulate, res.colPool.slice(0, n), SAMPLING);
+      else c.drawAtlas(res.image, srcs, dsts, res.paint, BlendMode.SrcOver, undefined, SAMPLING);
+      pool += n;
     }
-    c.drawAtlas(
-      res.image,
-      res.srcPool.slice(pool, pool + ns),
-      res.xfPool.slice(pool, pool + ns),
-      res.shadowPaint,
-      BlendMode.Modulate,
-      res.colPool.slice(0, ns),
-      SAMPLING,
-    );
-    pool += ns;
-  }
-
-  // depth-sorted sprites, then the overlay
-  for (let pass = 0; pass < 2; pass++) {
-    const n = snap[pass === 0 ? H_SPRITES : H_OVERLAY];
-    if (n <= 0) continue;
-    for (let i = 0; i < n; i++) {
-      const s = snap[p];
-      const ro = s * RECT_STRIDE;
-      const sc = snap[p + 3] * INV_ATLAS;
-      res.srcPool[pool + i].setXYWH(R[ro], R[ro + 1], R[ro + 2], R[ro + 3]);
-      res.xfPool[pool + i].set(sc, 0, snap[p + 1] - R[ro + 4] * sc, snap[p + 2] - R[ro + 5] * sc);
-      p += SPRITE_STRIDE;
-    }
-    c.drawAtlas(res.image, res.srcPool.slice(pool, pool + n), res.xfPool.slice(pool, pool + n), res.paint, BlendMode.SrcOver, undefined, SAMPLING);
-    pool += n;
   }
 
   // progress bars (constant screen size: w is in screen px)

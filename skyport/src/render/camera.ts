@@ -17,16 +17,28 @@ export interface Camera {
   bounds: { x0: number; y0: number; x1: number; y1: number };
   viewW: number;
   viewH: number;
+  /** Smooth pan target (world-screen px); cleared when the user touches. */
+  target: { x: number; y: number } | null;
 }
 
 export function makeCamera(x: number, y: number, zoom: number): Camera {
-  return { x, y, zoom, minZoom: 0.3, maxZoom: 2.4, bounds: { x0: -1e5, y0: -1e5, x1: 1e5, y1: 1e5 }, viewW: 1, viewH: 1 };
+  return { x, y, zoom, minZoom: 0.3, maxZoom: 2.4, bounds: { x0: -1e5, y0: -1e5, x1: 1e5, y1: 1e5 }, viewW: 1, viewH: 1, target: null };
 }
 
 export function clampCamera(c: Camera): void {
   c.zoom = Math.max(c.minZoom, Math.min(c.maxZoom, c.zoom));
   c.x = Math.max(c.bounds.x0, Math.min(c.bounds.x1, c.x));
   c.y = Math.max(c.bounds.y0, Math.min(c.bounds.y1, c.y));
+}
+
+/** Eases the camera toward its target, if any. */
+export function updateCamera(c: Camera, dt: number): void {
+  if (!c.target) return;
+  const k = Math.min(1, dt * 5);
+  c.x += (c.target.x - c.x) * k;
+  c.y += (c.target.y - c.y) * k;
+  clampCamera(c);
+  if (Math.hypot(c.target.x - c.x, c.target.y - c.y) < 2) c.target = null;
 }
 
 /** View point (px) -> world-screen point. */
@@ -96,6 +108,7 @@ export function useCameraResponder(
       onMoveShouldSetPanResponder: () => true,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (e) => {
+        cam.target = null;
         sync(e);
         st.startX = e.nativeEvent.locationX;
         st.startY = e.nativeEvent.locationY;

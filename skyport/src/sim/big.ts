@@ -46,6 +46,12 @@ export class Big {
         ee -= 1;
       }
     }
+    // Drop float noise (7.429999999999 -> 7.43) so integer amounts stay exact.
+    mm = Math.round(mm * 1e13) / 1e13;
+    if (Math.abs(mm) >= 10) {
+      mm /= 10;
+      ee += 1;
+    }
     this.m = mm;
     this.e = ee;
   }

@@ -24,10 +24,11 @@ describe('simulation loop', () => {
     const s = createGame(1);
     queueCommand(s, { type: 'debugAddMoney', amount: 1 });
     stepGame(s);
+    const money = () => s.events.filter((e) => e.kind === 'moneyChanged').length;
     runFor(s, EVENT_TTL - 0.2);
-    expect(s.events.length).toBe(1);
+    expect(money()).toBe(1);
     runFor(s, 0.5);
-    expect(s.events.length).toBe(0);
+    expect(money()).toBe(0);
   });
 
   it('same seed and commands give the same game', () => {

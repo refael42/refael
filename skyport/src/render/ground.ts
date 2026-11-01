@@ -1,5 +1,5 @@
 /** Helpers to paint the static ground into a recorded SkPicture. */
-import { PaintStyle, Skia, type SkCanvas, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
+import { PaintStyle, Skia, type SkCanvas, type SkImage, type SkPaint, type SkPicture } from '@shopify/react-native-skia';
 
 import { isoX, isoY } from './iso';
 
@@ -56,4 +56,48 @@ export function recordPicture(x0: number, y0: number, w: number, h: number, draw
   const c = rec.beginRecording(Skia.XYWHRect(x0, y0, w, h));
   draw(c);
   return rec.finishRecordingAsPicture();
+}
+
+/** A raster piece of the static ground, in world-screen px. */
+export interface GroundTile {
+  image: SkImage;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Bakes a recorded picture into image tiles once at load. Drawing a few
+ * images per frame is much cheaper than replaying thousands of paths.
+ * `scale` > 1 keeps the ground sharp when zoomed in (costs memory).
+ */
+export function rasterizeGround(
+  picture: SkPicture,
+  x0: number,
+  y0: number,
+  w: number,
+  h: number,
+  tile = 512,
+  scale = 1,
+  keep: (tx: number, ty: number, size: number) => boolean = () => true,
+): GroundTile[] {
+  const out: GroundTile[] = [];
+  const px = Math.round(tile * scale);
+  for (let ty = y0; ty < y0 + h; ty += tile) {
+    for (let tx = x0; tx < x0 + w; tx += tile) {
+      if (!keep(tx, ty, tile)) continue;
+      const surf = Skia.Surface.Make(px, px);
+      if (!surf) continue;
+      const c = surf.getCanvas();
+      c.clear(Skia.Color('transparent'));
+      c.scale(scale, scale);
+      c.translate(-tx, -ty);
+      c.drawPicture(picture);
+      surf.flush();
+      const snap = surf.makeImageSnapshot();
+      out.push({ image: snap.makeNonTextureImage() ?? snap, x: tx, y: ty, w: tile, h: tile });
+    }
+  }
+  return out;
 }

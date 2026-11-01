@@ -4,7 +4,7 @@
  */
 import { PaintStyle, Skia } from '@shopify/react-native-skia';
 
-import { AIRCRAFT } from '../data/aircraft';
+import { planeArt } from '../data/aircraft';
 import { AIRLINES } from '../data/airlines';
 import { ATLAS_SCALE, AtlasBuilder, type Atlas } from './atlas';
 import { drawGlyph, GLYPH_CHARS } from './art/glyphs';
@@ -55,16 +55,21 @@ export interface SpriteSet {
   puff: number;
   sparkle: number;
   blob: number;
+  ring: number;
 }
 
-function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: number, silhouette?: string): number {
+function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: number, silhouette?: string, modelScale = 1): number {
   const heading = (dir / DIRS) * Math.PI * 2;
   const model = parts(dir);
-  const m = measureStack(model, heading, ATLAS_SCALE);
+  const sc = ATLAS_SCALE * modelScale;
+  const m = measureStack(model, heading, sc);
   return b.add(m.x0 - 4, m.y0 - 4, m.x1 + 4, m.y1 + 4, (c, ox, oy) =>
-    drawStack(c, model, heading, ox, oy, { scale: ATLAS_SCALE, silhouette, outlineWidth: silhouette ? 0 : undefined }),
+    drawStack(c, model, heading, ox, oy, { scale: sc, silhouette, outlineWidth: silhouette ? 0 : 2.6 }),
   );
 }
+
+/** Vehicles are drawn a bit larger than life, like the planes. */
+export const VEHICLE_SCALE = 1.3;
 
 export function buildSprites(content: Content): SpriteSet {
   const b = new AtlasBuilder();
@@ -76,7 +81,7 @@ export function buildSprites(content: Content): SpriteSet {
   for (const [al, ac] of combos) {
     const first = b.size;
     for (let d = 0; d < DIRS; d++) {
-      stackSprite(b, (dir) => buildPlane(AIRCRAFT[ac].art, AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d);
+      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d);
     }
     planeBase.push(first);
   }
@@ -85,7 +90,7 @@ export function buildSprites(content: Content): SpriteSet {
     if (shadowBase.has(ac)) continue;
     const first = b.size;
     for (let d = 0; d < DIRS; d++) {
-      stackSprite(b, (dir) => buildPlane(AIRCRAFT[ac].art, AIRLINES[0].livery, (dir / DIRS) * Math.PI * 2), d, '#000000');
+      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[0].livery, (dir / DIRS) * Math.PI * 2), d, '#000000');
     }
     shadowBase.set(ac, first);
   }
@@ -109,9 +114,9 @@ export function buildSprites(content: Content): SpriteSet {
   const vehicleShadowBase: number[] = [];
   for (const kind of VEHICLE_KINDS) {
     vehicleBase.push(b.size);
-    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d);
+    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d, undefined, VEHICLE_SCALE);
     vehicleShadowBase.push(b.size);
-    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d, '#000000');
+    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d, '#000000', VEHICLE_SCALE);
   }
 
   // static objects (anchor = object origin on the ground)
@@ -194,6 +199,18 @@ export function buildSprites(content: Content): SpriteSet {
     c.drawOval(Skia.XYWHRect(ox - 15 * S, oy - 7 * S, 30 * S, 14 * S), p);
   });
 
+  const ring = b.add(-40 * S, -22 * S, 40 * S, 22 * S, (c, ox, oy) => {
+    const p = Skia.Paint();
+    p.setAntiAlias(true);
+    p.setStyle(PaintStyle.Stroke);
+    p.setStrokeWidth(6 * S);
+    p.setColor(Skia.Color('rgba(31,36,51,0.9)'));
+    c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
+    p.setStrokeWidth(3 * S);
+    p.setColor(Skia.Color('#ffffff'));
+    c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
+  });
+
   const atlas = b.build();
   const glyphIndex = new Map<string, number>();
   GLYPH_CHARS.forEach((ch, i) => glyphIndex.set(ch, i));
@@ -220,6 +237,7 @@ export function buildSprites(content: Content): SpriteSet {
     puff,
     sparkle,
     blob,
+    ring,
   };
 }
 

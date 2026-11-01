@@ -19,7 +19,9 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | # | Status | Notes |
 |---|---|---|
 | M0 Infrastructure | done | see below |
-| M1 Dirt strip | next | |
+| M1 Dirt strip | done | see below |
+| Modern restyle | in progress | requested by the owner |
+| M2 First staff | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -37,7 +39,26 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Browser check: `scripts/e2e.mjs` exports nothing itself; it serves `dist/`, opens Chromium,
   fakes `Date.now` with `addInitScript` (never `page.clock`), screenshots he+en, fails on console errors.
 
+### M1 — the dirt strip (done)
+- Tier 1 layout (`src/data/tiers.ts`): dirt runway, one stand, hut, fuel pump, windsock, road, fence.
+- Flight state machine (`src/sim/game/flights.ts`): inbound → holding → final → landing → rollout →
+  taxiIn → deboarding → turnaround → boarding → doorsClosed → taxiOut → holdShort → lineUp → takeoff,
+  plus diverted. Runway is exclusive (landings first); planes circle with draining patience and divert.
+- Player taps (one finger): clear to land, send fuel truck, start boarding, clear for takeoff.
+  Off-screen requests show a marker at the screen edge; tapping it acts and pans to the plane.
+- Passengers walk out of the hut to a waiting area, board, and arriving ones walk into the hut.
+- Fuel truck drives over, fuels (no boarding before fuel), drives back; requests queue.
+- Pay at liftoff = (landing fee + parking + passenger fee) × mood (0.7–1.3) × punctuality (1.15 / 0.85).
+  Rating = moving average of mood. Fast service pays ~1.8× slow service per flight.
+- HUD (coins, diamonds, rating, day/time), flight card, toasts, settings (language, FPS, art test).
+- Ground is recorded once and baked into image tiles (8 → 38 FPS in software rendering).
+- Tests: full lifecycle order, runway exclusivity, determinism, diversion, turnaround dependencies,
+  fast-vs-slow economics, 2-hour soak. Browser test taps the plane through a full flight.
+- Balance (`npm run balance -- --seed 1`): ~54 coins/min, ~39 per flight, 100% on time with a 1.5 s bot.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery`.
+- Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it
   with `WithSkiaWeb` before importing any module that touches Skia.
