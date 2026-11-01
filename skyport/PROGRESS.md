@@ -20,7 +20,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 |---|---|---|
 | M0 Infrastructure | done | see below |
 | M1 Dirt strip | done | see below |
-| Modern restyle | in progress | requested by the owner |
+| Modern restyle | done | requested by the owner, see below |
 | M2 First staff | next | |
 
 ### M0 — infrastructure (done)
@@ -55,6 +55,15 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Tests: full lifecycle order, runway exclusivity, determinism, diversion, turnaround dependencies,
   fast-vs-slow economics, 2-hour soak. Browser test taps the plane through a full flight.
 - Balance (`npm run balance -- --seed 1`): ~54 coins/min, ~39 per flight, 100% on time with a 1.5 s bot.
+
+### Modern restyle (done, owner request)
+- Art: hue-matched thin outlines instead of black line art, flat icons, colored action pins
+  (green land, amber fuel, blue boarding, indigo takeoff), low-poly trees, smooth ground with soft
+  blurred patches and mowing stripes (no checkerboard), clean runway with edge lights.
+- UI: light "glass" theme (frosted white capsules, soft shadows, 24 px radius), floating flight card
+  with a route line and colored action button, iOS-style switch and segmented language control,
+  dark loading screen with glow.
+- This replaces the spec's "dark outlines" style; the rest of section 17 still applies.
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).

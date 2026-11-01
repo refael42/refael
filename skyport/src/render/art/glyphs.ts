@@ -57,10 +57,17 @@ export function drawGlyph(canvas: SkCanvas, ch: string, x: number, y: number, un
     return b.build();
   };
   const path = build();
+  // soft drop shadow, slim dark rim, then the fill
+  p.setColor(Skia.Color('rgba(15,23,42,0.35)'));
+  p.setStrokeWidth(unit * 3.6);
+  canvas.save();
+  canvas.translate(0, unit * 0.9);
+  canvas.drawPath(path, p);
+  canvas.restore();
   p.setColor(Skia.Color(OUTLINE));
-  p.setStrokeWidth(unit * 4.2);
+  p.setStrokeWidth(unit * 3.4);
   canvas.drawPath(path, p);
   p.setColor(Skia.Color(color));
-  p.setStrokeWidth(unit * 2.2);
+  p.setStrokeWidth(unit * 2.1);
   canvas.drawPath(path, p);
 }

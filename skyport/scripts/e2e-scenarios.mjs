@@ -3,7 +3,7 @@ export default [
   { name: 'game-busy-phone', viewport: { width: 390, height: 844 }, query: '/?seed=7&warp=95&auto=1&select=1', wait: 3000, touch: true },
   { name: 'game-busy-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=3&warp=140&auto=1', wait: 3000, touch: true },
   { name: 'game-small-landscape', viewport: { width: 667, height: 375 }, query: '/?seed=5&warp=60&auto=1&select=1', wait: 2500, touch: true },
-  { name: 'game-request-phone', viewport: { width: 390, height: 844 }, query: '/?seed=11&warp=8', wait: 1500, touch: true, langs: ['he'] },
+  { name: 'game-request-phone', viewport: { width: 390, height: 844 }, query: '/?seed=11&warp=14', wait: 1500, touch: true, langs: ['he', 'en'] },
   {
     // Taps the plane's bubble (or its edge marker) for every request until one flight has paid.
     name: 'tap-flow-phone',
@@ -40,6 +40,17 @@ export default [
       const st = await page.evaluate(() => window.__skyport.stats());
       if (st.served < 1) throw new Error(`no flight served after ${taps} taps: ${JSON.stringify(st)}`);
       console.log(`     tap flow: ${taps} taps, served ${st.served}, money ${st.money}`);
+    },
+  },
+  {
+    name: 'settings-phone',
+    viewport: { width: 390, height: 844 },
+    query: '/?seed=2',
+    wait: 1500,
+    touch: true,
+    actions: async (page) => {
+      await page.getByRole('button', { name: /Settings|הגדרות/ }).first().click();
+      await page.waitForTimeout(500);
     },
   },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },

@@ -7,7 +7,7 @@
 import { PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanvas, type SkPaint } from '@shopify/react-native-skia';
 
 import { HALF_H, HALF_W, Z_PX } from '../iso';
-import { OUTLINE } from './color';
+import { edge } from './color';
 
 export interface StackPart {
   /** Anchor in model space, used for painter ordering between parts. */
@@ -89,9 +89,8 @@ export function drawStack(
   order.sort((a, b) => a.d - b.d || a.i - b.i);
 
   const step = 1 / (Z_PX * sc); // one atlas pixel of height
-  const ow = opts.outlineWidth ?? 2.6;
+  const ow = opts.outlineWidth ?? 1.7;
   s.setStrokeWidth(ow);
-  s.setColor(Skia.Color(opts.outlineColor ?? OUTLINE));
 
   const sectionPath = (sec: number[], h: number) => {
     const b = Skia.PathBuilder.Make();
@@ -129,7 +128,9 @@ export function drawStack(
       paths.push({ path: sectionPath(sec, hs[k]), color: p.color(hs[k], n === 0 ? 1 : k / n) });
     }
     const alpha = p.alpha ?? 1;
-    if (p.outline !== false) {
+    if (p.outline !== false && paths.length > 0) {
+      // hue-matched edge from the part's middle color
+      s.setColor(Skia.Color(opts.outlineColor ?? edge(paths[Math.floor(paths.length / 2)].color)));
       s.setAlphaf(alpha);
       for (const it of paths) canvas.drawPath(it.path, s);
       s.setAlphaf(1);

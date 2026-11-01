@@ -10,10 +10,10 @@ import { dirIndex, type SpriteSet } from './sprites';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
-  [WANT.clearLanding]: 'land',
-  [WANT.fuel]: 'fuel',
-  [WANT.board]: 'pax',
-  [WANT.clearTakeoff]: 'takeoff',
+  [WANT.clearLanding]: 'actLand',
+  [WANT.fuel]: 'actFuel',
+  [WANT.board]: 'actBoard',
+  [WANT.clearTakeoff]: 'actTakeoff',
 };
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
@@ -128,8 +128,7 @@ export function drawGame(
     const wy = cam.y + (iy - H / 2) / zoom;
     const pulse = 1 + Math.sin(o.time * 6 + f.id) * 0.07;
     const icon = WANT_ICON[f.want];
-    w.over(sp.icon('bubble'), wx, wy, 1.3 * inv * pulse);
-    if (icon) w.over(sp.icon(icon), wx, wy - 3 * inv, 0.85 * inv * pulse);
+    if (icon) w.over(sp.icon(icon), wx, wy, 1.5 * inv * pulse);
   }
 }
 
@@ -166,11 +165,10 @@ function drawFlight(
     const icon = WANT_ICON[f.want];
     const pulse = 1 + Math.sin(o.time * 6 + f.id) * 0.07;
     const k = Math.max(1, inv * 0.75) * pulse;
-    w.over(sp.icon('bubble'), b.x, b.y, 1.25 * k);
-    if (icon) w.over(sp.icon(icon), b.x, b.y - 3 * k, 0.82 * k);
+    if (icon) w.over(sp.icon(icon), b.x, b.y - 10 * k, 1.45 * k);
   }
   // progress bars over the plane
-  const barY = b.y + (f.want !== WANT.none ? 28 * Math.max(1, inv * 0.75) : 14 * inv);
+  const barY = b.y + (f.want !== WANT.none ? 16 * Math.max(1, inv * 0.75) : 14 * inv);
   if (f.phase === 'deboarding' && f.paxIn > 0) w.bar(b.x, barY, 44, f.deboarded / f.paxIn, 0x3d8bfd);
   if (f.fuelState === FUEL.fueling) w.bar(b.x, barY + 8 * inv, 44, f.fuelNeed > 0 ? f.fuel / f.fuelNeed : 1, 0xff9f1c);
   if (f.phase === 'boarding' && f.paxOut > 0) w.bar(b.x, barY, 44, f.boarded / f.paxOut, 0x3fcf6e);

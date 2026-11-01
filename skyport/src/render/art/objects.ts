@@ -6,7 +6,7 @@
 import { PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanvas, type SkPaint } from '@shopify/react-native-skia';
 
 import { HALF_H, HALF_W, Z_PX } from '../iso';
-import { OUTLINE, shade } from './color';
+import { edge, shade } from './color';
 
 let fp: SkPaint | null = null;
 let sp: SkPaint | null = null;
@@ -43,7 +43,7 @@ export class IsoPen {
   }
 
   /** Filled polygon from world points [x, y, z, ...] with optional outline. */
-  poly(pts: number[], color: string, outline = true, ow = 2.2, alpha = 1): void {
+  poly(pts: number[], color: string, outline = true, ow = 1.3, alpha = 1): void {
     const { f, s } = paints();
     const b = Skia.PathBuilder.Make();
     for (let i = 0; i < pts.length; i += 3) {
@@ -55,7 +55,7 @@ export class IsoPen {
     b.close();
     const path = b.build();
     if (outline) {
-      s.setColor(Skia.Color(OUTLINE));
+      s.setColor(Skia.Color(edge(color, -0.32)));
       s.setStrokeWidth(ow * (this.sc / 2));
       s.setAlphaf(alpha);
       this.canvas.drawPath(path, s);
@@ -99,8 +99,8 @@ export class IsoPen {
     const cx = this.X(x, y);
     const cy = this.Y(x, y, z);
     if (outline) {
-      f.setColor(Skia.Color(OUTLINE));
-      this.canvas.drawCircle(cx, cy, r * this.sc + 1.2 * (this.sc / 2), f);
+      f.setColor(Skia.Color(edge(color, -0.3)));
+      this.canvas.drawCircle(cx, cy, r * this.sc + 0.7 * (this.sc / 2), f);
     }
     f.setColor(Skia.Color(color));
     this.canvas.drawCircle(cx, cy, r * this.sc, f);
@@ -108,7 +108,7 @@ export class IsoPen {
 
   shadow(x: number, y: number, rx: number, ry: number, alpha = 0.22): void {
     const { f } = paints();
-    f.setColor(Skia.Color(`rgba(15,35,20,${alpha})`));
+    f.setColor(Skia.Color(`rgba(20,60,40,${alpha * 0.8})`));
     const cx = this.X(x, y);
     const cy = this.Y(x, y, 0);
     this.canvas.drawOval(Skia.XYWHRect(cx - rx * this.sc, cy - ry * this.sc, rx * 2 * this.sc, ry * 2 * this.sc), f);
@@ -160,8 +160,8 @@ export function drawFuelPump(p: IsoPen): void {
 /** Windsock. dir = index 0..7 (world heading the sock points to), frame 0..1. */
 export function drawWindsock(p: IsoPen, dir: number, frame: number): void {
   p.shadow(0, 0, 12, 5, 0.25);
-  p.line(0, 0, 0, 0, 0, 1.25, '#d8dce3', 2.2);
-  p.line(0, 0, 0, 0, 0, 1.25, OUTLINE, 0.6);
+  p.line(0, 0, 0, 0, 0, 1.25, '#8a94a6', 2.6);
+  p.line(0, 0, 0, 0, 0, 1.25, '#e8ecf2', 1.4);
   const a = (dir / 8) * Math.PI * 2;
   const wob = frame === 0 ? 0.02 : -0.02;
   const segs = 4;
@@ -191,38 +191,69 @@ export function drawWindsock(p: IsoPen, dir: number, frame: number): void {
 
 export type TreeKind = 'round' | 'roundDark' | 'pine' | 'bush' | 'birch';
 
+/** Low-poly foliage blob: a faceted polygon lit from the upper left. */
+function facetBlob(p: IsoPen, cx: number, cy: number, r: number, color: string, seed: number): void {
+  const n = 7;
+  const pts: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 - Math.PI / 2 + seed * 0.4;
+    const rr = r * (0.9 + ((i * 37 + seed * 11) % 7) / 40);
+    pts.push([cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.92]);
+  }
+  const { f } = paints();
+  const fillPoly = (ps: [number, number][], col: string) => {
+    const b = Skia.PathBuilder.Make();
+    ps.forEach(([x, y], i) => (i === 0 ? b.moveTo(x, y) : b.lineTo(x, y)));
+    b.close();
+    f.setColor(Skia.Color(col));
+    p.canvas.drawPath(b.build(), f);
+  };
+  fillPoly(pts, shade(color, -0.12));
+  // lit facets (upper-left half) and a bright top facet
+  const c: [number, number] = [cx - r * 0.12, cy - r * 0.1];
+  for (let i = 0; i < n; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % n];
+    const mx = (a[0] + b[0]) / 2 - cx;
+    const my = (a[1] + b[1]) / 2 - cy;
+    const light = -(mx * 0.7 + my * 0.75) / r; // -1 (dark, lower right) .. 1 (lit)
+    fillPoly([c, a, b], shade(color, light > 0 ? light * 0.28 : light * 0.18));
+  }
+}
+
 export function drawTree(p: IsoPen, kind: TreeKind, size: number): void {
   const s = size;
+  const k = p.sc;
+  const ox = p.ox;
+  const oy = p.oy;
   if (kind === 'bush') {
-    p.shadow(0, 0, 20 * s, 8 * s, 0.22);
-    p.circle(-0.12 * s, 0.05 * s, 0.14 * s, 9 * s, '#4f9d4a');
-    p.circle(0.12 * s, -0.04 * s, 0.16 * s, 10 * s, '#5aad52');
-    p.circle(0.0, 0.0, 0.24 * s, 9 * s, '#68bd5c');
-    p.circle(-0.03 * s, -0.03 * s, 0.3 * s, 3.5 * s, '#8fd67a', false);
+    p.shadow(0, 0, 18 * s, 7 * s, 0.24);
+    facetBlob(p, ox - 6 * s * k, oy - 7 * s * k, 8 * s * k, '#5fb35a', 1);
+    facetBlob(p, ox + 5 * s * k, oy - 8 * s * k, 9 * s * k, '#6cc062', 2);
     return;
   }
   if (kind === 'pine') {
-    p.shadow(0, 0, 16 * s, 7 * s, 0.24);
-    p.line(0, 0, 0, 0, 0, 0.3 * s, '#7a4a2a', 5 * s);
+    p.shadow(0, 0, 15 * s, 6 * s, 0.26);
+    p.line(0, 0, 0, 0, 0, 0.3 * s, '#8a5a3a', 4 * s);
     const tiers = [
-      { z: 0.22, w: 0.3, h: 0.55, c: '#2f7d4f' },
-      { z: 0.5, w: 0.24, h: 0.5, c: '#38905a' },
-      { z: 0.78, w: 0.17, h: 0.45, c: '#44a466' },
+      { z: 0.2, w: 0.3, h: 0.6, c: '#2f8f5b' },
+      { z: 0.52, w: 0.24, h: 0.52, c: '#38a167' },
+      { z: 0.82, w: 0.17, h: 0.46, c: '#44b374' },
     ];
     for (const t of tiers) {
       const z = t.z * s;
-      p.poly([-t.w * s, t.w * s, z, t.w * s, -t.w * s, z, 0, 0, z + t.h * s], t.c, true, 2.2);
-      p.poly([0.02 * s, 0.02 * s, z, t.w * s, -t.w * s, z, 0, 0, z + t.h * s], shade(t.c, -0.15), false);
+      // left (lit) and right (shaded) halves of a cone
+      p.poly([-t.w * s, t.w * s, z, 0, 0, z - 0.05 * s, 0, 0, z + t.h * s], shade(t.c, 0.12), false);
+      p.poly([0, 0, z - 0.05 * s, t.w * s, -t.w * s, z, 0, 0, z + t.h * s], shade(t.c, -0.16), false);
     }
     return;
   }
-  const leaf = kind === 'roundDark' ? '#3f8f4a' : kind === 'birch' ? '#8cc657' : '#5aad52';
-  p.shadow(0, 0, 22 * s, 9 * s, 0.24);
-  p.line(0, 0, 0, 0, 0, 0.45 * s, kind === 'birch' ? '#e8e2d6' : '#7a4a2a', 5 * s);
-  p.circle(-0.12 * s, 0.1 * s, 0.62 * s, 12 * s, shade(leaf, -0.12));
-  p.circle(0.14 * s, -0.08 * s, 0.66 * s, 12 * s, shade(leaf, -0.04));
-  p.circle(0, 0, 0.82 * s, 13 * s, leaf);
-  p.circle(-0.05 * s, -0.05 * s, 0.95 * s, 6 * s, shade(leaf, 0.3), false);
+  const leaf = kind === 'roundDark' ? '#3f9a55' : kind === 'birch' ? '#9bd065' : '#5fb35a';
+  p.shadow(0, 0, 20 * s, 8 * s, 0.24);
+  p.line(0, 0, 0, 0, 0, 0.5 * s, kind === 'birch' ? '#ece6da' : '#8a5a3a', 4.5 * s);
+  const cy = oy - 0.95 * s * 32 * k;
+  const r = 15 * s * k / 2 * 1.9;
+  facetBlob(p, ox, cy, r, leaf, kind.length);
 }
 
 /** Small rock. */

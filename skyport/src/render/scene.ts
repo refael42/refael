@@ -301,7 +301,9 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
     const rgb = snap[p + 4];
     const h = 5 / zoom;
     const r = h / 2;
-    bp.setColor(Skia.Color('rgba(20,26,40,0.78)'));
+    bp.setColor(Skia.Color('rgba(15,23,42,0.22)'));
+    c.drawRRect(Skia.RRectXY(Skia.XYWHRect(x - w / 2 - 2 / zoom, y - 1 / zoom, w + 4 / zoom, h + 4 / zoom), r + 2, r + 2), bp);
+    bp.setColor(Skia.Color('rgba(255,255,255,0.95)'));
     c.drawRRect(Skia.RRectXY(Skia.XYWHRect(x - w / 2 - 1.5 / zoom, y - 1.5 / zoom, w + 3 / zoom, h + 3 / zoom), r + 1, r + 1), bp);
     if (prog > 0) {
       bp.setColor(Skia.Color(`rgb(${(rgb >> 16) & 255},${(rgb >> 8) & 255},${rgb & 255})`));

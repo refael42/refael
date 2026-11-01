@@ -33,6 +33,6 @@ export function FpsMeter() {
 }
 
 const styles = StyleSheet.create({
-  box: { backgroundColor: 'rgba(20,26,40,0.75)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  text: { color: '#c8f7c5', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  box: { backgroundColor: 'rgba(15,23,42,0.7)', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999 },
+  text: { color: '#a7f3d0', fontSize: 11, fontWeight: '700', fontVariant: ['tabular-nums'] },
 });

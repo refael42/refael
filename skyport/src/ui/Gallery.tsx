@@ -18,20 +18,20 @@ import { useSettings } from '../settings/store';
 import { createGame, DT, stepGame } from '../sim';
 import { FpsMeter } from './FpsMeter';
 import { Icon } from './Icon';
-import { C } from './theme';
+import { C, SHADOW_SM } from './theme';
 
 function buildGround() {
   return recordPicture(-1200, -200, 2400, 1400, (c) => {
     const g = new GroundPainter(c);
     for (let x = -2; x < 18; x++) {
       for (let y = -2; y < 16; y++) {
-        g.rect(x, y, x + 1, y + 1, (x + y) % 2 === 0 ? '#7cc36b' : '#76bd65');
+        g.rect(x, y, x + 1, y + 1, '#8fce78');
       }
     }
-    g.rect(3, 5, 14, 11, '#6b7385');
-    g.rect(3.1, 5.1, 13.9, 10.9, '#747c8f');
-    g.line(3.5, 8, 13.5, 8, '#ffd23f', 3);
-    g.rect(0, 2.6, 7, 3.4, '#c9a46a');
+    g.rect(3, 5, 14, 11, '#9aa4b1');
+    g.rect(3.1, 5.1, 13.9, 10.9, '#a7b0bb');
+    g.line(3.5, 8, 13.5, 8, '#fbbf24', 3);
+    g.rect(0, 2.6, 7, 3.4, '#d6b07a');
   });
 }
 
@@ -77,7 +77,7 @@ export function Gallery({ sprites, onBack }: Props) {
     cam.viewH = size.h;
     const w = writer;
     w.begin(cam.x, cam.y, cam.zoom);
-    w.sky = 0x6fb85f;
+    w.sky = 0x8fce78;
 
     // planes rotating in place
     const spots: [number, number][] = [
@@ -140,8 +140,7 @@ export function Gallery({ sprites, onBack }: Props) {
     const bx = isoX(5, 7.2);
     const by = isoY(5, 7.2, 1.3);
     const pulse = 1 + Math.sin(time * 6) * 0.06;
-    w.over(sprites.icon('bubble'), bx, by, pulse);
-    w.over(sprites.icon('land'), bx, by - 3, 0.7 * pulse);
+    w.over(sprites.icon('actLand'), bx, by, 1.4 * pulse);
     w.over(sprites.coin(Math.floor(time * 12)), isoX(8.2, 6.2), isoY(8.2, 6.2, 1.2) - ((time * 30) % 30), 1);
     overlayText(w, sprites, '+1.2K', isoX(11.6, 7.4), isoY(11.6, 7.4, 2.4), 1, 0);
     w.bar(isoX(6.4, 9.9), isoY(6.4, 9.9, 1.2), 46, (time * 0.25) % 1, 0xff9f1c);
@@ -199,13 +198,13 @@ export function Gallery({ sprites, onBack }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#6fb85f' },
+  root: { flex: 1, backgroundColor: '#8fce78' },
   canvasWrap: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
-  header: { position: 'absolute', top: 10, left: 10, right: 10, gap: 8, alignItems: 'center', backgroundColor: 'rgba(32,40,61,0.88)', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 2, borderColor: C.ink },
-  title: { color: C.text, fontSize: 18, fontWeight: '900' },
+  header: { position: 'absolute', top: 10, left: 10, right: 10, gap: 8, alignItems: 'center', backgroundColor: C.glass, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: C.glassEdge, ...SHADOW_SM },
+  title: { color: C.text, fontSize: 18, fontWeight: '800' },
   sub: { color: C.textDim, fontSize: 12, marginTop: 2 },
-  btn: { backgroundColor: C.blue, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 2, borderColor: C.ink },
+  btn: { backgroundColor: C.primary, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999 },
   btnText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-  icons: { position: 'absolute', bottom: 12, left: 10, right: 10, gap: 6, flexWrap: 'wrap', justifyContent: 'center', backgroundColor: 'rgba(32,40,61,0.8)', borderRadius: 12, padding: 6 },
+  icons: { position: 'absolute', bottom: 12, left: 10, right: 10, gap: 8, flexWrap: 'wrap', justifyContent: 'center', backgroundColor: C.glass, borderRadius: 20, padding: 10, ...SHADOW_SM },
   fps: { position: 'absolute', top: 96, left: 10 },
 });

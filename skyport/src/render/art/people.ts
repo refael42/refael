@@ -5,7 +5,7 @@
  */
 import { PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanvas, type SkPaint } from '@shopify/react-native-skia';
 
-import { OUTLINE, shade } from './color';
+import { edge, shade } from './color';
 
 export interface Outfit {
   id: string;
@@ -84,11 +84,10 @@ export function drawPerson(
   const ph = (frame / 4) * Math.PI * 2;
   const swing = walking ? Math.sin(ph) : 0;
   const bob = walking ? -Math.abs(Math.cos(ph)) * 0.6 : 0;
-  const ol = 1.1;
-  const outline = Skia.Color(OUTLINE);
+  const ol = 0.7;
 
   const line = (x0: number, y0: number, x1: number, y1: number, w: number, color: string) => {
-    s.setColor(outline);
+    s.setColor(Skia.Color(edge(color, -0.45)));
     s.setStrokeWidth(w + ol * 2);
     canvas.drawLine(x0, y0, x1, y1, s);
     s.setColor(Skia.Color(color));
@@ -96,21 +95,21 @@ export function drawPerson(
     canvas.drawLine(x0, y0, x1, y1, s);
   };
   const rrect = (x: number, y: number, w: number, h: number, r: number, color: string) => {
-    f.setColor(outline);
+    f.setColor(Skia.Color(edge(color, -0.45)));
     canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(x - ol, y - ol, w + ol * 2, h + ol * 2), r + ol, r + ol), f);
     f.setColor(Skia.Color(color));
     canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(x, y, w, h), r, r), f);
   };
   const circle = (x: number, y: number, r: number, color: string) => {
-    f.setColor(outline);
+    f.setColor(Skia.Color(edge(color, -0.45)));
     canvas.drawCircle(x, y, r + ol, f);
     f.setColor(Skia.Color(color));
     canvas.drawCircle(x, y, r, f);
   };
 
   // soft ground shadow
-  f.setColor(Skia.Color('rgba(20,30,20,0.28)'));
-  canvas.drawOval(Skia.XYWHRect(-5, -1.6, 10, 3.2), f);
+  f.setColor(Skia.Color('rgba(20,45,30,0.2)'));
+  canvas.drawOval(Skia.XYWHRect(-4.6, -1.5, 9.2, 3), f);
 
   const hipY = -7 + bob;
   const bag = o.bag;

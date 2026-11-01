@@ -37,3 +37,8 @@ export function rgba(hex: string, a: number): string {
 }
 
 export const OUTLINE = '#1f2433';
+
+/** Modern line art: a darker tone of the fill instead of black. */
+export function edge(hex: string, k = -0.42): string {
+  return shade(hex.startsWith('#') ? hex : '#888888', k);
+}

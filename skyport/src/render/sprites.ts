@@ -2,7 +2,7 @@
  * Builds the sprite atlas for a set of content and exposes index lookups.
  * Everything is drawn in code: no image files are downloaded or bundled.
  */
-import { PaintStyle, Skia } from '@shopify/react-native-skia';
+import { BlurStyle, PaintStyle, Skia } from '@shopify/react-native-skia';
 
 import { planeArt } from '../data/aircraft';
 import { AIRLINES } from '../data/airlines';
@@ -204,9 +204,11 @@ export function buildSprites(content: Content): SpriteSet {
     p.setAntiAlias(true);
     p.setStyle(PaintStyle.Stroke);
     p.setStrokeWidth(6 * S);
-    p.setColor(Skia.Color('rgba(31,36,51,0.9)'));
+    p.setColor(Skia.Color('rgba(255,255,255,0.7)'));
+    p.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, 3 * S, true));
     c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
-    p.setStrokeWidth(3 * S);
+    p.setMaskFilter(null);
+    p.setStrokeWidth(2.2 * S);
     p.setColor(Skia.Color('#ffffff'));
     c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
   });

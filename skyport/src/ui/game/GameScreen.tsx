@@ -48,9 +48,9 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
     const c = new GameController(debug.seed ?? 20261101);
     c.speed = debug.speed;
     if (debug.warp > 0) {
-      // fast-forward for tests, letting the bot play
+      // fast-forward for tests (the bot plays only with auto=1)
       for (let i = 0; i < debug.warp * 30; i++) {
-        if (i % 3 === 0) for (const cmd of botCommands(c.state, { reaction: 1 })) c.send(cmd);
+        if (debug.auto && i % 3 === 0) for (const cmd of botCommands(c.state, { reaction: 1 })) c.send(cmd);
         c.tick(1000 / 30);
       }
       c.takeEvents();
@@ -195,7 +195,7 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
     updateCamera(cam, dtMs / 1000);
     fx.update(dtMs / 1000, cam);
     writer.begin(cam.x, cam.y, cam.zoom);
-    writer.sky = 0x86c06a;
+    writer.sky = 0x8fce78;
     drawGame(
       writer,
       ctrl.state,

@@ -3,7 +3,7 @@ import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import type { TKey } from '../../i18n';
 import { clockText, FUEL, WANT, type Flight } from '../../sim';
-import type { IconName } from '../../render/art/icons';
+import { ACTION_COLORS, type IconName } from '../../render/art/icons';
 
 export function flightCode(f: Flight): string {
   return `${AIRLINES[f.airline]?.code ?? '???'}${f.num}`;
@@ -13,11 +13,14 @@ export function cityKey(i: number): TKey {
   return `city.${CITIES[i]?.id ?? CITIES[0].id}` as TKey;
 }
 
-export const WANT_ACTION: Record<number, { key: TKey; icon: IconName; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' } | undefined> = {
-  [WANT.clearLanding]: { key: 'action.clearLanding', icon: 'land', cmd: 'clearLanding' },
-  [WANT.fuel]: { key: 'action.fuel', icon: 'fuel', cmd: 'sendFuel' },
-  [WANT.board]: { key: 'action.board', icon: 'pax', cmd: 'startBoarding' },
-  [WANT.clearTakeoff]: { key: 'action.clearTakeoff', icon: 'takeoff', cmd: 'clearTakeoff' },
+export const WANT_ACTION: Record<
+  number,
+  { key: TKey; icon: IconName; color: string; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' } | undefined
+> = {
+  [WANT.clearLanding]: { key: 'action.clearLanding', icon: 'land', color: ACTION_COLORS.land, cmd: 'clearLanding' },
+  [WANT.fuel]: { key: 'action.fuel', icon: 'fuel', color: ACTION_COLORS.fuel, cmd: 'sendFuel' },
+  [WANT.board]: { key: 'action.board', icon: 'pax', color: ACTION_COLORS.board, cmd: 'startBoarding' },
+  [WANT.clearTakeoff]: { key: 'action.clearTakeoff', icon: 'takeoff', color: ACTION_COLORS.takeoff, cmd: 'clearTakeoff' },
 };
 
 /** Flat, comparable view of a flight for the card (polled twice a second). */

@@ -2,7 +2,7 @@
  * Static world for a tier: the ground picture (recorded once) plus the list
  * of static sprites (buildings, trees) that need depth sorting with movers.
  */
-import { FilterMode, MipmapMode, PaintStyle, Skia, TileMode, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
+import { BlurStyle, ClipOp, Skia, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
 
 import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
@@ -31,43 +31,24 @@ export interface World {
   windsock: { x: number; y: number };
 }
 
-const GRASS_A = '#7fc46c';
-const GRASS_B = '#78bd65';
-const FARM_A = '#8cc76f';
-const FARM_B = '#86c06a';
-const DIRT = '#c9a06a';
-const DIRT_EDGE = '#d9b885';
-const DIRT_DARK = '#b38655';
-const GRAVEL = '#cdbf9c';
+export const GROUND_BASE = '#8fce78';
+const PATCH_DARK = '#7fc069';
+const PATCH_LIGHT = '#a2dc8c';
+const STRIPE_A = '#97d580';
+const STRIPE_B = '#8ac873';
+const DIRT = '#d6b07a';
+const DIRT_EDGE = '#c49a62';
+const DIRT_LIGHT = '#e2c08e';
+const GRAVEL = '#ddd2b6';
 
-/** Iso checkerboard as a repeating image shader (one draw for the whole ground). */
-function checkerShader(a: string, b: string) {
-  const W = HALF_W * 2;
-  const H = HALF_H * 2;
-  const surf = Skia.Surface.Make(W * 2, H * 2);
-  if (!surf) return null;
-  const c = surf.getCanvas();
-  c.scale(2, 2);
-  const p = Skia.Paint();
-  p.setAntiAlias(false);
-  p.setColor(Skia.Color(b));
-  c.drawRect(Skia.XYWHRect(0, 0, W, H), p);
-  p.setAntiAlias(true);
-  p.setColor(Skia.Color(a));
-  const pb = Skia.PathBuilder.Make();
-  pb.moveTo(W / 2, 0);
-  pb.lineTo(W, H / 2);
-  pb.lineTo(W / 2, H);
-  pb.lineTo(0, H / 2);
-  pb.close();
-  c.drawPath(pb.build(), p);
-  surf.flush();
-  const img = surf.makeImageSnapshot().makeNonTextureImage() ?? surf.makeImageSnapshot();
-  // tile (0,0) diamond is centered at (0, H/2) in world-screen space
-  const m = Skia.Matrix();
-  m.translate(-W / 2, 0);
-  m.scale(0.5, 0.5);
-  return img.makeShaderOptions(TileMode.Repeat, TileMode.Repeat, FilterMode.Linear, MipmapMode.None, m);
+function diamondPath(x0: number, y0: number, x1: number, y1: number) {
+  const b = Skia.PathBuilder.Make();
+  b.moveTo(isoX(x0, y0), isoY(x0, y0));
+  b.lineTo(isoX(x1, y0), isoY(x1, y0));
+  b.lineTo(isoX(x1, y1), isoY(x1, y1));
+  b.lineTo(isoX(x0, y1), isoY(x0, y1));
+  b.close();
+  return b.build();
 }
 
 /** A ribbon along a world polyline (flat [x, y, z...]) with constant world width. */
@@ -99,21 +80,22 @@ function ribbon(g: GroundPainter, path: number[], width: number, color: string):
 
 function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: number, kind: number): void {
   const colors = [
-    ['#d9c36a', '#c9b05a'],
-    ['#9ccc65', '#8bbd57'],
-    ['#b8865a', '#a77a50'],
-    ['#e3d27f', '#d4c070'],
+    ['#e6cf7a', '#d9bf68'],
+    ['#a9d77a', '#9bcb6c'],
+    ['#c9a27a', '#bb946c'],
+    ['#efdc93', '#e3cd80'],
   ][kind % 4];
+  g.rect(x0 - 0.12, y0 - 0.12, x1 + 0.12, y1 + 0.12, 'rgba(90,140,70,0.18)');
   g.rect(x0, y0, x1, y1, colors[0]);
-  const rows = Math.floor((y1 - y0) / 0.35);
+  const rows = Math.floor((x1 - x0) / 0.45);
   const b = Skia.PathBuilder.Make();
   for (let i = 1; i < rows; i++) {
-    const y = y0 + i * 0.35;
-    b.moveTo(isoX(x0 + 0.1, y), isoY(x0 + 0.1, y));
-    b.lineTo(isoX(x1 - 0.1, y), isoY(x1 - 0.1, y));
+    const x = x0 + i * 0.45;
+    b.moveTo(isoX(x, y0 + 0.15), isoY(x, y0 + 0.15));
+    b.lineTo(isoX(x, y1 - 0.15), isoY(x, y1 - 0.15));
   }
   g.s.setColor(Skia.Color(colors[1]));
-  g.s.setStrokeWidth(2.2);
+  g.s.setStrokeWidth(3);
   g.c.drawPath(b.build(), g.s);
 }
 
@@ -129,21 +111,24 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
 
   const picture = recordPicture(minX, minY, maxX - minX, maxY - minY, (c: SkCanvas) => {
     const g = new GroundPainter(c);
-    // whole map: farmland checker
-    const farm = checkerShader(FARM_A, FARM_B);
-    const base = Skia.Paint();
-    base.setStyle(PaintStyle.Fill);
-    if (farm) base.setShader(farm);
-    else base.setColor(Skia.Color(FARM_A));
-    const world = Skia.PathBuilder.Make();
-    world.moveTo(isoX(0, 0), isoY(0, 0));
-    world.lineTo(isoX(W, 0), isoY(W, 0));
-    world.lineTo(isoX(W, H), isoY(W, H));
-    world.lineTo(isoX(0, H), isoY(0, H));
-    world.close();
-    c.drawPath(world.build(), base);
+    const blur = (r: number) => Skia.MaskFilter.MakeBlur(BlurStyle.Normal, r, true);
 
-    // farm fields around the airfield
+    // base grass and soft color patches (baked once, so blur is free at runtime)
+    g.f.setColor(Skia.Color(GROUND_BASE));
+    c.drawPath(diamondPath(-2, -2, W + 2, H + 2), g.f);
+    g.f.setMaskFilter(blur(18));
+    for (let i = 0; i < 90; i++) {
+      const x = hash01(7000 + i) * W;
+      const y = hash01(7100 + i) * H;
+      const r = 1.5 + hash01(7200 + i) * 3.5;
+      g.f.setColor(Skia.Color(hash01(7300 + i) < 0.5 ? PATCH_DARK : PATCH_LIGHT));
+      g.f.setAlphaf(0.55);
+      c.drawOval(Skia.XYWHRect(isoX(x, y) - r * 32, isoY(x, y) - r * 16, r * 64, r * 32), g.f);
+    }
+    g.f.setAlphaf(1);
+    g.f.setMaskFilter(null);
+
+    // farm fields and a pond
     const fields: [number, number, number, number][] = [
       [2, 30, 9, 36],
       [2, 37, 8, 43],
@@ -157,152 +142,124 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet): World {
       [12, 4, 18, 11],
     ];
     fields.forEach((f, i) => drawField(g, f[0], f[1], f[2], f[3], i));
-    // pond
-    g.ellipse(39.5, 31.5, 3.2, 2.2, '#5aa9d6');
-    g.ellipse(39.4, 31.4, 2.7, 1.7, '#6fc0ea');
-    g.ellipse(38.6, 30.8, 0.9, 0.4, '#a6dcf7');
+    g.f.setMaskFilter(blur(6));
+    g.ellipse(39.5, 31.6, 3.5, 2.5, 'rgba(60,120,80,0.35)');
+    g.f.setMaskFilter(null);
+    g.ellipse(39.5, 31.5, 3.2, 2.2, '#4fb3d9');
+    g.ellipse(39.3, 31.3, 2.6, 1.7, '#6cc8ea');
+    g.ellipse(38.5, 30.8, 1.0, 0.45, '#b6e8fa');
 
-    // the airfield: mown grass checker
-    const field = checkerShader(GRASS_A, GRASS_B);
-    const fp = Skia.Paint();
-    fp.setStyle(PaintStyle.Fill);
-    if (field) fp.setShader(field);
-    else fp.setColor(Skia.Color(GRASS_A));
-    const fb = Skia.PathBuilder.Make();
-    fb.moveTo(isoX(F.x0, F.y0), isoY(F.x0, F.y0));
-    fb.lineTo(isoX(F.x1, F.y0), isoY(F.x1, F.y0));
-    fb.lineTo(isoX(F.x1, F.y1), isoY(F.x1, F.y1));
-    fb.lineTo(isoX(F.x0, F.y1), isoY(F.x0, F.y1));
-    fb.close();
-    c.drawPath(fb.build(), fp);
+    // the airfield: mowing stripes along the runway
+    c.save();
+    c.clipPath(diamondPath(F.x0, F.y0, F.x1, F.y1), ClipOp.Intersect, true);
+    g.f.setColor(Skia.Color(STRIPE_A));
+    c.drawPath(diamondPath(F.x0, F.y0, F.x1, F.y1), g.f);
+    for (let y = F.y0; y < F.y1; y += 2.4) g.rect(F.x0, y, F.x1, Math.min(F.y1, y + 1.2), STRIPE_B);
+    c.restore();
 
-    // grass tufts and flowers (deterministic), batched by color
-    const dots = ['#ffffff', '#ffd94a', '#ff8fa3'].map(() => Skia.PathBuilder.Make());
-    const tufts = [Skia.PathBuilder.Make(), Skia.PathBuilder.Make()];
-    for (let i = 0; i < 520; i++) {
+    // a few flowers outside the field
+    const dotColors = ['#ffffff', '#fde047', '#f9a8d4'];
+    const dots = dotColors.map(() => Skia.PathBuilder.Make());
+    for (let i = 0; i < 260; i++) {
       const x = hash01(i * 3 + 1) * W;
       const y = hash01(i * 3 + 2) * H;
+      if (x > F.x0 && x < F.x1 && y > F.y0 && y < F.y1) continue;
       const k = hash01(i * 3 + 3);
-      const inField = x > F.x0 && x < F.x1 && y > F.y0 && y < F.y1;
-      if (inField && Math.abs(y - L.runway.y) < 1.2) continue;
-      const sx = isoX(x, y);
-      const sy = isoY(x, y);
-      if (k < 0.12) {
-        dots[k < 0.04 ? 0 : k < 0.08 ? 1 : 2].addCircle(sx, sy, 1.6);
-      } else {
-        const tb = tufts[k < 0.55 ? 0 : 1];
-        tb.moveTo(sx, sy);
-        tb.lineTo(sx - 2, sy - 4);
-        tb.moveTo(sx, sy);
-        tb.lineTo(sx + 1.5, sy - 5);
-      }
+      dots[k < 0.4 ? 0 : k < 0.75 ? 1 : 2].addCircle(isoX(x, y), isoY(x, y), 1.7);
     }
-    ['#ffffff', '#ffd94a', '#ff8fa3'].forEach((col, i) => {
+    dotColors.forEach((col, i) => {
       g.f.setColor(Skia.Color(col));
       c.drawPath(dots[i].build(), g.f);
     });
-    g.s.setStrokeWidth(1.4);
-    ['#5fa54f', '#9ad57e'].forEach((col, i) => {
-      g.s.setColor(Skia.Color(col));
-      c.drawPath(tufts[i].build(), g.s);
-    });
 
-    // road and parking
+    // road and parking (asphalt with a soft shadow)
     const road: number[] = [];
     for (const p of L.road) road.push(p[0], p[1], 0);
-    ribbon(g, road, 1.15, '#8d8a85');
-    ribbon(g, road, 0.95, '#a3a09a');
+    g.f.setMaskFilter(blur(4));
+    ribbon(g, road, 1.25, 'rgba(40,70,50,0.25)');
+    g.f.setMaskFilter(null);
+    ribbon(g, road, 1.05, '#a7b0bb');
     const P = L.parking;
-    g.rect(P.x0 - 0.08, P.y0 - 0.08, P.x1 + 0.08, P.y1 + 0.08, '#8d8a85');
-    g.rect(P.x0, P.y0, P.x1, P.y1, '#a3a09a');
-    for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) g.line(x, P.y0 + 0.1, x, P.y0 + 0.9, '#ecebe6', 1.6);
+    g.f.setMaskFilter(blur(4));
+    g.rect(P.x0 - 0.1, P.y0 - 0.1, P.x1 + 0.1, P.y1 + 0.1, 'rgba(40,70,50,0.25)');
+    g.f.setMaskFilter(null);
+    g.rect(P.x0, P.y0, P.x1, P.y1, '#a7b0bb');
+    for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
 
-    // apron gravel in front of the hut
+    // apron: light gravel with a soft edge
     const st = L.stands[0];
-    g.poly([L.hut[0] - 0.6, L.hut[1] + 1.3, st.pos[0] + 2.2, L.hut[1] + 1.3, st.pos[0] + 2.6, st.pos[1] + 1.6, L.hut[0] - 0.3, st.pos[1] + 1.4], GRAVEL);
+    const apron = [L.hut[0] - 0.6, L.hut[1] + 1.3, st.pos[0] + 2.2, L.hut[1] + 1.3, st.pos[0] + 2.6, st.pos[1] + 1.6, L.hut[0] - 0.3, st.pos[1] + 1.4];
+    g.f.setMaskFilter(blur(5));
+    g.poly(apron, 'rgba(120,100,60,0.35)');
+    g.f.setMaskFilter(null);
+    g.poly(apron, GRAVEL);
 
-    // taxi tracks (dirt)
-    for (const path of [routeArrival(L, 0), routeDeparture(L, 0), routeLineUp(L)]) {
-      ribbon(g, path, 0.85, DIRT_EDGE);
-      ribbon(g, path, 0.62, DIRT);
-    }
-    // runway: dirt strip with lighter shoulders, worn center and tire marks
+    // taxi tracks and the runway: smooth dirt with a darker rim and a lighter worn center
+    const tracks = [routeArrival(L, 0), routeDeparture(L, 0), routeLineUp(L)];
+    for (const path of tracks) ribbon(g, path, 0.86, DIRT_EDGE);
     const R = L.runway;
     const hw = R.width / 2;
-    g.rect(R.x0 - 0.4, R.y - hw - 0.18, R.x1 + 0.4, R.y + hw + 0.18, DIRT_EDGE);
-    g.rect(R.x0 - 0.2, R.y - hw, R.x1 + 0.2, R.y + hw, DIRT);
-    g.rect(R.x0, R.y - 0.18, R.x1, R.y + 0.18, DIRT_DARK);
-    const marks = Skia.PathBuilder.Make();
-    for (let i = 0; i < 18; i++) {
-      const x = R.x0 + 1 + hash01(900 + i) * (R.x1 - R.x0 - 3);
-      const dy = (hash01(950 + i) - 0.5) * 0.6;
-      const x2 = x + 1.2 + hash01(990 + i) * 1.5;
-      marks.moveTo(isoX(x, R.y + dy), isoY(x, R.y + dy));
-      marks.lineTo(isoX(x2, R.y + dy * 0.8), isoY(x2, R.y + dy * 0.8));
-    }
-    g.s.setColor(Skia.Color('#9c7448'));
-    g.s.setStrokeWidth(1.6);
-    c.drawPath(marks.build(), g.s);
-    // white edge markers (painted tires)
-    const tireO = Skia.PathBuilder.Make();
-    const tireW = Skia.PathBuilder.Make();
+    g.rect(R.x0 - 0.3, R.y - hw - 0.14, R.x1 + 0.3, R.y + hw + 0.14, DIRT_EDGE);
+    for (const path of tracks) ribbon(g, path, 0.7, DIRT);
+    g.rect(R.x0 - 0.18, R.y - hw, R.x1 + 0.18, R.y + hw, DIRT);
+    g.f.setMaskFilter(blur(5));
+    g.rect(R.x0 + 0.2, R.y - 0.22, R.x1 - 0.2, R.y + 0.22, DIRT_LIGHT);
+    g.f.setMaskFilter(null);
+    for (let k = -2; k <= 2; k++) g.line(R.x0 + 0.3, R.y + k * 0.22, R.x0 + 1.0, R.y + k * 0.22, '#ffffff', 3.4);
+    for (let x = R.x0 + 1.8; x < R.x1 - 0.8; x += 1.4) g.line(x, R.y, x + 0.7, R.y, 'rgba(255,255,255,0.75)', 2.2);
+    // edge lights: small white dots with soft shadows
+    const lightsShadow = Skia.PathBuilder.Make();
+    const lights = Skia.PathBuilder.Make();
     for (let x = R.x0; x <= R.x1 + 0.01; x += 1.5) {
       for (const side of [-1, 1]) {
-        const sx = isoX(x, R.y + side * (hw + 0.1));
-        const sy = isoY(x, R.y + side * (hw + 0.1));
-        tireO.addOval(Skia.XYWHRect(sx - 4.5, sy - 3, 9, 6));
-        tireW.addOval(Skia.XYWHRect(sx - 3.2, sy - 2.6, 6.4, 4));
+        const sx = isoX(x, R.y + side * (hw + 0.08));
+        const sy = isoY(x, R.y + side * (hw + 0.08));
+        lightsShadow.addOval(Skia.XYWHRect(sx - 3.5, sy - 1, 8, 4));
+        lights.addCircle(sx, sy - 1.5, 2.6);
       }
     }
-    g.f.setColor(Skia.Color('#2b2b30'));
-    c.drawPath(tireO.build(), g.f);
+    g.f.setColor(Skia.Color('rgba(60,40,20,0.3)'));
+    c.drawPath(lightsShadow.build(), g.f);
     g.f.setColor(Skia.Color('#ffffff'));
-    c.drawPath(tireW.build(), g.f);
-    // threshold bars
-    for (let k = -2; k <= 2; k++) {
-      const yy = R.y + k * 0.22;
-      g.line(R.x0 + 0.3, yy, R.x0 + 0.9, yy, '#f4f1e8', 3);
-    }
-    // stand marker: a painted circle with a T
-    g.ellipse(st.pos[0], st.pos[1], 0.75, 0.75, '#f4f1e8');
-    g.ellipse(st.pos[0], st.pos[1], 0.62, 0.62, GRAVEL);
-    g.line(st.pos[0] + 0.55, st.pos[1] + 0.8, st.pos[0] - 0.35, st.pos[1] - 0.55, '#ffd23f', 3);
+    c.drawPath(lights.build(), g.f);
 
-    // fence around the airfield, with a gate for the road
-    const posts: [number, number, number, number][] = [
+    // stand: a clean painted ring with a lead-in line
+    g.ellipse(st.pos[0], st.pos[1], 0.78, 0.78, '#ffffff');
+    g.ellipse(st.pos[0], st.pos[1], 0.66, 0.66, GRAVEL);
+    g.line(st.pos[0] + 0.55, st.pos[1] + 0.8, st.pos[0] - 0.35, st.pos[1] - 0.55, '#fbbf24', 3.4);
+
+    // fence: slim light posts and rails, with a gate for the road
+    const sides: [number, number, number, number][] = [
       [F.x0, F.y0, F.x1, F.y0],
       [F.x1, F.y0, F.x1, F.y1],
       [F.x1, F.y1, F.x0, F.y1],
       [F.x0, F.y1, F.x0, F.y0],
     ];
     const rails = Skia.PathBuilder.Make();
-    const postsPath = Skia.PathBuilder.Make();
-    for (const [ax, ay, bx, by] of posts) {
-      const len = Math.hypot(bx - ax, by - ay);
-      const n = Math.round(len);
+    const posts = Skia.PathBuilder.Make();
+    for (const [ax, ay, bx, by] of sides) {
+      const n = Math.round(Math.hypot(bx - ax, by - ay));
       for (let i = 0; i < n; i++) {
-        const t0 = i / n;
-        const t1 = (i + 1) / n;
-        const x0 = ax + (bx - ax) * t0;
-        const y0 = ay + (by - ay) * t0;
-        const x1 = ax + (bx - ax) * t1;
-        const y1 = ay + (by - ay) * t1;
+        const x0 = ax + ((bx - ax) * i) / n;
+        const y0 = ay + ((by - ay) * i) / n;
+        const x1 = ax + ((bx - ax) * (i + 1)) / n;
+        const y1 = ay + ((by - ay) * (i + 1)) / n;
         const gate = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01 && Math.min(x0, x1) < 22.6 && Math.max(x0, x1) > 21.6;
         if (gate) continue;
-        for (const z of [0.22, 0.12]) {
+        for (const z of [0.24, 0.13]) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
           rails.lineTo(isoX(x1, y1), isoY(x1, y1, z));
         }
-        postsPath.moveTo(isoX(x0, y0), isoY(x0, y0));
-        postsPath.lineTo(isoX(x0, y0), isoY(x0, y0, 0.3));
+        posts.moveTo(isoX(x0, y0), isoY(x0, y0));
+        posts.lineTo(isoX(x0, y0), isoY(x0, y0, 0.32));
       }
     }
-    g.s.setColor(Skia.Color('#8a6a4a'));
+    g.s.setColor(Skia.Color('#f1e6d2'));
     g.s.setStrokeWidth(1.4);
     c.drawPath(rails.build(), g.s);
-    g.s.setColor(Skia.Color('#6e5238'));
-    g.s.setStrokeWidth(2.6);
-    c.drawPath(postsPath.build(), g.s);
+    g.s.setColor(Skia.Color('#c8b08a'));
+    g.s.setStrokeWidth(2.4);
+    c.drawPath(posts.build(), g.s);
   });
 
   // static sprites with depth: buildings and trees
