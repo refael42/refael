@@ -22,7 +22,7 @@ import { dishDef } from '../data/dishes';
 // bus, talent points from a source with no card of its own. The sim's events are read a few times a second.
 
 const SHOW_MS = 4200;
-const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement, Ev.FlipPan, Ev.FlipDone];
+const TYPES: readonly number[] = [Ev.VipArrives, Ev.Vip, Ev.GiftAppears, Ev.Gift, Ev.FestivalStart, Ev.FestivalStep, Ev.Bus, Ev.Weekend, Ev.DeliveryOrder, Ev.DeliveryCancel, Ev.RareApplicant, Ev.TalentPoints, Ev.SeasonStart, Ev.SeasonTier, Ev.SeasonGold, Ev.StockOut, Ev.AlbumNew, Ev.Influencer, Ev.OccasionCall, Ev.OccasionArrive, Ev.OccasionEnd, Ev.AdReward, Ev.HolidayStart, Ev.Achievement, Ev.FlipPan, Ev.FlipDone, Ev.TruckBack];
 
 interface Toast {
   id: number;
@@ -127,6 +127,8 @@ function textOf(toast: Toast, reward: string, t: (k: string) => string): string 
       return t('toast.influencer');
     // Private events (a = the kind; b = guests, or at the end the average stars in tenths, -1 walked out, -2 called off).
     // The golden pan (src/sim/flip.ts): it showed up; the game paid (a = perfect flips, b = coins, c = gems).
+    case Ev.TruckBack:
+      return t('toast.truckBack');
     case Ev.FlipPan:
       return t('toast.flipPan');
     case Ev.FlipDone:

@@ -83,6 +83,7 @@ function soundOf(type: number, a: number, b: number, c = 0): [SoundId | null, bo
       return ['tick', false];
     case Ev.OccasionEnd:
     case Ev.FlipDone:
+    case Ev.TruckBack:
     case Ev.AdReward:
     case Ev.AchievementClaim:
       return ['cash', true];

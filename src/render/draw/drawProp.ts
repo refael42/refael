@@ -643,6 +643,11 @@ export function drawProp(c: SkCanvas, A: RenderAssets, d: Packed, o: number, t: 
     sprFade(c, A, S.glowHalo, 0, bob - 4, 1.4, 0.6 + Math.sin(t * 6) * 0.15);
     sprXf(c, A, S.goldPan, 0, bob, Math.sin(t * 3 + seed) * 10, 1.6, 1.6, plain);
     sparkles(c, A, 0, bob - 10, t, 14, seed, 2);
+  } else if (kind === PropKind.FoodTruck) {
+    // Parked, its engine ticking over; back from a trip, it glows and sparkles with the takings.
+    if (active) sprFade(c, A, S.glowHalo, 0, -30, 1.6, 0.5 + Math.sin(t * 5) * 0.15);
+    spr(c, A, variant === 1 ? S.foodTruckGold : S.foodTruck, 0, Math.sin(t * 20 + seed) * 0.25, plain);
+    if (active) sparkles(c, A, 0, -50, t, 26, seed, 3);
   } else if (kind === PropKind.Trophy) {
     spr(c, A, A.L.trophy[variant] ?? A.L.trophy[0]!, 0, 0, plain);
     sparkles(c, A, 0, -52, t, 10, seed, 1);

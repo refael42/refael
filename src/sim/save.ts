@@ -2,6 +2,7 @@ import { cleanAlbum, copyAlbum, type AlbumState } from './album';
 import { cleanAds, type AdsState } from './ads';
 import { cleanGifted } from './holidays';
 import { cleanAchievements, copyAchievements, type AchievementState } from './achievements';
+import { cleanTruck, copyTruck, type TruckState } from './truck';
 import { INGREDIENTS, SUPPLIERS, SUPPLY } from '../data/supply';
 import { cleanSeason, copySeason, type SeasonState } from './season';
 import { HERO, HERO_BY_ID } from '../data/offers';
@@ -104,6 +105,8 @@ export interface SaveData {
   holidayGifts?: string[];
   /** Achievements (M56; older saves: counted from now on). */
   achievements?: AchievementState;
+  /** The food truck (M58; older saves: a new one). */
+  truck?: TruckState;
   /** Talent points not spent yet (M46; older saves: the starting points). */
   talentPoints?: number;
   /** The restaurant guide: stars, the plate, editions out, this edition's visits, the last verdict. */
@@ -253,6 +256,7 @@ export function makeSave(s: GameState, now: number): SaveData {
     ads: { day: s.ads.day, used: { ...s.ads.used } },
     holidayGifts: [...s.holidays.gifted],
     achievements: copyAchievements(s.achievements),
+    truck: copyTruck(s.truck),
     talentPoints: s.talentPoints,
     guide: { stars: s.guide.stars, plate: s.guide.plate, edition: s.guide.edition, visits: s.guide.visits.map((v) => ({ ...v })), last: s.guide.last ? { ...s.guide.last } : null, best: s.guide.best },
     kitchen: kitchenSave(s),
@@ -424,6 +428,7 @@ function validate(o: Record<string, unknown>): SaveData | null {
     ads: cleanAds(o.ads),
     holidayGifts: cleanGifted(o.holidayGifts),
     achievements: cleanAchievements(o.achievements),
+    truck: cleanTruck(o.truck),
     suppliers: Array.isArray(o.suppliers) ? INGREDIENTS.map((_, i) => { const v = (o.suppliers as unknown[])[i]; return finite(v) && v >= 0 && v < SUPPLIERS.length ? Math.floor(v) : SUPPLY.start; }) : undefined,
     // A save from before talents: a few points to try them with.
     talentPoints: finite(o.talentPoints) && o.talentPoints >= 0 ? Math.floor(o.talentPoints) : TALENT.welcome,
@@ -588,6 +593,7 @@ export function restoreGame(save: SaveData, seed: number, now: number = save.sav
     ads: save.ads,
     holidayGifts: save.holidayGifts,
     achievements: save.achievements,
+    truck: save.truck,
     talentPoints: save.talentPoints,
     guide: save.guide,
     kitchen: save.kitchen,

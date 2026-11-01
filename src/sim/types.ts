@@ -185,6 +185,8 @@ export const PropKind = {
   Menorah: 64,
   /** The golden pan over a stove (src/sim/flip.ts), waiting for a tap. */
   GoldenPan: 65,
+  /** The food truck parked across the road (variant 1 = gold, active = back with its takings). */
+  FoodTruck: 66,
 } as const;
 
 /** What stands on a building site (variant of a SiteItem prop; src/render/art/siteArt.ts SITE_SPRITES order). */

@@ -63,6 +63,7 @@ import { OccasionButton, OccasionPanel } from './Occasion';
 import { FreePanel } from './FreeRewards';
 import { AchievementsPanel } from './Achievements';
 import { FlipGame } from './FlipGame';
+import { TruckButton, TruckPanel } from './Truck';
 import { getAds } from '../ads';
 import { adOpen } from '../sim/ads';
 import { localDay } from '../sim/season';
@@ -366,6 +367,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
   const [occasion, setOccasion] = useState(false);
   const [free, setFree] = useState(false);
   const [achievements, setAchievements] = useState(false);
+  const [truck, setTruck] = useState(false);
   useFestivalClock(command, true);
   // The paid offers (owner M34): the clock goes to the sim; the big card opens by itself once a
   // hero turn, when nothing else is on screen.
@@ -620,7 +622,8 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
           <SupplyButton gameRef={gameRef} onPress={() => setSupply(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 320 }} />
-          <OccasionButton gameRef={gameRef} onPress={() => setOccasion(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 382 }} />
+          <TruckButton gameRef={gameRef} onPress={() => setTruck(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 382 }} />
+          <OccasionButton gameRef={gameRef} onPress={() => setOccasion(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 444 }} />
         </>
       )}
       {!onboarding && !build && tutorial >= TUTORIAL_STEPS.length && (
@@ -647,6 +650,7 @@ function GameRunner({ boot }: { boot: GameBoot }) {
       {daily && <DailyPanel gameRef={gameRef} onCommand={command} onClose={() => setDaily(false)} />}
       {wheel && <WheelPanel gameRef={gameRef} onCommand={command} onClose={() => setWheel(false)} />}
       {festival && <FestivalPanel gameRef={gameRef} onCommand={command} onClose={() => setFestival(false)} />}
+      {truck && <TruckPanel gameRef={gameRef} onCommand={command} onClose={() => setTruck(false)} />}
       {achievements && <AchievementsPanel gameRef={gameRef} onCommand={command} onClose={() => setAchievements(false)} />}
       {free && <FreePanel gameRef={gameRef} onCommand={command} onClose={() => setFree(false)} />}
       {occasion && <OccasionPanel gameRef={gameRef} onCommand={command} onClose={() => setOccasion(false)} />}

@@ -35,6 +35,7 @@ import { grantAd } from '../ads';
 import { syncHolidays } from '../holidays';
 import { claimAchievement } from '../achievements';
 import { finishFlip, panSpot, startFlip } from '../flip';
+import { collectTruck, rushTruck, sendTruck, upgradeTruck } from '../truck';
 import { answer, fire, giveBonus, reassign, scold, setRush, train } from './workers';
 import { buyTalent, resetTalents } from './talents';
 
@@ -182,7 +183,8 @@ function apply(s: GameState, cmd: Command): void {
       claimFestival(s);
       return;
     case 'season':
-      // Real holidays go by the same clock (src/sim/holidays.ts).
+      // Real holidays go by the same clock (src/sim/holidays.ts); the truck shows home when its trip is over.
+      s.phoneNow = cmd.now;
       syncHolidays(s, cmd.now, cmd.tzMin);
       return syncSeason(s, cmd.now, cmd.tzMin);
     case 'seasonClaim':
@@ -311,6 +313,14 @@ function apply(s: GameState, cmd: Command): void {
     openBranch(s);
   } else if (cmd.type === 'gift') {
     openGift(s);
+  } else if (cmd.type === 'truckSend') {
+    sendTruck(s, cmd.spot, cmd.now);
+  } else if (cmd.type === 'truckCollect') {
+    collectTruck(s, cmd.now);
+  } else if (cmd.type === 'truckRush') {
+    rushTruck(s, cmd.now);
+  } else if (cmd.type === 'truckUpgrade') {
+    upgradeTruck(s);
   } else if (cmd.type === 'flip') {
     startFlip(s);
   } else if (cmd.type === 'flipDone') {

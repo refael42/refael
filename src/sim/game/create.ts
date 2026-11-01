@@ -3,6 +3,7 @@ import { copyAlbum, newAlbum, type AlbumState } from '../album';
 import { newAds, type AdsState } from '../ads';
 import { newHolidays } from '../holidays';
 import { newFlip } from '../flip';
+import { copyTruck, newTruck, type TruckState } from '../truck';
 import { copyAchievements, newAchievements, type AchievementState } from '../achievements';
 import { newSupply } from '../supply';
 import { copySeason, newSeason, type SeasonState } from '../season';
@@ -516,6 +517,8 @@ export interface GameSetup {
   holidayGifts?: string[];
   /** Achievements so far (the player's). */
   achievements?: AchievementState;
+  /** The food truck. */
+  truck?: TruckState;
   /** The guide: stars held, the plate, editions, this edition's visits, the last edition's verdict. */
   guide?: Pick<GuideState, 'stars' | 'plate' | 'edition' | 'visits' | 'last'> & { best?: number };
   /** Where each table stands and its style (older saves: none, the map lays them out). */
@@ -631,6 +634,8 @@ export function createGame(map: MapDef, seed: number, setup: GameSetup = {}): Ga
     album: setup.album ? copyAlbum(setup.album) : newAlbum(),
     holidays: newHolidays(setup.holidayGifts),
     flip: newFlip(),
+    truck: setup.truck ? copyTruck(setup.truck) : newTruck(),
+    phoneNow: 0,
     achievements: setup.achievements ? copyAchievements(setup.achievements) : newAchievements(),
     ads: setup.ads ? { day: setup.ads.day, used: { ...setup.ads.used } } : newAds(),
     offers: setup.offers ? { ...setup.offers, bought: [...setup.offers.bought], pick: setup.offers.pick ? { ...setup.offers.pick } : null } : newOffers(),

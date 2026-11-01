@@ -2,6 +2,7 @@ import { updateSupply, vanStop } from '../supply';
 import { updateOccasions } from '../occasions';
 import { updateAchievements } from '../achievements';
 import { panSpot, updateFlip } from '../flip';
+import { truckOpen, truckSpot } from '../truck';
 import { OCCASIONS } from '../../data/occasions';
 import { HOLIDAYS } from '../../data/holidays';
 import { heatOf } from './service';
@@ -147,6 +148,12 @@ function dynamicProps(s: GameState): PropView[] {
     // Balloons at the far end of a long table (out of the plates' way), the card in the middle.
     const back = booked.backIds.length;
     out.push(prop(SYNTH - 63, PropKind.Occasion, booked.x + (seated ? 0.28 : 0), booked.y - (seated ? back + 0.3 : back / 2), { variant: OCCASIONS.findIndex((o) => o.id === booking.kind), active: seated, lift: TABLE_TOP, depthBias: 1.5 }));
+  }
+  // The food truck across the road while it is home (or back from its trip, its takings waiting).
+  if (truckOpen(s)) {
+    const trip = s.truck.trip;
+    const back = trip !== null && s.phoneNow >= trip.end;
+    if (!trip || back) out.push(prop(SYNTH - 66, PropKind.FoodTruck, truckSpot(s).x, truckSpot(s).y, { variant: s.truck.level >= 5 ? 1 : 0, active: back, depthBias: 2 }));
   }
   // The golden pan over its stove (src/sim/flip.ts).
   if (s.flip.stove >= 0 && !s.flip.playing) {

@@ -20,7 +20,7 @@ export interface Reminder {
 }
 
 /** When two fall too close together, the earlier kind in this list wins. */
-const PRIORITY: readonly ReminderKind[] = ['work', 'works', 'offer', 'starter', 'festival', 'wheel', 'full', 'daily', 'miss'];
+const PRIORITY: readonly ReminderKind[] = ['work', 'works', 'truck', 'offer', 'starter', 'festival', 'wheel', 'full', 'daily', 'miss'];
 
 const MIN = 60 * 1000;
 const HOUR = 60 * MIN;
@@ -56,6 +56,8 @@ export function planReminders(s: GameState, now: number, offsetMin: number, prom
   const works = s.works.map((w) => Math.max(0, w.left)).filter((left) => left > 0).sort((a, b) => a - b);
   if (works.length > 0) out.push({ kind: 'work', at: now + works[0]! * 1000 });
   if (works.length > 1) out.push({ kind: 'works', at: now + works[works.length - 1]! * 1000, count: works.length });
+  // The food truck back from its trip (src/sim/truck.ts).
+  if (s.truck.trip && s.truck.trip.end > now) out.push({ kind: 'truck', at: s.truck.trip.end });
   // Offline earnings stop counting after the cap: worth coming back by then.
   out.push({ kind: 'full', at: now + OFFLINE.capHours * HOUR });
   if (!freeReady(s.wheel, now)) out.push({ kind: 'wheel', at: s.wheel.nextFree });

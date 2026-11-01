@@ -22,4 +22,4 @@ export const REMINDERS = {
   missHours: [26, 74] as const,
 } as const;
 
-export type ReminderKind = 'work' | 'works' | 'full' | 'wheel' | 'daily' | 'offer' | 'starter' | 'festival' | 'miss';
+export type ReminderKind = 'work' | 'works' | 'truck' | 'full' | 'wheel' | 'daily' | 'offer' | 'starter' | 'festival' | 'miss';

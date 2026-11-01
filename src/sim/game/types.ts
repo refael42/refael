@@ -3,6 +3,7 @@ import type { AdsState } from '../ads';
 import type { HolidayState } from '../holidays';
 import type { AchievementState } from '../achievements';
 import type { FlipState } from '../flip';
+import type { TruckState } from '../truck';
 import type { AchievementId } from '../../data/achievements';
 import type { AdReward } from '../../data/ads';
 import type { OccasionState } from '../occasions';
@@ -301,6 +302,11 @@ export type Command =
   /** The golden pan: tapped (the game opens), and the game's result (perfect flips). */
   | { type: 'flip' }
   | { type: 'flipDone'; hits: number }
+  /** The food truck: send it (to a spot), take its takings, call it back for gems, upgrade it. `now` = the phone's clock (ms). */
+  | { type: 'truckSend'; spot: number; now: number }
+  | { type: 'truckCollect'; now: number }
+  | { type: 'truckRush'; now: number }
+  | { type: 'truckUpgrade' }
   /** Testing (the settings): the tourist bus comes now. */
   | { type: 'testBus' }
   /** The phone's clock (ms) for the paid offers: the starter's days, the hero of the turn. */
@@ -672,6 +678,10 @@ export interface GameState {
   achievements: AchievementState;
   /** The golden pan's mini-game (src/sim/flip.ts; not saved). */
   flip: FlipState;
+  /** The food truck (the player's: saved, goes along to a branch; src/sim/truck.ts). */
+  truck: TruckState;
+  /** The phone's clock as last passed in by the UI (ms; 0 = not yet). Not saved. */
+  phoneNow: number;
   /** The flash deal last bought (its number), so each deal sells once. */
   flash: { slot: number; bought: boolean };
   /** The restaurant guide (owner M29: "Michelin logic"): stars, the inspections of this edition. */

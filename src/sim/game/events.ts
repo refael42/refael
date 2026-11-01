@@ -150,6 +150,10 @@ export const Ev = {
   /** The golden pan (src/sim/flip.ts) appeared on the stove at (x,y); the game ended (a = perfect flips, b = coins, c = gems). */
   FlipPan: 76,
   FlipDone: 77,
+  /** The food truck (src/sim/truck.ts): set off (a = the spot); back with its takings (a = coins, b = gems, c = the spot); a new level (a). */
+  TruckOut: 78,
+  TruckBack: 79,
+  TruckLevel: 80,
 } as const;
 export type Ev = (typeof Ev)[keyof typeof Ev];
 
