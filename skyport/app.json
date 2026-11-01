@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Skyport Tycoon",
+    "slug": "skyport-tycoon",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.skyport.tycoon"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.skyport.tycoon"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Skyport Tycoon",
+      "backgroundColor": "#1b2a4a"
+    },
+    "plugins": [
+      "expo-localization"
+    ],
+    "backgroundColor": "#1b2a4a"
+  }
+}
