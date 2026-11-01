@@ -68,6 +68,9 @@ import { getAds } from '../ads';
 import { adOpen } from '../sim/ads';
 import { localDay } from '../sim/season';
 
+
+/** Screen width (px, without the safe areas) that fits all the round buttons in one bottom row beside the big ones. */
+const EXTRA_ROW_MIN_WIDTH = 880;
 const phoneDay = () => localDay(Date.now(), new Date().getTimezoneOffset());
 import { DemoAd } from './DemoAd';
 import { OffersPanel, readOfferPopup, useOffersClock } from './Offers';
@@ -189,6 +192,11 @@ const readCity = (s: GameState) => s.city;
 function GameRunner({ boot }: { boot: GameBoot }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  // The round buttons past the first four (storeroom, truck, phone): in the bottom row when the
+  // screen is wide enough to leave room for the three big buttons on the other side, else in a
+  // second row above the first (a small phone ran them into the big buttons).
+  const wideRow = width - insets.left - insets.right >= EXTRA_ROW_MIN_WIDTH;
+  const extraSlot = (k: number) => (wideRow ? { bottom: insets.bottom + 8, start: insets.left + 320 + 62 * k } : { bottom: insets.bottom + 74, start: insets.left + 10 + 62 * k });
   const { showPerf, stress, loaded, profile, tutorial, setProfile, setTutorial, moneyTaps, busTaps } = useSettings();
   const [welcome, setWelcome] = useState<OfflineEarnings | null>(boot.offline);
   // The welcome-back card waits for the opening animation to be gone: it used to pop and count
@@ -621,9 +629,9 @@ function GameRunner({ boot }: { boot: GameBoot }) {
           <RushButton gameRef={gameRef} onCommand={command} style={{ bottom: insets.bottom + 5, start: insets.left + 130 }} />
           <WheelButton gameRef={gameRef} onPress={() => setWheel(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 196 }} />
           <DailyButton gameRef={gameRef} onPress={() => setDaily(true)} style={{ bottom: insets.bottom + 8, start: insets.left + 258 }} />
-          <SupplyButton gameRef={gameRef} onPress={() => setSupply(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 320 }} />
-          <TruckButton gameRef={gameRef} onPress={() => setTruck(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 382 }} />
-          <OccasionButton gameRef={gameRef} onPress={() => setOccasion(true)} style={{ position: 'absolute', bottom: insets.bottom + 8, start: insets.left + 444 }} />
+          <SupplyButton gameRef={gameRef} onPress={() => setSupply(true)} style={{ position: 'absolute', ...extraSlot(0) }} />
+          <TruckButton gameRef={gameRef} onPress={() => setTruck(true)} style={{ position: 'absolute', ...extraSlot(1) }} />
+          <OccasionButton gameRef={gameRef} onPress={() => setOccasion(true)} style={{ position: 'absolute', ...extraSlot(2) }} />
         </>
       )}
       {!onboarding && !build && tutorial >= TUTORIAL_STEPS.length && (
