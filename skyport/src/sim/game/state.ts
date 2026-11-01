@@ -3,6 +3,7 @@ import { Big } from '../big';
 import { normalizeSeed } from '../rng';
 import { SAVE_VERSION } from './constants';
 import { ensureHoldArrays } from './graph';
+import { makeIncome } from './income';
 import { refreshApplicants } from './staff';
 import type { GameState } from './types';
 import { makeVehicle } from './vehicles';
@@ -33,10 +34,15 @@ export function createGame(seed: number): GameState {
     staff: [],
     applicants: [],
     wageDay: 1,
+    upg: {},
+    upgRev: 0,
+    builds: [],
+    priceMul: 1,
+    income: makeIncome(),
     nextId: 3,
     nextArrival: 2,
     spotCursor: 0,
-    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0), wages: Big.fromNumber(0) },
+    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0), wages: Big.fromNumber(0), spent: Big.fromNumber(0) },
     events: [],
     nextEventId: 1,
     queue: [],

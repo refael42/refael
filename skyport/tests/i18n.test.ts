@@ -20,7 +20,7 @@ describe('translations', () => {
   }
 
   it('Hebrew strings are actually Hebrew (except brand/language names)', () => {
-    const latinOk = new Set<TKey>(['lang.en']);
+    const latinOk = new Set<TKey>(['lang.en', 'eff.mult']);
     for (const k of Object.keys(he) as TKey[]) {
       if (latinOk.has(k)) continue;
       expect(/[֐-׿]/.test(he[k]), `he ${k} = ${he[k]}`).toBe(true);

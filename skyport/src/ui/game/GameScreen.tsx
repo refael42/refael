@@ -1,13 +1,13 @@
 /** The airfield: canvas + camera + taps + HUD + flight card + toasts. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { AppState, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AIRLINES } from '../../data/airlines';
 import { useDir, useLang, useT, type TKey } from '../../i18n';
 import { makeCamera, updateCamera, useCameraResponder, viewToWorld } from '../../render/camera';
-import { bubbleAnchor, drawGame, type Indicator } from '../../render/drawGame';
+import { bubbleAnchor, constructionSite, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, Z_PX } from '../../render/iso';
 import { makeRenderRes, SnapWriter, type RenderRes } from '../../render/scene';
@@ -18,7 +18,30 @@ import { buildWorld } from '../../render/world';
 import { useSettings } from '../../settings/store';
 import { AIRCRAFT, planeArt } from '../../data/aircraft';
 import { STAFF_ROLES } from '../../data/staff';
-import { botCommands, botHires, clockText, formatBig, gameClock, layoutOf, MAX_PER_ROLE, REJECT, staffCount, wagesPerDay, WANT, type GameEvent } from '../../sim';
+import {
+  applyOffline,
+  bestOffer,
+  botBuys,
+  botCommands,
+  botHires,
+  clockText,
+  formatBig,
+  gameClock,
+  layoutOf,
+  MAX_PER_ROLE,
+  REJECT,
+  staffCount,
+  wagesPerDay,
+  WANT,
+  type GameEvent,
+  type GameState,
+  type OfflineResult,
+} from '../../sim';
+import { Icon } from '../Icon';
+import { C, SHADOW_SM } from '../theme';
+import { saveGame } from './persistence';
+import { UpgradesPanel } from './UpgradesPanel';
+import { WelcomeBack } from './WelcomeBack';
 import { FpsMeter } from '../FpsMeter';
 import { GameController } from './controller';
 import { readDebugParams } from './debugParams';
@@ -38,7 +61,16 @@ function hudOf(c: GameController): HudData {
   return { money: formatBig(s.money), diamonds: String(s.diamonds), rating: Math.round(s.rating * 10) / 10, day: clock.day, time: clockText(s.time) };
 }
 
-export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGallery: () => void }) {
+export interface Boot {
+  state?: GameState;
+  /** Seconds since the save was written. */
+  away?: number;
+  /** Don't autosave (test URL, or a save from a newer version must stay untouched). */
+  saveBlocked: boolean;
+  futureSave: boolean;
+}
+
+export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; boot: Boot; onGallery: () => void }) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const showFps = useSettings((s) => s.showFps);
@@ -48,7 +80,7 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
   const offset = useRef({ x: 0, y: 0 });
 
   const ctrl = useMemo(() => {
-    const c = new GameController(debug.seed ?? 20261101);
+    const c = new GameController(debug.seed ?? 20261101, boot.state);
     c.speed = debug.speed;
     if (debug.stands > 0) c.state.standsBuilt = Math.min(debug.stands, c.state.stands.length);
     if (debug.money > 0) c.state.money = c.state.money.add(debug.money);
@@ -62,6 +94,7 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
       // fast-forward for tests (the bot plays only with auto=1)
       for (let i = 0; i < debug.warp * 30; i++) {
         if (debug.auto && i % 3 === 0) for (const cmd of [...botCommands(c.state, { reaction: 1 }), ...botHires(c.state)]) c.send(cmd);
+        if (debug.auto && i % 150 === 0) for (const cmd of botBuys(c.state)) c.send(cmd);
         c.tick(1000 / 30);
       }
       c.takeEvents();
@@ -91,6 +124,34 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
   const [settings, setSettings] = useState(false);
   const [panel, setPanel] = useState<string | null>(debug.panel);
   const [staffView, setStaffView] = useState<StaffView | null>(null);
+  const [rev, setRev] = useState(0);
+  const [welcome, setWelcome] = useState<OfflineResult | null>(null);
+
+  // offline earnings once, right after loading a save
+  useEffect(() => {
+    if (!boot.state || !boot.away) return;
+    const r = applyOffline(ctrl.state, boot.away);
+    ctrl.takeEvents();
+    if (r.seconds >= 60) setWelcome(r);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // autosave every few seconds, when the app goes to the background, and on exit
+  useEffect(() => {
+    if (boot.saveBlocked) return;
+    const id = setInterval(() => saveGame(ctrl.state), 8000);
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st !== 'active') saveGame(ctrl.state);
+    });
+    const onHide = () => saveGame(ctrl.state);
+    if (typeof window !== 'undefined' && window.addEventListener) window.addEventListener('pagehide', onHide);
+    return () => {
+      clearInterval(id);
+      sub.remove();
+      if (typeof window !== 'undefined' && window.removeEventListener) window.removeEventListener('pagehide', onHide);
+      saveGame(ctrl.state);
+    };
+  }, [ctrl, boot.saveBlocked]);
   const lang = useLang();
   const [bump, setBump] = useState(0);
   const toastId = useRef(1);
@@ -122,7 +183,10 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
   }, []);
 
   useEffect(() => {
-    const id = setTimeout(() => toast('land', t('toast.welcome'), 'good'), 600);
+    const id = setTimeout(() => {
+      if (boot.futureSave) toast('warn', t('toast.saveFuture'), 'warn');
+      else if (!boot.state) toast('land', t('toast.welcome'), 'good');
+    }, 600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -166,6 +230,18 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
           case 'wagesPaid':
             toast('coin', t('toast.wages', { amount: formatBig(e.a) }), 'info');
             break;
+          case 'milestone':
+            toast('star', t('toast.milestone'), 'good');
+            break;
+          case 'buildStart':
+            toast('wrench', t('toast.buildStart'), 'info');
+            break;
+          case 'buildDone': {
+            toast('check', t('toast.buildDone'), 'good');
+            const site = layoutOf(s.tier).stands[Math.min(e.a, layoutOf(s.tier).stands.length - 1)];
+            if (site) fx.sparkle(isoX(site.pos[0], site.pos[1]), isoY(site.pos[0], site.pos[1]) - 20);
+            break;
+          }
           case 'paid':
             fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, e.a, e.b);
             break;
@@ -205,6 +281,7 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
       setNow(performance.now());
       const st = ctrl.state;
       setStandsBuilt((old) => (old === st.standsBuilt ? old : st.standsBuilt));
+      setRev((r) => r + 1);
       const sv: StaffView = { money: st.money.toNumber(), staff: st.staff.slice(), applicants: st.applicants.slice(), wages: wagesPerDay(st) };
       setStaffView((old) =>
         old && old.money === sv.money && old.staff.length === sv.staff.length && old.applicants.map((a) => a.id).join() === sv.applicants.map((a) => a.id).join() ? old : sv,
@@ -270,6 +347,16 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
         }
       }
       const p = viewToWorld(cam, vx, vy);
+      const site = constructionSite(ctrl.state);
+      if (site) {
+        const sx = isoX(site.at[0], site.at[1]);
+        const sy = isoY(site.at[0], site.at[1], 0.9);
+        if (Math.hypot(p.x - sx, p.y - sy) * cam.zoom < 46) {
+          ctrl.send({ type: 'rushBuild' });
+          fx.sparkle(sx, sy - 20);
+          return;
+        }
+      }
       let best = 0;
       let bestD = Infinity;
       for (const f of ctrl.state.flights) {
@@ -328,8 +415,13 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
   const canHire =
     !!staffView &&
     staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0);
-  const barItems: BarItem[] = [{ id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire }];
-  const rtl = useDir().rtl;
+  const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
+  const barItems: BarItem[] = [
+    { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
+    { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
+  ];
+  const dir = useDir();
+  const rtl = dir.rtl;
 
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -386,9 +478,30 @@ export function GameScreen({ sprites, onGallery }: { sprites: SpriteSet; onGalle
             safe.current.bottom = e.nativeEvent.layout.height;
           }}
         >
+          {offer ? (
+            <Pressable
+              onPress={() => ctrl.send({ type: 'buyUpgrade', id: offer.id, count: 1 })}
+              style={({ pressed }) => [styles.best, { flexDirection: dir.row }, pressed && { transform: [{ scale: 0.97 }] }]}
+              accessibilityRole="button"
+              accessibilityLabel={t('upgrades.bestNow')}
+            >
+              <Icon name="star" size={16} />
+              <Text style={styles.bestText} numberOfLines={1}>
+                {t('upgrades.bestNow')}: {t(`upg.${offer.id}` as TKey)}
+              </Text>
+              <View style={[styles.bestCost, { flexDirection: dir.row }]}>
+                <Icon name="coin" size={14} />
+                <Text style={styles.bestCostText}>{formatBig(offer.cost)}</Text>
+              </View>
+            </Pressable>
+          ) : null}
           <BottomBar items={barItems} onPress={(id) => setPanel(id)} />
         </View>
       ) : null}
+      {panel === 'upgrades' ? (
+        <UpgradesPanel state={ctrl.state} rev={rev} onBuy={(id, count) => ctrl.send({ type: 'buyUpgrade', id, count })} onClose={() => setPanel(null)} />
+      ) : null}
+      {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
       {panel === 'staff' && staffView ? (
         <StaffPanel view={staffView} onHire={(id) => ctrl.send({ type: 'hire', applicantId: id })} onClose={() => setPanel(null)} />
       ) : null}
@@ -425,5 +538,9 @@ const styles = StyleSheet.create({
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 10 },
   bottomWide: { left: undefined, right: undefined, width: 380, paddingHorizontal: 0 },
   fps: { position: 'absolute', left: 8, bottom: -26 },
-  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 10 },
+  bar: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 10, gap: 8 },
+  best: { alignItems: 'center', gap: 6, backgroundColor: C.glassStrong, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, maxWidth: 360, borderWidth: 1, borderColor: '#fde68a', ...SHADOW_SM },
+  bestText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  bestCost: { alignItems: 'center', gap: 3, backgroundColor: C.green, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  bestCostText: { color: '#fff', fontWeight: '800', fontSize: 12 },
 });

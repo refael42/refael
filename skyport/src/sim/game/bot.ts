@@ -4,6 +4,7 @@
  */
 import { STAFF_ROLES } from '../../data/staff';
 import { MAX_PER_ROLE, staffCount } from './staff';
+import { bestOffer } from './upgrades';
 import { WANT, type Command, type GameState } from './types';
 
 export interface BotOptions {
@@ -55,4 +56,11 @@ export function botHires(s: GameState, keep = 1.3): Command[] {
   }
   void MAX_PER_ROLE;
   return [];
+}
+
+/** Buys the best-value upgrade it can afford (keeps a small reserve for staff). */
+export function botBuys(s: GameState): Command[] {
+  const o = bestOffer(s, true);
+  if (!o) return [];
+  return [{ type: 'buyUpgrade', id: o.id, count: 1 }];
 }

@@ -199,6 +199,12 @@ export class Big {
     return Big.fromNumber(Math.floor(this.toNumber()));
   }
 
+  /** Rounds up to a whole number (no-op for huge values). */
+  ceil(): Big {
+    if (this.e >= 15 || this.m === 0) return this;
+    return Big.fromNumber(Math.ceil(this.toNumber() - 1e-9));
+  }
+
   /** Log10 of the absolute value (for UI bars and ROI). */
   log10(): number {
     if (this.m === 0) return -Infinity;

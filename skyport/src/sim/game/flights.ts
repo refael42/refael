@@ -5,6 +5,8 @@ import { CITIES } from '../../data/cities';
 import type { TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
 import { flightRevenue, nextRating } from './economy';
+import { recordIncome } from './income';
+import { effects } from './upgrades';
 import { pushEvent } from './events';
 import { canEnter, findRoute, firstSafe, graphOf, groundMove, releaseAll, releaseEdge, routeGeometry, tryReserve, tryReserveRun } from './graph';
 import { doorPoint, layoutOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
@@ -116,7 +118,7 @@ export function spawnFlight(s: GameState): Flight | null {
     holdAngle: ang,
     holdLevel: 0,
     patience: 1,
-    mood: 0.7 + rand(s) * 0.15,
+    mood: Math.min(1, 0.7 + rand(s) * 0.15 + effects(s).comfort),
     spawnedAt: s.time,
     dockedAt: 0,
     offBlockAt: 0,
@@ -150,7 +152,7 @@ export function updateSpawning(s: GameState): void {
     return;
   }
   spawnFlight(s);
-  const t = Math.max(0.2, s.traffic);
+  const t = Math.max(0.2, s.traffic * effects(s).traffic);
   s.nextArrival = s.time + randRange(s, ARRIVAL_GAP[0], ARRIVAL_GAP[1]) / t;
 }
 
@@ -207,10 +209,10 @@ function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
   return true;
 }
 
-function startFinal(f: Flight, L: TierLayout): void {
+function startFinal(f: Flight, L: TierLayout, speedMul = 1): void {
   setPhase(f, 'final');
   setPath(f, routeFinal(L, f.x, f.y, f.z, f.heading));
-  f.speed = AIRCRAFT[f.aircraft].approachSpeed;
+  f.speed = AIRCRAFT[f.aircraft].approachSpeed * speedMul;
 }
 
 export function divert(s: GameState, f: Flight): void {
@@ -307,7 +309,9 @@ function tryLeaveStand(s: GameState, f: Flight): boolean {
 }
 
 function pay(s: GameState, f: Flight): void {
-  const amount = flightRevenue(f, AIRCRAFT[f.aircraft]);
+  const rev = flightRevenue(f, AIRCRAFT[f.aircraft], effects(s));
+  const amount = rev.total;
+  recordIncome(s, amount.toNumber(), rev.parts, f.boarded);
   s.money = s.money.add(amount);
   s.stats.earned = s.stats.earned.add(amount);
   s.stats.served++;
@@ -369,11 +373,14 @@ export function updateFlights(s: GameState, dt: number): void {
 
 /** Returns false when the flight leaves the game. */
 function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boolean {
-  const ac = AIRCRAFT[f.aircraft];
+  const base = AIRCRAFT[f.aircraft];
+  const fx = effects(s);
+  // upgrades: smoother taxiways and runway lights speed things up
+  const ac = { ...base, taxiSpeed: base.taxiSpeed * fx.taxiSpeed, approachSpeed: base.approachSpeed * fx.runwayOps };
   switch (f.phase) {
     case 'inbound': {
       if (f.landCleared && canStartFinal(s, f, L) && f.phaseT > 1) {
-        startFinal(f, L);
+        startFinal(f, L, fx.runwayOps);
         return true;
       }
       if (follow(f, dt)) {
@@ -410,7 +417,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
         divert(s, f);
         return true;
       }
-      if (canStartFinal(s, f, L)) startFinal(f, L);
+      if (canStartFinal(s, f, L)) startFinal(f, L, fx.runwayOps);
       return true;
     }
     case 'final': {

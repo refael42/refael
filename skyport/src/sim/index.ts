@@ -17,3 +17,6 @@ export { onRunway, isGround, ARRIVAL_GAP, wantsAction } from './game/flights';
 export { fuelProgress, serviceSeconds } from './game/vehicles';
 export { graphOf, routeGeometry } from './game/graph';
 export { wagesPerDay, staffCount, MAX_PER_ROLE } from './game/staff';
+export * from './game/upgrades';
+export { incomeRate, componentRates } from './game/income';
+export * from './save';

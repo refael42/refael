@@ -22,7 +22,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M1 Dirt strip | done | see below |
 | Modern restyle | done | requested by the owner, see below |
 | M2 First staff | done | see below |
-| M3 Economy & upgrades | next | |
+| M3 Economy & upgrades | done | see below |
+| M4 Full staff system | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -84,9 +85,33 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   longest ground wait 17 s, runway exclusive; hiring limits/money; a full crew runs the airfield;
   wages once per game day; hiring does not touch the shared RNG.
 
+### M3 — economy, upgrades, save (done)
+- Upgrade catalog (`src/data/upgrades.ts`, 14 lines for the dirt strip): ticket counter, landing fees,
+  snack kiosk, billboard (traffic), new stands (build time), faster pump, lighter carts, second
+  truck/cart (build time), taxiway grading, runway lights, benches, staff coffee, night manager.
+- Costs grow geometrically in whole coins; x1 / x10 / x100 / MAX; income lines double at levels
+  10, 25, 50, 75, 100. One construction crew; tapping the crane speeds it up.
+- "Best value": estimated income gain per coin from a per-source income history (landing, parking,
+  passenger fees, kiosk); shown as a pill above the bottom bar and at the top of the sheet.
+- Upgrades show up in the world: kiosk, billboard, benches, the crane on the plot being built.
+- Save (`src/sim/save.ts`): versioned JSON, autosave every 8 s, on background and on exit.
+  `clean*` checks and clamps every field; derived things are recomputed; planes and passengers
+  are not restored (the airfield resumes with empty stands). Future-version saves are kept
+  untouched and the game does not overwrite them. v1 -> v2 migration.
+- Sim time continues across loads; construction stores remaining seconds, so time away is a
+  subtraction. Offline pay = max(recent net rate, floor) × time × 0.5 × staff coverage, capped
+  at 2 h + night manager levels. "Welcome back" card.
+- Balance (`npm run balance -- --seed 1`, 90 min): 299 purchases, longest gap without a purchase
+  1.1 min, 2nd stand at min 18, 3rd at min 36, income 54 -> ~7,000 coins/min, 0 diversions.
+- Tests: bulk = sum of singles, whole-coin prices, MAX never overspends, caps, milestones, build
+  crew/rush, vehicles, effects raise pay, save round trip, hostile save file, future/corrupt files,
+  v1 migration, offline floor/cap/clock-backwards, construction while away.
+  Browser: upgrades sheet, 25-min bot game, welcome-back from a fixture, real save -> reload.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades`.
+  Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it
   with `WithSkiaWeb` before importing any module that touches Skia.

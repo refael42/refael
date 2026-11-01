@@ -74,6 +74,24 @@ export function drawGame(
   const ws = world.windsock;
   w.sprite(sp.windsock(4, Math.floor(o.time * 3) % 2), isoX(ws.x, ws.y), isoY(ws.x, ws.y), 1, ws.x + ws.y);
 
+  // things upgrades add, and construction sites
+  const LL = layoutOf(s.tier);
+  const lv = (id: string) => s.upg[id] ?? 0;
+  const deco = (sprite: number, p: readonly [number, number], d = 0.6) => {
+    const sx = isoX(p[0], p[1]);
+    const sy = isoY(p[0], p[1]);
+    if (visible(sx, sy, 80)) w.sprite(sprite, sx, sy, 1, p[0] + p[1] + d);
+  };
+  if (lv('kiosk') > 0) deco(sp.kiosk, LL.decor.kiosk);
+  if (lv('billboard') > 0) deco(sp.billboard, LL.decor.billboard);
+  if (lv('benches') > 0) deco(sp.bench, LL.decor.benches[0], 0.3);
+  if (lv('benches') >= 10) deco(sp.bench, LL.decor.benches[1], 0.3);
+  const site = constructionSite(s);
+  if (site) {
+    deco(sp.crane, site.at, 0.2);
+    w.bar(isoX(site.at[0], site.at[1]), isoY(site.at[0], site.at[1], 2.3), 52, site.progress, 0xf59e0b);
+  }
+
   // vehicles
   for (const v of s.vehicles) {
     const x = lerp(v.px, v.x, a);
@@ -202,4 +220,16 @@ function drawFlight(
   if ((f.phase === 'holding' || f.phase === 'inbound') && !f.landCleared && f.patience < 0.999) {
     w.bar(b.x, barY, 44, f.patience, f.patience < 0.35 ? 0xff6b5e : 0xffd23f);
   }
+}
+
+/** Where the current construction is (stand plot or vehicle depot) and how far along. */
+export function constructionSite(s: GameState): { at: readonly [number, number]; progress: number } | null {
+  const b = s.builds[0];
+  if (!b) return null;
+  const L = layoutOf(s.tier);
+  let at: readonly [number, number];
+  if (b.id === 'stand') at = L.stands[Math.min(b.level, L.stands.length - 1)].pos;
+  else if (b.id === 'truck2') at = [L.fuel.home[0] + 0.8, L.fuel.home[1] - 0.6];
+  else at = [L.bags.home[0] - 0.8, L.bags.home[1] - 0.4];
+  return { at, progress: 1 - b.remaining / Math.max(0.001, b.total) };
 }

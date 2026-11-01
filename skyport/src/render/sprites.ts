@@ -9,7 +9,7 @@ import { AIRLINES } from '../data/airlines';
 import { ATLAS_SCALE, AtlasBuilder, type Atlas } from './atlas';
 import { drawGlyph, GLYPH_CHARS } from './art/glyphs';
 import { drawIcon, ICON_NAMES, type IconName } from './art/icons';
-import { drawFuelPump, drawHut, drawRock, drawTree, drawWindsock, IsoPen, type TreeKind } from './art/objects';
+import { drawBench, drawBillboard, drawCrane, drawFuelPump, drawHut, drawKiosk, drawRock, drawTree, drawWindsock, IsoPen, type TreeKind } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { buildPlane } from './art/plane';
 import { drawStack, measureStack, type StackPart } from './art/stack';
@@ -56,6 +56,10 @@ export interface SpriteSet {
   sparkle: number;
   blob: number;
   ring: number;
+  kiosk: number;
+  billboard: number;
+  bench: number;
+  crane: number;
 }
 
 function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: number, silhouette?: string, modelScale = 1): number {
@@ -136,6 +140,10 @@ export function buildSprites(content: Content): SpriteSet {
     }
   }
   const rock = b.add(-12 * S, -10 * S, 12 * S, 8 * S, (c, ox, oy) => drawRock(new IsoPen(c, ox, oy, S), 1.2));
+  const kiosk = b.add(-34 * S, -40 * S, 50 * S, 40 * S, (c, ox, oy) => drawKiosk(new IsoPen(c, ox, oy, S)));
+  const billboard = b.add(-10 * S, -54 * S, 44 * S, 28 * S, (c, ox, oy) => drawBillboard(new IsoPen(c, ox, oy, S)));
+  const bench = b.add(-20 * S, -36 * S, 30 * S, 22 * S, (c, ox, oy) => drawBench(new IsoPen(c, ox, oy, S)));
+  const crane = b.add(-40 * S, -80 * S, 50 * S, 24 * S, (c, ox, oy) => drawCrane(new IsoPen(c, ox, oy, S)));
 
   // world icons, drawn centered on the anchor
   const iconBase = b.size;
@@ -240,6 +248,10 @@ export function buildSprites(content: Content): SpriteSet {
     sparkle,
     blob,
     ring,
+    kiosk,
+    billboard,
+    bench,
+    crane,
   };
 }
 

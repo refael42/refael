@@ -1,6 +1,7 @@
 import type { AircraftDef } from '../../data/aircraft';
 import { Big } from '../big';
 import type { Flight } from './types';
+import type { Effects } from './upgrades';
 
 /** Coins per second of parking. */
 export const PARK_RATE = 0.05;
@@ -14,12 +15,22 @@ export function punctualityMultiplier(onTime: number): number {
   return onTime > 0 ? 1.15 : onTime < 0 ? 0.85 : 1;
 }
 
-/** What a departing flight pays. */
-export function flightRevenue(f: Flight, ac: AircraftDef): Big {
+export interface Revenue {
+  total: Big;
+  /** landing, parking, passenger fees, kiosk (after multipliers). */
+  parts: [number, number, number, number];
+}
+
+/** What a departing flight pays, split by source. */
+export function flightRevenue(f: Flight, ac: AircraftDef, fx?: Effects): Revenue {
   const parked = Math.max(0, f.offBlockAt - f.dockedAt);
-  const base = ac.landingFee + parked * PARK_RATE + ac.paxFee * f.boarded;
-  const total = base * moodMultiplier(f.mood) * punctualityMultiplier(f.onTime);
-  return Big.fromNumber(Math.max(1, Math.round(total)));
+  const mul = moodMultiplier(f.mood) * punctualityMultiplier(f.onTime);
+  const landing = ac.landingFee * (fx?.landingFee ?? 1) * mul;
+  const parking = parked * PARK_RATE * mul;
+  const pax = ac.paxFee * (fx?.paxFee ?? 1) * f.boarded * mul;
+  const kiosk = (fx?.kioskPerPax ?? 0) * f.boarded * mul;
+  const total = Math.max(1, Math.round(landing + parking + pax + kiosk));
+  return { total: Big.fromNumber(total), parts: [landing, parking, pax, kiosk] };
 }
 
 /** Rating 1..5 as a moving average of how happy each flight left. */

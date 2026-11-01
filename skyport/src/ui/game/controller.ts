@@ -23,8 +23,8 @@ export class GameController {
   /** Game speed multiplier (debug / tests). */
   speed = 1;
 
-  constructor(seed: number) {
-    this.state = createGame(seed);
+  constructor(seed: number, state?: GameState) {
+    this.state = state ?? createGame(seed);
   }
 
   /** Advances by real elapsed ms; returns the interpolation alpha. */

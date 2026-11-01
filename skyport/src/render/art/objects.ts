@@ -261,3 +261,63 @@ export function drawRock(p: IsoPen, size: number): void {
   p.shadow(0, 0, 10 * size, 4 * size, 0.2);
   p.poly([-0.12 * size, 0.05 * size, 0, 0.1 * size, -0.08 * size, 0, 0.14 * size, 0.06 * size, 0.08 * size, -0.02 * size, 0.1 * size, 0.16 * size], '#9aa0a8');
 }
+
+/** Snack kiosk with a striped awning. Footprint ~0.9 x 0.7. */
+export function drawKiosk(p: IsoPen): void {
+  p.shadow(0.45, 0.4, 30, 12, 0.22);
+  p.box(0, 0, 0.9, 0.7, 0, 0.55, '#f8fafc');
+  p.poly([0.9, 0.12, 0.2, 0.9, 0.58, 0.2, 0.9, 0.58, 0.42, 0.9, 0.12, 0.42], '#1e293b');
+  // awning stripes over the counter (+x side)
+  for (let i = 0; i < 4; i++) {
+    const y0 = 0.02 + i * 0.165;
+    p.poly([0.9, y0, 0.62, 1.12, y0, 0.48, 1.12, y0 + 0.165, 0.48, 0.9, y0 + 0.165, 0.62], i % 2 === 0 ? '#ef4444' : '#ffffff');
+  }
+  p.box(-0.02, -0.02, 0.92, 0.72, 0.55, 0.62, '#f59e0b');
+  p.circle(0.45, 0.35, 0.95, 0.1, '#fbbf24');
+}
+
+/** Roadside billboard advertising the airfield. */
+export function drawBillboard(p: IsoPen): void {
+  p.shadow(0.5, 0.1, 34, 8, 0.2);
+  p.line(0.15, 0, 0, 0.15, 0, 0.75, '#64748b', 3);
+  p.line(0.85, 0, 0, 0.85, 0, 0.75, '#64748b', 3);
+  p.poly([-0.05, 0, 0.6, 1.05, 0, 0.6, 1.05, 0, 1.25, -0.05, 0, 1.25], '#ffffff');
+  p.poly([0.0, 0, 0.66, 1.0, 0, 0.66, 1.0, 0, 1.19, 0.0, 0, 1.19], '#6366f1');
+  // a tiny plane and a sun on the board
+  p.poly([0.3, 0, 0.92, 0.62, 0, 1.0, 0.7, 0, 0.98, 0.42, 0, 0.88], '#ffffff', false);
+  p.circle(0.82, 0, 1.06, 0.07, '#fbbf24', false);
+}
+
+/** A bench under a parasol. */
+export function drawBench(p: IsoPen): void {
+  p.shadow(0.3, 0.15, 22, 9, 0.2);
+  p.box(0, 0, 0.6, 0.18, 0.12, 0.17, '#b45309');
+  p.box(0.02, 0.0, 0.06, 0.18, 0, 0.12, '#78350f');
+  p.box(0.54, 0.0, 0.58, 0.18, 0, 0.12, '#78350f');
+  p.line(0.3, 0.3, 0, 0.3, 0.3, 0.75, '#e2e8f0', 2);
+  const r = 0.42;
+  const pts: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    pts.push(0.3 + Math.cos(a) * r, 0.3 + Math.sin(a) * r, 0.72);
+  }
+  p.poly(pts, '#14b8a6');
+  p.poly([0.3 - r * 0.5, 0.3 - r * 0.2, 0.74, 0.3, 0.3, 0.85, 0.3 + r * 0.3, 0.3 - r * 0.6, 0.74], '#5eead4', false);
+}
+
+/** Construction crane with a fence, for a plot being built. */
+export function drawCrane(p: IsoPen): void {
+  p.shadow(0, 0, 40, 16, 0.18);
+  // fence posts around the plot
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    p.line(Math.cos(a) * 0.8, Math.sin(a) * 0.8, 0, Math.cos(a) * 0.8, Math.sin(a) * 0.8, 0.25, '#f59e0b', 2.4);
+  }
+  // mast (lattice) and jib
+  p.box(-0.08, -0.08, 0.08, 0.08, 0, 1.9, '#fbbf24');
+  for (let z = 0.2; z < 1.9; z += 0.25) p.line(-0.08, 0.08, z, 0.08, 0.08, z + 0.2, '#b45309', 1.2);
+  p.box(-0.5, -0.05, 1.1, 0.05, 1.9, 1.98, '#fbbf24');
+  p.box(-0.5, -0.1, -0.3, 0.1, 1.75, 1.9, '#475569');
+  p.line(0.9, 0, 1.94, 0.9, 0, 1.2, '#334155', 1.2);
+  p.box(0.82, -0.08, 0.98, 0.08, 1.05, 1.2, '#64748b');
+}

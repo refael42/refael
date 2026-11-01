@@ -9,6 +9,7 @@ import { gameClock } from './clock';
 import { pushEvent } from './events';
 import { clearLanding, clearTakeoff, freeStand, startBoarding, wantsAction } from './flights';
 import { REJECT, WANT, type Applicant, type GameState } from './types';
+import { effects } from './upgrades';
 import { requestService } from './vehicles';
 
 /** Most workers of one role (more need more vehicles / tower upgrades). */
@@ -82,7 +83,7 @@ export function updateStaff(s: GameState): void {
   for (const m of s.staff) {
     if (m.busyUntil > s.time) continue;
     const role = STAFF_ROLES[m.role];
-    const reaction = role.reaction / m.speed;
+    const reaction = role.reaction / (m.speed * effects(s).staffSpeed);
     const ripe = (readyAt: number) => s.time - readyAt >= reaction;
     switch (role.id) {
       case 'atc': {

@@ -59,6 +59,8 @@ export interface TierLayout {
   bags: ServiceHome;
   /** Where idle staff stand. */
   staffSpots: Readonly<Record<string, P2>>;
+  /** Spots for things upgrades add to the scene. */
+  decor: { kiosk: P2; billboard: P2; benches: readonly P2[] };
   windsock: P2;
   road: readonly P2[];
   parking: { x0: number; y0: number; x1: number; y1: number };
@@ -155,6 +157,7 @@ const DIRT_STRIP: TierLayout = {
   fuel: { home: [26.6, 20.5], via: [26.4, 21.5] },
   bags: { home: [19.5, 20.2], via: [19.6, 21.1] },
   staffSpots: { atc: [21.2, 19.5], fueler: [27.4, 19.9], porter: [19.1, 19.6], agent: [23.4, 19.45] },
+  decor: { kiosk: [23.6, 18.25], billboard: [23.2, 12.2], benches: [[20.2, 19.35], [24.7, 19.3]] },
   windsock: [20, 27.9],
   road: [
     [22.1, 17.8],

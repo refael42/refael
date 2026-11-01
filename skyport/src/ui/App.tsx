@@ -8,7 +8,8 @@ import { buildSprites, buildUiIcons, type SpriteSet } from '../render/sprites';
 import { useSettings } from '../settings/store';
 import { Gallery } from './Gallery';
 import { readDebugParams } from './game/debugParams';
-import { GameScreen, tierCombos } from './game/GameScreen';
+import { GameScreen, tierCombos, type Boot } from './game/GameScreen';
+import { loadGame } from './game/persistence';
 import { setIconSheet } from './iconSheet';
 import { LoadingScreen } from './LoadingScreen';
 
@@ -29,6 +30,19 @@ export default function App() {
   const hydrated = useHydratedSettings();
   const t = useT();
   const [sprites, setSprites] = useState<SpriteSet | null>(null);
+  const [boot, setBoot] = useState<Boot | null>(null);
+
+  useEffect(() => {
+    const dbg = readDebugParams();
+    if (dbg.isTest && !dbg.save) {
+      setBoot({ saveBlocked: true, futureSave: false });
+      return;
+    }
+    loadGame().then((r) => {
+      if (r.ok) setBoot({ state: r.state, away: r.awaySeconds, saveBlocked: false, futureSave: false });
+      else setBoot({ saveBlocked: r.reason === 'future', futureSave: r.reason === 'future' });
+    });
+  }, []);
   const [screen, setScreen] = useState<'game' | 'gallery'>(() => (readDebugParams().screen === 'gallery' ? 'gallery' : 'game'));
 
   useEffect(() => {
@@ -44,12 +58,12 @@ export default function App() {
     <SafeAreaProvider>
       <View style={styles.root}>
         <StatusBar style="light" />
-        {!hydrated || !sprites ? (
+        {!hydrated || !sprites || !boot ? (
           <LoadingScreen progress={sprites ? 0.9 : 0.5} label={t('app.loading')} />
         ) : screen === 'gallery' ? (
           <Gallery sprites={sprites} onBack={() => setScreen('game')} />
         ) : (
-          <GameScreen sprites={sprites} onGallery={() => setScreen('gallery')} />
+          <GameScreen sprites={sprites} boot={boot} onGallery={() => setScreen('gallery')} />
         )}
       </View>
     </SafeAreaProvider>

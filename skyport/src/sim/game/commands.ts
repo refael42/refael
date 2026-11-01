@@ -3,6 +3,7 @@ import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
 import { hire } from './staff';
+import { buyUpgrade, rushBuild } from './upgrades';
 import { requestService } from './vehicles';
 
 /** UI entry point: commands are applied at the start of the next step. */
@@ -44,6 +45,15 @@ export function applyCommand(s: GameState, cmd: Command): void {
       const r = requestService(s, f, 'bags');
       if (r === 'rejected') return reject(s, REJECT.notReady, f.id);
       if (r === 'queued') pushEvent(s, 'bagsQueued', f.x, f.y, f.id);
+      return;
+    }
+    case 'buyUpgrade': {
+      const code = buyUpgrade(s, String(cmd.id), Number.isFinite(cmd.count) ? cmd.count : 1);
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
+      return;
+    }
+    case 'rushBuild': {
+      rushBuild(s);
       return;
     }
     case 'hire': {

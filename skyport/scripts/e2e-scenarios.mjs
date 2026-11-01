@@ -1,3 +1,27 @@
+/** A mid-game save written 'hoursAgo' hours ago (fixture for load/offline tests). */
+const fixture = (hoursAgo) =>
+  JSON.stringify({
+    v: 2,
+    savedAt: Date.now() - hoursAgo * 3600 * 1000,
+    game: {
+      seed: 5,
+      tick: 54000,
+      tier: 1,
+      money: [1.25, 3],
+      rating: 4.6,
+      upg: { ticket: 14, landing: 11, kiosk: 8, stand: 2, billboard: 4, benches: 12, pump: 6, carts: 6 },
+      staff: [
+        { id: 3, role: 0, first: 2, last: 3, speed: 1.1, wage: 40 },
+        { id: 4, role: 1, first: 5, last: 1, speed: 1.0, wage: 25 },
+        { id: 5, role: 2, first: 7, last: 2, speed: 1.2, wage: 22 },
+        { id: 6, role: 3, first: 9, last: 4, speed: 1.0, wage: 18 },
+      ],
+      income: { hist: [900, 950, 1000, 980, 1020], histComp: [] },
+      stats: { served: 120 },
+      nextId: 50,
+    },
+  });
+
 export default [
   { name: 'game-start-phone', viewport: { width: 390, height: 844 }, query: '/?seed=7', wait: 4500, touch: true },
   { name: 'game-busy-phone', viewport: { width: 390, height: 844 }, query: '/?seed=7&warp=95&auto=1&select=1', wait: 3000, touch: true },
@@ -56,5 +80,32 @@ export default [
   { name: 'm2-crew-phone', viewport: { width: 390, height: 844 }, query: '/?seed=4&stands=3&crew=1&warp=150&speed=1', wait: 3000, touch: true },
   { name: 'm2-crew-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&stands=3&crew=1&warp=210', wait: 3000, touch: true },
   { name: 'm2-staff-panel', viewport: { width: 390, height: 844 }, query: '/?seed=4&money=400&panel=staff', wait: 2000, touch: true },
+  { name: 'm3-upgrades-panel', viewport: { width: 390, height: 844 }, query: '/?seed=4&money=3000&panel=upgrades', wait: 2000, touch: true },
+  { name: 'm3-progress-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=3&warp=1500&auto=1', wait: 2500, touch: true },
+  { name: 'm3-progress-phone', viewport: { width: 390, height: 844 }, query: '/?seed=3&warp=1500&auto=1', wait: 2500, touch: true, langs: ['he'] },
+  { name: 'm3-welcome-back', viewport: { width: 390, height: 844 }, query: '/?save=1', wait: 2500, touch: true, save: fixture(2) },
+  {
+    // plays, autosaves, reloads and checks that the money came back
+    name: 'm3-save-reload',
+    viewport: { width: 390, height: 844 },
+    query: '/?save=1&seed=9&auto=1&warp=400&hook=1',
+    wait: 9500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      const raw = await page.evaluate(() => localStorage.getItem('skyport.save.v1'));
+      if (!raw) throw new Error('no autosave after 11 s');
+      const file = JSON.parse(raw);
+      if (file.v !== 2) throw new Error('unexpected save version ' + file.v);
+      const before = await page.evaluate(() => window.__skyport.stats());
+      await page.goto(page.url().replace(/\?.*$/, '?save=1&hook=1'));
+      await page.waitForTimeout(2500);
+      const after = await page.evaluate(() => window.__skyport.stats());
+      if (!(before.money > 0)) throw new Error('nothing earned before saving');
+      // the reloaded game continues from the save (plus a little offline pay), not from zero
+      if (after.time + 15 < before.time || after.money < before.money * 0.5) throw new Error(`reload lost the game: ${JSON.stringify({ before, after })}`);
+      console.log(`     save/reload: before t=${before.time.toFixed(0)} money=${before.money} -> after t=${after.time.toFixed(0)} money=${after.money}`);
+    },
+  },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -18,10 +18,14 @@ export interface DebugParams {
   crew: boolean;
   money: number;
   panel: string | null;
+  /** Load/save even though test switches are present. */
+  save: boolean;
+  /** Any test switch in the URL (then no loading/saving by default). */
+  isTest: boolean;
 }
 
 export function readDebugParams(): DebugParams {
-  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null };
+  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false };
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return out;
   const q = new URLSearchParams(window.location.search);
   const num = (k: string) => {
@@ -41,5 +45,7 @@ export function readDebugParams(): DebugParams {
   out.crew = q.get('crew') === '1';
   out.money = Math.max(0, num('money'));
   out.panel = q.get('panel');
+  out.save = q.get('save') === '1';
+  out.isTest = ['seed', 'warp', 'auto', 'stands', 'crew', 'money', 'panel', 'hook', 'select', 'speed'].some((k) => q.has(k));
   return out;
 }

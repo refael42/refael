@@ -8,6 +8,7 @@ import { pushEvent } from './events';
 import { doorSide, layoutOf } from './layout';
 import { chaikin, makeSample, samplePath } from './path';
 import { FUEL, type Flight, type GameState, type ServiceKind, type Vehicle } from './types';
+import { effects } from './upgrades';
 
 const SAMPLE = makeSample();
 export const TRUCK_SPEED = 1.5;
@@ -146,15 +147,16 @@ export function updateVehicles(s: GameState, dt: number): void {
           goHome(s, v);
           break;
         }
+        const fx = effects(s);
         if (v.kind === 'fuel') {
-          f.fuel = Math.min(f.fuelNeed, f.fuel + FUEL_RATE * dt);
+          f.fuel = Math.min(f.fuelNeed, f.fuel + FUEL_RATE * fx.fuelRate * dt);
           if (f.fuel >= f.fuelNeed) {
             f.fuelState = FUEL.done;
             pushEvent(s, 'fuelDone', f.x, f.y, f.id);
             goHome(s, v);
           }
         } else {
-          f.bagWork = Math.min(1, f.bagWork + dt / serviceSeconds(f, 'bags'));
+          f.bagWork = Math.min(1, f.bagWork + (dt * fx.bagSpeed) / serviceSeconds(f, 'bags'));
           if (f.bagWork >= 1) {
             f.bagState = FUEL.done;
             pushEvent(s, 'bagsDone', f.x, f.y, f.id);

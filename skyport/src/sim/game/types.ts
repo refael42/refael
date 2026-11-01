@@ -1,4 +1,5 @@
 import type { Big } from '../big';
+import type { IncomeState } from './income';
 
 export type GameEventKind =
   | 'cmdRejected'
@@ -22,7 +23,12 @@ export type GameEventKind =
   | 'bagsDone'
   | 'hired'
   | 'wagesPaid'
-  | 'notEnoughMoney';
+  | 'notEnoughMoney'
+  | 'upgraded'
+  | 'milestone'
+  | 'buildStart'
+  | 'buildDone'
+  | 'offline';
 
 export interface GameEvent {
   id: number;
@@ -46,7 +52,10 @@ export type Command =
   | { type: 'startBoarding'; flightId: number }
   | { type: 'clearTakeoff'; flightId: number }
   | { type: 'sendBags'; flightId: number }
-  | { type: 'hire'; applicantId: number };
+  | { type: 'hire'; applicantId: number }
+  /** count: levels to buy, -1 = as many as you can afford. */
+  | { type: 'buyUpgrade'; id: string; count: number }
+  | { type: 'rushBuild' };
 
 export type FlightPhase =
   | 'inbound'
@@ -208,6 +217,16 @@ export interface Stats {
   diverted: number;
   earned: Big;
   wages: Big;
+  spent: Big;
+}
+
+export interface Build {
+  id: string;
+  /** Level the upgrade reaches when done. */
+  level: number;
+  /** Seconds left (stored as remaining time, so offline progress is a subtraction). */
+  remaining: number;
+  total: number;
 }
 
 export interface StaffMember {
@@ -267,6 +286,15 @@ export interface GameState {
   applicants: Applicant[];
   /** Last game day whose wages were paid. */
   wageDay: number;
+  /** Upgrade levels by id. */
+  upg: Record<string, number>;
+  /** Bumped whenever a level changes (effects cache key). */
+  upgRev: number;
+  /** Construction in progress (one crew for now). */
+  builds: Build[];
+  /** Global price multiplier (trophies later). */
+  priceMul: number;
+  income: IncomeState;
   nextId: number;
   nextArrival: number;
   spotCursor: number;
