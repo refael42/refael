@@ -1,4 +1,4 @@
-import { tierDef } from '../../data/tiers';
+import { layoutFor } from '../../data/tiers';
 import { Big } from '../big';
 import { normalizeSeed } from '../rng';
 import { SAVE_VERSION } from './constants';
@@ -10,7 +10,7 @@ import { makeVehicle } from './vehicles';
 
 export function createGame(seed: number): GameState {
   const s = normalizeSeed(seed);
-  const L = tierDef(1).layout;
+  const L = layoutFor(1);
   const game: GameState = {
     version: SAVE_VERSION,
     seed: s,
@@ -35,6 +35,10 @@ export function createGame(seed: number): GameState {
     applicants: [],
     wageDay: 1,
     nextApplicantAt: 90,
+    tierBuild: null,
+    tierSwitch: false,
+    profile: { manager: '', airport: '' },
+    decor: {},
     upg: {},
     upgRev: 0,
     builds: [],

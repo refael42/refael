@@ -39,7 +39,11 @@ export type GameEventKind =
   | 'trialEnded'
   | 'fired'
   | 'oops'
-  | 'onBreak';
+  | 'onBreak'
+  | 'tierBuildStart'
+  | 'tierBuildDone'
+  | 'tierUp'
+  | 'decorMoved';
 
 export interface GameEvent {
   id: number;
@@ -54,7 +58,7 @@ export interface GameEvent {
 }
 
 /** Why a command was refused (event cmdRejected, field a). */
-export const REJECT = { noStand: 1, notReady: 2, unknownFlight: 3, noMoney: 4, limit: 5 } as const;
+export const REJECT = { noStand: 1, notReady: 2, unknownFlight: 3, noMoney: 4, limit: 5, needs: 6, badSpot: 7 } as const;
 
 export type Command =
   | { type: 'debugAddMoney'; amount: number }
@@ -72,6 +76,9 @@ export type Command =
   | { type: 'talent'; staffId: number; talent: number }
   /** answer: 0 decline, 1 accept, 2 counter-offer half. */
   | { type: 'answerRaise'; staffId: number; answer: number }
+  | { type: 'upgradeTier' }
+  | { type: 'moveDecor'; id: string; x: number; y: number }
+  | { type: 'setProfile'; manager: string; airport: string }
   /** count: levels to buy, -1 = as many as you can afford. */
   | { type: 'buyUpgrade'; id: string; count: number }
   | { type: 'rushBuild' };
@@ -333,6 +340,14 @@ export interface GameState {
   wageDay: number;
   /** When the next applicant knocks on the door. */
   nextApplicantAt: number;
+  /** Building the next airport tier (null when not). */
+  tierBuild: { to: number; remaining: number; total: number } | null;
+  /** Construction is done; switching once no plane is on the ground. */
+  tierSwitch: boolean;
+  /** Names chosen by the player. */
+  profile: { manager: string; airport: string };
+  /** Moved decorations: id -> tile position (defaults come from the layout). */
+  decor: Record<string, [number, number]>;
   /** Upgrade levels by id. */
   upg: Record<string, number>;
   /** Bumped whenever a level changes (effects cache key). */

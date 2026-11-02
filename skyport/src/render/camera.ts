@@ -56,7 +56,15 @@ export function zoomAt(c: Camera, factor: number, vx: number, vy: number): void 
   clampCamera(c);
 }
 
+/** Optional dragging of things (build mode): start() claims the touch. */
+export interface DragHandler {
+  start: (vx: number, vy: number) => boolean;
+  move: (vx: number, vy: number) => void;
+  end: (vx: number, vy: number) => void;
+}
+
 interface TouchState {
+  dragging?: boolean;
   count: number;
   cx: number;
   cy: number;
@@ -91,6 +99,7 @@ export function useCameraResponder(
   cam: Camera,
   onTap: (vx: number, vy: number) => void,
   viewOffset: { current: { x: number; y: number } },
+  drag?: { current: DragHandler | null },
 ): PanResponderInstance {
   const tapRef = useRef(onTap);
   tapRef.current = onTap;
@@ -115,9 +124,17 @@ export function useCameraResponder(
         st.startT = Date.now();
         st.moved = 0;
         st.multi = st.count > 1;
+        st.dragging = !!drag?.current && st.count <= 1 && drag.current.start(st.startX, st.startY);
       },
       onPanResponderMove: (e) => {
         const t = readTouches(e);
+        if (st.dragging && drag?.current) {
+          st.cx = t.cx;
+          st.cy = t.cy;
+          drag.current.move(t.cx - viewOffset.current.x, t.cy - viewOffset.current.y);
+          st.moved += 1;
+          return;
+        }
         if (t.n !== st.count) {
           // finger added or lifted: re-baseline, no jump
           sync(e);
@@ -139,7 +156,14 @@ export function useCameraResponder(
         st.cy = t.cy;
         st.dist = t.dist;
       },
-      onPanResponderRelease: () => {
+      onPanResponderRelease: (e) => {
+        if (st.dragging && drag?.current) {
+          st.dragging = false;
+          void e;
+          drag.current.end(st.cx - viewOffset.current.x, st.cy - viewOffset.current.y);
+          st.count = 0;
+          return;
+        }
         const quick = Date.now() - st.startT < 450;
         if (!st.multi && st.moved < 10 && quick) tapRef.current(st.startX, st.startY);
         st.count = 0;
@@ -148,5 +172,5 @@ export function useCameraResponder(
         st.count = 0;
       },
     });
-  }, [cam, viewOffset]);
+  }, [cam, viewOffset, drag]);
 }

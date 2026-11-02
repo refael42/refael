@@ -20,3 +20,4 @@ export * from './game/staff';
 export * from './game/upgrades';
 export { incomeRate, componentRates } from './game/income';
 export * from './save';
+export * from './game/tiers';

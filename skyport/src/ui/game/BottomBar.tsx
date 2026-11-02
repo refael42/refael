@@ -13,15 +13,32 @@ export interface BarItem {
   badge?: boolean;
 }
 
-export const BottomBar = memo(function BottomBar({ items, onPress }: { items: BarItem[]; onPress: (id: string) => void }) {
+export const BottomBar = memo(function BottomBar({
+  items,
+  onPress,
+  onItemLayout,
+  onLayout,
+}: {
+  items: BarItem[];
+  onPress: (id: string) => void;
+  onItemLayout?: (id: string, cx: number, cy: number) => void;
+  onLayout?: (x: number, y: number) => void;
+}) {
   const t = useT();
   const dir = useDir();
   return (
-    <View style={[styles.bar, { flexDirection: dir.row }]}>
+    <View
+      style={[styles.bar, { flexDirection: dir.row }]}
+      onLayout={(e) => onLayout?.(e.nativeEvent.layout.x, e.nativeEvent.layout.y)}
+    >
       {items.map((it) => (
         <Pressable
           key={it.id}
           onPress={() => onPress(it.id)}
+          onLayout={(e) => {
+            const l = e.nativeEvent.layout;
+            onItemLayout?.(it.id, l.x + l.width / 2, l.y + l.height / 2);
+          }}
           style={({ pressed }) => [styles.btn, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel={t(it.label)}

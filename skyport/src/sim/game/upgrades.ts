@@ -3,7 +3,7 @@
  * a "best value" estimate. Effects are read through effects(s) (cached per
  * state revision).
  */
-import { UPGRADES, upgradeDef, type EffectKind, type UpgradeDef } from '../../data/upgrades';
+import { levelCap, UPGRADES, upgradeDef, type EffectKind, type UpgradeDef } from '../../data/upgrades';
 import { Big } from '../big';
 import { pushEvent } from './events';
 import { layoutOf } from './layout';
@@ -58,7 +58,7 @@ export function bulkCost(s: GameState, def: UpgradeDef, from: number, n: number)
 /** How many levels you can buy now (capped by max level and `limit`). */
 export function affordableCount(s: GameState, def: UpgradeDef, limit = Infinity): number {
   const from = boughtLevel(s, def.id);
-  const room = Math.min(def.maxLevel - from, limit);
+  const room = Math.min(levelCap(def, s.tier) - from, limit);
   if (room <= 0) return 0;
   if (def.buildSeconds) return s.money.gte(unitCost(s, def, from)) && s.builds.length === 0 ? 1 : 0;
   const first = unitCost(s, def, from);
@@ -81,8 +81,9 @@ export function buyUpgrade(s: GameState, id: string, count: number): BuyResult {
   const def = upgradeDef(id);
   if (!def || def.unlockTier > s.tier) return REJECT.unknownFlight;
   const from = boughtLevel(s, id);
-  if (from >= def.maxLevel) return REJECT.limit;
-  let n = count < 0 ? affordableCount(s, def) : Math.min(Math.floor(count), def.maxLevel - from);
+  const cap = levelCap(def, s.tier);
+  if (from >= cap) return REJECT.limit;
+  let n = count < 0 ? affordableCount(s, def) : Math.min(Math.floor(count), cap - from);
   if (def.buildSeconds) n = Math.min(n, 1);
   if (n <= 0) return REJECT.noMoney;
   if (def.buildSeconds && s.builds.length > 0) return REJECT.limit; // one build crew
@@ -217,7 +218,7 @@ export function offers(s: GameState): UpgradeOffer[] {
   for (const def of UPGRADES) {
     if (def.unlockTier > s.tier) continue;
     const lvl = boughtLevel(s, def.id);
-    if (lvl >= def.maxLevel) continue;
+    if (lvl >= levelCap(def, s.tier)) continue;
     const cost = unitCost(s, def, lvl);
     // how much the line's total effect grows with one more level
     const now = def.per * lvl * Math.pow(2, milestonesReached(def, lvl));

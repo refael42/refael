@@ -79,6 +79,10 @@ function ribbon(g: GroundPainter, path: number[], width: number, color: string):
   g.ellipse(path[(n - 1) * 3], path[(n - 1) * 3 + 1], width / 2, width / 2, color, 12);
 }
 
+function c2(g: GroundPainter, b: ReturnType<typeof Skia.PathBuilder.Make>): void {
+  g.c.drawPath(b.build(), g.s);
+}
+
 function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: number, kind: number): void {
   const colors = [
     ['#e6cf7a', '#d9bf68'],
@@ -211,17 +215,42 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
       const outE = gr.out[sn][0];
       if (inE !== undefined && outE !== undefined) tracks.push(routeGeometry(gr, [inE, outE]).path);
     });
-    for (const path of tracks) ribbon(g, path, 0.86, DIRT_EDGE);
     const R = L.runway;
     const hw = R.width / 2;
-    g.rect(R.x0 - 0.3, R.y - hw - 0.14, R.x1 + 0.3, R.y + hw + 0.14, DIRT_EDGE);
-    for (const path of tracks) ribbon(g, path, 0.7, DIRT);
-    g.rect(R.x0 - 0.18, R.y - hw, R.x1 + 0.18, R.y + hw, DIRT);
-    g.f.setMaskFilter(blur(5));
-    g.rect(R.x0 + 0.2, R.y - 0.22, R.x1 - 0.2, R.y + 0.22, DIRT_LIGHT);
-    g.f.setMaskFilter(null);
-    for (let k = -2; k <= 2; k++) g.line(R.x0 + 0.3, R.y + k * 0.22, R.x0 + 1.0, R.y + k * 0.22, '#ffffff', 3.4);
-    for (let x = R.x0 + 1.8; x < R.x1 - 0.8; x += 1.4) g.line(x, R.y, x + 0.7, R.y, 'rgba(255,255,255,0.75)', 2.2);
+    if (R.surface === 'asphalt') {
+      // asphalt: dark runway with white markings, taxiways with a yellow centerline
+      for (const path of tracks) ribbon(g, path, 0.92, '#4b5563');
+      g.rect(R.x0 - 0.3, R.y - hw - 0.12, R.x1 + 0.3, R.y + hw + 0.12, '#4b5563');
+      for (const path of tracks) ribbon(g, path, 0.76, '#6b7280');
+      g.rect(R.x0 - 0.2, R.y - hw, R.x1 + 0.2, R.y + hw, '#5b6472');
+      for (const path of tracks) {
+        const c = Skia.PathBuilder.Make();
+        for (let i = 0; i < path.length; i += 3) {
+          const x = isoX(path[i], path[i + 1]);
+          const y = isoY(path[i], path[i + 1]);
+          if (i === 0) c.moveTo(x, y);
+          else c.lineTo(x, y);
+        }
+        g.s.setColor(Skia.Color('#fbbf24'));
+        g.s.setStrokeWidth(1.8);
+        c2(g, c);
+      }
+      g.line(R.x0, R.y - hw + 0.08, R.x1, R.y - hw + 0.08, '#e5e7eb', 1.6);
+      g.line(R.x0, R.y + hw - 0.08, R.x1, R.y + hw - 0.08, '#e5e7eb', 1.6);
+      for (let k = -3; k <= 3; k++) g.line(R.x0 + 0.3, R.y + k * 0.2, R.x0 + 1.3, R.y + k * 0.2, '#ffffff', 3.2);
+      for (let k = -3; k <= 3; k++) g.line(R.x1 - 1.3, R.y + k * 0.2, R.x1 - 0.3, R.y + k * 0.2, '#ffffff', 3.2);
+      for (let x = R.x0 + 2; x < R.x1 - 1.5; x += 1.2) g.line(x, R.y, x + 0.6, R.y, '#ffffff', 2.4);
+    } else {
+      for (const path of tracks) ribbon(g, path, 0.86, DIRT_EDGE);
+      g.rect(R.x0 - 0.3, R.y - hw - 0.14, R.x1 + 0.3, R.y + hw + 0.14, DIRT_EDGE);
+      for (const path of tracks) ribbon(g, path, 0.7, DIRT);
+      g.rect(R.x0 - 0.18, R.y - hw, R.x1 + 0.18, R.y + hw, DIRT);
+      g.f.setMaskFilter(blur(5));
+      g.rect(R.x0 + 0.2, R.y - 0.22, R.x1 - 0.2, R.y + 0.22, DIRT_LIGHT);
+      g.f.setMaskFilter(null);
+      for (let k = -2; k <= 2; k++) g.line(R.x0 + 0.3, R.y + k * 0.22, R.x0 + 1.0, R.y + k * 0.22, '#ffffff', 3.4);
+      for (let x = R.x0 + 1.8; x < R.x1 - 0.8; x += 1.4) g.line(x, R.y, x + 0.7, R.y, 'rgba(255,255,255,0.75)', 2.2);
+    }
     // edge lights: small white dots with soft shadows
     const lightsShadow = Skia.PathBuilder.Make();
     const lights = Skia.PathBuilder.Make();
@@ -288,7 +317,12 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
   });
 
   // static sprites with depth: buildings and trees
-  statics.push({ sprite: sprites.hut, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1 + L.hut[1] + 0.7, r: 120 });
+  if (L.runway.surface === 'asphalt') {
+    statics.push({ sprite: sprites.terminal, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1.3 + L.hut[1] + 0.75, r: 160 });
+    statics.push({ sprite: sprites.tower, x: isoX(18.6, 16.6), y: isoY(18.6, 16.6), depth: 18.6 + 16.6 + 0.3, r: 120 });
+  } else {
+    statics.push({ sprite: sprites.hut, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1 + L.hut[1] + 0.7, r: 120 });
+  }
   statics.push({ sprite: sprites.pump, x: isoX(L.pump[0], L.pump[1]), y: isoY(L.pump[0], L.pump[1]), depth: L.pump[0] + L.pump[1] + 0.9, r: 60 });
 
   const treeAt = (x: number, y: number, seed: number) => {
@@ -313,7 +347,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     }
   }
   // a little grove near the hut
-  treeAt(18.6, 17.9, 501);
+  if (L.runway.surface !== 'asphalt') treeAt(18.6, 17.9, 501);
   treeAt(28.4, 17.8, 503);
   // scattered trees in the countryside
   for (let i = 0; i < 70; i++) {

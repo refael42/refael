@@ -12,6 +12,12 @@ export interface SettingsState {
   sound: boolean;
   music: boolean;
   haptics: boolean;
+  /** First-launch screens done. */
+  onboarded: boolean;
+  /** Tutorial step (0 = off or finished). */
+  tutorial: number;
+  setOnboarded: (v: boolean) => void;
+  setTutorial: (n: number) => void;
   setLang: (lang: Lang) => void;
   setShowFps: (v: boolean) => void;
   initLang: (lang: Lang) => void;
@@ -26,6 +32,10 @@ export const useSettings = create<SettingsState>()(
       sound: true,
       music: true,
       haptics: true,
+      onboarded: false,
+      tutorial: 0,
+      setOnboarded: (onboarded) => set({ onboarded }),
+      setTutorial: (tutorial) => set({ tutorial }),
       setLang: (lang) => set({ lang, langChosen: true }),
       setShowFps: (showFps) => set({ showFps }),
       initLang: (lang) => {
@@ -47,6 +57,8 @@ export const useSettings = create<SettingsState>()(
           sound: typeof p.sound === 'boolean' ? p.sound : current.sound,
           music: typeof p.music === 'boolean' ? p.music : current.music,
           haptics: typeof p.haptics === 'boolean' ? p.haptics : current.haptics,
+          onboarded: p.onboarded === true,
+          tutorial: typeof p.tutorial === 'number' && p.tutorial >= 0 && p.tutorial <= 7 ? Math.floor(p.tutorial) : 0,
         };
       },
     },

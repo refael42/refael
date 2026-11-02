@@ -1,10 +1,10 @@
 /** Routes and service points derived from the tier layout (pure, no state). */
 import { planeArt } from '../../data/aircraft';
-import { tierDef, type P2, type TierLayout } from '../../data/tiers';
+import { layoutFor, type P2, type TierLayout } from '../../data/tiers';
 import { chaikin, type Path } from './path';
 
 export function layoutOf(tier: number): TierLayout {
-  return tierDef(tier).layout;
+  return layoutFor(tier);
 }
 
 function p3(points: readonly P2[], z = 0): Path {

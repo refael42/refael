@@ -37,8 +37,8 @@ for (const sc of scenarios) {
     });
     page.on('pageerror', (e) => errors.push(String(e)));
     await page.addInitScript(
-      ({ lang, fakeNow, save }) => {
-        localStorage.setItem('skyport.settings.v1', JSON.stringify({ state: { lang, langChosen: true, showFps: true }, version: 1 }));
+      ({ lang, fakeNow, save, settings }) => {
+        localStorage.setItem('skyport.settings.v1', JSON.stringify({ state: { lang, langChosen: true, showFps: true, onboarded: true, ...settings }, version: 1 }));
         if (save) localStorage.setItem('skyport.save.v1', save);
         if (fakeNow) {
           // Shift Date.now (page.clock breaks Reanimated).
@@ -47,11 +47,11 @@ for (const sc of scenarios) {
           Date.now = () => real() + offset;
         }
       },
-      { lang, fakeNow: sc.fakeNow ?? 0, save: sc.save ?? null },
+      { lang, fakeNow: sc.fakeNow ?? 0, save: sc.save ?? null, settings: sc.settings ?? {} },
     );
     const t0 = Date.now();
     await page.goto(base + (sc.query ?? '/'), { waitUntil: 'load' });
-    await page.waitForSelector('canvas', { timeout: 30000 });
+    if (!sc.noCanvas) await page.waitForSelector('canvas', { timeout: 30000 });
     await page.waitForTimeout(sc.wait ?? 1500);
     if (sc.actions) {
       try {

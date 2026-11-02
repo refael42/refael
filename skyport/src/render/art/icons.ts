@@ -9,7 +9,7 @@ import { shade } from './color';
 export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
-  'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait',
+  'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -288,6 +288,36 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       f.setColor(Skia.Color('#ffffff'));
       canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(6, 6, 52, 44), 16, 16), f);
       canvas.drawPath(path([24, 48, 32, 59, 40, 48]), f);
+      break;
+    }
+    case 'hand': {
+      // a pointing hand (index finger up)
+      f.setColor(Skia.Color('rgba(15,23,42,0.25)'));
+      f.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, 2.5, true));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(20, 30, 32, 30), 12, 12), f);
+      f.setMaskFilter(null);
+      const skin = '#fdd7b5';
+      f.setColor(Skia.Color('#e9a77c'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(25.5, 3.5, 13, 34), 6.5, 6.5), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(15.5, 25.5, 35, 33), 13, 13), f);
+      f.setColor(Skia.Color(skin));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 5, 10, 32), 5, 5), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(17, 27, 32, 30), 12, 12), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(10, 31, 12, 16), 6, 6), f);
+      f.setColor(Skia.Color('#f8c79f'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(37, 28, 9, 12), 4, 4), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(42, 33, 8, 12), 4, 4), f);
+      break;
+    }
+    case 'build': {
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawPath(path([8, 56, 56, 56, 56, 48, 8, 48]), f);
+      f.setColor(Skia.Color('#fbbf24'));
+      canvas.drawRect(Skia.XYWHRect(26, 10, 6, 40), f);
+      canvas.drawRect(Skia.XYWHRect(14, 10, 40, 5), f);
+      f.setColor(Skia.Color('#64748b'));
+      canvas.drawRect(Skia.XYWHRect(46, 15, 2, 14), f);
+      canvas.drawRect(Skia.XYWHRect(42, 29, 10, 7), f);
       break;
     }
     case 'team': {

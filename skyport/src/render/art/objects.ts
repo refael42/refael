@@ -321,3 +321,38 @@ export function drawCrane(p: IsoPen): void {
   p.line(0.9, 0, 1.94, 0.9, 0, 1.2, '#334155', 1.2);
   p.box(0.82, -0.08, 0.98, 0.08, 1.05, 1.2, '#64748b');
 }
+
+/** Small terminal (tier 2): white walls, a glass front, flat roof and a sign. Footprint 2.6 x 1.5. */
+export function drawTerminal(p: IsoPen): void {
+  p.shadow(1.4, 1.0, 92, 34, 0.2);
+  p.box(0, 0, 2.6, 1.5, 0, 0.95, '#f1f5f9');
+  // glass front (+y face) with mullions
+  p.poly([0.15, 1.5, 0.12, 2.45, 1.5, 0.12, 2.45, 1.5, 0.78, 0.15, 1.5, 0.78], '#7dd3fc');
+  for (let x = 0.45; x < 2.45; x += 0.3) p.line(x, 1.5, 0.12, x, 1.5, 0.78, '#e2e8f0', 1.2);
+  p.poly([1.1, 1.5, 0.0, 1.5, 1.5, 0.0, 1.5, 1.5, 0.62, 1.1, 1.5, 0.62], '#0ea5e9');
+  // side windows (+x face)
+  p.poly([2.6, 0.25, 0.4, 2.6, 1.25, 0.4, 2.6, 1.25, 0.75, 2.6, 0.25, 0.75], '#bae6fd');
+  // roof with a parapet and a canopy over the door
+  p.box(-0.04, -0.04, 2.64, 1.54, 0.95, 1.02, '#cbd5e1');
+  p.box(0.9, 1.5, 1.7, 1.95, 0.66, 0.72, '#6366f1');
+  // sign on the roof
+  p.box(0.7, 0.55, 1.9, 0.62, 1.02, 1.32, '#6366f1');
+  p.poly([0.75, 0.62, 1.08, 1.85, 0.62, 1.08, 1.85, 0.62, 1.26, 0.75, 0.62, 1.26], '#ffffff', false);
+}
+
+/** Control tower: round shaft, glass cab, antenna. */
+export function drawTower(p: IsoPen): void {
+  // radii are in screen px (like the trees), heights in tiles
+  p.shadow(0.3, 0.3, 30, 12, 0.22);
+  for (let z = 0; z < 1.9; z += 0.03) p.circle(0, 0, z, 7, z > 1.86 ? '#f8fafc' : z < 0.05 ? '#94a3b8' : '#e2e8f0', false);
+  p.circle(0, 0, 1.9, 12, '#cbd5e1');
+  for (let z = 1.92; z < 2.3; z += 0.02) p.circle(0, 0, z, 11, z > 2.27 ? '#7dd3fc' : '#38bdf8', false);
+  p.circle(0, 0, 2.3, 13, '#475569');
+  p.line(0, 0, 2.3, 0, 0, 2.75, '#475569', 2);
+  p.circle(0, 0, 2.76, 2, '#ef4444', false);
+}
+
+/** Build mode tile highlight (iso diamond). */
+export function drawTile(p: IsoPen, color: string): void {
+  p.poly([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], color, false);
+}

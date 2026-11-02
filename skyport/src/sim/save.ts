@@ -8,7 +8,8 @@
  */
 import { CV_LINES, FIRST_NAMES, LAST_NAMES, RARITIES, STAFF_ROLES, TALENT_MAX, TALENTS, TRAITS } from '../data/staff';
 import { TIERS } from '../data/tiers';
-import { UPGRADES, upgradeDef } from '../data/upgrades';
+import { cleanName, DECOR_IDS, decorSpotOk } from './game/tiers';
+import { levelCap, UPGRADES, upgradeDef } from '../data/upgrades';
 import { Big } from './big';
 import { DT, SAVE_VERSION } from './game/constants';
 import { ensureHoldArrays } from './game/graph';
@@ -51,6 +52,10 @@ export function serializeGame(s: GameState, savedAt: number): string {
     applicants: s.applicants,
     wageDay: s.wageDay,
     nextApplicantAt: s.nextApplicantAt,
+    tierBuild: s.tierBuild,
+    tierSwitch: s.tierSwitch,
+    profile: s.profile,
+    decor: s.decor,
     upg: s.upg,
     builds: s.builds,
     priceMul: s.priceMul,
@@ -84,17 +89,18 @@ function big(v: unknown): Big {
   return b.isNeg() ? Big.ZERO : b;
 }
 
-export function cleanUpgrades(raw: unknown): Record<string, number> {
+export function cleanUpgrades(raw: unknown, tier = 1): Record<string, number> {
   const out: Record<string, number> = {};
   if (!isObj(raw)) return out;
   for (const def of UPGRADES) {
-    const l = int(raw[def.id], 0, 0, def.maxLevel);
+    if (def.unlockTier > tier) continue;
+    const l = int(raw[def.id], 0, 0, levelCap(def, tier));
     if (l > 0) out[def.id] = l;
   }
   return out;
 }
 
-export function cleanBuilds(raw: unknown, upg: Record<string, number>): Build[] {
+export function cleanBuilds(raw: unknown, upg: Record<string, number>, tier = 1): Build[] {
   if (!Array.isArray(raw)) return [];
   const out: Build[] = [];
   for (const b of raw) {
@@ -102,7 +108,8 @@ export function cleanBuilds(raw: unknown, upg: Record<string, number>): Build[] 
     const def = upgradeDef(String(b.id));
     if (!def || !def.buildSeconds) continue;
     const lvl = int(b.level, 0, 1, def.maxLevel);
-    if (lvl <= (upg[def.id] ?? 0)) continue;
+    // only the very next level, and only if this tier allows it
+    if (lvl !== (upg[def.id] ?? 0) + 1 || lvl > levelCap(def, tier)) continue;
     const total = def.buildSeconds[Math.min(lvl - 1, def.buildSeconds.length - 1)];
     out.push({ id: def.id, level: lvl, remaining: num(b.remaining, total, 0, total), total });
     break; // one crew
@@ -218,14 +225,14 @@ export function cleanGame(raw: unknown): GameState | null {
   s.rng = int(raw.rng, seed) >>> 0 || seed;
   s.tick = int(raw.tick, 0, 0, 30 * 3600 * 24 * 365);
   s.time = s.tick * DT;
-  s.tier = TIERS.some((t) => t.id === raw.tier) ? (raw.tier as number) : 1;
+  s.tier = TIERS.some((t) => t.id === raw.tier && t.layout) ? (raw.tier as number) : 1;
   s.money = big(raw.money);
   s.diamonds = int(raw.diamonds, 0, 0, 1e9);
   s.rating = num(raw.rating, 3, 1, 5);
   s.traffic = num(raw.traffic, 1, 0.2, 5);
   s.priceMul = num(raw.priceMul, 1, 0.01, 10);
-  s.upg = cleanUpgrades(raw.upg);
-  s.builds = cleanBuilds(raw.builds, s.upg);
+  s.upg = cleanUpgrades(raw.upg, s.tier);
+  s.builds = cleanBuilds(raw.builds, s.upg, s.tier);
   s.staff = cleanStaff(raw.staff, s.time);
   s.applicants = cleanApplicants(raw.applicants, s.time);
   s.nextApplicantAt = num(raw.nextApplicantAt, s.time + 60, s.time, s.time + 300);
@@ -249,12 +256,31 @@ export function cleanGame(raw: unknown): GameState | null {
   for (const a of s.applicants) maxId = Math.max(maxId, a.id);
   s.nextId = Math.max(int(raw.nextId, maxId + 1, 1), maxId + 1);
   s.spotCursor = int(raw.spotCursor, 0, 0, 1e9);
+  const pr = isObj(raw.profile) ? raw.profile : {};
+  s.profile = { manager: cleanName(pr.manager), airport: cleanName(pr.airport) };
+  const tb = isObj(raw.tierBuild) ? raw.tierBuild : null;
+  const next = TIERS.find((t) => t.id === s.tier + 1 && t.layout);
+  if (tb && next && int(tb.to, 0) === next.id) {
+    s.tierBuild = { to: next.id, remaining: num(tb.remaining, next.buildSeconds, 0, next.buildSeconds), total: next.buildSeconds };
+    s.tierSwitch = s.tierBuild.remaining <= 0;
+  }
   // recomputed, not loaded
   s.upgRev = 1;
   applyStructural(s);
   ensureHoldArrays(s);
   if (s.applicants.length === 0) refreshApplicants(s);
   s.nextArrival = s.time + 3;
+  // decorations: only valid spots survive
+  if (isObj(raw.decor)) {
+    for (const id of DECOR_IDS) {
+      const p = raw.decor[id];
+      if (Array.isArray(p) && p.length === 2) {
+        const x = num(p[0], NaN);
+        const y = num(p[1], NaN);
+        if (decorSpotOk(s, id, x, y)) s.decor[id] = [x, y];
+      }
+    }
+  }
   s.flights = [];
   s.people = [];
   s.fuelQueue = [];
@@ -271,6 +297,8 @@ export function migrate(file: SaveFile): SaveFile {
   if (out.v < 2) out.v = 2;
   // v2 (M3) staff had no rarity/level/talents/mood: cleanPerson fills them.
   if (out.v < 3) out.v = 3;
+  // v3 (M4) had no tier build, profile names or moved decorations: defaults apply.
+  if (out.v < 4) out.v = 4;
   return out;
 }
 

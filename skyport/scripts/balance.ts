@@ -58,9 +58,10 @@ for (let m = 1; m <= minutes; m++) {
       }
       if (e.kind === 'buildDone') firsts[`stand/vehicle level ${e.a} built`] ??= Math.round(s.time / 60);
       if (e.kind === 'milestone') firsts[`first milestone`] ??= Math.round(s.time / 60);
+      if (e.kind === 'tierBuildStart') firsts[`tier ${e.a} build started`] ??= Math.round((s.time / 60) * 10) / 10;
+      if (e.kind === 'tierUp') firsts[`tier ${e.a} reached`] ??= Math.round((s.time / 60) * 10) / 10;
     }
-    if (s.standsBuilt >= 2) firsts['2 stands'] ??= Math.round(s.time / 60);
-    if (s.standsBuilt >= 3) firsts['3 stands'] ??= Math.round(s.time / 60);
+    for (let k = 2; k <= 5; k++) if (s.standsBuilt >= k) firsts[`${k} stands`] ??= Math.round(s.time / 60);
   }
   const rate = incomeRate(s) * 60;
   if (prevRate > 5 && rate / prevRate > bestJump) {

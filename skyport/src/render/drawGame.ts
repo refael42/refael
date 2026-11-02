@@ -2,6 +2,8 @@
 import { planeArt } from '../data/aircraft';
 import { STAFF_ROLES } from '../data/staff';
 import { layoutOf } from '../sim/game/layout';
+import { decorPos } from '../sim/game/tiers';
+import { layoutFor } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import type { IconName } from './art/icons';
 import { OUTFITS } from './art/people';
@@ -41,6 +43,8 @@ export interface DrawOptions {
   /** View px covered by the HUD at the top / UI at the bottom. */
   safeTop: number;
   safeBottom: number;
+  /** Build mode: tiles under movable things, and the one being dragged. */
+  build?: { drag: string | null; x: number; y: number; ok: boolean };
 }
 
 /** Edge markers for flights that need you but are off screen (view px). */
@@ -76,20 +80,37 @@ export function drawGame(
 
   // things upgrades add, and construction sites
   const LL = layoutOf(s.tier);
-  const lv = (id: string) => s.upg[id] ?? 0;
   const deco = (sprite: number, p: readonly [number, number], d = 0.6) => {
     const sx = isoX(p[0], p[1]);
     const sy = isoY(p[0], p[1]);
     if (visible(sx, sy, 80)) w.sprite(sprite, sx, sy, 1, p[0] + p[1] + d);
   };
-  if (lv('kiosk') > 0) deco(sp.kiosk, LL.decor.kiosk);
-  if (lv('billboard') > 0) deco(sp.billboard, LL.decor.billboard);
-  if (lv('benches') > 0) deco(sp.bench, LL.decor.benches[0], 0.3);
-  if (lv('benches') >= 10) deco(sp.bench, LL.decor.benches[1], 0.3);
+  const items = decorItems(s);
+  for (const it of items) {
+    const dragged = o.build?.drag === it.id;
+    const p = decorPos(s, it.id);
+    if (o.build) w.decal(o.build.drag && dragged ? (o.build.ok ? sp.tileOk : sp.tileBad) : sp.tileOk, isoX(p[0], p[1]), isoY(p[0], p[1]), 1, dragged ? 0.35 : 0.8);
+    if (dragged && o.build) {
+      w.decal(o.build.ok ? sp.tileOk : sp.tileBad, isoX(o.build.x, o.build.y), isoY(o.build.x, o.build.y), 1, 1);
+      w.fx(spriteOf(sp, it.id), isoX(o.build.x, o.build.y), isoY(o.build.x, o.build.y), 1, 0.75);
+      continue;
+    }
+    deco(spriteOf(sp, it.id), p, it.id.startsWith('bench') ? 0.3 : 0.6);
+  }
   const site = constructionSite(s);
   if (site) {
     deco(sp.crane, site.at, 0.2);
     w.bar(isoX(site.at[0], site.at[1]), isoY(site.at[0], site.at[1], 2.3), 52, site.progress, 0xf59e0b);
+  }
+  // building the next tier: cranes on the new plots and next to the hut
+  if (s.tierBuild) {
+    const NL = layoutFor(s.tierBuild.to);
+    const prog = 1 - s.tierBuild.remaining / Math.max(0.001, s.tierBuild.total);
+    const spots: (readonly [number, number])[] = NL.stands.slice(LL.stands.length).map((st) => st.pos);
+    spots.push([LL.hut[0] - 1.1, LL.hut[1] + 0.4]);
+    for (const p of spots) deco(sp.crane, p, 0.2);
+    const head = spots[spots.length - 1];
+    w.bar(isoX(head[0], head[1]), isoY(head[0], head[1], 2.3), 64, prog, 0x6366f1);
   }
 
   // vehicles
@@ -222,10 +243,29 @@ function drawFlight(
   }
 }
 
+/** Movable decorations the player owns (from upgrade levels). */
+export function decorItems(s: GameState): { id: string }[] {
+  const lv = (id: string) => s.upg[id] ?? 0;
+  const out: { id: string }[] = [];
+  if (lv('kiosk') > 0) out.push({ id: 'kiosk' });
+  if (lv('billboard') > 0) out.push({ id: 'billboard' });
+  if (lv('benches') > 0) out.push({ id: 'bench1' });
+  if (lv('benches') >= 10) out.push({ id: 'bench2' });
+  return out;
+}
+
+function spriteOf(sp: SpriteSet, id: string): number {
+  return id === 'kiosk' ? sp.kiosk : id === 'billboard' ? sp.billboard : sp.bench;
+}
+
 /** Where the current construction is (stand plot or vehicle depot) and how far along. */
 export function constructionSite(s: GameState): { at: readonly [number, number]; progress: number } | null {
   const b = s.builds[0];
-  if (!b) return null;
+  if (!b) {
+    if (!s.tierBuild) return null;
+    const L = layoutOf(s.tier);
+    return { at: [L.hut[0] - 1.1, L.hut[1] + 0.4], progress: 1 - s.tierBuild.remaining / Math.max(0.001, s.tierBuild.total) };
+  }
   const L = layoutOf(s.tier);
   let at: readonly [number, number];
   if (b.id === 'stand') at = L.stands[Math.min(b.level, L.stands.length - 1)].pos;

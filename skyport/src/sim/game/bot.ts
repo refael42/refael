@@ -4,6 +4,7 @@
  */
 import { STAFF_ROLES } from '../../data/staff';
 import { MAX_PER_ROLE, staffCount } from './staff';
+import { checkTier } from './tiers';
 import { bestOffer } from './upgrades';
 import { WANT, type Command, type GameState } from './types';
 
@@ -77,6 +78,10 @@ export function botHires(s: GameState, keep = 1.3): Command[] {
 
 /** Buys the best-value upgrade it can afford (keeps a small reserve for staff). */
 export function botBuys(s: GameState): Command[] {
+  if (checkTier(s).ok) return [{ type: 'upgradeTier' }];
+  // save up for the next tier once its other requirements are met
+  const t = checkTier(s);
+  if (t.available && t.served && t.rating && !t.busy && !t.money) return [];
   const o = bestOffer(s, true);
   if (!o) return [];
   return [{ type: 'buyUpgrade', id: o.id, count: 1 }];

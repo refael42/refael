@@ -1,7 +1,7 @@
 /** A mid-game save written 'hoursAgo' hours ago (fixture for load/offline tests). */
 const fixture = (hoursAgo) =>
   JSON.stringify({
-    v: 3,
+    v: 4,
     savedAt: Date.now() - hoursAgo * 3600 * 1000,
     game: {
       seed: 5,
@@ -96,7 +96,7 @@ export default [
       const raw = await page.evaluate(() => localStorage.getItem('skyport.save.v1'));
       if (!raw) throw new Error('no autosave after 11 s');
       const file = JSON.parse(raw);
-      if (!(file.v >= 3)) throw new Error('unexpected save version ' + file.v);
+      if (!(file.v >= 4)) throw new Error('unexpected save version ' + file.v);
       const before = await page.evaluate(() => window.__skyport.stats());
       await page.goto(page.url().replace(/\?.*$/, '?save=1&hook=1'));
       await page.waitForTimeout(2500);
@@ -109,5 +109,55 @@ export default [
   },
   { name: 'm4-team', viewport: { width: 390, height: 844 }, query: '/?seed=4&crew=1&warp=900&auto=1&panel=staff', wait: 2500, touch: true },
   { name: 'm4-applicants', viewport: { width: 390, height: 844 }, query: '/?seed=8&warp=500&money=3000&panel=staff', wait: 2500, touch: true },
+  { name: 'm5-tier2-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&tier=2&stands=5&crew=1&warp=240&auto=1', wait: 3000, touch: true },
+  { name: 'm5-tier2-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=2&stands=5&crew=1&warp=240&auto=1&build=1', wait: 3000, touch: true },
+  { name: 'm5-tier-panel', viewport: { width: 390, height: 844 }, query: '/?seed=7&warp=700&auto=1&panel=airport', wait: 2000, touch: true },
+  {
+    // drag the kiosk in build mode and check it moved
+    name: 'm5-build-drag',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=5&build=1&panel=build&hook=1',
+    wait: 2000,
+    langs: ['en'],
+    actions: async (page) => {
+      const before = await page.evaluate(() => window.__skyport.decor().find((d) => d.id === 'kiosk'));
+      if (!before) throw new Error('no kiosk to drag');
+      // a grassy spot inside the fence, east of the apron
+      const target = await page.evaluate(() => window.__skyport.toView(30, 20));
+      await page.mouse.move(before.vx, before.vy);
+      await page.mouse.down();
+      for (let i = 1; i <= 12; i++) await page.mouse.move(before.vx + ((target.vx - before.vx) * i) / 12, before.vy + ((target.vy - 10 - before.vy) * i) / 12);
+      await page.waitForTimeout(150);
+      await page.screenshot({ path: 'artifacts/screens/m5-build-dragging-en.png' });
+      await page.mouse.up();
+      await page.waitForTimeout(400);
+      const after = await page.evaluate(() => window.__skyport.decor().find((d) => d.id === 'kiosk'));
+      if (!after || (after.x === before.x && after.y === before.y)) throw new Error(`kiosk did not move: ${JSON.stringify({ before, after })}`);
+      console.log(`     build drag: kiosk ${before.x},${before.y} -> ${after.x},${after.y}`);
+    },
+  },
+  {
+    // first launch: language, names, how-to cards, then the tutorial hand points at the plane
+    name: 'm5-onboarding',
+    viewport: { width: 390, height: 844 },
+    query: '/',
+    wait: 2500,
+    touch: true,
+    settings: { onboarded: false },
+    noCanvas: true,
+    actions: async (page) => {
+      const lang = await page.evaluate(() => JSON.parse(localStorage.getItem('skyport.settings.v1')).state.lang);
+      const next = lang === 'he' ? /הבא|יאללה/ : /Next|fly/;
+      await page.screenshot({ path: `artifacts/screens/m5-onboarding-1-${lang}.png` });
+      await page.getByRole('button', { name: next }).click();
+      await page.waitForTimeout(300);
+      await page.screenshot({ path: `artifacts/screens/m5-onboarding-2-${lang}.png` });
+      for (let i = 0; i < 4; i++) {
+        await page.getByRole('button', { name: next }).click();
+        await page.waitForTimeout(250);
+      }
+      await page.waitForTimeout(7000);
+    },
+  },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

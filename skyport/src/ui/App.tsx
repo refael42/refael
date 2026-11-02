@@ -12,6 +12,7 @@ import { GameScreen, tierCombos, type Boot } from './game/GameScreen';
 import { loadGame } from './game/persistence';
 import { setIconSheet } from './iconSheet';
 import { LoadingScreen } from './LoadingScreen';
+import { Onboarding } from './Onboarding';
 
 function useHydratedSettings(): boolean {
   const [ok, setOk] = useState(useSettings.persist.hasHydrated());
@@ -31,6 +32,7 @@ export default function App() {
   const t = useT();
   const [sprites, setSprites] = useState<SpriteSet | null>(null);
   const [boot, setBoot] = useState<Boot | null>(null);
+  const onboarded = useSettings((s) => s.onboarded);
 
   useEffect(() => {
     const dbg = readDebugParams();
@@ -49,7 +51,7 @@ export default function App() {
     // Let the loading screen paint before the (synchronous) atlas build.
     const id = setTimeout(() => {
       setIconSheet(buildUiIcons());
-      setSprites(buildSprites({ combos: tierCombos(1) }));
+      setSprites(buildSprites({ combos: tierCombos(2) }));
     }, 30);
     return () => clearTimeout(id);
   }, []);
@@ -60,6 +62,14 @@ export default function App() {
         <StatusBar style="light" />
         {!hydrated || !sprites || !boot ? (
           <LoadingScreen progress={sprites ? 0.9 : 0.5} label={t('app.loading')} />
+        ) : !onboarded && !boot.state && !boot.saveBlocked ? (
+          <Onboarding
+            onDone={(names) => {
+              setBoot({ ...boot, profile: names });
+              useSettings.getState().setTutorial(1);
+              useSettings.getState().setOnboarded(true);
+            }}
+          />
         ) : screen === 'gallery' ? (
           <Gallery sprites={sprites} onBack={() => setScreen('game')} />
         ) : (

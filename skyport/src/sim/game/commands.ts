@@ -3,6 +3,7 @@ import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
 import { answerRaise, confirmTrial, fire, hire, negotiate, spendTalent, startTrial, transfer } from './staff';
+import { cleanName, moveDecor, rushTier, startTierBuild } from './tiers';
 import { buyUpgrade, rushBuild } from './upgrades';
 import { requestService } from './vehicles';
 
@@ -53,7 +54,21 @@ export function applyCommand(s: GameState, cmd: Command): void {
       return;
     }
     case 'rushBuild': {
-      rushBuild(s);
+      if (!rushBuild(s)) rushTier(s);
+      return;
+    }
+    case 'upgradeTier': {
+      const code = startTierBuild(s);
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
+      return;
+    }
+    case 'moveDecor': {
+      const code = moveDecor(s, String(cmd.id), Number(cmd.x), Number(cmd.y));
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
+      return;
+    }
+    case 'setProfile': {
+      s.profile = { manager: cleanName(cmd.manager), airport: cleanName(cmd.airport) };
       return;
     }
     case 'hire':

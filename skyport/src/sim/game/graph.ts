@@ -7,7 +7,7 @@
  * A plane may enter an edge only after reserving it together with its end
  * node; it releases them once its tail has cleared the end node.
  */
-import { tierDef, type TierLayout } from '../../data/tiers';
+import { layoutFor, type TierLayout } from '../../data/tiers';
 import { chaikin, type Path } from './path';
 import type { Flight, GameState } from './types';
 
@@ -37,7 +37,7 @@ const cache = new Map<number, Graph>();
 export function graphOf(tier: number): Graph {
   const hit = cache.get(tier);
   if (hit) return hit;
-  const g = buildGraph(tierDef(tier).layout);
+  const g = buildGraph(layoutFor(tier));
   cache.set(tier, g);
   return g;
 }

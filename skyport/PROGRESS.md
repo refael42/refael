@@ -24,7 +24,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M2 First staff | done | see below |
 | M3 Economy & upgrades | done | see below |
 | M4 Full staff system | done | see below |
-| M5 Airport tiers | next | |
+| M5 Airport tiers | done | see below |
+| M6 Terminal & passengers | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -128,6 +129,23 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - UI: staff sheet with Team / Applicants tabs, CV cards, talents, transfer, fire, raise and trial
   banners; badge on the Staff button when something needs you. Save version 3 (+ migration).
 - Heroes (mythic free characters from packs/events) come with the shop (M18).
+
+### M5 — airport tiers (done)
+- Tier table for all 8 tiers (names, requirements, build time, pay and traffic multipliers).
+  Tier 1 (dirt strip) and tier 2 (small airfield) are playable; tiers 3–8 show as "coming".
+- Tier 2 grows the map in every direction and keeps every tier-1 node and stand in place:
+  longer asphalt runway with markings, taxiways with yellow centerlines, 5 stands, a terminal
+  and a control tower, a new airline, pay x2, traffic x1.3. Stand upgrades go to level 4 there.
+- Growing is a construction project (cost, flights served, rating; 90 s; tap the crane to rush).
+  When it finishes, new landings wait until no plane is on the ground, then the map switches —
+  no taxi route ever spans two maps. Tested with 2000 flights on the 5-stand map.
+- Build mode: drag the kiosk, benches and billboard; green/red tile under the ghost; spots are
+  checked (not on runways, taxiways, stands, buildings), snapped to half tiles, saved.
+- First launch: language, manager and airport names with a dice, three "how to play" cards; then
+  a pointing-hand tutorial (land -> bags/fuel -> board -> takeoff -> upgrades -> buy -> staff,
+  skippable). Loading screen: a little plane rolls down the runway bar and lifts off.
+- Balance: tier 2 reached at minute ~11–16 (seeds 7, 13, 1); target was ~10.
+- Save version 4 (tier build, names, decorations) with migration.
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).

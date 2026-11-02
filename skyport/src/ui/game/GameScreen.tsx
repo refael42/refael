@@ -6,8 +6,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AIRLINES } from '../../data/airlines';
 import { useDir, useLang, useT, type TKey } from '../../i18n';
-import { makeCamera, updateCamera, useCameraResponder, viewToWorld } from '../../render/camera';
-import { bubbleAnchor, constructionSite, drawGame, type Indicator } from '../../render/drawGame';
+import { makeCamera, updateCamera, useCameraResponder, viewToWorld, type DragHandler } from '../../render/camera';
+import { screenToWorld } from '../../render/iso';
+import { tierDef } from '../../data/tiers';
+import { useSettings as useSettingsStore } from '../../settings/store';
+import { TierPanel } from './TierPanel';
+import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, Z_PX } from '../../render/iso';
 import { makeRenderRes, SnapWriter, type RenderRes } from '../../render/scene';
@@ -20,7 +24,12 @@ import { AIRCRAFT, planeArt } from '../../data/aircraft';
 import { RARITIES, STAFF_ROLES } from '../../data/staff';
 import {
   applyOffline,
+  applyStructural,
+  switchTier,
   bestOffer,
+  checkTier,
+  decorPos,
+  decorSpotOk,
   botBuys,
   botCommands,
   botHires,
@@ -63,6 +72,8 @@ function hudOf(c: GameController): HudData {
 
 export interface Boot {
   state?: GameState;
+  /** Names chosen on the first launch. */
+  profile?: { manager: string; airport: string };
   /** Seconds since the save was written. */
   away?: number;
   /** Don't autosave (test URL, or a save from a newer version must stay untouched). */
@@ -82,7 +93,13 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const ctrl = useMemo(() => {
     const c = new GameController(debug.seed ?? 20261101, boot.state);
     c.speed = debug.speed;
-    if (debug.stands > 0) c.state.standsBuilt = Math.min(debug.stands, c.state.stands.length);
+    if (debug.tier >= 2) switchTier(c.state, debug.tier);
+    if (debug.build) for (const id of ['kiosk', 'benches', 'billboard']) c.state.upg[id] = id === 'benches' ? 10 : 1;
+    if (debug.stands > 0) {
+      c.state.upg.stand = Math.max(0, debug.stands - 1);
+      c.state.upgRev++;
+      applyStructural(c.state);
+    }
     if (debug.money > 0) c.state.money = c.state.money.add(debug.money);
     if (debug.crew) {
       c.state.money = c.state.money.add(5000);
@@ -101,16 +118,22 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     }
     return c;
   }, []);
-  const L = layoutOf(ctrl.state.tier);
+  const [tier, setTier] = useState(ctrl.state.tier);
+  const L = layoutOf(tier);
   const [standsBuilt, setStandsBuilt] = useState(ctrl.state.standsBuilt);
-  const world = useMemo(() => buildWorld(L, sprites, ctrl.state.tier, standsBuilt), [L, sprites, ctrl, standsBuilt]);
+  const world = useMemo(() => buildWorld(L, sprites, tier, standsBuilt), [L, sprites, tier, standsBuilt]);
   const cam = useMemo(() => {
     const c = makeCamera(isoX(L.camera.center[0], L.camera.center[1]), isoY(L.camera.center[0], L.camera.center[1]), L.camera.zoom);
     c.minZoom = 0.32;
     c.maxZoom = 2.2;
     c.bounds = world.bounds;
     return c;
-  }, [L, world]);
+    // the camera is created once; bounds follow the world below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    cam.bounds = world.bounds;
+  }, [cam, world]);
   const writer = useMemo(() => new SnapWriter(), []);
   const fx = useMemo(() => new Effects(), []);
 
@@ -125,7 +148,22 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const [panel, setPanel] = useState<string | null>(debug.panel);
   const [staffView, setStaffView] = useState<StaffView | null>(null);
   const [rev, setRev] = useState(0);
+  const buildMode = panel === 'build';
+  const dragRef = useRef<{ id: string; x: number; y: number; ok: boolean } | null>(null);
+  const tutorial = useSettingsStore((x) => x.tutorial);
+  const setTutorial = useSettingsStore((x) => x.setTutorial);
+  const tutorialRef = useRef(tutorial);
+  tutorialRef.current = tutorial;
+  const [hand, setHand] = useState<{ x: number; y: number; text: TKey } | null>(null);
+  const barPos = useRef<Record<string, { x: number; y: number }>>({});
+  const barOrigin = useRef({ x: 0, y: 0 });
+  const barWrapY = useRef(0);
   const [welcome, setWelcome] = useState<OfflineResult | null>(null);
+
+  useEffect(() => {
+    if (boot.profile) ctrl.send({ type: 'setProfile', manager: boot.profile.manager, airport: boot.profile.airport });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // offline earnings once, right after loading a save
   useEffect(() => {
@@ -202,6 +240,28 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       };
       for (const e of events) {
         switch (e.kind) {
+          case 'landingCleared':
+            if (tutorialRef.current === 1) setTutorial(2);
+            break;
+          case 'fuelStart':
+          case 'bagsStart':
+          case 'fuelQueued':
+          case 'bagsQueued': {
+            const f = s.flights.find((x) => x.id === e.a);
+            if (tutorialRef.current === 2 && f && f.fuelState > 0 && f.bagState > 0) setTutorial(3);
+            if (e.kind === 'fuelQueued') toast('fuel', t('toast.truckBusy'), 'info', 'truck');
+            if (e.kind === 'bagsQueued') toast('bag', t('toast.bagsBusy'), 'info', 'cart');
+            break;
+          }
+          case 'boardingStart':
+            if (tutorialRef.current === 3) setTutorial(4);
+            break;
+          case 'takeoffCleared':
+            if (tutorialRef.current === 4) setTutorial(5);
+            break;
+          case 'upgraded':
+            if (tutorialRef.current === 6) setTutorial(7);
+            break;
           case 'landingRequest':
             toast('land', t('toast.landingRequest', { code: codeOf(e.a) }), 'info', 'land');
             break;
@@ -216,12 +276,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
             else if (e.a === REJECT.notReady) toast('hourglass', t('toast.notReady'), 'info', 'notReady');
             else if (e.a === REJECT.noMoney) toast('coin', t('toast.noMoney'), 'warn', 'money');
             else if (e.a === REJECT.limit) toast('team', t('toast.limit'), 'info', 'limit');
-            break;
-          case 'fuelQueued':
-            toast('fuel', t('toast.truckBusy'), 'info', 'truck');
-            break;
-          case 'bagsQueued':
-            toast('bag', t('toast.bagsBusy'), 'info', 'cart');
+            else if (e.a === REJECT.badSpot) toast('warn', t('toast.badSpot'), 'warn', 'spot');
+            else if (e.a === REJECT.needs) toast('warn', t('toast.needs'), 'warn', 'needs');
             break;
           case 'hired': {
             const m = s.staff.find((x) => x.id === e.b);
@@ -262,6 +318,16 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           case 'oops':
             toast('bag', t('toast.oops'), 'warn', 'oops');
             break;
+          case 'tierBuildStart':
+            toast('build', t('toast.tierBuild', { tier: t(`tier.${tierDef(e.a).key}` as TKey) }), 'good');
+            break;
+          case 'tierUp': {
+            toast('star', t('toast.tierUp', { tier: t(`tier.${tierDef(e.a).key}` as TKey) }), 'good');
+            const NL = layoutOf(e.a);
+            for (const st of NL.stands) fx.sparkle(isoX(st.pos[0], st.pos[1]), isoY(st.pos[0], st.pos[1]) - 20);
+            fx.sparkle(isoX(NL.hut[0] + 1, NL.hut[1] + 0.7), isoY(NL.hut[0] + 1, NL.hut[1] + 0.7) - 40);
+            break;
+          }
           case 'milestone':
             toast('star', t('toast.milestone'), 'good');
             break;
@@ -288,7 +354,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
         }
       }
     },
-    [ctrl, fx, t, toast, lang],
+    [ctrl, fx, t, toast, lang, setTutorial],
   );
 
   useEffect(() => {
@@ -313,6 +379,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       setNow(performance.now());
       const st = ctrl.state;
       setStandsBuilt((old) => (old === st.standsBuilt ? old : st.standsBuilt));
+      setTier((old) => (old === st.tier ? old : st.tier));
+      updateTutorial();
       setRev((r) => r + 1);
       // copies, so the panel re-renders when people change (polled, not every frame)
       const sv: StaffView = {
@@ -354,7 +422,14 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       world,
       cam,
       fx,
-      { selected: selectedRef.current, alpha, time: performance.now() / 1000, safeTop: safe.current.top, safeBottom: safe.current.bottom },
+      {
+        selected: selectedRef.current,
+        alpha,
+        time: performance.now() / 1000,
+        safeTop: safe.current.top,
+        safeBottom: safe.current.bottom,
+        build: buildModeRef.current ? { drag: dragRef.current?.id ?? null, x: dragRef.current?.x ?? 0, y: dragRef.current?.y ?? 0, ok: dragRef.current?.ok ?? false } : undefined,
+      },
       indicators.current,
     );
     snap.value = writer.finish();
@@ -424,7 +499,39 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     [cam, ctrl, act],
   );
 
-  const responder = useCameraResponder(cam, onTap, offset);
+  const buildModeRef = useRef(false);
+  buildModeRef.current = buildMode;
+  // build mode: press a decoration, drag it, drop it on a green tile
+  const drag = useRef<DragHandler | null>(null);
+  drag.current = buildMode
+    ? {
+        start: (vx, vy) => {
+          const p = viewToWorld(cam, vx, vy);
+          for (const it of decorItems(ctrl.state)) {
+            const d = decorPos(ctrl.state, it.id);
+            if (Math.hypot(p.x - isoX(d[0], d[1]), p.y - (isoY(d[0], d[1]) - 14)) * cam.zoom < 40) {
+              dragRef.current = { id: it.id, x: d[0], y: d[1], ok: true };
+              return true;
+            }
+          }
+          return false;
+        },
+        move: (vx, vy) => {
+          if (!dragRef.current) return;
+          const p = viewToWorld(cam, vx, vy);
+          const w = screenToWorld(p.x, p.y);
+          const x = Math.round(w.x * 2) / 2;
+          const y = Math.round(w.y * 2) / 2;
+          dragRef.current = { ...dragRef.current, x, y, ok: decorSpotOk(ctrl.state, dragRef.current.id, x, y) };
+        },
+        end: () => {
+          const d = dragRef.current;
+          dragRef.current = null;
+          if (d) ctrl.send({ type: 'moveDecor', id: d.id, x: d.x, y: d.y });
+        },
+      }
+    : null;
+  const responder = useCameraResponder(cam, onTap, offset, drag);
 
   // Browser-test hook (web only, ?hook=1): where things are on screen.
   useEffect(() => {
@@ -443,7 +550,13 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           };
         }),
       indicators: () => indicators.current.map((i) => ({ ...i })),
-      stats: () => ({ served: ctrl.state.stats.served, money: ctrl.state.money.toNumber(), time: ctrl.state.time }),
+      stats: () => ({ served: ctrl.state.stats.served, money: ctrl.state.money.toNumber(), time: ctrl.state.time, tier: ctrl.state.tier }),
+      toView: (x: number, y: number) => ({ vx: (isoX(x, y) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(x, y) - cam.y) * cam.zoom + cam.viewH / 2 }),
+      decor: () =>
+        decorItems(ctrl.state).map((it) => {
+          const d = decorPos(ctrl.state, it.id);
+          return { id: it.id, x: d[0], y: d[1], vx: (isoX(d[0], d[1]) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(d[0], d[1]) - 14 - cam.y) * cam.zoom + cam.viewH / 2 };
+        }),
       selected: () => selectedRef.current,
     };
     return () => {
@@ -456,10 +569,48 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     (staffView.staff.some((m) => m.raise > 0 || m.trialUntil === 1 || m.points > 0) ||
       staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0));
   const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
+  const tierOk = rev >= 0 && checkTier(ctrl.state).ok;
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
+    { id: 'airport', icon: 'plane', label: 'bar.airport', badge: tierOk },
+    { id: 'build', icon: 'build', label: 'bar.build' },
   ];
+
+  /** Where the pointing hand goes for the current tutorial step (polled). */
+  function updateTutorial() {
+    const step = tutorialRef.current;
+    if (step <= 0) return setHand(null);
+    const flightWith = (w: number) => ctrl.state.flights.find((f) => (f.wants & (1 << w)) !== 0);
+    const atBubble = (w: number, text: TKey) => {
+      const f = flightWith(w);
+      if (!f) return setHand(null);
+      const ind = indicators.current.find((i) => i.id === f.id);
+      if (ind) return setHand({ x: ind.vx, y: ind.vy, text });
+      const b = bubbleAnchor(f, cam.zoom);
+      setHand({ x: (b.x - cam.x) * cam.zoom + cam.viewW / 2, y: (b.y - cam.y) * cam.zoom + cam.viewH / 2 - 10, text });
+    };
+    const atBar = (id: string, text: TKey) => {
+      const p = barPos.current[id];
+      setHand(p ? { x: p.x, y: p.y - 14, text } : null);
+    };
+    if (step === 1) atBubble(WANT.clearLanding, 'tut.land');
+    else if (step === 2) {
+      const f = flightWith(WANT.bags) ?? flightWith(WANT.fuel);
+      if (f) atBubble(f.want, 'tut.service');
+      else setHand(null);
+    } else if (step === 3) atBubble(WANT.board, 'tut.board');
+    else if (step === 4) atBubble(WANT.clearTakeoff, 'tut.takeoff');
+    else if (step === 5) atBar('upgrades', 'tut.upgrades');
+    else if (step === 6) setHand(barPos.current.best ? { x: barPos.current.best.x, y: barPos.current.best.y - 10, text: 'tut.buy' } : null);
+    else if (step === 7) atBar('staff', 'tut.staff');
+  }
+
+  // tutorial progress follows what you do
+  useEffect(() => {
+    if (tutorial === 5 && panel === 'upgrades') setTutorial(6);
+    if (tutorial === 7 && panel === 'staff') setTutorial(0);
+  }, [panel, tutorial, setTutorial]);
   const dir = useDir();
   const rtl = dir.rtl;
 
@@ -516,10 +667,15 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           pointerEvents="box-none"
           onLayout={(e) => {
             safe.current.bottom = e.nativeEvent.layout.height;
+            barWrapY.current = e.nativeEvent.layout.y;
           }}
         >
           {offer ? (
             <Pressable
+              onLayout={(e) => {
+                const l = e.nativeEvent.layout;
+                barPos.current.best = { x: l.x + l.width / 2, y: l.y + barWrapY.current };
+              }}
               onPress={() => ctrl.send({ type: 'buyUpgrade', id: offer.id, count: 1 })}
               style={({ pressed }) => [styles.best, { flexDirection: dir.row }, pressed && { transform: [{ scale: 0.97 }] }]}
               accessibilityRole="button"
@@ -535,13 +691,49 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
               </View>
             </Pressable>
           ) : null}
-          <BottomBar items={barItems} onPress={(id) => setPanel(id)} />
+          <BottomBar
+            items={barItems}
+            onPress={(id) => setPanel(id)}
+            onItemLayout={(id, x, y) => {
+              barPos.current[id] = { x: x + barOrigin.current.x, y: y + barOrigin.current.y };
+            }}
+            onLayout={(x, y) => {
+              barOrigin.current = { x, y: y + barWrapY.current };
+            }}
+          />
+        </View>
+      ) : null}
+      {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
+      {buildMode ? (
+        <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]} pointerEvents="box-none">
+          <View style={[styles.buildBar, { flexDirection: dir.row }]}>
+            <Icon name="build" size={22} />
+            <Text style={styles.buildText} numberOfLines={2}>
+              {decorItems(ctrl.state).length ? t('build.hint') : t('build.none')}
+            </Text>
+            <Pressable onPress={() => setPanel(null)} style={styles.buildDone} accessibilityRole="button" accessibilityLabel={t('build.done')}>
+              <Text style={styles.buildDoneText}>{t('build.done')}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
       {panel === 'upgrades' ? (
         <UpgradesPanel state={ctrl.state} rev={rev} onBuy={(id, count) => ctrl.send({ type: 'buyUpgrade', id, count })} onClose={() => setPanel(null)} />
       ) : null}
       {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
+      {hand && !welcome && !settings ? (
+        <View style={[styles.hand, { left: hand.x - 110, top: hand.y + 14 + Math.sin(now / 160) * 6 }]} pointerEvents="none">
+          <Icon name="hand" size={42} />
+          <View style={styles.handBubble}>
+            <Text style={styles.handText}>{t(hand.text)}</Text>
+          </View>
+        </View>
+      ) : null}
+      {tutorial > 0 && !welcome ? (
+        <Pressable onPress={() => setTutorial(0)} style={[styles.skip, { top: safe.current.top + 6 }]} accessibilityRole="button" accessibilityLabel={t('tut.skip')}>
+          <Text style={styles.skipText}>{t('tut.skip')}</Text>
+        </Pressable>
+      ) : null}
       {panel === 'staff' && staffView ? (
         <StaffPanel view={staffView} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} />
       ) : null}
@@ -583,4 +775,13 @@ const styles = StyleSheet.create({
   bestText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   bestCost: { alignItems: 'center', gap: 3, backgroundColor: C.green, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   bestCostText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  buildBar: { alignItems: 'center', gap: 10, backgroundColor: C.glassStrong, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, maxWidth: 440, ...SHADOW_SM },
+  buildText: { color: C.text, fontWeight: '700', fontSize: 13, flexShrink: 1 },
+  buildDone: { backgroundColor: C.green, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
+  buildDoneText: { color: '#fff', fontWeight: '800' },
+  hand: { position: 'absolute', alignItems: 'center', width: 220 },
+  handBubble: { marginTop: 2, backgroundColor: C.text, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 220 },
+  handText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
+  skip: { position: 'absolute', right: 12, backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  skipText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 });

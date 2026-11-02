@@ -2,7 +2,7 @@
 import { AIRCRAFT, planeArt } from '../../data/aircraft';
 import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
-import type { TierLayout } from '../../data/tiers';
+import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
@@ -152,7 +152,7 @@ export function updateSpawning(s: GameState): void {
     return;
   }
   spawnFlight(s);
-  const t = Math.max(0.2, s.traffic * effects(s).traffic);
+  const t = Math.max(0.2, s.traffic * effects(s).traffic * tierDef(s.tier).traffic);
   s.nextArrival = s.time + randRange(s, ARRIVAL_GAP[0], ARRIVAL_GAP[1]) / t;
 }
 
@@ -189,7 +189,7 @@ export function freeStand(s: GameState): number {
 
 /** True when a cleared arrival may start its final approach now. */
 function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
-  if (!f.landCleared || f.stand < 0) return false;
+  if (!f.landCleared || f.stand < 0 || s.tierSwitch) return false;
   for (const o of s.flights) {
     if (o === f) continue;
     if (o.phase === 'final' || onRunway(o, L)) return false;
@@ -232,7 +232,7 @@ export function divert(s: GameState, f: Flight): void {
 }
 
 export function clearLanding(s: GameState, f: Flight): boolean {
-  if ((f.phase !== 'inbound' && f.phase !== 'holding') || f.landCleared) return false;
+  if ((f.phase !== 'inbound' && f.phase !== 'holding') || f.landCleared || s.tierSwitch) return false;
   let st = f.stand;
   if (st < 0) st = freeStand(s);
   if (st < 0) return false;
@@ -309,7 +309,7 @@ function tryLeaveStand(s: GameState, f: Flight): boolean {
 }
 
 function pay(s: GameState, f: Flight): void {
-  const rev = flightRevenue(f, AIRCRAFT[f.aircraft], effects(s));
+  const rev = flightRevenue(f, AIRCRAFT[f.aircraft], effects(s), tierDef(s.tier).pay);
   const amount = rev.total;
   recordIncome(s, amount.toNumber(), rev.parts, f.boarded);
   s.money = s.money.add(amount);
