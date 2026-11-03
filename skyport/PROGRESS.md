@@ -330,6 +330,12 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   little pressure at the single-runway city airport; softened until the total matched M9's
   (faults 3% of arrivals with the repair in the schedule, checks only with a quiet sky).
 
+### Playable build (owner request, after M10)
+- `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a
+  fragment for hosts that wrap the page) that runs from any sub-path. Published as a private
+  Artifact for the owner to play in the browser (saves stay in that browser). CanvasKit loads
+  from a relative path now.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).

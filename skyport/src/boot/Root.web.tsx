@@ -6,7 +6,8 @@ import { LoadingScreen } from '../ui/LoadingScreen';
 export default function Root() {
   return (
     <WithSkiaWeb
-      opts={{ locateFile: (file: string) => `/${file}` }}
+      // (relative: the game also runs from a sub-path, e.g. a hosted preview)
+      opts={{ locateFile: (file: string) => `./${file}` }}
       getComponent={() => import('../ui/App')}
       fallback={<LoadingScreen progress={0.15} />}
     />
