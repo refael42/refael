@@ -4,6 +4,7 @@ import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
+import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule } from './airlines';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
 import { effects } from './upgrades';
@@ -12,12 +13,13 @@ import { canEnter, findRoute, firstSafe, graphOf, groundMove, releaseAll, releas
 import { doorPoint, layoutOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
 import { angleDiff, makeSample, pathLength, samplePath, type Path } from './path';
 import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
-import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Want } from './types';
+import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Planned, type Want } from './types';
 
 const SAMPLE = makeSample();
 
-/** Seconds between arrivals at the dirt strip (divided by traffic). */
+/** Typical seconds between arrivals of the old single-airline traffic (reference for tests). */
 export const ARRIVAL_GAP: readonly [number, number] = [34, 52];
+const MIN_SPAWN_GAP = 4;
 const HOLD_PATIENCE_S = 75;
 /** Order in which a tap on the plane handles pending actions. */
 const WANT_ORDER: readonly Want[] = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
@@ -56,28 +58,31 @@ function airborneCount(s: GameState): number {
   return n;
 }
 
-export function spawnFlight(s: GameState): Flight | null {
+/**
+ * Creates an arriving flight: from a planned schedule entry, or (tests) from
+ * a contracted airline picked by how often it flies.
+ */
+export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
   const L = layoutOf(s.tier);
-  const choices: { al: number; ac: number[] }[] = [];
-  const weights: number[] = [];
-  AIRLINES.forEach((al, i) => {
-    if (al.unlockTier > s.tier) return;
-    const acs = al.fleet
-      .map((id) => AIRCRAFT.findIndex((a) => a.id === id))
-      .filter((k) => k >= 0 && AIRCRAFT[k].unlockTier <= s.tier && AIRCRAFT[k].unlockServed <= s.stats.served && AIRCRAFT[k].stand === 'small');
-    if (acs.length === 0) return;
-    choices.push({ al: i, ac: acs });
-    weights.push(al.weight);
-  });
-  const pick = randWeighted(s, weights);
-  if (pick < 0) return null;
-  const ch = choices[pick];
-  const aircraft = ch.ac[randInt(s, 0, ch.ac.length - 1)];
+  let al = planned?.al ?? -1;
+  if (al < 0) {
+    const pool = s.contracts.length > 0 ? s.contracts.map((c) => c.al) : AIRLINES.map((_, i) => i).filter((i) => AIRLINES[i].unlockTier <= s.tier);
+    const ok = pool.filter((i) => fleetHere(s, i).length > 0);
+    const pick = randWeighted(s, ok.map((i) => contractOf(s, i)?.perDay ?? AIRLINES[i].weight));
+    if (pick < 0) return null;
+    al = ok[pick];
+  }
+  const fleet = fleetForRep(s, al);
+  if (fleet.length === 0) return null;
+  const aircraft = fleet[randInt(s, 0, fleet.length - 1)];
   const ac = AIRCRAFT[aircraft];
   const cities = CITIES.map((c, i) => ({ c, i })).filter(({ c }) => c.range <= s.tier + 1);
-  const origin = cities[randInt(s, 0, cities.length - 1)].i;
+  const rolledOrigin = cities[randInt(s, 0, cities.length - 1)].i;
+  const origin = planned ? planned.origin : rolledOrigin;
   let dest = cities[randInt(s, 0, cities.length - 1)].i;
+  const rolledNum = randInt(s, 100, 899);
   if (dest === origin) dest = cities[(cities.findIndex((c) => c.i === origin) + 1) % cities.length].i;
+  if (planned) dest = planned.dest;
   const sp = L.approach.spawns[randInt(s, 0, L.approach.spawns.length - 1)];
   const hold = L.approach.hold;
   const ang = Math.atan2(sp[1] - hold[1], sp[0] - hold[0]);
@@ -86,9 +91,9 @@ export function spawnFlight(s: GameState): Flight | null {
   const paxOut = randInt(s, ac.paxMin, ac.paxMax);
   const f: Flight = {
     id: s.nextId++,
-    airline: ch.al,
+    airline: al,
     aircraft,
-    num: randInt(s, 100, 899),
+    num: planned ? planned.num : rolledNum,
     origin,
     dest,
     phase: 'inbound',
@@ -141,21 +146,28 @@ export function spawnFlight(s: GameState): Flight | null {
     gHeld: [],
     gStart: -1,
     gWaiting: false,
+    sched: planned?.at ?? s.time,
+    payMul: contractOf(s, al)?.pay ?? 1,
   };
   s.flights.push(f);
   pushEvent(s, 'landingRequest', f.x, f.y, f.id);
   return f;
 }
 
+/** Arrivals come from the schedule; a full sky delays them (they show as delayed on the board). */
 export function updateSpawning(s: GameState): void {
+  refillSchedule(s);
   if (s.time < s.nextArrival) return;
-  if (airborneCount(s) >= s.standsBuilt + 2) {
+  const p = dueArrival(s);
+  if (!p) return;
+  if (airborneCount(s) >= s.standsBuilt + 2 || s.tierSwitch) {
     s.nextArrival = s.time + 5;
     return;
   }
-  spawnFlight(s);
-  const t = Math.max(0.2, s.traffic * effects(s).traffic * tierDef(s.tier).traffic);
-  s.nextArrival = s.time + randRange(s, ARRIVAL_GAP[0], ARRIVAL_GAP[1]) / t;
+  s.schedule.shift();
+  spawnFlight(s, p);
+  // two planes never pop up in the same second
+  s.nextArrival = s.time + MIN_SPAWN_GAP;
 }
 
 /** Follows f.path (air / runway legs); returns true at the end. */
@@ -228,6 +240,8 @@ export function divert(s: GameState, f: Flight): void {
   setPath(f, routeDivert(f.x, f.y, f.z, f.heading));
   f.mood = 0;
   s.stats.diverted++;
+  airlineFlightDone(s, f, 'diverted');
+  logDeparture(s, f, 1);
   s.rating = nextRating(s.rating, 0);
   sendPaxHome(s, f);
   pushEvent(s, 'diverted', f.x, f.y, f.id, 0, f.id);
@@ -271,7 +285,7 @@ function dock(s: GameState, f: Flight): void {
   f.groute = null;
   f.speed = 0;
   f.dockedAt = s.time;
-  f.slot = s.time + ac.baseTurnaround;
+  f.slot = s.time + ac.baseTurnaround * kindOf(f.airline).turnaround;
   f.paxTimer = 0.4;
   setPhase(f, 'deboarding');
   pushEvent(s, 'docked', f.x, f.y, f.id);
@@ -321,6 +335,14 @@ function pay(s: GameState, f: Flight): void {
   s.rating = nextRating(s.rating, f.mood);
   f.paid = amount.toNumber();
   pushEvent(s, 'paid', f.x, f.y, amount.m, amount.e, f.id);
+  airlineFlightDone(s, f, f.onTime > 0 ? 'onTime' : 'late');
+  logDeparture(s, f, 0);
+}
+
+/** Keeps the latest departures (and cancellations) for the board. */
+function logDeparture(s: GameState, f: Flight, status: number): void {
+  s.departed.push({ al: f.airline, num: f.num, dest: f.dest, slot: f.slot || f.sched, at: s.time, status });
+  if (s.departed.length > 8) s.departed.shift();
 }
 
 /** Recomputes what the flight is waiting for (bitmask + the top action). */

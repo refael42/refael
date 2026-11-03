@@ -32,7 +32,10 @@ import {
   checkTier,
   decorPos,
   decorSpotOk,
+  botAirlines,
   botBuys,
+  canExpand,
+  repOf,
   botCommands,
   botHires,
   clockText,
@@ -59,6 +62,8 @@ import { readDebugParams } from './debugParams';
 import { FlightCard } from './FlightCard';
 import { flightCode, sameView, viewOf, WANT_ACTION, type FlightView } from './flightInfo';
 import { BottomBar, type BarItem } from './BottomBar';
+import { AirlinesPanel } from './AirlinesPanel';
+import { FlightBoard } from './FlightBoard';
 import { Hud, type HudData } from './Hud';
 import { personName, StaffPanel, type StaffView } from './StaffPanel';
 import { SettingsPanel } from './SettingsPanel';
@@ -112,7 +117,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     if (debug.warp > 0) {
       // fast-forward for tests (the bot plays only with auto=1)
       for (let i = 0; i < debug.warp * 30; i++) {
-        if (debug.auto && i % 3 === 0) for (const cmd of [...botCommands(c.state, { reaction: 1 }), ...botHires(c.state)]) c.send(cmd);
+        if (debug.auto && i % 3 === 0) for (const cmd of [...botCommands(c.state, { reaction: 1 }), ...botHires(c.state), ...botAirlines(c.state)]) c.send(cmd);
         if (debug.auto && i % 150 === 0) for (const cmd of botBuys(c.state)) c.send(cmd);
         c.tick(1000 / 30);
       }
@@ -336,6 +341,39 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           case 'lostBag':
             toast('bag', t('toast.lostBag'), 'warn', 'lostBag');
             break;
+          case 'offerArrived':
+            toast('tail', t('toast.offer', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
+            break;
+          case 'contractSigned':
+            toast('handshake', t('toast.signed', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
+            break;
+          case 'offerResult': {
+            const name = AIRLINES[e.a]?.name ?? '';
+            if (e.b === 1) toast('tail', t('toast.offerDiscount', { name }), 'info');
+            else toast('tail', e.c === 1 ? t('toast.offerMore', { name }) : t('toast.offerNo', { name }), e.c === 1 ? 'good' : 'warn');
+            break;
+          }
+          case 'airlineWarning': {
+            const name = AIRLINES[e.a]?.name ?? '';
+            toast('warn', e.b === 1 ? t('toast.airlineCut', { name, n: e.c }) : t('toast.airlineWarning', { name }), 'warn');
+            break;
+          }
+          case 'airlineHappy':
+            toast('tail', t('toast.airlineHappy', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
+            break;
+          case 'airlineLeft':
+            toast('warn', t('toast.airlineLeft', { name: AIRLINES[e.a]?.name ?? '' }), 'warn');
+            break;
+          case 'contractExpanded':
+            toast('up', t('toast.expanded', { name: AIRLINES[e.a]?.name ?? '', n: e.b }), 'good');
+            break;
+          case 'contractEnded': {
+            const name = AIRLINES[e.a]?.name ?? '';
+            if (e.c === 2) toast('tail', t('toast.contractEnded', { name }), 'info');
+            else if (e.b > 0) toast('coin', t('toast.seasonBonus', { name, amount: formatBig(e.b) }), 'good');
+            else toast('tail', t('toast.seasonEnd', { name }), 'info');
+            break;
+          }
           case 'oops':
             toast('bag', t('toast.oops'), 'warn', 'oops');
             break;
@@ -394,7 +432,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       setHud((old) => (old.money === h.money && old.diamonds === h.diamonds && old.rating === h.rating && old.day === h.day && old.time === h.time ? old : h));
       const sel = selectedRef.current;
       const f = sel ? ctrl.state.flights.find((x) => x.id === sel) : undefined;
-      const v = f ? viewOf(f) : null;
+      const v = f ? viewOf(f, repOf(ctrl.state, f.airline)) : null;
       if (sel && !f) setSelected(0);
       setCard((old) => (sameView(old, v) ? old : v));
       setNow(performance.now());
@@ -582,6 +620,10 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
         }),
       indicators: () => indicators.current.map((i) => ({ ...i })),
       stats: () => ({ served: ctrl.state.stats.served, money: ctrl.state.money.toNumber(), time: ctrl.state.time, tier: ctrl.state.tier }),
+      airlines: () => ({
+        contracts: ctrl.state.contracts.map((c) => ({ id: AIRLINES[c.al].id, perDay: c.perDay, pay: c.pay })),
+        offers: ctrl.state.offers.map((o) => ({ id: o.id, airline: AIRLINES[o.al].id, pay: o.pay, perDay: o.perDay, negotiated: o.negotiated })),
+      }),
       toView: (x: number, y: number) => ({ vx: (isoX(x, y) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(x, y) - cam.y) * cam.zoom + cam.viewH / 2 }),
       decor: () =>
         decorItems(ctrl.state).map((it) => {
@@ -601,9 +643,12 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0));
   const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
   const tierOk = rev >= 0 && checkTier(ctrl.state).ok;
+  const airlineNews = rev >= 0 && (ctrl.state.offers.length > 0 || ctrl.state.contracts.some((c) => c.warned || canExpand(ctrl.state, c)));
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
+    { id: 'airlines', icon: 'tail', label: 'bar.airlines', badge: airlineNews },
+    { id: 'board', icon: 'board', label: 'bar.board' },
     { id: 'airport', icon: 'plane', label: 'bar.airport', badge: tierOk },
     { id: 'build', icon: 'build', label: 'bar.build' },
   ];
@@ -733,6 +778,22 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
             }}
           />
         </View>
+      ) : null}
+      {panel === 'airlines' ? <AirlinesPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} initialTab={debug.tab} /> : null}
+      {panel === 'board' ? (
+        <FlightBoard
+          state={ctrl.state}
+          rev={rev}
+          initialTab={debug.tab}
+          onClose={() => setPanel(null)}
+          onPick={(id) => {
+            const f = ctrl.state.flights.find((x) => x.id === id);
+            if (!f) return;
+            setSelected(id);
+            cam.target = { x: isoX(f.x, f.y), y: isoY(f.x, f.y, f.z) };
+            setPanel(null);
+          }}
+        />
       ) : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (

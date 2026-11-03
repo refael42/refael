@@ -18,7 +18,9 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, MAX_PER_ROLE, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { Applicant, Build, GameState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, Contract, GameState, Person0, StaffMember } from './game/types';
+import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
+import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
 import { DAY_SECONDS } from './game/clock';
 import { normalizeSeed } from './rng';
@@ -56,6 +58,10 @@ export function serializeGame(s: GameState, savedAt: number): string {
     tierSwitch: s.tierSwitch,
     profile: s.profile,
     decor: s.decor,
+    contracts: s.contracts.map((c) => ({ ...c, al: AIRLINES[c.al]?.id })),
+    offers: s.offers.map((o) => ({ ...o, al: AIRLINES[o.al]?.id })),
+    rep: Object.fromEntries(AIRLINES.map((a, i) => [a.id, s.rep[i] ?? REP_START])),
+    nextOfferAt: s.nextOfferAt,
     upg: s.upg,
     builds: s.builds,
     priceMul: s.priceMul,
@@ -203,6 +209,64 @@ export function cleanApplicants(raw: unknown, time: number): Applicant[] {
   return out;
 }
 
+function airlineIdx(v: unknown): number {
+  return typeof v === 'string' ? AIRLINES.findIndex((a) => a.id === v) : -1;
+}
+
+/** Contracts: known airlines, once each, terms within what that kind of airline would sign. */
+export function cleanContracts(raw: unknown, time: number, tier: number): Contract[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Contract[] = [];
+  for (const c of raw) {
+    if (!isObj(c)) continue;
+    const al = airlineIdx(c.al);
+    if (al < 0 || out.some((x) => x.al === al) || AIRLINES[al].unlockTier > tier) continue;
+    const k = AIRLINE_KINDS[AIRLINES[al].kind];
+    const endsAt = num(c.endsAt, 0, 0, time + k.days * DAY_SECONDS);
+    if (k.days > 0 && endsAt <= 0) continue;
+    const last = Array.isArray(c.last) ? c.last.slice(-RECENT).map((v) => (v === 1 ? 1 : 0)) : [];
+    out.push({
+      al,
+      perDay: int(c.perDay, k.perDay, 1, k.maxPerDay),
+      pay: num(c.pay, k.pay, k.pay * 0.5, k.pay * 2),
+      goal: num(c.goal, k.goal, 0.3, 1),
+      signedAt: num(c.signedAt, time, 0, time),
+      endsAt: k.days > 0 ? endsAt : 0,
+      flights: int(c.flights, 0, 0),
+      onTime: int(c.onTime, 0, 0),
+      last,
+      earned: num(c.earned, 0, 0),
+      warned: c.warned === true,
+      strikes: int(c.strikes, 0, 0, STRIKES_TO_LEAVE - 1),
+      expandedAt: num(c.expandedAt, time, 0, time),
+      nextAt: 0,
+    });
+  }
+  return out.slice(0, TIERS.find((t) => t.id === tier)?.contracts ?? 2);
+}
+
+export function cleanOffers(raw: unknown, time: number, tier: number, contracts: Contract[]): AirlineOffer[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AirlineOffer[] = [];
+  for (const o of raw) {
+    if (!isObj(o) || out.length >= 2) continue;
+    const al = airlineIdx(o.al);
+    if (al < 0 || AIRLINES[al].unlockTier > tier || contracts.some((c) => c.al === al) || out.some((x) => x.al === al)) continue;
+    const k = AIRLINE_KINDS[AIRLINES[al].kind];
+    out.push({
+      id: int(o.id, 0, 1),
+      al,
+      perDay: int(o.perDay, k.perDay, 1, k.maxPerDay),
+      pay: num(o.pay, k.pay, k.pay * 0.5, k.pay * 2),
+      goal: num(o.goal, k.goal, 0.3, 1),
+      days: k.days,
+      expiresAt: num(o.expiresAt, time + 120, time + 10, time + 600),
+      negotiated: o.negotiated === true,
+    });
+  }
+  return out;
+}
+
 export function cleanIncome(raw: unknown, time: number): IncomeState {
   const inc = makeIncome();
   inc.curStart = time;
@@ -254,10 +318,30 @@ export function cleanGame(raw: unknown): GameState | null {
   };
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
+  // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
+  if (Array.isArray(raw.contracts)) {
+    const cs = cleanContracts(raw.contracts, s.time, s.tier);
+    if (cs.length > 0) s.contracts = cs;
+  } else if (s.tier >= 2) {
+    const bf = AIRLINES.findIndex((a) => a.id === 'bluefin');
+    const k = AIRLINE_KINDS.lowcost;
+    s.contracts.push({ ...s.contracts[0], al: bf, perDay: k.perDay, pay: k.pay, goal: k.goal, last: [] });
+  }
+  s.offers = cleanOffers(raw.offers, s.time, s.tier, s.contracts);
+  const rp = isObj(raw.rep) ? raw.rep : {};
+  s.rep = AIRLINES.map((a) => num(rp[a.id], REP_START, 0, 100));
+  s.nextOfferAt = num(raw.nextOfferAt, s.time + 60, s.time, s.time + 300);
+  s.contracts.forEach((c, i) => {
+    c.nextAt = s.time + 3 + i * 7;
+    if (c.signedAt > s.time) c.signedAt = s.time;
+  });
+  s.schedule = [];
+  s.departed = [];
   // ids must stay unique: never go below what is already used
   let maxId = 2 + s.vehicles.length;
   for (const m of s.staff) maxId = Math.max(maxId, m.id);
   for (const a of s.applicants) maxId = Math.max(maxId, a.id);
+  for (const o of s.offers) maxId = Math.max(maxId, o.id);
   s.nextId = Math.max(int(raw.nextId, maxId + 1, 1), maxId + 1);
   s.spotCursor = int(raw.spotCursor, 0, 0, 1e9);
   const pr = isObj(raw.profile) ? raw.profile : {};
@@ -303,6 +387,8 @@ export function migrate(file: SaveFile): SaveFile {
   if (out.v < 3) out.v = 3;
   // v3 (M4) had no tier build, profile names or moved decorations: defaults apply.
   if (out.v < 4) out.v = 4;
+  // v4 (M6) had no airline contracts: cleanGame gives the starter contract (+ one at tier 2).
+  if (out.v < 5) out.v = 5;
   return out;
 }
 

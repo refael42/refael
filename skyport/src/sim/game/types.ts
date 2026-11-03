@@ -46,7 +46,16 @@ export type GameEventKind =
   | 'decorMoved'
   | 'checkedIn'
   | 'lostBag'
-  | 'sale';
+  | 'sale'
+  | 'offerArrived'
+  | 'offerExpired'
+  | 'offerResult'
+  | 'contractSigned'
+  | 'contractEnded'
+  | 'contractExpanded'
+  | 'airlineWarning'
+  | 'airlineHappy'
+  | 'airlineLeft';
 
 export interface GameEvent {
   id: number;
@@ -84,7 +93,13 @@ export type Command =
   | { type: 'setProfile'; manager: string; airport: string }
   /** count: levels to buy, -1 = as many as you can afford. */
   | { type: 'buyUpgrade'; id: string; count: number }
-  | { type: 'rushBuild' };
+  | { type: 'rushBuild' }
+  | { type: 'signOffer'; offerId: number }
+  /** mode 0: ask for more pay, 1: offer a discount for more flights. */
+  | { type: 'negotiateOffer'; offerId: number; mode: number }
+  | { type: 'declineOffer'; offerId: number }
+  | { type: 'expandContract'; airline: number }
+  | { type: 'endContract'; airline: number };
 
 export type FlightPhase =
   | 'inbound'
@@ -192,6 +207,71 @@ export interface Flight {
   gStart: number;
   /** Stopped because the way ahead is reserved by someone else. */
   gWaiting: boolean;
+  /** Planned arrival time from the schedule (board). */
+  sched: number;
+  /** Contract pay multiplier at the time it was planned. */
+  payMul: number;
+}
+
+/** A signed airline contract. */
+export interface Contract {
+  /** Airline index (AIRLINES). */
+  al: number;
+  perDay: number;
+  pay: number;
+  /** On-time goal 0..1. */
+  goal: number;
+  signedAt: number;
+  /** When a seasonal contract ends (0 = open-ended). */
+  endsAt: number;
+  flights: number;
+  onTime: number;
+  /** Results of the latest flights, newest last: 1 on time, 0 late or diverted. */
+  last: number[];
+  /** What its flights paid (the season bonus is a share of it). */
+  earned: number;
+  /** The airline has warned you (late flights / bad mood). */
+  warned: boolean;
+  /** Bad flights since the warning. */
+  strikes: number;
+  expandedAt: number;
+  /** Schedule cursor: when its next flight is planned. */
+  nextAt: number;
+}
+
+/** An airline that wants a contract (like a job applicant). */
+export interface AirlineOffer {
+  id: number;
+  al: number;
+  perDay: number;
+  pay: number;
+  goal: number;
+  /** Contract length in game days (0 = open-ended). */
+  days: number;
+  expiresAt: number;
+  negotiated: boolean;
+}
+
+/** A planned arrival on the schedule (not spawned yet). */
+export interface Planned {
+  id: number;
+  at: number;
+  al: number;
+  num: number;
+  origin: number;
+  dest: number;
+}
+
+/** A finished departure kept for the board. */
+export interface BoardLog {
+  al: number;
+  num: number;
+  dest: number;
+  /** Scheduled and actual off-block times. */
+  slot: number;
+  at: number;
+  /** 0 departed, 1 cancelled (diverted before landing). */
+  status: number;
 }
 
 /** Person states (arrivals: toHut=toClaim -> atClaim -> toExit; departures: toCheckin -> ... -> toPlane). */
@@ -378,6 +458,15 @@ export interface GameState {
   tierSwitch: boolean;
   /** Names chosen by the player. */
   profile: { manager: string; airport: string };
+  /** Airline contracts, offers and reputation (0..100 per airline index). */
+  contracts: Contract[];
+  offers: AirlineOffer[];
+  rep: number[];
+  nextOfferAt: number;
+  /** Planned arrivals, earliest first (transient, rebuilt from the contracts). */
+  schedule: Planned[];
+  /** Latest departures for the board (transient). */
+  departed: BoardLog[];
   /** Moved decorations: id -> tile position (defaults come from the layout). */
   decor: Record<string, [number, number]>;
   /** Terminal queues (person ids, head first) and who is at each counter / lane (0 = free). */

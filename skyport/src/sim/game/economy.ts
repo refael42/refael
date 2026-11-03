@@ -24,7 +24,7 @@ export interface Revenue {
 /** What a departing flight pays, split by source. */
 export function flightRevenue(f: Flight, ac: AircraftDef, fx?: Effects, tierPay = 1): Revenue {
   const parked = Math.max(0, f.offBlockAt - f.dockedAt);
-  const mul = moodMultiplier(f.mood) * punctualityMultiplier(f.onTime) * tierPay;
+  const mul = moodMultiplier(f.mood) * punctualityMultiplier(f.onTime) * tierPay * (f.payMul ?? 1);
   const landing = ac.landingFee * (fx?.landingFee ?? 1) * mul;
   const parking = parked * PARK_RATE * mul;
   const pax = ac.paxFee * (fx?.paxFee ?? 1) * f.boarded * mul;

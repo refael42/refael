@@ -54,9 +54,12 @@ export interface FlightView {
   /** Share of departing passengers through check-in (-1 = not relevant now). */
   checked: number;
   waiting: boolean;
+  /** Airline kind id and its reputation with you (rounded, -1 unknown). */
+  kind: string;
+  rep: number;
 }
 
-export function viewOf(f: Flight): FlightView {
+export function viewOf(f: Flight, rep = -1): FlightView {
   const al = AIRLINES[f.airline];
   return {
     id: f.id,
@@ -83,6 +86,8 @@ export function viewOf(f: Flight): FlightView {
     checked: f.paxOut > 0 && f.phase !== 'taxiOut' && f.phase !== 'holdShort' && f.phase !== 'lineUp' && f.phase !== 'takeoff' ? Math.round((f.bagsChecked / f.paxOut) * 100) / 100 : -1,
     bagsActive: f.bagState >= SVC.driving,
     waiting: f.gWaiting,
+    kind: al?.kind ?? 'regional',
+    rep: rep >= 0 ? Math.round(rep) : -1,
   };
 }
 

@@ -5,6 +5,7 @@ import { REJECT, type Command, type GameState } from './types';
 import { answerRaise, confirmTrial, fire, hire, negotiate, spendTalent, startTrial, transfer } from './staff';
 import { cleanName, moveDecor, rushTier, startTierBuild } from './tiers';
 import { buyUpgrade, rushBuild } from './upgrades';
+import { declineOffer, endContract, expandContract, negotiateOffer, signOffer } from './airlines';
 import { requestService } from './vehicles';
 
 /** UI entry point: commands are applied at the start of the next step. */
@@ -64,6 +65,24 @@ export function applyCommand(s: GameState, cmd: Command): void {
     }
     case 'moveDecor': {
       const code = moveDecor(s, String(cmd.id), Number(cmd.x), Number(cmd.y));
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
+      return;
+    }
+    case 'signOffer':
+    case 'negotiateOffer':
+    case 'declineOffer':
+    case 'expandContract':
+    case 'endContract': {
+      const code =
+        cmd.type === 'signOffer'
+          ? signOffer(s, Number(cmd.offerId))
+          : cmd.type === 'negotiateOffer'
+            ? negotiateOffer(s, Number(cmd.offerId), Number(cmd.mode) === 1 ? 1 : 0)
+            : cmd.type === 'declineOffer'
+              ? declineOffer(s, Number(cmd.offerId))
+              : cmd.type === 'expandContract'
+                ? expandContract(s, Number(cmd.airline))
+                : endContract(s, Number(cmd.airline));
       if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
       return;
     }

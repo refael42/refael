@@ -162,5 +162,59 @@ export default [
   { name: 'm6-terminal-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&crew=1&warp=300&auto=1&cam=20.5,17.5,1.5', wait: 4500, touch: true },
   { name: 'm6-terminal-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=8&crew=1&warp=420&auto=1&tier=2&stands=4', wait: 2500, touch: true },
   { name: 'm6-upgrades-terminal', viewport: { width: 390, height: 844 }, query: '/?seed=5&money=2000&panel=upgrades', wait: 2000, touch: true, langs: ['he'] },
+  { name: 'm7-airlines-contracts', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=400&auto=1&crew=1&panel=airlines', wait: 2000, touch: true },
+  { name: 'm7-airlines-offers', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=130&panel=airlines&tab=1', wait: 2000, touch: true },
+  {
+    // haggle with an airline: ask for more pay, the offer changes or the airline walks away
+    name: 'm7-negotiate',
+    viewport: { width: 390, height: 844 },
+    query: '/?seed=5&warp=130&panel=airlines&tab=1&hook=1',
+    wait: 2000,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      const before = await page.evaluate(() => window.__skyport.airlines().offers);
+      if (before.length === 0) throw new Error('no offer to negotiate');
+      await page.getByTestId(`ask-${before[0].airline}`).click();
+      await page.waitForTimeout(600);
+      const after = await page.evaluate(() => window.__skyport.airlines().offers);
+      const o = after.find((x) => x.id === before[0].id);
+      if (o && !(o.negotiated && o.pay > before[0].pay)) throw new Error(`asking did nothing: ${JSON.stringify({ before, after })}`);
+      if (o) {
+        await page.getByTestId(`sign-${o.airline}`).click();
+        await page.waitForTimeout(600);
+        const c = await page.evaluate(() => window.__skyport.airlines().contracts);
+        if (!c.some((x) => x.id === o.airline)) throw new Error(`signing failed: ${JSON.stringify(c)}`);
+      }
+      await page.screenshot({ path: 'artifacts/screens/m7-negotiated-en.png' });
+      console.log(`     negotiate: ${o ? `pay ${before[0].pay} -> ${o.pay}, signed` : 'they walked away'}`);
+    },
+  },
+  { name: 'm7-board-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board', wait: 2000, touch: true },
+  { name: 'm7-board-arrivals', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board&tab=1', wait: 2000, touch: true, langs: ['he'] },
+  { name: 'm7-board-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&tier=2&stands=5&crew=1&warp=500&auto=1&panel=board', wait: 2000, touch: true },
+  {
+    // tapping a flight on the board closes it and selects that plane on the map
+    name: 'm7-board-pick',
+    viewport: { width: 390, height: 844 },
+    query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board&hook=1',
+    wait: 2000,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      const ids = await page.evaluate(() => window.__skyport.flights().map((f) => f.id));
+      const row = page.locator('[data-testid^="board-row-f"]').first();
+      if ((await row.count()) === 0) throw new Error(`no live flight on the board (flights ${ids})`);
+      const key = (await row.getAttribute('data-testid')).replace('board-row-f', '');
+      await row.click();
+      await page.waitForTimeout(800);
+      const sel = await page.evaluate(() => window.__skyport.selected());
+      if (String(sel) !== key) throw new Error(`picked ${key}, selected ${sel}`);
+      if ((await page.getByTestId('flight-board').count()) > 0) throw new Error('board still open');
+      await page.screenshot({ path: 'artifacts/screens/m7-board-picked-en.png' });
+      console.log(`     board pick: flight ${key} selected`);
+    },
+  },
+  { name: 'm7-bar-small', viewport: { width: 320, height: 640 }, query: '/?seed=3&warp=60', wait: 2000, touch: true },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

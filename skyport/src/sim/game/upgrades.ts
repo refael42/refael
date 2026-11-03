@@ -3,6 +3,7 @@
  * a "best value" estimate. Effects are read through effects(s) (cached per
  * state revision).
  */
+import { airportCapacity, flightsPerDay } from './airlines';
 import { levelCap, UPGRADES, upgradeDef, type EffectKind, type UpgradeDef } from '../../data/upgrades';
 import { Big } from '../big';
 import { pushEvent } from './events';
@@ -235,9 +236,12 @@ export function offers(s: GameState): UpgradeOffer[] {
       case 'kiosk':
         gain = comp.paxPerSec * delta * 0.85;
         break;
-      case 'traffic':
-        gain = rate * (delta / fx.traffic) * Math.max(0.1, 1 - holdingShare);
+      case 'traffic': {
+        // more planes only help while the ground can still turn them around on time
+        const load = flightsPerDay(s) / Math.max(1, airportCapacity(s));
+        gain = rate * (delta / fx.traffic) * Math.max(0.1, 1 - holdingShare) * Math.max(0, Math.min(1, (1.05 - load) * 4));
         break;
+      }
       case 'stands':
         gain = rate * (0.25 + 0.6 * Math.min(1, holdingShare + 0.2));
         break;

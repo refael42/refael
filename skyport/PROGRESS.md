@@ -26,7 +26,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M4 Full staff system | done | see below |
 | M5 Airport tiers | done | see below |
 | M6 Terminal & passengers | done | see below |
-| M7 Airlines | next | |
+| M7 Airlines | done | see below |
+| M8 Full fleet | next | 11 aircraft, stands by size, jet bridges, wake separation, second runway |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -165,9 +166,38 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   `translate` now adds right-to-left marks around the arrow (tested).
 - Test switch `cam=x,y,zoom` for close-up screenshots.
 
+### M7 — airlines (done)
+- Every arrival now comes from an airline contract. A new game starts with Meadowlark Air
+  (regional, 10 flights a day); offers arrive every 2–3 minutes like job applicants and expire.
+  Contract slots per tier (2 at the dirt strip, 3 at the small airfield, up to 9).
+- Seven airline kinds in a data table (low-cost, regional, national, cargo, luxury, charter,
+  private): pay, flights a day, turnaround allowance, on-time goal, loyalty, season length,
+  required facilities. Two new fictional airlines (Cloudberry Air, Paperkite) for tier 2.
+- Negotiation: ask for +15% pay (chance grows with reputation; a "no" loses the offer and a
+  little reputation) or give a 12% discount for more flights. One try per offer.
+- Reputation per airline (0–100): on time +2, late -4, diverted -10, mood and lost bags count,
+  loyal airlines forgive more. High reputation sends bigger planes and lets you ask for more
+  flights. Unhappy airlines warn, then leave after 4 more bad flights; your last airline never
+  leaves (it cuts flights instead, so the game can't dead-end). Charters run a 3-day season and
+  pay a 20% bonus when the goal was met.
+- Capacity: stands x 14 flights a day, capped by the taxiways (30 / 42 a day on the two maps).
+  The airlines panel shows traffic against capacity; the "best value" upgrade stops pushing
+  marketing when the airport is full. The tower spaces planned arrivals so the runway gets a
+  steady flow.
+- Flight board: departures / arrivals with split-flap times and flight codes, statuses
+  (scheduled, approach, holding, landed, on time, boarding, gate closed, delayed with an
+  expected time, departed, cancelled). Tap a live flight to jump to it on the map.
+- Bottom bar: 6 buttons (upgrades, staff, airlines, board, airport, build); they fit one row on a
+  phone and split into two even rows on very small screens.
+- Balance (bot, 90 min, seed 1): 344 flights, 80% on time, tier 2 at 10.2 min, 2 airlines left
+  when the bot pushed past capacity.
+- Save version 5 (contracts, offers, reputation by airline id) with migration: older saves keep
+  the starter airline, plus Bluefin Express at tier 2. The schedule itself is rebuilt on load.
+
 ## Notes / decisions
-- The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom`.
+- The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
+  left the choice open; it stays here (no extra repo to set up).
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

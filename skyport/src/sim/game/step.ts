@@ -7,6 +7,7 @@ import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
 import { payWages, updateApplicants, updateStaff, updateStaffLife } from './staff';
 import { updateTierBuild } from './tiers';
+import { updateAirlines } from './airlines';
 import { updateBuilds } from './upgrades';
 import type { GameState } from './types';
 import { updateVehicles } from './vehicles';
@@ -30,6 +31,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   payWages(s);
   updateStaffLife(s, dt);
   updateApplicants(s);
+  updateAirlines(s);
   updateBuilds(s, dt);
   updateTierBuild(s, dt);
   rollIncome(s);

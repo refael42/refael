@@ -1,6 +1,6 @@
 // Browser check of the exported web build: loads each scenario in Hebrew and
 // English, waits for the canvas to draw, saves screenshots and fails on any
-// console error. Usage: node scripts/e2e.mjs [--only name] [--keep]
+// console error. Usage: node scripts/e2e.mjs [--only name[,name...]] [--keep]
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -15,7 +15,8 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const out = join(root, 'artifacts', 'screens');
 mkdirSync(out, { recursive: true });
 const args = process.argv.slice(2);
-const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : null;
+// --only a,b,c runs just those scenarios
+const only = args.includes('--only') ? args[args.indexOf('--only') + 1].split(',') : null;
 
 const PORT = 8090 + Math.floor(Math.random() * 500);
 const server = await serve(join(root, 'dist'), PORT);
@@ -27,7 +28,7 @@ const scenarios = (await import('./e2e-scenarios.mjs')).default;
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 let failures = 0;
 for (const sc of scenarios) {
-  if (only && sc.name !== only) continue;
+  if (only && !only.includes(sc.name)) continue;
   for (const lang of sc.langs ?? ['he', 'en']) {
     const ctx = await browser.newContext({ viewport: sc.viewport, deviceScaleFactor: sc.scale ?? 2, hasTouch: !!sc.touch, isMobile: !!sc.touch });
     const page = await ctx.newPage();

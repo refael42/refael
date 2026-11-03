@@ -5,6 +5,7 @@ import { SAVE_VERSION } from './constants';
 import { ensureHoldArrays } from './graph';
 import { makeIncome } from './income';
 import { refreshApplicants } from './staff';
+import { startAirlines } from './airlines';
 import type { GameState } from './types';
 import { makeVehicle } from './vehicles';
 
@@ -38,6 +39,12 @@ export function createGame(seed: number): GameState {
     tierBuild: null,
     tierSwitch: false,
     profile: { manager: '', airport: '' },
+    contracts: [],
+    offers: [],
+    rep: [],
+    nextOfferAt: 0,
+    schedule: [],
+    departed: [],
     decor: {},
     checkinQ: [],
     securityQ: [],
@@ -58,6 +65,7 @@ export function createGame(seed: number): GameState {
   };
   ensureHoldArrays(game);
   refreshApplicants(game);
+  startAirlines(game);
   return game;
 }
 

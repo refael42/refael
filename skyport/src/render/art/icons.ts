@@ -10,6 +10,7 @@ export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
+  'tail', 'board', 'handshake', 'up',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -318,6 +319,47 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       f.setColor(Skia.Color('#64748b'));
       canvas.drawRect(Skia.XYWHRect(46, 15, 2, 14), f);
       canvas.drawRect(Skia.XYWHRect(42, 29, 10, 7), f);
+      break;
+    }
+    case 'tail': {
+      // an airline: a tail fin with a stripe
+      f.setColor(Skia.Color('#6366f1'));
+      canvas.drawPath(path([14, 56, 50, 56, 50, 46, 38, 8, 26, 8, 30, 46, 14, 46]), f);
+      f.setColor(Skia.Color('#a5b4fc'));
+      canvas.drawPath(path([33, 22, 42, 22, 45, 32, 35, 32]), f);
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawRect(Skia.XYWHRect(14, 46, 36, 4), f);
+      break;
+    }
+    case 'board': {
+      // a departures board: dark panel, amber rows
+      f.setColor(Skia.Color('#1e293b'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(6, 10, 52, 40), 7, 7), f);
+      f.setColor(Skia.Color('#64748b'));
+      canvas.drawRect(Skia.XYWHRect(18, 50, 4, 8), f);
+      canvas.drawRect(Skia.XYWHRect(42, 50, 4, 8), f);
+      for (let r = 0; r < 3; r++) {
+        f.setColor(Skia.Color('#fbbf24'));
+        canvas.drawRect(Skia.XYWHRect(12, 17 + r * 10, 14, 5), f);
+        f.setColor(Skia.Color(r === 1 ? '#34d399' : '#e2e8f0'));
+        canvas.drawRect(Skia.XYWHRect(30, 17 + r * 10, 22, 5), f);
+      }
+      break;
+    }
+    case 'handshake': {
+      // a signed deal: a document with a check
+      f.setColor(Skia.Color('#e0e7ff'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(12, 6, 36, 48), 6, 6), f);
+      stroke([20, 18, 40, 18], '#a5b4fc', 4);
+      stroke([20, 27, 40, 27], '#a5b4fc', 4);
+      circ(44, 46, 13, '#10b981');
+      stroke([37, 46, 42, 51, 51, 41], '#ffffff', 4.5);
+      break;
+    }
+    case 'up': {
+      circ(32, 32, 24, '#10b981');
+      stroke([20, 36, 32, 22, 44, 36], '#ffffff', 6);
+      stroke([32, 23, 32, 46], '#ffffff', 6);
       break;
     }
     case 'team': {

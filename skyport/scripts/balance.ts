@@ -3,7 +3,8 @@
  * hires the first crew, buys the best-value upgrade) and prints the economy
  * curve. Usage: npm run balance -- --seed 1 [--minutes 90] [--reaction 1.5] [--quiet]
  */
-import { botBuys, botCommands, botHires, createGame, eventsSince, formatBig, incomeRate, queueCommand, stepGame } from '../src/sim';
+import { AIRLINES } from '../src/data/airlines';
+import { botAirlines, botBuys, botCommands, botHires, flightsPerDay, createGame, eventsSince, formatBig, incomeRate, queueCommand, stepGame } from '../src/sim';
 
 function arg(name: string, def: number): number {
   const i = process.argv.indexOf(`--${name}`);
@@ -33,6 +34,8 @@ let prevRate = 0;
 let bestJump = 1;
 let bestJumpAt = 0;
 let taps = 0;
+let airlineLeft = 0;
+let airlineWarnings = 0;
 const STEPS_PER_MIN = 30 * 60;
 for (let m = 1; m <= minutes; m++) {
   for (let i = 0; i < STEPS_PER_MIN; i++) {
@@ -43,7 +46,7 @@ for (let m = 1; m <= minutes; m++) {
         queueCommand(s, c);
       }
     }
-    if (i % 150 === 0) for (const c of [...(noStaff ? [] : botHires(s)), ...botBuys(s)]) queueCommand(s, c);
+    if (i % 150 === 0) for (const c of [...(noStaff ? [] : botHires(s)), ...botAirlines(s), ...botBuys(s)]) queueCommand(s, c);
     stepGame(s);
     for (const e of eventsSince(s, lastEvent)) {
       lastEvent = e.id;
@@ -60,6 +63,9 @@ for (let m = 1; m <= minutes; m++) {
       if (e.kind === 'milestone') firsts[`first milestone`] ??= Math.round(s.time / 60);
       if (e.kind === 'tierBuildStart') firsts[`tier ${e.a} build started`] ??= Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'tierUp') firsts[`tier ${e.a} reached`] ??= Math.round((s.time / 60) * 10) / 10;
+      if (e.kind === 'contractSigned') firsts[`contract ${AIRLINES[e.a].id}`] ??= Math.round((s.time / 60) * 10) / 10;
+      if (e.kind === 'airlineLeft') airlineLeft++;
+      if (e.kind === 'airlineWarning') airlineWarnings++;
     }
     for (let k = 2; k <= 5; k++) if (s.standsBuilt >= k) firsts[`${k} stands`] ??= Math.round(s.time / 60);
   }
@@ -89,6 +95,10 @@ const report = {
   diverted: st.diverted,
   onTimePct: Math.round((st.onTime / Math.max(1, st.onTime + st.late)) * 100),
   rating: Math.round(s.rating * 100) / 100,
+  airlines: s.contracts.map((c) => `${AIRLINES[c.al].id} ${c.perDay}/day rep ${Math.round(s.rep[c.al])}`),
+  flightsPerDay: Math.round(flightsPerDay(s) * 10) / 10,
+  airlineWarnings,
+  airlineLeft,
   purchases,
   longestDeadZoneMin: Math.round((deadZone / 60) * 10) / 10,
   deadZoneStartsAtMin: Math.round(deadZoneAt / 60),

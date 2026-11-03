@@ -83,6 +83,8 @@ export interface TierLayout {
   road: readonly P2[];
   parking: { x0: number; y0: number; x1: number; y1: number };
   camera: { center: P2; zoom: number };
+  /** Flights a game day the taxiways can carry on time (single shared lane = a hard limit). */
+  groundCapacity: number;
 }
 
 export interface TierDef {
@@ -97,6 +99,8 @@ export interface TierDef {
   pay: number;
   /** Multiplier on how often planes arrive. */
   traffic: number;
+  /** How many airlines can hold a contract at once. */
+  contracts: number;
 }
 
 const DIRT_STRIP: TierLayout = {
@@ -229,6 +233,7 @@ const DIRT_STRIP: TierLayout = {
     exit: [24.3, 16.6],
   },
   camera: { center: [20.8, 23.0], zoom: 0.72 },
+  groundCapacity: 30,
 };
 
 /**
@@ -265,17 +270,18 @@ const SMALL_AIRFIELD: TierLayout = {
   takeoff: { liftoffX: 21, climb: DIRT_STRIP.takeoff.climb },
   decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
   camera: { center: [20.4, 23.0], zoom: 0.68 },
+  groundCapacity: 42,
 };
 
 export const TIERS: readonly TierDef[] = [
-  { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1 },
-  { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3 },
-  { id: 3, key: 'regional', needs: { served: 150, rating: 4, cost: 25000 }, buildSeconds: 240, pay: 5, traffic: 1.6 },
-  { id: 4, key: 'city', needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2 },
-  { id: 5, key: 'international', needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5 },
-  { id: 6, key: 'hub', needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3 },
-  { id: 7, key: 'megaHub', needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5 },
-  { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4 },
+  { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1, contracts: 2 },
+  { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3, contracts: 3 },
+  { id: 3, key: 'regional', needs: { served: 150, rating: 4, cost: 25000 }, buildSeconds: 240, pay: 5, traffic: 1.6, contracts: 4 },
+  { id: 4, key: 'city', needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2, contracts: 5 },
+  { id: 5, key: 'international', needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
+  { id: 6, key: 'hub', needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
+  { id: 7, key: 'megaHub', needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
+  { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },
 ];
 
 export function tierDef(id: number): TierDef {

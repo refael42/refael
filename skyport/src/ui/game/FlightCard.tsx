@@ -45,6 +45,11 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
           <Text style={[styles.sub, ta]} numberOfLines={1}>
             {v.airline} · {v.model}
           </Text>
+          {v.rep >= 0 ? (
+            <Text style={[styles.sub, ta]} numberOfLines={1}>
+              {t('card.airline', { kind: t(`air.kind.${v.kind}` as TKey), n: v.rep })}
+            </Text>
+          ) : null}
         </View>
         <Pressable onPress={onClose} hitSlop={10} style={styles.close} accessibilityLabel={t('card.close')}>
           <Icon name="close" size={16} />

@@ -11,6 +11,40 @@ export interface Livery {
   engine: string;
 }
 
+/** Facilities some airlines insist on (built in later milestones). */
+export type AirlineNeed = 'jetBridge' | 'lounge' | 'cargoApron' | 'fbo';
+
+/** How each kind of airline behaves under contract. */
+export interface AirlineKindDef {
+  /** Multiplier on everything its flights pay. */
+  pay: number;
+  /** Flights per game day in a typical offer, added per expansion, and the most it will fly. */
+  perDay: number;
+  step: number;
+  maxPerDay: number;
+  /** Multiplier on the aircraft's turnaround allowance (low-cost wants it quick). */
+  turnaround: number;
+  /** On-time goal written into the contract. */
+  goal: number;
+  /** Loyal airlines forgive more: reputation losses are divided by this. */
+  loyalty: number;
+  /** Contract length in game days (0 = open-ended; charters are seasonal). */
+  days: number;
+  needs: readonly AirlineNeed[];
+}
+
+export const AIRLINE_KINDS: Readonly<Record<AirlineKind, AirlineKindDef>> = {
+  lowcost: { pay: 0.85, perDay: 8, step: 3, maxPerDay: 18, turnaround: 0.9, goal: 0.75, loyalty: 0.8, days: 0, needs: [] },
+  regional: { pay: 1, perDay: 7, step: 2, maxPerDay: 14, turnaround: 1, goal: 0.7, loyalty: 1.3, days: 0, needs: [] },
+  flag: { pay: 1.6, perDay: 6, step: 2, maxPerDay: 12, turnaround: 1, goal: 0.85, loyalty: 1, days: 0, needs: ['jetBridge', 'lounge'] },
+  cargo: { pay: 1.4, perDay: 4, step: 1, maxPerDay: 8, turnaround: 1, goal: 0.8, loyalty: 1, days: 0, needs: ['cargoApron'] },
+  luxury: { pay: 3, perDay: 2, step: 1, maxPerDay: 4, turnaround: 1.1, goal: 0.9, loyalty: 0.7, days: 0, needs: ['fbo'] },
+  charter: { pay: 1.25, perDay: 5, step: 2, maxPerDay: 10, turnaround: 1, goal: 0.75, loyalty: 1, days: 3, needs: [] },
+  private: { pay: 1.8, perDay: 3, step: 1, maxPerDay: 6, turnaround: 1, goal: 0.7, loyalty: 1.1, days: 0, needs: [] },
+};
+
+export const AIRLINE_KIND_IDS = Object.keys(AIRLINE_KINDS) as AirlineKind[];
+
 export interface AirlineDef {
   id: string;
   /** Three-letter flight code prefix. */
@@ -58,6 +92,14 @@ export const AIRLINES: readonly AirlineDef[] = [
   {
     id: 'coralina', code: 'CRN', name: 'Coralina', kind: 'lowcost', unlockTier: 4, fleet: ['falcon', 'falconx'], weight: 2,
     livery: { body: '#ffffff', belly: '#ffe3dc', tail: '#ff5f6d', stripe: '#ff9a8b', accent: '#5b2a86', wing: '#f1e6e4', engine: '#ff5f6d' },
+  },
+  {
+    id: 'cloudberry', code: 'CBR', name: 'Cloudberry Air', kind: 'regional', unlockTier: 2, fleet: ['sparrow', 'finch'], weight: 2,
+    livery: { body: '#fbf7fb', belly: '#e9dde9', tail: '#b0306a', stripe: '#f08cb4', accent: '#ffd3e4', wing: '#ece4ec', engine: '#b0306a' },
+  },
+  {
+    id: 'paperkite', code: 'PKT', name: 'Paperkite', kind: 'charter', unlockTier: 2, fleet: ['finch'], weight: 2,
+    livery: { body: '#fffdf5', belly: '#eee9d6', tail: '#14a3a3', stripe: '#ffb627', accent: '#ff6b35', wing: '#efebdd', engine: '#14a3a3' },
   },
 ];
 

@@ -5,6 +5,7 @@
 import { STAFF_ROLES } from '../../data/staff';
 import { MAX_PER_ROLE, staffCount } from './staff';
 import { checkTier } from './tiers';
+import { airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
 import { bestOffer } from './upgrades';
 import { WANT, type Command, type GameState } from './types';
 
@@ -73,6 +74,24 @@ export function botHires(s: GameState, keep = 1.3): Command[] {
     return out;
   }
   void MAX_PER_ROLE;
+  return out;
+}
+
+/**
+ * Airline manager: signs the offer that brings the most money per day while
+ * there is a free slot, and asks happy airlines for more flights.
+ */
+export function botAirlines(s: GameState): Command[] {
+  const out: Command[] = [];
+  const room = airportCapacity(s) - flightsPerDay(s);
+  for (const c of s.contracts) {
+    const rate = c.last.length ? c.last.reduce((a, b) => a + b, 0) / c.last.length : 0;
+    if (canExpand(s, c) && rate >= 0.9 && room > 4) out.push({ type: 'expandContract', airline: c.al });
+  }
+  if (s.offers.length > 0 && s.contracts.length < contractSlots(s) && room > 0) {
+    const best = s.offers.slice().sort((a, b) => b.perDay * b.pay - a.perDay * a.pay)[0];
+    out.push({ type: 'signOffer', offerId: best.id });
+  }
   return out;
 }
 
