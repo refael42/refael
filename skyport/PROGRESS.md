@@ -335,6 +335,9 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   fragment for hosts that wrap the page) that runs from any sub-path. Published as a private
   Artifact for the owner to play in the browser (saves stay in that browser). CanvasKit loads
   from a relative path now.
+- Zoom (owner request): the mouse wheel zooms toward the cursor (a trackpad pinch too); on a
+  phone two fingers zoom, and the browser leaves map gestures to the game (no page zoom or
+  scroll). Browser tests drive a real wheel and a real two-finger pinch.
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner

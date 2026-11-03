@@ -3,13 +3,13 @@ import { levelCap, upgradeDef } from '../../data/upgrades';
 import { groundPlane } from '../../sim/game/flights';
 import { capacity, placeOrder, storeActive, STORE_KINDS } from '../../sim/game/supplies';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AppState, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AIRLINES } from '../../data/airlines';
 import { useDir, useLang, useT, type TKey } from '../../i18n';
-import { makeCamera, updateCamera, useCameraResponder, viewToWorld, type DragHandler } from '../../render/camera';
+import { attachWebZoom, makeCamera, updateCamera, useCameraResponder, viewToWorld, type DragHandler } from '../../render/camera';
 import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
@@ -726,6 +726,14 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       }
     : null;
   const responder = useCameraResponder(cam, onTap, offset, drag);
+  // web: mouse-wheel / trackpad zoom, and pinches stay with the map (not the page)
+  const mapRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const el = mapRef.current as unknown as HTMLElement | null;
+    if (!el || typeof el.addEventListener !== 'function') return;
+    return attachWebZoom(el, cam);
+  }, [cam]);
 
   // Browser-test hook (web only, ?hook=1): where things are on screen.
   useEffect(() => {
@@ -756,6 +764,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           return { id: it.id, x: d[0], y: d[1], vx: (isoX(d[0], d[1]) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(d[0], d[1]) - 14 - cam.y) * cam.zoom + cam.viewH / 2 };
         }),
       selected: () => selectedRef.current,
+      camera: () => ({ x: cam.x, y: cam.y, zoom: cam.zoom }),
     };
     return () => {
       delete w.__skyport;
@@ -837,7 +846,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
 
   return (
     <View style={styles.root}>
-      <View style={styles.fill} onLayout={onLayout} {...responder.panHandlers}>
+      <View ref={mapRef as never} style={styles.fill} onLayout={onLayout} {...responder.panHandlers}>
         {size.w > 0 ? <SceneCanvas snap={snap} res={res} width={size.w} height={size.h} /> : null}
         {hud.haze > 0 ? <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(226,232,240,${(hud.haze * 0.62).toFixed(2)})` }]} pointerEvents="none" testID="fog" /> : null}
       </View>

@@ -291,5 +291,64 @@ export default [
   { name: 'm10-fault', viewport: { width: 844, height: 390 }, query: '/?seed=34&tier=3&full=1&crew=1&warp=160&auto=1&fault=1&select=1', wait: 3000, touch: true },
   { name: 'm10-panel', viewport: { width: 844, height: 390 }, query: '/?seed=35&tier=3&full=1&crew=1&warp=200&auto=1&tanker=1&panel=supplies', wait: 2500, touch: true },
   { name: 'm10-panel-tablet', viewport: { width: 1180, height: 820 }, query: '/?seed=35&tier=4&full=1&crew=1&warp=300&auto=1&panel=supplies', wait: 2500, touch: true, scale: 1, langs: ['he'] },
+  {
+    // the mouse wheel zooms toward the cursor (in and out), the page itself never scrolls or zooms
+    name: 'zoom-wheel',
+    viewport: { width: 1180, height: 720 },
+    query: '/?seed=3&tier=2&stands=4&warp=120&hook=1',
+    wait: 2000,
+    scale: 1,
+    langs: ['en'],
+    actions: async (page) => {
+      const z0 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      await page.mouse.move(700, 380);
+      for (let i = 0; i < 4; i++) await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(300);
+      const z1 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      if (!(z1 > z0 * 1.3)) throw new Error(`wheel up did not zoom in: ${z0} -> ${z1}`);
+      for (let i = 0; i < 8; i++) await page.mouse.wheel(0, 120);
+      await page.waitForTimeout(300);
+      const z2 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      if (!(z2 < z1 * 0.7)) throw new Error(`wheel down did not zoom out: ${z1} -> ${z2}`);
+      const scroll = await page.evaluate(() => [window.scrollY, window.visualViewport ? window.visualViewport.scale : 1]);
+      if (scroll[0] !== 0 || scroll[1] !== 1) throw new Error('the page scrolled or zoomed: ' + scroll);
+      console.log(`     wheel zoom: ${z0.toFixed(2)} -> ${z1.toFixed(2)} -> ${z2.toFixed(2)}`);
+    },
+  },
+  {
+    // two fingers spreading apart zoom in, pinching together zooms out (touch phone)
+    name: 'zoom-pinch',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=3&tier=2&stands=4&warp=120&hook=1',
+    wait: 2000,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      const cdp = await page.context().newCDPSession(page);
+      const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+      const pinch = async (from, to) => {
+        const cx = 420;
+        const cy = 200;
+        await touch('touchStart', [[cx - from, cy], [cx + from, cy]]);
+        for (let k = 1; k <= 10; k++) {
+          const d = from + ((to - from) * k) / 10;
+          await touch('touchMove', [[cx - d, cy], [cx + d, cy]]);
+          await page.waitForTimeout(16);
+        }
+        await touch('touchEnd', []);
+        await page.waitForTimeout(250);
+      };
+      const z0 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      await pinch(40, 120);
+      const z1 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      if (!(z1 > z0 * 1.5)) throw new Error(`spreading did not zoom in: ${z0} -> ${z1}`);
+      await pinch(140, 50);
+      const z2 = (await page.evaluate(() => window.__skyport.camera())).zoom;
+      if (!(z2 < z1 * 0.6)) throw new Error(`pinching did not zoom out: ${z1} -> ${z2}`);
+      const scale = await page.evaluate(() => (window.visualViewport ? window.visualViewport.scale : 1));
+      if (scale !== 1) throw new Error('the browser zoomed the page: ' + scale);
+      console.log(`     pinch zoom: ${z0.toFixed(2)} -> ${z1.toFixed(2)} -> ${z2.toFixed(2)}`);
+    },
+  },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

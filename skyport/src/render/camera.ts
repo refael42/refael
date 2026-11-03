@@ -56,6 +56,36 @@ export function zoomAt(c: Camera, factor: number, vx: number, vy: number): void 
   clampCamera(c);
 }
 
+/**
+ * Web: the mouse wheel (and a trackpad pinch, which browsers send as a wheel
+ * with ctrl) zooms toward the cursor, and the browser leaves pinches and
+ * drags on the map to the game instead of zooming or scrolling the page.
+ * Returns a cleanup function.
+ */
+export function attachWebZoom(el: HTMLElement, cam: Camera, onZoom?: () => void): () => void {
+  el.style.touchAction = 'none';
+  const wheel = (e: WheelEvent) => {
+    e.preventDefault();
+    cam.target = null;
+    // lines or pages (Firefox) into pixels; a pinch on a trackpad comes in small steps: zoom it faster
+    const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    const factor = Math.exp(-px * (e.ctrlKey ? 0.01 : 0.0018));
+    const r = el.getBoundingClientRect();
+    zoomAt(cam, Math.max(0.5, Math.min(2, factor)), e.clientX - r.left, e.clientY - r.top);
+    onZoom?.();
+  };
+  // Safari's own pinch gesture would zoom the whole page
+  const gesture = (e: Event) => e.preventDefault();
+  el.addEventListener('wheel', wheel, { passive: false });
+  el.addEventListener('gesturestart', gesture);
+  el.addEventListener('gesturechange', gesture);
+  return () => {
+    el.removeEventListener('wheel', wheel);
+    el.removeEventListener('gesturestart', gesture);
+    el.removeEventListener('gesturechange', gesture);
+  };
+}
+
 /** Optional dragging of things (build mode): start() claims the touch. */
 export interface DragHandler {
   start: (vx: number, vy: number) => boolean;
