@@ -114,7 +114,9 @@ function setLevel(s: GameState, id: string, lvl: number): void {
 /** Things a level changes in the world: stands and vehicles. */
 export function applyStructural(s: GameState): void {
   const L = layoutOf(s.tier);
-  s.standsBuilt = Math.min(L.stands.length, 1 + Math.round(effectValue(s, 'stands')));
+  // a stand is open once the level of its build line is reached (no line = there from the start)
+  s.standOpen = L.stands.map((st) => !st.line || level(s, st.line) >= (st.level ?? 1));
+  s.standsBuilt = s.standOpen.filter(Boolean).length;
   while (s.stands.length < L.stands.length) s.stands.push({ occupant: 0, reserved: 0 });
   const want = { fuel: 1 + Math.round(effectValue(s, 'truck')), bags: 1 + Math.round(effectValue(s, 'cart')) };
   for (const kind of ['fuel', 'bags'] as const) {
@@ -244,6 +246,10 @@ export function offers(s: GameState): UpgradeOffer[] {
       }
       case 'stands':
         gain = rate * (0.25 + 0.6 * Math.min(1, holdingShare + 0.2));
+        break;
+      case 'opens':
+        // a new kind of stand brings new, bigger aircraft and airlines
+        gain = rate * 0.6;
         break;
       case 'truck':
       case 'cart':

@@ -4,7 +4,7 @@
  */
 import { BlurStyle, PaintStyle, Skia } from '@shopify/react-native-skia';
 
-import { planeArt } from '../data/aircraft';
+import { AIRCRAFT, planeArt } from '../data/aircraft';
 import { AIRLINES } from '../data/airlines';
 import { ATLAS_SCALE, AtlasBuilder, type Atlas } from './atlas';
 import { drawGlyph, GLYPH_CHARS } from './art/glyphs';
@@ -115,6 +115,18 @@ function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: 
   );
 }
 
+/**
+ * Atlas resolution of an aircraft relative to ATLAS_SCALE: airliners are stored
+ * smaller (they are big on screen anyway) so a whole tier's fleet fits one texture.
+ * Draw them with scale 1 / planeRes.
+ */
+export function planeRes(aircraft: number): number {
+  const st = AIRCRAFT[aircraft]?.stand;
+  if (st === 'medium') return 0.8;
+  if (st === 'large' || st === 'cargo' || st === 'huge' || st === 'hugeX') return 0.62;
+  return 1;
+}
+
 /** Vehicles are drawn a bit larger than life, like the planes. */
 export const VEHICLE_SCALE = 1.3;
 
@@ -128,7 +140,7 @@ export function buildSprites(content: Content): SpriteSet {
   for (const [al, ac] of combos) {
     const first = b.size;
     for (let d = 0; d < DIRS; d++) {
-      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d);
+      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d, undefined, planeRes(ac));
     }
     planeBase.push(first);
   }
@@ -137,7 +149,7 @@ export function buildSprites(content: Content): SpriteSet {
     if (shadowBase.has(ac)) continue;
     const first = b.size;
     for (let d = 0; d < DIRS; d++) {
-      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[0].livery, (dir / DIRS) * Math.PI * 2), d, '#000000');
+      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[0].livery, (dir / DIRS) * Math.PI * 2), d, '#000000', planeRes(ac));
     }
     shadowBase.set(ac, first);
   }
@@ -307,7 +319,8 @@ export function buildSprites(content: Content): SpriteSet {
     c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
   });
 
-  const atlas = b.build();
+  // a big fleet needs a wider sheet (keeps the texture's height in check)
+  const atlas = b.build(content.combos.length > 10 ? 4096 : 2048);
   const glyphIndex = new Map<string, number>();
   GLYPH_CHARS.forEach((ch, i) => glyphIndex.set(ch, i));
   const iconIndex = new Map<string, number>();
@@ -316,7 +329,11 @@ export function buildSprites(content: Content): SpriteSet {
   return {
     atlas,
     combos,
-    comboIndex: (al, ac) => combos.findIndex(([a, c]) => a === al && c === ac),
+    // a livery that is not in this atlas falls back to the same aircraft in other colors
+    comboIndex: (al, ac) => {
+      const i = combos.findIndex(([a, c]) => a === al && c === ac);
+      return i >= 0 ? i : combos.findIndex(([, c]) => c === ac);
+    },
     plane: (combo, dir) => planeBase[combo] + dir,
     planeShadow: (ac, dir) => (shadowBase.get(ac) ?? 0) + dir,
     person: (o, back, mirror, frame) => personBase + ((o * 2 + (back ? 1 : 0)) * 2 + (mirror ? 1 : 0)) * PERSON_FRAMES + frame,

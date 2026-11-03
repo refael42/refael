@@ -12,7 +12,7 @@ import type { Effects } from './effects';
 import { isoX, isoY, Z_PX } from './iso';
 import type { SnapWriter } from './scene';
 import { BEACON } from './art/vehicles';
-import { dirIndex, DIRS, GLOW_COLORS, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
+import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
 import { parkedCars, roadCars, type CarPose } from './traffic';
 import type { World } from './world';
 
@@ -234,10 +234,11 @@ function drawFlight(
   const shy = isoY(x + z * 0.35, y + z * 0.08);
   const near = visible(sx, sy, 120) || visible(shx, shy, 120);
   if (!near && f.want === WANT.none) return;
-  w.shadow(sp.planeShadow(f.aircraft, d), shx, shy, 1 - Math.min(0.25, z * 0.03), 0.3 * (1 - Math.min(0.6, z / 12)));
+  const res = 1 / planeRes(f.aircraft);
+  w.shadow(sp.planeShadow(f.aircraft, d), shx, shy, (1 - Math.min(0.25, z * 0.03)) * res, 0.3 * (1 - Math.min(0.6, z / 12)));
   if (o.selected === f.id) w.decal(sp.ring, isoX(x, y), isoY(x, y), 0.5 + planeArt(f.aircraft).length * 0.42, 0.95);
   const depth = z > 0.05 ? 1000 + x + y + z : x + y;
-  w.sprite(sp.plane(combo, d), sx, sy, 1, depth);
+  w.sprite(sp.plane(combo, d), sx, sy, res, depth);
   planeLights(w, f, sp, x, y, z, d, o.time);
 
   const b = bubbleAnchor({ x, y, z, aircraft: f.aircraft }, 1 / inv);
@@ -358,7 +359,9 @@ export function constructionSite(s: GameState): { at: readonly [number, number];
   }
   const L = layoutOf(s.tier);
   let at: readonly [number, number];
-  if (b.id === 'stand') at = L.stands[Math.min(b.level, L.stands.length - 1)].pos;
+  const plot = L.stands.find((st) => (st.line ?? '') === b.id && (st.level ?? 1) === b.level);
+  if (plot) at = plot.pos;
+  else if (b.id === 'stand') at = L.stands[Math.min(b.level, L.stands.length - 1)].pos;
   else if (b.id === 'truck2') at = [L.fuel.home[0] + 0.8, L.fuel.home[1] - 0.6];
   else at = [L.bags.home[0] - 0.8, L.bags.home[1] - 0.4];
   return { at, progress: 1 - b.remaining / Math.max(0.001, b.total) };

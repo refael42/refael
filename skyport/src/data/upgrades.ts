@@ -22,7 +22,9 @@ export type EffectKind =
   | 'counters'
   | 'lanes'
   | 'scanSpeed'
-  | 'checkinSpeed';
+  | 'checkinSpeed'
+  /** Builds the stands (or buildings) of this line, one per level. */
+  | 'opens';
 
 export interface UpgradeDef {
   id: string;
@@ -54,8 +56,9 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'stand', category: 'apron', unlockTier: 1, maxLevel: 4, baseCost: 300, growth: 4, effect: 'stands', per: 1, buildSeconds: [40, 80, 120, 160], levelTier: [1, 1, 2, 2], icon: 'plane' },
   { id: 'pump', category: 'vehicles', unlockTier: 1, maxLevel: 50, baseCost: 35, growth: 1.17, effect: 'fuelRate', per: 0.2, icon: 'fuel' },
   { id: 'carts', category: 'vehicles', unlockTier: 1, maxLevel: 50, baseCost: 35, growth: 1.17, effect: 'bagSpeed', per: 0.2, icon: 'bag' },
-  { id: 'truck2', category: 'vehicles', unlockTier: 1, maxLevel: 1, baseCost: 500, growth: 1, effect: 'truck', per: 1, buildSeconds: [30], icon: 'fuel' },
-  { id: 'cart2', category: 'vehicles', unlockTier: 1, maxLevel: 1, baseCost: 400, growth: 1, effect: 'cart', per: 1, buildSeconds: [30], icon: 'bag' },
+  // more trucks and carts as the airport grows (levels 2+ need the bigger airports)
+  { id: 'truck2', category: 'vehicles', unlockTier: 1, maxLevel: 5, baseCost: 500, growth: 12, effect: 'truck', per: 1, buildSeconds: [30, 60, 90, 120, 150], levelTier: [1, 3, 4, 5, 5], icon: 'fuel' },
+  { id: 'cart2', category: 'vehicles', unlockTier: 1, maxLevel: 5, baseCost: 400, growth: 12, effect: 'cart', per: 1, buildSeconds: [30, 60, 90, 120, 150], levelTier: [1, 3, 4, 5, 5], icon: 'bag' },
   { id: 'grader', category: 'apron', unlockTier: 1, maxLevel: 20, baseCost: 60, growth: 1.22, effect: 'taxiSpeed', per: 0.05, icon: 'wrench' },
   { id: 'lights', category: 'runway', unlockTier: 1, maxLevel: 20, baseCost: 90, growth: 1.25, effect: 'runwayOps', per: 0.04, icon: 'takeoff' },
   { id: 'benches', category: 'comfort', unlockTier: 1, maxLevel: 25, baseCost: 40, growth: 1.2, effect: 'comfort', per: 0.02, icon: 'sun' },
@@ -64,6 +67,13 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'lanes', category: 'terminal', unlockTier: 1, maxLevel: 2, baseCost: 220, growth: 3.5, effect: 'lanes', per: 1, icon: 'check' },
   { id: 'scanner', category: 'terminal', unlockTier: 1, maxLevel: 20, baseCost: 70, growth: 1.22, effect: 'scanSpeed', per: 0.12, icon: 'clock' },
   { id: 'conveyor', category: 'terminal', unlockTier: 1, maxLevel: 25, baseCost: 55, growth: 1.2, effect: 'checkinSpeed', per: 0.1, icon: 'bag' },
+  // bigger airports: each level builds a stand of the layout that names this line
+  { id: 'fbo', category: 'apron', unlockTier: 3, maxLevel: 1, baseCost: 30000, growth: 1, effect: 'opens', per: 1, buildSeconds: [90], icon: 'star' },
+  { id: 'standMed', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 20000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [90, 150], icon: 'plane' },
+  { id: 'gates', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 300000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [150, 240], icon: 'plane' },
+  { id: 'cargoApron', category: 'apron', unlockTier: 4, maxLevel: 1, baseCost: 500000, growth: 1, effect: 'opens', per: 1, buildSeconds: [180], icon: 'bag' },
+  { id: 'helipad', category: 'apron', unlockTier: 5, maxLevel: 1, baseCost: 4e6, growth: 1, effect: 'opens', per: 1, buildSeconds: [120], icon: 'plane' },
+  { id: 'lounge', category: 'comfort', unlockTier: 4, maxLevel: 10, baseCost: 150000, growth: 1.6, effect: 'comfort', per: 0.02, icon: 'star' },
   { id: 'night', category: 'comfort', unlockTier: 1, maxLevel: 10, baseCost: 250, growth: 1.8, effect: 'offlineCap', per: 1, icon: 'clock' },
 ];
 

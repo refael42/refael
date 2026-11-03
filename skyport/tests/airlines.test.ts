@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { openStands } from './helpers';
+
 import { AIRLINE_KINDS, AIRLINES } from '../src/data/airlines';
 import { TIERS } from '../src/data/tiers';
 import {
@@ -115,7 +117,7 @@ describe('contracts and the schedule', () => {
     const count = (perDay: number) => {
       const s = createGame(5);
       s.contracts[0].perDay = perDay;
-      s.standsBuilt = 3;
+      openStands(s, 3);
       let n = 0;
       let last = 0;
       for (let i = 0; i < 30 * DAY_SECONDS; i++) {
@@ -315,7 +317,7 @@ describe('capacity and the bot', () => {
   it('capacity grows with stands and stops at the taxiways', () => {
     const s = createGame(16);
     expect(airportCapacity(s)).toBe(14);
-    s.standsBuilt = 3;
+    openStands(s, 3);
     expect(airportCapacity(s)).toBe(30);
   });
 
@@ -434,7 +436,8 @@ describe('flight board', () => {
   it('a held-up arrival shows as delayed', () => {
     const s = createGame(22);
     refillSchedule(s);
-    s.standsBuilt = 0; // nothing can be cleared: the sky fills up
+    // every stand taken: nothing can be cleared and the sky fills up
+    for (const st of s.stands) st.reserved = 999999;
     s.contracts[0].perDay = 30;
     for (let i = 0; i < 30 * 400; i++) stepGame(s);
     expect(arrivalsBoard(s).some((r) => r.status === 'delayed' || r.status === 'holding')).toBe(true);

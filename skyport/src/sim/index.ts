@@ -15,7 +15,7 @@ export * from './game/path';
 export { layoutOf, doorPoint } from './game/layout';
 export { onRunway, isGround, ARRIVAL_GAP, wantsAction } from './game/flights';
 export { fuelProgress, serviceSeconds } from './game/vehicles';
-export { graphOf, routeGeometry } from './game/graph';
+export { findRoute, graphOf, routeGeometry } from './game/graph';
 export * from './game/staff';
 export * from './game/upgrades';
 export { incomeRate, componentRates } from './game/income';

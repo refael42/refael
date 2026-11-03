@@ -62,7 +62,7 @@ export interface AirlineDef {
 
 export const AIRLINES: readonly AirlineDef[] = [
   {
-    id: 'meadowlark', code: 'MLK', name: 'Meadowlark Air', kind: 'regional', unlockTier: 1, fleet: ['sparrow', 'finch'], weight: 3,
+    id: 'meadowlark', code: 'MLK', name: 'Meadowlark Air', kind: 'regional', unlockTier: 1, fleet: ['sparrow', 'finch', 'heron'], weight: 3,
     livery: { body: '#f4f1e8', belly: '#d9d4c6', tail: '#2f9e6b', stripe: '#f2a43a', accent: '#ffd266', wing: '#e6e2d6', engine: '#cfc9b9' },
   },
   {
@@ -94,7 +94,7 @@ export const AIRLINES: readonly AirlineDef[] = [
     livery: { body: '#ffffff', belly: '#ffe3dc', tail: '#ff5f6d', stripe: '#ff9a8b', accent: '#5b2a86', wing: '#f1e6e4', engine: '#ff5f6d' },
   },
   {
-    id: 'cloudberry', code: 'CBR', name: 'Cloudberry Air', kind: 'regional', unlockTier: 2, fleet: ['sparrow', 'finch'], weight: 2,
+    id: 'cloudberry', code: 'CBR', name: 'Cloudberry Air', kind: 'regional', unlockTier: 2, fleet: ['sparrow', 'finch', 'swift'], weight: 2,
     livery: { body: '#fbf7fb', belly: '#e9dde9', tail: '#b0306a', stripe: '#f08cb4', accent: '#ffd3e4', wing: '#ece4ec', engine: '#b0306a' },
   },
   {

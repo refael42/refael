@@ -128,8 +128,12 @@ export function decorSpotOk(s: GameState, id: string, x: number, y: number): boo
   const inField = x > L.field.x0 + 0.4 && x < L.field.x1 - 0.6 && y > L.field.y0 + 0.4 && y < L.field.y1 - 0.6;
   // the billboard stands by the road, everything else inside the fence
   if (id !== 'billboard' && !inField) return false;
-  const R = L.runway;
-  if (x > R.x0 - 1.5 && x < R.x1 + 1.5 && Math.abs(y - R.y) < R.width / 2 + 1.1) return false;
+  for (const R of [L.runway, L.depRunway]) {
+    if (R && x > R.x0 - 1.5 && x < R.x1 + 1.5 && Math.abs(y - R.y) < R.width / 2 + 1.1) return false;
+  }
+  for (const b of L.buildings ?? []) {
+    if (x > b.pos[0] - 0.6 && x < b.pos[0] + b.size[0] + 0.6 && y > b.pos[1] - 0.6 && y < b.pos[1] + b.size[1] + 0.6) return false;
+  }
   const nodes = L.taxi.nodes;
   for (const [a, b] of L.taxi.edges) {
     const A = nodes[a];
@@ -138,7 +142,7 @@ export function decorSpotOk(s: GameState, id: string, x: number, y: number): boo
   }
   for (const st of L.stands) {
     if (Math.hypot(x - st.pos[0], y - st.pos[1]) < 1.5) return false;
-    const n = nodes[st.from];
+    const n = st.from ? nodes[st.from] : undefined;
     if (n && segDist(x, y, n[0], n[1], st.pos[0], st.pos[1]) < 1.0) return false;
   }
   if (x > L.hut[0] - 0.6 && x < L.hut[0] + 2.6 && y > L.hut[1] - 0.6 && y < L.hut[1] + 2.0) return false;

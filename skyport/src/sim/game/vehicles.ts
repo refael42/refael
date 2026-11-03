@@ -2,7 +2,7 @@
  * Service vehicles: the fuel truck and the baggage cart. Each drives to a
  * parked plane, works, and drives home. Requests queue per service.
  */
-import { AIRCRAFT, planeArt } from '../../data/aircraft';
+import { AIRCRAFT, planeArt, fuelRateOf } from '../../data/aircraft';
 import type { P2, TierLayout } from '../../data/tiers';
 import { pushEvent } from './events';
 import { doorSide, layoutOf } from './layout';
@@ -116,7 +116,8 @@ function goHome(s: GameState, v: Vehicle): void {
 
 /** Seconds a service takes once the vehicle is at the plane. */
 export function serviceSeconds(f: Flight, kind: ServiceKind): number {
-  return kind === 'fuel' ? f.fuelNeed / FUEL_RATE : 1 + (f.bagsIn + f.bagsOut) * BAG_TIME;
+  const ac = AIRCRAFT[f.aircraft];
+  return kind === 'fuel' ? f.fuelNeed / fuelRateOf(ac) : 1 + (f.bagsIn + f.bagsOut) * (ac.bagTime ?? BAG_TIME);
 }
 
 export function updateVehicles(s: GameState, dt: number): void {
@@ -149,7 +150,7 @@ export function updateVehicles(s: GameState, dt: number): void {
         }
         const fx = effects(s);
         if (v.kind === 'fuel') {
-          f.fuel = Math.min(f.fuelNeed, f.fuel + FUEL_RATE * fx.fuelRate * dt);
+          f.fuel = Math.min(f.fuelNeed, f.fuel + fuelRateOf(AIRCRAFT[f.aircraft]) * fx.fuelRate * dt);
           if (f.fuel >= f.fuelNeed) {
             f.fuelState = FUEL.done;
             pushEvent(s, 'fuelDone', f.x, f.y, f.id);
@@ -200,5 +201,5 @@ export function fuelProgress(f: Flight): number {
 }
 
 export function fuelSeconds(aircraft: number): number {
-  return AIRCRAFT[aircraft].fuelLoad / FUEL_RATE;
+  return AIRCRAFT[aircraft].fuelLoad / fuelRateOf(AIRCRAFT[aircraft]);
 }

@@ -31,6 +31,11 @@ export function createGame(seed: number): GameState {
     edgeHold: [],
     nodeHold: [],
     standsBuilt: 1,
+    standOpen: [true],
+    wake: [
+      { cat: 0, at: -99 },
+      { cat: 0, at: -99 },
+    ],
     traffic: 1,
     staff: [],
     applicants: [],

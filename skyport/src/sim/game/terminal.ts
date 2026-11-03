@@ -11,7 +11,7 @@ import { Big } from '../big';
 import { hash01 } from '../hash';
 import { pushEvent } from './events';
 import { recordIncome } from './income';
-import { layoutOf } from './layout';
+import { gatePoint, gateSpot, layoutOf } from './layout';
 import { STAFF_ROLES } from '../../data/staff';
 import { decorPos } from './tiers';
 import { FUEL, PST, type Flight, type GameState, type Person } from './types';
@@ -113,7 +113,9 @@ function toGate(s: GameState, p: Person, L: TierLayout): void {
   const spot = s.spotCursor++ % L.waitSpots.length;
   p.spot = spot;
   p.state = PST.toSpot;
-  const sp = L.waitSpots[spot];
+  // a flight at a jet-bridge gate: wait by that gate on the pier
+  const f = flightById(s, p.flight);
+  const sp = f && f.stand >= 0 && gatePoint(L, f.stand) ? gateSpot(L, f.stand, spot) : L.waitSpots[spot];
   p.path = [p.x, p.y, 0, L.terminal.airside[0], L.terminal.airside[1], 0, sp[0], sp[1], 0];
   p.pathPos = 0;
   p.moving = true;
@@ -184,11 +186,11 @@ export function updateTerminal(s: GameState, dt: number): void {
         if (s.counterBusy[p.slot] === p.id) s.counterBusy[p.slot] = 0;
         const f = flightById(s, p.flight);
         if (f) {
-          f.bagsChecked++;
+          f.bagsChecked += p.n;
           if (f.bagState === FUEL.done) {
-            // the cart already loaded the plane: this bag misses the flight
-            f.lostBags++;
-            s.stats.lostBags++;
+            // the cart already loaded the plane: these bags miss the flight
+            f.lostBags += p.n;
+            s.stats.lostBags += p.n;
             f.mood = Math.max(0, f.mood - 0.06);
             pushEvent(s, 'lostBag', p.x, p.y, f.id);
           } else pushEvent(s, 'checkedIn', T.counters[p.slot]?.[0] ?? p.x, T.counters[p.slot]?.[1] ?? p.y, p.slot);
@@ -227,7 +229,7 @@ export function updateTerminal(s: GameState, dt: number): void {
         const f = flightById(s, p.flight);
         if (s.time < p.until && !(f && f.phase === 'boarding')) break;
         const fx = effects(s);
-        const amount = Math.round(fx.kioskPerPax * PAX_TYPES[p.outfit].spend * (p.slot === 1 ? 1.6 : 1) * tierDef(s.tier).pay * 10) / 10;
+        const amount = Math.round(fx.kioskPerPax * PAX_TYPES[p.outfit].spend * (p.slot === 1 ? 1.6 : 1) * tierDef(s.tier).pay * p.n * 10) / 10;
         if (amount > 0) {
           const big = Big.fromNumber(amount);
           s.money = s.money.add(big);

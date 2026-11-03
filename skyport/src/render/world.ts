@@ -201,7 +201,10 @@ function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: num
   g.c.drawPath(b.build(), g.s);
 }
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBuilt = 1, counters = 1, lanes = 1): World {
+/** Painted ring radius of a stand by its size. */
+const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
+
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
@@ -392,7 +395,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     const tracks: number[][] = [routeLineUp(L)];
     if (main) tracks.push(routeGeometry(gr, main).path);
     L.stands.forEach((st, i) => {
-      if (i >= standsBuilt) return;
+      if (!open[i] || !st.from) return;
       const sn = gr.standNode[i];
       const inE = gr.out[gr.ids.indexOf(st.from)].find((e) => gr.edges[e].to === sn);
       const outE = gr.out[sn][0];
@@ -452,15 +455,17 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
 
     // stands: a painted ring with a lead-in line; future stands are dashed plots
     L.stands.forEach((st, i) => {
-      if (i < standsBuilt) {
-        g.ellipse(st.pos[0], st.pos[1], 0.78, 0.78, '#ffffff');
-        g.ellipse(st.pos[0], st.pos[1], 0.66, 0.66, GRAVEL);
-        g.line(st.pos[0] + 0.55, st.pos[1] + 0.8, st.pos[0] - 0.35, st.pos[1] - 0.55, '#fbbf24', 3.4);
+      if (st.size === 'heli') return; // the helipad is a building
+      const r = RING[st.size] ?? 0.78;
+      if (open[i]) {
+        g.ellipse(st.pos[0], st.pos[1], r, r, '#ffffff');
+        g.ellipse(st.pos[0], st.pos[1], r - 0.12, r - 0.12, GRAVEL);
+        g.line(st.pos[0] + r * 0.7, st.pos[1] + r, st.pos[0] - r * 0.45, st.pos[1] - r * 0.7, '#fbbf24', 3.4);
       } else {
         for (let k = 0; k < 16; k += 2) {
           const a0 = (k / 16) * Math.PI * 2;
           const a1 = ((k + 1) / 16) * Math.PI * 2;
-          g.line(st.pos[0] + Math.cos(a0) * 0.75, st.pos[1] + Math.sin(a0) * 0.75, st.pos[0] + Math.cos(a1) * 0.75, st.pos[1] + Math.sin(a1) * 0.75, 'rgba(100,116,139,0.55)', 2.4);
+          g.line(st.pos[0] + Math.cos(a0) * r, st.pos[1] + Math.sin(a0) * r, st.pos[0] + Math.cos(a1) * r, st.pos[1] + Math.sin(a1) * r, 'rgba(100,116,139,0.55)', 2.4);
         }
       }
     });
@@ -502,7 +507,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     g.s.setStrokeWidth(2.4);
     c.drawPath(posts.build(), g.s);
     // stand numbers painted next to each built stand
-    L.stands.slice(0, standsBuilt).forEach((st, i) => paintText(c, String(i + 1), st.pos[0] + 0.95, st.pos[1] - 0.55, '#facc15', 0.028));
+    L.stands.forEach((st, i) => {
+      if (open[i] && st.size !== 'heli') paintText(c, String(i + 1), st.pos[0] + (RING[st.size] ?? 0.78) + 0.17, st.pos[1] - 0.55, '#facc15', 0.028);
+    });
   });
 
   // small props: lamps, signs, trolleys, planters, and cones around plots still to be built
@@ -520,9 +527,11 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
   const T0 = L.taxi.nodes;
   if (T0.H) prop(sprites.taxiSign, T0.H[0] - 0.55, T0.H[1] - 0.75, 0.1);
   if (T0.E) prop(sprites.taxiSign, T0.E[0] + 0.7, T0.E[1] - 1.2, 0.1);
-  for (const st of L.stands.slice(standsBuilt)) {
-    for (const [dx, dy] of [[-0.75, -0.5], [0.75, -0.5], [-0.75, 0.6], [0.75, 0.6]]) prop(sprites.cone, st.pos[0] + dx, st.pos[1] + dy, 0, 20);
-  }
+  L.stands.forEach((st, i) => {
+    if (open[i]) return;
+    const r = RING[st.size] ?? 0.78;
+    for (const [dx, dy] of [[-1, -0.65], [1, -0.65], [-1, 0.8], [1, 0.8]]) prop(sprites.cone, st.pos[0] + dx * r, st.pos[1] + dy * r, 0, 20);
+  });
 
   // static sprites with depth: buildings and trees
   const T2 = L.terminal;

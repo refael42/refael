@@ -12,7 +12,7 @@ import { GroundPainter, recordPicture } from '../render/ground';
 import { depthOf, isoX, isoY } from '../render/iso';
 import { makeRenderRes, SnapWriter, type RenderRes } from '../render/scene';
 import { SceneCanvas } from '../render/SceneCanvas';
-import { DIRS, dirIndex, TREE_KINDS, type SpriteSet } from '../render/sprites';
+import { DIRS, dirIndex, planeRes, TREE_KINDS, type SpriteSet } from '../render/sprites';
 import { overlayText } from '../render/text';
 import { recordFrame, useFrameLoop } from '../render/useFrameLoop';
 import { useSettings } from '../settings/store';
@@ -97,8 +97,9 @@ export function Gallery({ sprites, onBack }: Props) {
       const d = Math.floor(time * 2.5 + i * 3) % DIRS;
       const x = isoX(spot[0], spot[1]);
       const y = isoY(spot[0], spot[1]);
-      w.shadow(sprites.planeShadow(ac, d), x + 3, y + 2, 1, 0.22);
-      w.sprite(sprites.plane(i, d), x, y, 1, depthOf(spot[0], spot[1]));
+      const k = 1 / planeRes(ac);
+      w.shadow(sprites.planeShadow(ac, d), x + 3, y + 2, k, 0.22);
+      w.sprite(sprites.plane(i, d), x, y, k, depthOf(spot[0], spot[1]));
     });
 
     // people walking around a circle

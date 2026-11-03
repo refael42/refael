@@ -2,14 +2,14 @@
 import { PAX_TYPES, paxTypeFrom } from '../../data/paxTypes';
 import type { TierLayout } from '../../data/tiers';
 import { hash01 } from '../hash';
-import { doorPoint, layoutOf } from './layout';
+import { doorPoint, gatePoint, layoutOf } from './layout';
 import { makeSample, samplePath } from './path';
 import { claimSpot, joinCheckin, leaveStations } from './terminal';
 import { PST, type Flight, type GameState, type Person } from './types';
 
 const SAMPLE = makeSample();
 
-function makePerson(s: GameState, f: Flight, x: number, y: number, state: number): Person {
+function makePerson(s: GameState, f: Flight, x: number, y: number, state: number, n = 1): Person {
   const id = s.nextId++;
   const outfit = paxTypeFrom(hash01(id * 7 + 3));
   return {
@@ -30,6 +30,7 @@ function makePerson(s: GameState, f: Flight, x: number, y: number, state: number
     slot: -1,
     until: 0,
     waited: 0,
+    n,
   };
 }
 
@@ -41,9 +42,9 @@ function walkTo(p: Person, points: number[]): void {
   p.moving = true;
 }
 
-export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number): void {
+export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number, n = 1): void {
   const L = layoutOf(s.tier);
-  const p = makePerson(s, f, x, y, PST.toHut);
+  const p = makePerson(s, f, x, y, PST.toHut, n);
   // step away from the plane, then to the baggage carousel
   const c = claimSpot(s, p);
   const mid: [number, number] = [(x + c[0]) / 2 + 0.3, (y + c[1]) / 2 + 0.3];
@@ -52,10 +53,10 @@ export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number):
   void L;
 }
 
-export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout): void {
+export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout, n = 1): void {
   // they come from the parking lot and line up for check-in
   const e = L.terminal.entry;
-  const p = makePerson(s, f, e[0] + (hash01(s.nextId * 3) - 0.5) * 0.6, e[1] + (hash01(s.nextId * 5) - 0.5) * 0.4, PST.inCheckin);
+  const p = makePerson(s, f, e[0] + (hash01(s.nextId * 3) - 0.5) * 0.6, e[1] + (hash01(s.nextId * 5) - 0.5) * 0.4, PST.inCheckin, n);
   s.people.push(p);
   joinCheckin(s, p);
 }
@@ -64,12 +65,14 @@ export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout): void 
 export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayout): void {
   f.paxTimer -= dt;
   if (f.paxTimer > 0) return;
+  const gate = gatePoint(L, f.stand);
   for (const p of s.people) {
     if (p.flight === f.id && p.state === PST.waiting) {
-      const door = doorPoint(L, f.aircraft, f.x, f.y, f.heading);
+      // through the jet bridge from the gate, or across the apron to the door
+      const to = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
       p.state = PST.toPlane;
-      walkTo(p, [door[0], door[1]]);
-      f.paxTimer = 0.45;
+      walkTo(p, [to[0], to[1]]);
+      f.paxTimer = gate ? 0.25 : 0.45;
       return;
     }
   }
@@ -124,7 +127,7 @@ export function updatePeople(s: GameState, dt: number): void {
             break;
           case PST.toPlane: {
             const f = flightById(s, p.flight);
-            if (f) f.boarded++;
+            if (f) f.boarded = Math.min(f.paxOut, f.boarded + p.n);
             keep = false;
             break;
           }

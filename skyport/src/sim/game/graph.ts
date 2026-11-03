@@ -22,8 +22,13 @@ export interface Graph {
   pos: [number, number][];
   edges: GraphEdge[];
   out: number[][];
+  /** Graph node of each stand (-1 for a helipad, which is not on the taxiways). */
   standNode: number[];
+  /** First runway exit (small planes); every exit, nearest first. */
   exit: number;
+  exits: number[];
+  /** Exit node a plane takes for each stand (-1 for a helipad). */
+  standExit: number[];
   holdShort: number;
   /**
    * Edges a plane may wait on: neither the edge nor its end node is used by
@@ -52,7 +57,7 @@ function buildGraph(L: TierLayout): Graph {
     pos.push([p[0], p[1]]);
   };
   for (const [id, p] of Object.entries(L.taxi.nodes)) addNode(id, p);
-  for (const st of L.stands) addNode(st.id, st.pos);
+  for (const st of L.stands) if (st.from && st.to) addNode(st.id, st.pos);
   const edges: GraphEdge[] = [];
   const addEdge = (a: string, b: string) => {
     const from = index.get(a);
@@ -62,6 +67,7 @@ function buildGraph(L: TierLayout): Graph {
   };
   for (const [a, b] of L.taxi.edges) addEdge(a, b);
   for (const st of L.stands) {
+    if (!st.from || !st.to) continue;
     addEdge(st.from, st.id);
     addEdge(st.id, st.to);
   }
@@ -72,16 +78,30 @@ function buildGraph(L: TierLayout): Graph {
     pos,
     edges,
     out,
-    standNode: L.stands.map((st) => index.get(st.id) as number),
+    standNode: L.stands.map((st) => index.get(st.id) ?? -1),
     exit: index.get(L.taxi.exit) as number,
+    exits: (L.taxi.exits ?? [L.taxi.exit]).map((id) => {
+      const n = index.get(id);
+      if (n === undefined) throw new Error(`unknown exit ${id}`);
+      return n;
+    }),
+    standExit: [],
     holdShort: index.get(L.taxi.holdShort) as number,
     safe: [],
   };
+  // each stand is reached from the nearest exit that leads to it
+  g.standExit = g.standNode.map((sn) => {
+    if (sn < 0) return -1;
+    for (const ex of g.exits) if (findRoute(g, ex, sn)) return ex;
+    throw new Error('stand unreachable from every runway exit');
+  });
   // everything an arrival may touch on its way to any stand
   const arrivalEdges = new Set<number>();
-  const arrivalNodes = new Set<number>([g.exit]);
-  for (const sn of g.standNode) {
-    const r = findRoute(g, g.exit, sn);
+  const arrivalNodes = new Set<number>(g.exits);
+  for (let i = 0; i < g.standNode.length; i++) {
+    const sn = g.standNode[i];
+    if (sn < 0) continue;
+    const r = findRoute(g, g.standExit[i], sn);
     if (!r) throw new Error('stand unreachable from the runway exit');
     for (const e of r) {
       arrivalEdges.add(e);

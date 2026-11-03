@@ -7,10 +7,10 @@
  *
  * New code: randomness comes from per-game hashes, never from the RNG.
  */
-import { AIRCRAFT } from '../../data/aircraft';
+import { AIRCRAFT, standFits } from '../../data/aircraft';
 import { AIRLINE_KINDS, AIRLINES, type AirlineKindDef, type AirlineNeed } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
-import { tierDef } from '../../data/tiers';
+import { tierDef, type StandDef } from '../../data/tiers';
 import { hash01, hashU32 } from '../hash';
 import { DAY_SECONDS } from './clock';
 import { pushEvent } from './events';
@@ -50,8 +50,34 @@ export function kindOf(al: number): AirlineKindDef {
 }
 
 /** Facilities built so far (jet bridges, lounges... arrive in later milestones). */
-export function hasNeed(_s: GameState, _need: AirlineNeed): boolean {
+/** Is any built stand of this kind open at the current tier? */
+function openStand(s: GameState, test: (st: StandDef) => boolean): boolean {
+  const L = layoutOf(s.tier);
+  return L.stands.some((st, i) => s.standOpen[i] && test(st));
+}
+
+/** Facilities some airlines insist on: built stands of a kind, or the lounge. */
+export function hasNeed(s: GameState, need: AirlineNeed): boolean {
+  switch (need) {
+    case 'fbo':
+      return openStand(s, (st) => st.size === 'fbo');
+    case 'cargoApron':
+      return openStand(s, (st) => st.size === 'cargo');
+    case 'jetBridge':
+      return openStand(s, (st) => !!st.bridge);
+    case 'lounge':
+      return (s.upg.lounge ?? 0) >= 1;
+  }
   return false;
+}
+
+/** Can this aircraft come here at all: tier, flights served, runway length and a built stand it fits on. */
+export function aircraftHere(s: GameState, k: number): boolean {
+  const a = AIRCRAFT[k];
+  if (!a || a.unlockTier > s.tier || a.unlockServed > s.stats.served) return false;
+  const L = layoutOf(s.tier);
+  if (a.runwayLength > L.runway.x1 - L.runway.x0) return false;
+  return openStand(s, (st) => standFits(st.size, a.stand));
 }
 
 export function contractSlots(s: GameState): number {
@@ -73,7 +99,7 @@ export function fleetHere(s: GameState, al: number): number[] {
   if (!def) return [];
   return def.fleet
     .map((id) => AIRCRAFT.findIndex((a) => a.id === id))
-    .filter((k) => k >= 0 && AIRCRAFT[k].unlockTier <= s.tier && AIRCRAFT[k].unlockServed <= s.stats.served && AIRCRAFT[k].stand === 'small')
+    .filter((k) => k >= 0 && aircraftHere(s, k))
     .sort((a, b) => AIRCRAFT[a].paxMax - AIRCRAFT[b].paxMax);
 }
 
@@ -276,6 +302,22 @@ function leave(s: GameState, c: Contract): void {
 
 // ------------------------------------------------------------------ offers
 
+/** Flights a day one stand takes by the size of plane (quick small turnarounds, slow wide-bodies). */
+const PER_STAND: Record<string, number> = { small: 14, fbo: 12, heli: 12, medium: 10, large: 7, cargo: 6, huge: 6, hugeX: 5 };
+
+/**
+ * How many flights a day of this airline the built stands can take: the stands
+ * its smallest aircraft fits on (big jets need gates, a freighter its apron).
+ */
+export function airlineStandCap(s: GameState, al: number): number {
+  const fleet = fleetHere(s, al);
+  if (fleet.length === 0) return 0;
+  const need = AIRCRAFT[fleet[0]].stand;
+  const L = layoutOf(s.tier);
+  const n = L.stands.filter((st, i) => s.standOpen[i] && standFits(st.size, need)).length;
+  return n * (PER_STAND[need] ?? 6);
+}
+
 export function makeOffer(s: GameState, al: number): AirlineOffer {
   const id = s.nextId++;
   const k = kindOf(al);
@@ -284,7 +326,7 @@ export function makeOffer(s: GameState, al: number): AirlineOffer {
   return {
     id,
     al,
-    perDay: Math.max(1, Math.min(k.maxPerDay, Math.round(k.perDay * tierDef(s.tier).traffic * (0.85 + 0.3 * gh(s, id * 17 + 2))))),
+    perDay: Math.max(1, Math.min(k.maxPerDay, airlineStandCap(s, al) || k.perDay, Math.round(k.perDay * tierDef(s.tier).traffic * (0.85 + 0.3 * gh(s, id * 17 + 2))))),
     pay: round2(k.pay * (0.9 + 0.2 * u) * (0.9 + rep / 500)),
     goal: k.goal,
     days: k.days,
@@ -383,7 +425,13 @@ export function declineOffer(s: GameState, offerId: number): number {
 
 /** Can the airline be asked for more flights now? */
 export function canExpand(s: GameState, c: Contract): boolean {
-  return repOf(s, c.al) >= REP_EXPAND && c.perDay < kindOf(c.al).maxPerDay && s.time - c.expandedAt >= EXPAND_COOLDOWN && c.endsAt === 0;
+  return (
+    repOf(s, c.al) >= REP_EXPAND &&
+    c.perDay < kindOf(c.al).maxPerDay &&
+    c.perDay + kindOf(c.al).step <= Math.max(c.perDay, airlineStandCap(s, c.al)) &&
+    s.time - c.expandedAt >= EXPAND_COOLDOWN &&
+    c.endsAt === 0
+  );
 }
 
 export function expandContract(s: GameState, al: number): number {

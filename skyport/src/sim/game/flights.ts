@@ -1,5 +1,5 @@
 /** Flight lifecycle: spawn, approach, landing, taxi (graph), turnaround, departure. */
-import { AIRCRAFT, planeArt } from '../../data/aircraft';
+import { AIRCRAFT, paxGroupOf, planeArt, standFits } from '../../data/aircraft';
 import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import { tierDef, type TierLayout } from '../../data/tiers';
@@ -10,8 +10,8 @@ import { recordIncome } from './income';
 import { effects } from './upgrades';
 import { pushEvent } from './events';
 import { canEnter, findRoute, firstSafe, graphOf, groundMove, releaseAll, releaseEdge, routeGeometry, tryReserve, tryReserveRun } from './graph';
-import { doorPoint, layoutOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
-import { angleDiff, makeSample, pathLength, samplePath, type Path } from './path';
+import { doorPoint, gatePoint, layoutOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
+import { angleDiff, chaikin, makeSample, pathLength, samplePath, type Path } from './path';
 import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
 import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Planned, type Want } from './types';
 
@@ -21,21 +21,65 @@ const SAMPLE = makeSample();
 export const ARRIVAL_GAP: readonly [number, number] = [34, 52];
 const MIN_SPAWN_GAP = 4;
 const HOLD_PATIENCE_S = 75;
+
+/** Big jets carry more fuel: they can circle longer before diverting. */
+function holdFuel(f: Flight): number {
+  return 1 + wakeCat(f) * 0.3;
+}
 /** Order in which a tap on the plane handles pending actions. */
 const WANT_ORDER: readonly Want[] = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
 
-/** Phases that use the runway; at most one flight may be in them. */
-export function onRunway(f: Flight, L: TierLayout): boolean {
+export function isHeli(f: Flight): boolean {
+  return AIRCRAFT[f.aircraft]?.stand === 'heli';
+}
+
+/**
+ * Which runway the flight is on right now: 1 = the landing runway, 2 = the
+ * departures runway (when the layout has one), 0 = none. Helicopters never are.
+ */
+export function runwayOf(f: Flight, L: TierLayout): number {
+  if (isHeli(f)) return 0;
+  const dep = L.depRunway ? 2 : 1;
   switch (f.phase) {
     case 'landing':
     case 'rollout':
+      return 1;
     case 'lineUp':
-      return true;
+      return dep;
     case 'takeoff':
-      return f.x < L.takeoff.liftoffX + 3;
+      return f.x < L.takeoff.liftoffX + 3 ? dep : 0;
     default:
-      return false;
+      return 0;
   }
+}
+
+/** On a runway: at most one flight per runway at any time. */
+export function onRunway(f: Flight, L: TierLayout): boolean {
+  return runwayOf(f, L) !== 0;
+}
+
+const WAKE_CAT: Record<string, number> = { light: 0, medium: 1, heavy: 2, super: 3 };
+/** Seconds a follower (column) waits behind a leader (row) on the same runway. */
+export const WAKE_GAP: readonly (readonly number[])[] = [
+  [0, 0, 0, 0],
+  [6, 3, 0, 0],
+  [10, 8, 5, 0],
+  [14, 12, 10, 6],
+];
+
+export function wakeCat(f: Flight): number {
+  return WAKE_CAT[AIRCRAFT[f.aircraft]?.wake ?? 'light'] ?? 0;
+}
+
+/** Time after which this flight may use runway r behind the last plane that stirred the air there. */
+export function wakeClearAt(s: GameState, r: number, f: Flight): number {
+  const w = s.wake[r - 1];
+  if (!w) return 0;
+  return w.at + WAKE_GAP[w.cat][wakeCat(f)];
+}
+
+function stirWake(s: GameState, r: number, f: Flight): void {
+  s.wake[r - 1] = { cat: wakeCat(f), at: s.time };
 }
 
 export function isGround(f: Flight): boolean {
@@ -134,9 +178,10 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     paid: 0,
     paxTimer: 1.5,
     wants: 1 << WANT.clearLanding,
-    // one checked bag per passenger, a few extra on bigger planes (no RNG: keeps old games identical)
-    bagsIn: paxIn + Math.floor(paxIn / 4),
-    bagsOut: paxOut + Math.floor(paxOut / 4),
+    // one checked bag per passenger, a few extra on bigger planes (no RNG: keeps old games identical);
+    // freighters carry pallets instead
+    bagsIn: ac.paxMax === 0 ? 60 : paxIn + Math.floor(paxIn / 4),
+    bagsOut: ac.paxMax === 0 ? 60 : paxOut + Math.floor(paxOut / 4),
     bagState: FUEL.none,
     bagWork: 0,
     bagsChecked: 0,
@@ -196,35 +241,63 @@ function turnToward(f: Flight, target: number, rate: number, dt: number): void {
   f.heading += Math.abs(d) <= step ? d : Math.sign(d) * step;
 }
 
-export function freeStand(s: GameState): number {
-  for (let i = 0; i < Math.min(s.standsBuilt, s.stands.length); i++) if (s.stands[i].occupant === 0 && s.stands[i].reserved === 0) return i;
-  return -1;
+const SIZE_RANK: Record<string, number> = { small: 0, fbo: 0, heli: 0, medium: 1, large: 2, cargo: 2, huge: 3, hugeX: 4 };
+
+/**
+ * A free, built stand the aircraft fits on: the smallest that fits (big stands
+ * stay free for big planes), then the first in layout order. -1 when none.
+ */
+export function freeStand(s: GameState, aircraft = 0): number {
+  const L = layoutOf(s.tier);
+  const need = AIRCRAFT[aircraft]?.stand ?? 'small';
+  let best = -1;
+  for (let i = 0; i < Math.min(L.stands.length, s.stands.length); i++) {
+    if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0) continue;
+    if (!standFits(L.stands[i].size, need)) continue;
+    if (best < 0 || SIZE_RANK[L.stands[i].size] < SIZE_RANK[L.stands[best].size]) best = i;
+  }
+  return best;
 }
 
 /** True when a cleared arrival may start its final approach now. */
 function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
   if (!f.landCleared || f.stand < 0 || s.tierSwitch) return false;
+  // a helicopter flies straight to its pad
+  if (isHeli(f)) return true;
+  if (s.time < wakeClearAt(s, 1, f)) return false;
   for (const o of s.flights) {
-    if (o === f) continue;
-    if (o.phase === 'final' || onRunway(o, L)) return false;
+    if (o === f || isHeli(o)) continue;
+    if (o.phase === 'final' || runwayOf(o, L) === 1) return false;
     if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.id < f.id) return false;
   }
   return true;
 }
 
 function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
+  const dep = L.depRunway ? 2 : 1;
+  if (s.time < wakeClearAt(s, dep, f)) return false;
   for (const o of s.flights) {
-    if (o === f) continue;
-    if (o.phase === 'final' || onRunway(o, L)) return false;
-    // landings first
-    if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.stand >= 0) return false;
+    if (o === f || isHeli(o)) continue;
+    if (runwayOf(o, L) === dep) return false;
+    if (dep === 1) {
+      if (o.phase === 'final') return false;
+      // landings first (one runway for both)
+      if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.stand >= 0) return false;
+    }
     if (o.phase === 'holdShort' && o.takeoffCleared && o.id < f.id) return false;
   }
   return true;
 }
 
-function startFinal(f: Flight, L: TierLayout, speedMul = 1): void {
+function startFinal(s: GameState, f: Flight, L: TierLayout, speedMul = 1): void {
   setPhase(f, 'final');
+  if (isHeli(f)) {
+    const pad = L.stands[f.stand].pos;
+    setPath(f, chaikin([f.x, f.y, f.z, (f.x + pad[0]) / 2, (f.y + pad[1]) / 2, Math.max(1.6, f.z * 0.6), pad[0], pad[1], 1.2, pad[0], pad[1], 0], 2));
+    f.speed = AIRCRAFT[f.aircraft].approachSpeed;
+    return;
+  }
+  void s;
   setPath(f, routeFinal(L, f.x, f.y, f.z, f.heading));
   f.speed = AIRCRAFT[f.aircraft].approachSpeed * speedMul;
 }
@@ -250,7 +323,7 @@ export function divert(s: GameState, f: Flight): void {
 export function clearLanding(s: GameState, f: Flight): boolean {
   if ((f.phase !== 'inbound' && f.phase !== 'holding') || f.landCleared || s.tierSwitch) return false;
   let st = f.stand;
-  if (st < 0) st = freeStand(s);
+  if (st < 0) st = freeStand(s, f.aircraft);
   if (st < 0) return false;
   s.stands[st].reserved = f.id;
   f.stand = st;
@@ -266,7 +339,7 @@ function tailClear(f: Flight): number {
 
 function beginArrivalRoute(s: GameState, f: Flight): void {
   const g = graphOf(s.tier);
-  const route = findRoute(g, g.exit, g.standNode[f.stand]);
+  const route = findRoute(g, g.standExit[f.stand], g.standNode[f.stand]);
   if (!route) throw new Error('no route to stand');
   f.groute = routeGeometry(g, route);
   f.gIdx = 0;
@@ -281,11 +354,13 @@ function dock(s: GameState, f: Flight): void {
   st.reserved = 0;
   // the stand edge is no longer needed; keep the stand node while parked
   for (const e of f.gHeld.slice()) releaseEdge(s, f, e);
-  s.nodeHold[g.standNode[f.stand]] = f.id;
+  if (g.standNode[f.stand] >= 0) s.nodeHold[g.standNode[f.stand]] = f.id;
   f.groute = null;
   f.speed = 0;
   f.dockedAt = s.time;
   f.slot = s.time + ac.baseTurnaround * kindOf(f.airline).turnaround;
+  // a jet bridge: no stairs in the rain, people love it
+  if (gatePoint(layoutOf(s.tier), f.stand)) f.mood = Math.min(1, f.mood + 0.08);
   f.paxTimer = 0.4;
   setPhase(f, 'deboarding');
   pushEvent(s, 'docked', f.x, f.y, f.id);
@@ -294,6 +369,15 @@ function dock(s: GameState, f: Flight): void {
 /** Tries to start taxiing out; false while the taxiway ahead is taken. */
 function tryLeaveStand(s: GameState, f: Flight): boolean {
   const g = graphOf(s.tier);
+  if (isHeli(f)) {
+    // rotors turning on the pad; waits there for takeoff clearance
+    const pad = s.stands[f.stand];
+    if (pad && pad.occupant === f.id) pad.occupant = 0;
+    offBlock(s, f);
+    setPhase(f, 'holdShort');
+    if (!f.takeoffCleared) pushEvent(s, 'takeoffRequest', f.x, f.y, f.id);
+    return true;
+  }
   const from = g.standNode[f.stand];
   const route = findRoute(g, from, g.holdShort);
   if (!route) return false;
@@ -310,6 +394,14 @@ function tryLeaveStand(s: GameState, f: Flight): boolean {
   f.pathPos = 0;
   const st = s.stands[f.stand];
   if (st && st.occupant === f.id) st.occupant = 0;
+  offBlock(s, f);
+  f.speed = 0;
+  setPhase(f, 'taxiOut');
+  return true;
+}
+
+/** Leaving the stand: on time or late against the slot. */
+function offBlock(s: GameState, f: Flight): void {
   f.offBlockAt = s.time;
   f.onTime = s.time <= f.slot + 3 ? 1 : -1;
   if (f.onTime > 0) {
@@ -319,9 +411,6 @@ function tryLeaveStand(s: GameState, f: Flight): boolean {
     s.stats.late++;
     f.mood = Math.max(0, f.mood - 0.1);
   }
-  f.speed = 0;
-  setPhase(f, 'taxiOut');
-  return true;
 }
 
 function pay(s: GameState, f: Flight): void {
@@ -404,7 +493,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
   switch (f.phase) {
     case 'inbound': {
       if (f.landCleared && canStartFinal(s, f, L) && f.phaseT > 1) {
-        startFinal(f, L, fx.runwayOps);
+        startFinal(s, f, L, fx.runwayOps);
         return true;
       }
       if (follow(f, dt)) {
@@ -431,21 +520,28 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       f.z += (tz - f.z) * k;
       turnToward(f, f.holdAngle + Math.PI / 2, 3, dt);
       if (!f.landCleared) {
-        f.patience -= dt / HOLD_PATIENCE_S;
+        f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(f));
         f.mood = Math.max(0, f.mood - 0.006 * dt);
       } else {
-        f.patience -= dt / (HOLD_PATIENCE_S * 2.5);
+        f.patience -= dt / (HOLD_PATIENCE_S * 2.5 * holdFuel(f));
       }
       if (f.patience <= 0) {
         f.patience = 0;
         divert(s, f);
         return true;
       }
-      if (canStartFinal(s, f, L)) startFinal(f, L, fx.runwayOps);
+      if (canStartFinal(s, f, L)) startFinal(s, f, L, fx.runwayOps);
       return true;
     }
     case 'final': {
       if (follow(f, dt)) {
+        if (isHeli(f)) {
+          // set down on the pad: no runway, no taxiway
+          f.z = 0;
+          dock(s, f);
+          pushEvent(s, 'touchdown', f.x, f.y, f.id);
+          return true;
+        }
         setPhase(f, 'landing');
         setPath(f, routeLanding(L));
       }
@@ -455,8 +551,10 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       f.speed = ac.approachSpeed * 0.92;
       if (follow(f, dt)) {
         setPhase(f, 'rollout');
-        setPath(f, routeRollout(L));
+        const g = graphOf(s.tier);
+        setPath(f, routeRollout(L, g.pos[g.standExit[f.stand]]));
         f.z = 0;
+        stirWake(s, 1, f);
         beginArrivalRoute(s, f);
         pushEvent(s, 'touchdown', f.x, f.y, f.id);
       }
@@ -491,10 +589,13 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       waitingDrain(s, f, dt);
       f.paxTimer -= dt;
       if (f.deboarded < f.paxIn && f.paxTimer <= 0) {
-        const door = doorPoint(L, f.aircraft, f.x, f.y, f.heading);
-        spawnArrivingPax(s, f, door[0], door[1]);
-        f.deboarded++;
-        f.paxTimer = 0.55;
+        // off through the jet bridge into the pier, or down the stairs onto the apron
+        const gate = gatePoint(L, f.stand);
+        const out = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
+        const n = Math.min(paxGroupOf(base), f.paxIn - f.deboarded);
+        spawnArrivingPax(s, f, out[0], out[1], n);
+        f.deboarded += n;
+        f.paxTimer = gate ? 0.35 : 0.55;
       }
       if (f.deboarded >= f.paxIn && f.paxTimer <= 0) setPhase(f, 'turnaround');
       return true;
@@ -533,6 +634,13 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
     }
     case 'holdShort': {
       waitingDrain(s, f, dt);
+      if (f.takeoffCleared && isHeli(f)) {
+        // lift straight up off the pad, then away to the east
+        setPhase(f, 'takeoff');
+        setPath(f, chaikin([f.x, f.y, 0, f.x, f.y, 1.4, f.x + 4, f.y - 1, 3, f.x + 16, f.y - 4, 6], 2));
+        f.speed = ac.taxiSpeed;
+        return true;
+      }
       if (f.takeoffCleared && canLineUp(s, f, L)) beginLineUp(f, L);
       return true;
     }
@@ -552,6 +660,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       const wasGround = f.z <= 0.001;
       const end = follow(f, dt);
       if (wasGround && f.z > 0.001) {
+        if (!isHeli(f)) stirWake(s, L.depRunway ? 2 : 1, f);
         pay(s, f);
         pushEvent(s, 'liftoff', f.x, f.y, f.id);
       }
@@ -595,10 +704,12 @@ export function updateDepartingPax(s: GameState): void {
   for (const f of s.flights) {
     if (f.phase === 'diverted' || f.paxSpawned >= f.paxOut) continue;
     if (f.phase === 'taxiOut' || f.phase === 'holdShort' || f.phase === 'lineUp' || f.phase === 'takeoff') continue;
+    const group = paxGroupOf(AIRCRAFT[f.aircraft]);
     const due = Math.floor((s.time - f.spawnedAt - 1) / 0.9) + 1;
-    if (due > f.paxSpawned) {
-      spawnDepartingPax(s, f, L);
-      f.paxSpawned++;
+    if (due > Math.ceil(f.paxSpawned / group)) {
+      const n = Math.min(group, f.paxOut - f.paxSpawned);
+      spawnDepartingPax(s, f, L, n);
+      f.paxSpawned += n;
     }
   }
 }

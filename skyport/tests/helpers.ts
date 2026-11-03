@@ -1,4 +1,4 @@
-import { botCommands, createGame, layoutOf, onRunway, queueCommand, stepGame, type GameState } from '../src/sim';
+import { applyStructural, botCommands, createGame, layoutOf, onRunway, queueCommand, stepGame, type GameState } from '../src/sim';
 
 export interface RunReport {
   phases: Map<number, string[]>;
@@ -36,4 +36,11 @@ export function play(s: GameState, seconds: number, reaction: number | null = 1,
 
 export function newGame(seed = 1): GameState {
   return createGame(seed);
+}
+
+/** Builds the first n stands of the current layout the way the player would (stand upgrade levels). */
+export function openStands(s: GameState, n: number): void {
+  s.upg.stand = Math.max(0, n - 1);
+  s.upgRev++;
+  applyStructural(s);
 }

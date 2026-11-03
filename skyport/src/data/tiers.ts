@@ -5,13 +5,30 @@
 export type P2 = readonly [number, number];
 export type P3 = readonly [number, number, number];
 
+import type { StandSize } from './aircraft';
+
 export interface StandDef {
   id: string;
   pos: P2;
-  size: 'small' | 'medium' | 'large' | 'huge';
-  /** Taxi node the stand is entered from and the node it exits to. */
-  from: string;
-  to: string;
+  size: StandSize;
+  /** Taxi node the stand is entered from and the node it exits to (none for a helipad). */
+  from?: string;
+  to?: string;
+  /** Upgrade line and level that build it (none = there from the start). */
+  line?: string;
+  level?: number;
+  /** A jet bridge from the pier: passengers board straight from the gate. */
+  bridge?: boolean;
+}
+
+export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad';
+
+export interface BuildingDef {
+  kind: BuildingKind;
+  /** Footprint corner (lowest x and y) in tiles. */
+  pos: P2;
+  /** Footprint size in tiles. */
+  size: P2;
 }
 
 export interface ServiceHome {
@@ -41,14 +58,20 @@ export interface TierLayout {
   taxi: {
     nodes: Readonly<Record<string, P2>>;
     edges: readonly (readonly [string, string])[];
-    /** Where rolling-out planes leave the runway. */
+    /** Where rolling-out planes leave the runway (small planes). */
     exit: string;
+    /** Every runway exit, nearest first; a plane takes the first one that leads to its stand. */
+    exits?: readonly string[];
     /** Where departures wait for takeoff clearance. */
     holdShort: string;
     /** Points from the hold-short node onto the runway, ending aligned for takeoff. */
     lineUp: readonly P2[];
   };
   takeoff: { liftoffX: number; climb: readonly P3[] };
+  /** A second, parallel runway used for departures only (landings keep the first one). */
+  depRunway?: { x0: number; x1: number; y: number; width: number };
+  /** Bigger buildings on the airside (drawn by the renderer, kept clear by build mode). */
+  buildings?: readonly BuildingDef[];
   stands: readonly StandDef[];
   hut: P2;
   hutDoor: P2;
@@ -164,8 +187,8 @@ const DIRT_STRIP: TierLayout = {
   },
   stands: [
     { id: 'S1', pos: [24.8, 21.9], size: 'small', from: 'Lb', to: 'Lc' },
-    { id: 'S2', pos: [22.8, 21.9], size: 'small', from: 'Lc', to: 'Ld' },
-    { id: 'S3', pos: [20.8, 21.9], size: 'small', from: 'Ld', to: 'Le' },
+    { id: 'S2', pos: [22.8, 21.9], size: 'small', from: 'Lc', to: 'Ld', line: 'stand', level: 1 },
+    { id: 'S3', pos: [20.8, 21.9], size: 'small', from: 'Ld', to: 'Le', line: 'stand', level: 2 },
   ],
   hut: [21, 17.9],
   hutDoor: [22.45, 19.35],
@@ -264,8 +287,8 @@ const SMALL_AIRFIELD: TierLayout = {
   },
   stands: [
     ...DIRT_STRIP.stands,
-    { id: 'S4', pos: [18.8, 21.9], size: 'small', from: 'Le', to: 'Lf' },
-    { id: 'S5', pos: [16.8, 21.9], size: 'small', from: 'Lf', to: 'Lg' },
+    { id: 'S4', pos: [18.8, 21.9], size: 'small', from: 'Le', to: 'Lf', line: 'stand', level: 3 },
+    { id: 'S5', pos: [16.8, 21.9], size: 'small', from: 'Lf', to: 'Lg', line: 'stand', level: 4 },
   ],
   takeoff: { liftoffX: 21, climb: DIRT_STRIP.takeoff.climb },
   decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
@@ -273,12 +296,162 @@ const SMALL_AIRFIELD: TierLayout = {
   groundCapacity: 42,
 };
 
+/** Landing runway line of the bigger airports (moved south to make room for a parallel taxiway). */
+const RWY_Y = 27.8;
+
+/**
+ * Tier 3 grows east and south: the runway moves south and gets a parallel
+ * taxiway, so every plane leaves it at the first exit and taxis east to the
+ * new stands (a private-jet stand by its lounge and two medium stands).
+ */
+const REGIONAL: TierLayout = {
+  ...SMALL_AIRFIELD,
+  world: { w: 64, h: 52 },
+  field: { x0: 8.4, y0: 13.6, x1: 46.4, y1: 33.2 },
+  runway: { x0: 11, x1: 44, y: RWY_Y, width: 1.6, surface: 'asphalt' },
+  approach: {
+    ...SMALL_AIRFIELD.approach,
+    entry: [10.2, RWY_Y - 2.6, 2.2],
+    faf: [9.6, RWY_Y, 1.5],
+    threshold: [13.6, RWY_Y, 0.35],
+    touchdown: [16.2, RWY_Y, 0],
+  },
+  taxi: {
+    nodes: {
+      ...SMALL_AIRFIELD.taxi.nodes,
+      E: [28.6, RWY_Y],
+      T1: [28.8, 25.6],
+      H: [14.2, 26.3],
+      K1: [34.0, 25.6],
+      K2: [41.6, 25.6],
+      T5: [40.8, 24.7],
+      Ma: [39.8, 23.9],
+      Mb: [37.0, 23.9],
+      Mc: [33.8, 23.9],
+      Md: [30.6, 23.9],
+    },
+    edges: [
+      ...SMALL_AIRFIELD.taxi.edges,
+      ['T1', 'K1'],
+      ['K1', 'K2'],
+      ['K2', 'T5'],
+      ['T5', 'Ma'],
+      ['Ma', 'Mb'],
+      ['Mb', 'Mc'],
+      ['Mc', 'Md'],
+      ['Md', 'La'],
+    ],
+    exit: 'E',
+    holdShort: 'H',
+    lineUp: [
+      [14.25, RWY_Y - 0.8],
+      [14.7, RWY_Y - 0.05],
+      [15.4, RWY_Y],
+    ],
+  },
+  takeoff: {
+    liftoffX: 23,
+    climb: [
+      [32, RWY_Y, 1.1],
+      [42, RWY_Y - 0.4, 2.8],
+      [54, RWY_Y - 2, 5],
+      [66, RWY_Y - 5, 7.5],
+    ],
+  },
+  stands: [
+    ...SMALL_AIRFIELD.stands,
+    { id: 'F1', pos: [38.4, 21.6], size: 'fbo', from: 'Ma', to: 'Mb', line: 'fbo', level: 1 },
+    { id: 'M1', pos: [35.4, 20.9], size: 'medium', from: 'Mb', to: 'Mc', line: 'standMed', level: 1 },
+    { id: 'M2', pos: [32.2, 20.9], size: 'medium', from: 'Mc', to: 'Md', line: 'standMed', level: 2 },
+  ],
+  buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }],
+  windsock: [20, 30.4],
+  groundCapacity: 36,
+  camera: { center: [28, 23.5], zoom: 0.5 },
+};
+
+/**
+ * Tier 4: a pier with jet bridges for the airliners (one gate big enough for
+ * wide-bodies) and a cargo apron at the far end of the parallel taxiway.
+ */
+const CITY: TierLayout = {
+  ...REGIONAL,
+  field: { x0: 8, y0: 12.4, x1: 58, y1: 33.2 },
+  runway: { x0: 11, x1: 55, y: RWY_Y, width: 1.8, surface: 'asphalt' },
+  taxi: {
+    ...REGIONAL.taxi,
+    nodes: { ...REGIONAL.taxi.nodes, H: [14.2, 26.2], K3: [52.4, 25.6], T6: [51.8, 24.7], Na: [50.8, 23.9], Nb: [46.6, 23.9], Nc: [42.0, 23.9] },
+    edges: [...REGIONAL.taxi.edges, ['K2', 'K3'], ['K3', 'T6'], ['T6', 'Na'], ['Na', 'Nb'], ['Nb', 'Nc'], ['Nc', 'Ma']],
+  },
+  takeoff: {
+    liftoffX: 25,
+    climb: [
+      [36, RWY_Y, 1.1],
+      [48, RWY_Y - 0.4, 2.8],
+      [60, RWY_Y - 2, 5],
+      [72, RWY_Y - 5, 7.5],
+    ],
+  },
+  stands: [
+    ...REGIONAL.stands,
+    { id: 'G1', pos: [48.7, 20.3], size: 'large', from: 'Na', to: 'Nb', line: 'gates', level: 1, bridge: true },
+    { id: 'G2', pos: [44.3, 20.0], size: 'huge', from: 'Nb', to: 'Nc', line: 'gates', level: 2, bridge: true },
+    { id: 'C1', pos: [54.4, 21.0], size: 'cargo', from: 'T6', to: 'Na', line: 'cargoApron', level: 1 },
+  ],
+  buildings: [
+    { kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] },
+    { kind: 'pier', pos: [42.2, 15.8], size: [8.6, 1.5] },
+    { kind: 'cargo', pos: [53.2, 16.4], size: [3.2, 2.0] },
+  ],
+  groundCapacity: 36,
+  camera: { center: [33, 23.5], zoom: 0.42 },
+};
+
+/** Departures runway of the international airport. */
+const DEP_Y = 33.4;
+
+/**
+ * Tier 5: departures move to a second runway to the south, reached by a taxiway
+ * around the west end of the first one (no runway crossings); a helipad.
+ */
+const INTERNATIONAL: TierLayout = {
+  ...CITY,
+  field: { x0: 6, y0: 12.4, x1: 60, y1: 36.6 },
+  runway: { x0: 11, x1: 57, y: RWY_Y, width: 1.8, surface: 'asphalt' },
+  depRunway: { x0: 13, x1: 58, y: DEP_Y, width: 1.8 },
+  taxi: {
+    ...CITY.taxi,
+    nodes: { ...CITY.taxi.nodes, W1: [12.0, 24.4], W2: [9.0, 28.8], W3: [9.2, 32.0], H2: [11.4, 32.3] },
+    edges: [...CITY.taxi.edges.filter(([a, b]) => !(a === 'T3' && b === 'H')), ['T3', 'W1'], ['W1', 'W2'], ['W2', 'W3'], ['W3', 'H2']],
+    holdShort: 'H2',
+    lineUp: [
+      [11.9, DEP_Y - 0.5],
+      [12.7, DEP_Y - 0.05],
+      [13.8, DEP_Y],
+    ],
+  },
+  takeoff: {
+    liftoffX: 27,
+    climb: [
+      [38, DEP_Y, 1.1],
+      [50, DEP_Y + 0.6, 2.8],
+      [62, DEP_Y + 1.6, 5],
+      [74, DEP_Y + 2.6, 7.5],
+    ],
+  },
+  stands: [...CITY.stands, { id: 'P1', pos: [32.0, 17.4], size: 'heli', line: 'helipad', level: 1 }],
+  buildings: [...(CITY.buildings ?? []), { kind: 'helipad', pos: [31.2, 16.6], size: [1.6, 1.6] }],
+  windsock: [20, 30.6],
+  groundCapacity: 46,
+  camera: { center: [33, 25.5], zoom: 0.4 },
+};
+
 export const TIERS: readonly TierDef[] = [
   { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1, contracts: 2 },
   { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3, contracts: 3 },
-  { id: 3, key: 'regional', needs: { served: 150, rating: 4, cost: 25000 }, buildSeconds: 240, pay: 5, traffic: 1.6, contracts: 4 },
-  { id: 4, key: 'city', needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2, contracts: 5 },
-  { id: 5, key: 'international', needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
+  { id: 3, key: 'regional', layout: REGIONAL, needs: { served: 150, rating: 4, cost: 25000 }, buildSeconds: 240, pay: 5, traffic: 1.6, contracts: 4 },
+  { id: 4, key: 'city', layout: CITY, needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2, contracts: 5 },
+  { id: 5, key: 'international', layout: INTERNATIONAL, needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
   { id: 6, key: 'hub', needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
   { id: 7, key: 'megaHub', needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
   { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },

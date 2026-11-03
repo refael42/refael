@@ -56,13 +56,17 @@ export default function App() {
   const [screen, setScreen] = useState<'game' | 'gallery'>(() => (readDebugParams().screen === 'gallery' ? 'gallery' : 'game'));
 
   useEffect(() => {
-    // Let the loading screen paint before the (synchronous) atlas build.
+    // the atlas holds the liveries of the saved airport's tier (built once we know it);
+    // let the loading screen paint before the (synchronous) build
+    if (!boot || sprites) return;
+    const dbg = readDebugParams();
+    const tier = Math.max(boot.state?.tier ?? 1, dbg.tier, screen === 'gallery' ? 5 : 1);
     const id = setTimeout(() => {
       setIconSheet(buildUiIcons());
-      setSprites(buildSprites({ combos: tierCombos(2) }));
+      setSprites(buildSprites({ combos: tierCombos(tier) }));
     }, 30);
     return () => clearTimeout(id);
-  }, []);
+  }, [boot, sprites, screen]);
 
   return (
     <SafeAreaProvider>

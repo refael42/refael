@@ -16,7 +16,7 @@ import { Effects } from '../../render/effects';
 import { isoX, isoY, Z_PX } from '../../render/iso';
 import { makeRenderRes, SnapWriter, type RenderRes } from '../../render/scene';
 import { SceneCanvas } from '../../render/SceneCanvas';
-import type { SpriteSet } from '../../render/sprites';
+import { buildSprites, type SpriteSet } from '../../render/sprites';
 import { recordFrame, useFrameLoop } from '../../render/useFrameLoop';
 import { buildWorld } from '../../render/world';
 import { useSettings } from '../../settings/store';
@@ -89,7 +89,10 @@ export interface Boot {
   futureSave: boolean;
 }
 
-export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; boot: Boot; onGallery: () => void }) {
+export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprites: SpriteSet; boot: Boot; onGallery: () => void }) {
+  // the atlas holds the liveries of the current tier; a bigger airport rebuilds it
+  const [sprites, setSprites] = useState(initialSprites);
+  const [rebuilding, setRebuilding] = useState(false);
   const t = useT();
   const insets = useSafeAreaInsets();
   const showFps = useSettings((s) => s.showFps);
@@ -127,10 +130,26 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     return c;
   }, []);
   const [tier, setTier] = useState(ctrl.state.tier);
+  useEffect(() => {
+    const want = tierCombos(tier);
+    const have = sprites.combos;
+    if (want.every(([a, c]) => have.some(([x, y]) => x === a && y === c))) return;
+    setRebuilding(true);
+    // let the overlay paint before the (synchronous) atlas build
+    const id = setTimeout(() => {
+      setSprites(buildSprites({ combos: want }));
+      setRebuilding(false);
+    }, 60);
+    return () => clearTimeout(id);
+  }, [tier, sprites]);
   const L = layoutOf(tier);
-  const [standsBuilt, setStandsBuilt] = useState(ctrl.state.standsBuilt);
+  // which stands are built, as a string so the world is rebuilt only when it changes
+  const [openSig, setOpenSig] = useState(() => ctrl.state.standOpen.map((o) => (o ? '1' : '0')).join(''));
   const [stations, setStations] = useState(() => counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
-  const world = useMemo(() => buildWorld(L, sprites, tier, standsBuilt, Math.floor(stations / 10), stations % 10), [L, sprites, tier, standsBuilt, stations]);
+  const world = useMemo(
+    () => buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10), stations % 10),
+    [L, sprites, tier, openSig, stations],
+  );
   const cam = useMemo(() => {
     const c = makeCamera(isoX(L.camera.center[0], L.camera.center[1]), isoY(L.camera.center[0], L.camera.center[1]), L.camera.zoom);
     c.minZoom = 0.32;
@@ -438,7 +457,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       setCard((old) => (sameView(old, v) ? old : v));
       setNow(performance.now());
       const st = ctrl.state;
-      setStandsBuilt((old) => (old === st.standsBuilt ? old : st.standsBuilt));
+      const openNow = st.standOpen.map((o) => (o ? '1' : '0')).join('');
+      setOpenSig((old) => (old === openNow ? old : openNow));
       setTier((old) => (old === st.tier ? old : st.tier));
       const sig = counterCount(st) * 10 + laneCount(st);
       setStations((old) => (old === sig ? old : sig));
@@ -836,6 +856,11 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
         />
       ) : null}
       {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
+      {rebuilding ? (
+        <View style={styles.rebuild} pointerEvents="none">
+          <Text style={styles.rebuildText}>{t('app.loading')}</Text>
+        </View>
+      ) : null}
       {hand && !welcome && !settings ? (
         <View style={[styles.hand, { left: hand.x - 110, top: hand.y + 14 + Math.sin(now / 160) * 6 }]} pointerEvents="none">
           <Icon name="hand" size={42} />
@@ -872,7 +897,7 @@ export function tierCombos(tier: number): (readonly [number, number])[] {
     if (al.unlockTier > tier) return;
     for (const id of al.fleet) {
       const k = AIRCRAFT.findIndex((a) => a.id === id);
-      if (k >= 0 && AIRCRAFT[k].unlockTier <= tier && AIRCRAFT[k].stand === 'small') out.push([i, k]);
+      if (k >= 0 && AIRCRAFT[k].unlockTier <= tier) out.push([i, k]);
     }
   });
   return out;
@@ -883,6 +908,8 @@ const BEST_SIDE_W = 270;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#86c06a' },
+  rebuild: { position: 'absolute', alignSelf: 'center', top: '45%', backgroundColor: C.glassStrong, borderRadius: 999, paddingHorizontal: 18, paddingVertical: 10, ...SHADOW_SM },
+  rebuildText: { color: C.text, fontWeight: '800', fontSize: 15 },
   fill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
   top: { position: 'absolute', left: 0, right: 0, top: 0 },
   bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 10 },

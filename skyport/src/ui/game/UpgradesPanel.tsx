@@ -60,6 +60,8 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.offline', { a: 2 + a, b: 2 + b });
     case 'counters':
       return t('eff.counters', { a: 1 + from, b: 1 + to });
+    case 'opens':
+      return t('eff.opens', { a: from, b: to });
     case 'lanes':
       return t('eff.lanes', { a: 1 + from, b: 1 + to });
     default:

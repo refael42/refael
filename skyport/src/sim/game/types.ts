@@ -313,6 +313,8 @@ export interface Person {
   until: number;
   /** Seconds spent standing in queues. */
   waited: number;
+  /** Passengers this figure stands for (groups on big planes). */
+  n: number;
 }
 
 export type VehicleState = 'idle' | 'toPlane' | 'fueling' | 'return';
@@ -442,8 +444,11 @@ export interface GameState {
   /** Taxi graph reservations: flight id per edge / node (0 = free). */
   edgeHold: number[];
   nodeHold: number[];
-  /** How many of the layout's stands are built. */
+  /** How many of the layout's stands are built, and which (transient, from upgrade levels). */
   standsBuilt: number;
+  standOpen: boolean[];
+  /** Last plane that used each runway (wake turbulence), transient. */
+  wake: { cat: number; at: number }[];
   /** Traffic multiplier (marketing raises it). */
   traffic: number;
   staff: StaffMember[];

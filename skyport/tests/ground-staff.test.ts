@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { openStands } from './helpers';
+
 import { RARITIES, STAFF_ROLES } from '../src/data/staff';
 import {
   botCommands,
@@ -51,7 +53,7 @@ describe('taxiway graph', () => {
 
   it('2000 flights on three stands: no collisions, no deadlock, runway exclusive', () => {
     const s = createGame(77);
-    s.standsBuilt = 3;
+    openStands(s, 3);
     // about as busy as one dirt runway can handle (approach + takeoff ~23 s)
     s.traffic = 1.6;
     const L = layoutOf(1);

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { openStands } from './helpers';
+
 import { RARITIES, STAFF_ROLES, TALENT_MAX, TRAITS } from '../src/data/staff';
 import {
   Big,
@@ -146,7 +148,7 @@ describe('working life', () => {
     for (let r = 1; r < STAFF_ROLES.length; r++) hireNew(s, r);
     const lvl = m.level;
     // a controller with plenty of traffic (the rest of the crew keeps planes moving)
-    s.standsBuilt = 3;
+    openStands(s, 3);
     runFor(s, 1800);
     expect(m.level).toBeGreaterThan(lvl);
     expect(m.points).toBeGreaterThan(0);
@@ -220,7 +222,7 @@ describe('working life', () => {
 
   it('a clumsy baggage handler sometimes drops bags', () => {
     const s = rich(10);
-    s.standsBuilt = 3;
+    openStands(s, 3);
     const clumsy = TRAITS.findIndex((t) => t.id === 'clumsy');
     for (let r = 0; r < STAFF_ROLES.length; r++) hireNew(s, r, STAFF_ROLES[r].id === 'porter' ? [clumsy] : [0]);
     let oops = 0;
