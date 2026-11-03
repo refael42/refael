@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { deviceLang, useT } from '../i18n';
@@ -13,6 +13,12 @@ import { loadGame } from './game/persistence';
 import { setIconSheet } from './iconSheet';
 import { LoadingScreen } from './LoadingScreen';
 import { Onboarding } from './Onboarding';
+import { RotateHint } from './RotateHint';
+
+/** A phone or tablet browser (native builds are locked to landscape by app.json). */
+function touchWeb(): boolean {
+  return Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator.maxTouchPoints ?? 0) > 0;
+}
 
 function useHydratedSettings(): boolean {
   const [ok, setOk] = useState(useSettings.persist.hasHydrated());
@@ -33,6 +39,8 @@ export default function App() {
   const [sprites, setSprites] = useState<SpriteSet | null>(null);
   const [boot, setBoot] = useState<Boot | null>(null);
   const onboarded = useSettings((s) => s.onboarded);
+  const win = useWindowDimensions();
+  const upright = touchWeb() && win.height > win.width;
 
   useEffect(() => {
     const dbg = readDebugParams();
@@ -75,6 +83,7 @@ export default function App() {
         ) : (
           <GameScreen sprites={sprites} boot={boot} onGallery={() => setScreen('gallery')} />
         )}
+        {upright ? <RotateHint /> : null}
       </View>
     </SafeAreaProvider>
   );

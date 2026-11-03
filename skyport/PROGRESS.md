@@ -194,6 +194,15 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Save version 5 (contracts, offers, reputation by airline id) with migration: older saves keep
   the starter airline, plus Bluefin Express at tier 2. The schedule itself is rebuilt on load.
 
+### Landscape only (owner request, after M7)
+- `app.json` locks native builds to landscape. On the web, a phone or tablet held upright gets a
+  "turn your phone sideways" screen over the game (the game keeps running underneath).
+- Panels (upgrades, staff, airlines, airport) open as a full-height side drawer on the end side
+  (right, or left in Hebrew) so the map stays visible; toasts move into the visible part.
+- Landscape phones get a compact bottom bar with the best-value tip beside it (when it fits).
+- Every browser scenario now runs in landscape (844x390, 667x375, 568x320, tablet 1180x820),
+  plus one upright phone that must show the rotate screen.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).

@@ -1,19 +1,38 @@
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDir } from '../../i18n';
 import { Icon } from '../Icon';
 import { C, SHADOW } from '../theme';
 
-/** Modern bottom sheet used by the game panels. */
+/** Width of the side panel in landscape (the map stays visible next to it). */
+export function sideWidth(w: number): number {
+  return Math.round(Math.min(480, Math.max(340, w * 0.46)));
+}
+
+/**
+ * Game panel: a full-height side drawer in landscape (at the end side: right,
+ * or left in Hebrew), a bottom sheet on a tall window.
+ */
 export function Sheet({ title, subtitle, onClose, children, footer }: { title: string; subtitle?: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
   const dir = useDir();
   const ta = { textAlign: dir.textAlign, writingDirection: dir.writingDirection } as const;
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const side = width > height;
   return (
-    <View style={styles.backdrop}>
+    <View style={[styles.backdrop, side && { flexDirection: 'row', justifyContent: dir.rtl ? 'flex-start' : 'flex-end', alignItems: 'stretch' }]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View style={styles.sheet}>
-        <View style={styles.handle} />
+      <View
+        style={
+          side
+            ? [styles.side, { width: sideWidth(width), paddingTop: insets.top + 12 }, dir.rtl ? { borderTopRightRadius: 28, borderBottomRightRadius: 28, paddingLeft: insets.left } : { borderTopLeftRadius: 28, borderBottomLeftRadius: 28, paddingRight: insets.right }]
+            : styles.sheet
+        }
+        testID="panel"
+      >
+        {side ? null : <View style={styles.handle} />}
         <View style={[styles.head, { flexDirection: dir.row }]}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, ta]} numberOfLines={1}>
@@ -29,7 +48,7 @@ export function Sheet({ title, subtitle, onClose, children, footer }: { title: s
             <Icon name="close" size={16} />
           </Pressable>
         </View>
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+        <ScrollView style={side ? styles.scrollSide : styles.scroll} contentContainerStyle={[styles.content, side && { paddingBottom: insets.bottom + 24 }]}>
           {children}
         </ScrollView>
         {footer}
@@ -56,5 +75,7 @@ const styles = StyleSheet.create({
   sub: { color: C.textDim, fontSize: 13, marginTop: 2 },
   close: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.chip, alignItems: 'center', justifyContent: 'center' },
   scroll: { flexGrow: 0 },
+  scrollSide: { flex: 1 },
+  side: { height: '100%', backgroundColor: '#f8fafc', ...SHADOW },
   content: { paddingHorizontal: 14, paddingBottom: 24, gap: 12 },
 });

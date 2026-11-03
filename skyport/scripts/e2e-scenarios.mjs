@@ -23,15 +23,15 @@ const fixture = (hoursAgo) =>
   });
 
 export default [
-  { name: 'game-start-phone', viewport: { width: 390, height: 844 }, query: '/?seed=7', wait: 4500, touch: true },
-  { name: 'game-busy-phone', viewport: { width: 390, height: 844 }, query: '/?seed=7&warp=95&auto=1&select=1', wait: 3000, touch: true },
+  { name: 'game-start-phone', viewport: { width: 844, height: 390 }, query: '/?seed=7', wait: 4500, touch: true },
+  { name: 'game-busy-phone', viewport: { width: 844, height: 390 }, query: '/?seed=7&warp=95&auto=1&select=1', wait: 3000, touch: true },
   { name: 'game-busy-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=3&warp=140&auto=1', wait: 3000, touch: true },
   { name: 'game-small-landscape', viewport: { width: 667, height: 375 }, query: '/?seed=5&warp=60&auto=1&select=1', wait: 2500, touch: true },
-  { name: 'game-request-phone', viewport: { width: 390, height: 844 }, query: '/?seed=11&warp=14', wait: 1500, touch: true, langs: ['he', 'en'] },
+  { name: 'game-request-phone', viewport: { width: 844, height: 390 }, query: '/?seed=11&warp=14', wait: 1500, touch: true, langs: ['he', 'en'] },
   {
     // Taps the plane's bubble (or its edge marker) for every request until one flight has paid.
     name: 'tap-flow-phone',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/?seed=21&hook=1&speed=3',
     wait: 1500,
     touch: true,
@@ -50,7 +50,7 @@ export default [
           const f = h.flights().find((x) => x.want !== 0);
           return f ? { x: f.vx, y: f.vy, kind: 'bubble', phase: f.phase } : null;
         });
-        if (target && target.y > 0 && target.y < 844) {
+        if (target && target.y > 0 && target.y < 390) {
           await page.touchscreen.tap(target.x, target.y);
           taps++;
           if (!shotDone && taps === 3) {
@@ -68,7 +68,7 @@ export default [
   },
   {
     name: 'settings-phone',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/?seed=2',
     wait: 1500,
     touch: true,
@@ -77,17 +77,17 @@ export default [
       await page.waitForTimeout(500);
     },
   },
-  { name: 'm2-crew-phone', viewport: { width: 390, height: 844 }, query: '/?seed=4&stands=3&crew=1&warp=150&speed=1', wait: 3000, touch: true },
+  { name: 'm2-crew-phone', viewport: { width: 844, height: 390 }, query: '/?seed=4&stands=3&crew=1&warp=150&speed=1', wait: 3000, touch: true },
   { name: 'm2-crew-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&stands=3&crew=1&warp=210', wait: 3000, touch: true },
-  { name: 'm2-staff-panel', viewport: { width: 390, height: 844 }, query: '/?seed=4&money=400&panel=staff', wait: 2000, touch: true },
-  { name: 'm3-upgrades-panel', viewport: { width: 390, height: 844 }, query: '/?seed=4&money=3000&panel=upgrades', wait: 2000, touch: true },
+  { name: 'm2-staff-panel', viewport: { width: 844, height: 390 }, query: '/?seed=4&money=400&panel=staff', wait: 2000, touch: true },
+  { name: 'm3-upgrades-panel', viewport: { width: 844, height: 390 }, query: '/?seed=4&money=3000&panel=upgrades', wait: 2000, touch: true },
   { name: 'm3-progress-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=3&warp=1500&auto=1', wait: 2500, touch: true },
-  { name: 'm3-progress-phone', viewport: { width: 390, height: 844 }, query: '/?seed=3&warp=1500&auto=1', wait: 2500, touch: true, langs: ['he'] },
-  { name: 'm3-welcome-back', viewport: { width: 390, height: 844 }, query: '/?save=1', wait: 2500, touch: true, save: fixture(2) },
+  { name: 'm3-progress-phone', viewport: { width: 844, height: 390 }, query: '/?seed=3&warp=1500&auto=1', wait: 2500, touch: true, langs: ['he'] },
+  { name: 'm3-welcome-back', viewport: { width: 844, height: 390 }, query: '/?save=1', wait: 2500, touch: true, save: fixture(2) },
   {
     // plays, autosaves, reloads and checks that the money came back
     name: 'm3-save-reload',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/?save=1&seed=9&auto=1&warp=400&hook=1',
     wait: 9500,
     touch: true,
@@ -107,11 +107,11 @@ export default [
       console.log(`     save/reload: before t=${before.time.toFixed(0)} money=${before.money} -> after t=${after.time.toFixed(0)} money=${after.money}`);
     },
   },
-  { name: 'm4-team', viewport: { width: 390, height: 844 }, query: '/?seed=4&crew=1&warp=900&auto=1&panel=staff', wait: 2500, touch: true },
-  { name: 'm4-applicants', viewport: { width: 390, height: 844 }, query: '/?seed=8&warp=500&money=3000&panel=staff', wait: 2500, touch: true },
-  { name: 'm5-tier2-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&tier=2&stands=5&crew=1&warp=240&auto=1', wait: 3000, touch: true },
+  { name: 'm4-team', viewport: { width: 844, height: 390 }, query: '/?seed=4&crew=1&warp=900&auto=1&panel=staff', wait: 2500, touch: true },
+  { name: 'm4-applicants', viewport: { width: 844, height: 390 }, query: '/?seed=8&warp=500&money=3000&panel=staff', wait: 2500, touch: true },
+  { name: 'm5-tier2-phone', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=2&stands=5&crew=1&warp=240&auto=1', wait: 3000, touch: true },
   { name: 'm5-tier2-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=2&stands=5&crew=1&warp=240&auto=1&build=1', wait: 3000, touch: true },
-  { name: 'm5-tier-panel', viewport: { width: 390, height: 844 }, query: '/?seed=7&warp=700&auto=1&panel=airport', wait: 2000, touch: true },
+  { name: 'm5-tier-panel', viewport: { width: 844, height: 390 }, query: '/?seed=7&warp=700&auto=1&panel=airport', wait: 2000, touch: true },
   {
     // drag the kiosk in build mode and check it moved
     name: 'm5-build-drag',
@@ -139,7 +139,7 @@ export default [
   {
     // first launch: language, names, how-to cards, then the tutorial hand points at the plane
     name: 'm5-onboarding',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/',
     wait: 2500,
     touch: true,
@@ -159,15 +159,15 @@ export default [
       await page.waitForTimeout(7000);
     },
   },
-  { name: 'm6-terminal-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&crew=1&warp=300&auto=1&cam=20.5,17.5,1.5', wait: 4500, touch: true },
+  { name: 'm6-terminal-phone', viewport: { width: 844, height: 390 }, query: '/?seed=5&crew=1&warp=300&auto=1&cam=20.5,17.5,1.5', wait: 4500, touch: true },
   { name: 'm6-terminal-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=8&crew=1&warp=420&auto=1&tier=2&stands=4', wait: 2500, touch: true },
-  { name: 'm6-upgrades-terminal', viewport: { width: 390, height: 844 }, query: '/?seed=5&money=2000&panel=upgrades', wait: 2000, touch: true, langs: ['he'] },
-  { name: 'm7-airlines-contracts', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=400&auto=1&crew=1&panel=airlines', wait: 2000, touch: true },
-  { name: 'm7-airlines-offers', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=130&panel=airlines&tab=1', wait: 2000, touch: true },
+  { name: 'm6-upgrades-terminal', viewport: { width: 844, height: 390 }, query: '/?seed=5&money=2000&panel=upgrades', wait: 2000, touch: true, langs: ['he'] },
+  { name: 'm7-airlines-contracts', viewport: { width: 844, height: 390 }, query: '/?seed=5&warp=400&auto=1&crew=1&panel=airlines', wait: 2000, touch: true },
+  { name: 'm7-airlines-offers', viewport: { width: 844, height: 390 }, query: '/?seed=5&warp=130&panel=airlines&tab=1', wait: 2000, touch: true },
   {
     // haggle with an airline: ask for more pay, the offer changes or the airline walks away
     name: 'm7-negotiate',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/?seed=5&warp=130&panel=airlines&tab=1&hook=1',
     wait: 2000,
     touch: true,
@@ -190,13 +190,13 @@ export default [
       console.log(`     negotiate: ${o ? `pay ${before[0].pay} -> ${o.pay}, signed` : 'they walked away'}`);
     },
   },
-  { name: 'm7-board-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board', wait: 2000, touch: true },
-  { name: 'm7-board-arrivals', viewport: { width: 390, height: 844 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board&tab=1', wait: 2000, touch: true, langs: ['he'] },
+  { name: 'm7-board-phone', viewport: { width: 844, height: 390 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board', wait: 2000, touch: true },
+  { name: 'm7-board-arrivals', viewport: { width: 844, height: 390 }, query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board&tab=1', wait: 2000, touch: true, langs: ['he'] },
   { name: 'm7-board-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&tier=2&stands=5&crew=1&warp=500&auto=1&panel=board', wait: 2000, touch: true },
   {
     // tapping a flight on the board closes it and selects that plane on the map
     name: 'm7-board-pick',
-    viewport: { width: 390, height: 844 },
+    viewport: { width: 844, height: 390 },
     query: '/?seed=5&warp=420&auto=1&crew=1&stands=2&panel=board&hook=1',
     wait: 2000,
     touch: true,
@@ -215,6 +215,24 @@ export default [
       console.log(`     board pick: flight ${key} selected`);
     },
   },
-  { name: 'm7-bar-small', viewport: { width: 320, height: 640 }, query: '/?seed=3&warp=60', wait: 2000, touch: true },
-  { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
+  { name: 'm7-bar-small', viewport: { width: 568, height: 320 }, query: '/?seed=3&warp=60', wait: 2000, touch: true },
+  { name: 'tablet-landscape', viewport: { width: 1180, height: 820 }, query: '/?seed=5&tier=2&stands=4&crew=1&warp=300&auto=1&select=1', wait: 2500, touch: true, scale: 1 },
+  { name: 'panel-small-landscape', viewport: { width: 568, height: 320 }, query: '/?seed=4&money=3000&panel=upgrades', wait: 2000, touch: true },
+  {
+    // the game is landscape only: a phone browser held upright shows the rotate screen
+    name: 'rotate-portrait',
+    viewport: { width: 390, height: 844 },
+    query: '/?seed=2',
+    wait: 1500,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      if (!(await page.getByTestId('rotate-hint').isVisible())) throw new Error('no rotate hint on an upright phone');
+      await page.screenshot({ path: 'artifacts/screens/rotate-hint-he.png' });
+      await page.setViewportSize({ width: 844, height: 390 });
+      await page.waitForTimeout(800);
+      if ((await page.getByTestId('rotate-hint').count()) > 0) throw new Error('rotate hint still there in landscape');
+    },
+  },
+  { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -392,6 +392,8 @@ export const he: Record<TKey, string> = {
   'board.expected': 'צפי {time}',
   'card.airline': '{kind} · מוניטין {n}',
   'tierp.contracts': 'חוזים עם חברות: {n}',
+  'rotate.title': 'סובב את הטלפון לרוחב',
+  'rotate.body': 'סקייפורט משוחק לרוחב.',
   'city.ambervale': 'אמברוויל',
   'city.brightwater': 'ברייטווטר',
   'city.cedarpoint': 'סידר פוינט',

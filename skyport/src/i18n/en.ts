@@ -390,6 +390,8 @@ export const en = {
   'board.expected': 'exp {time}',
   'card.airline': '{kind} · reputation {n}',
   'tierp.contracts': 'Airline contracts: {n}',
+  'rotate.title': 'Turn your phone sideways',
+  'rotate.body': 'Skyport is played in landscape.',
   'city.ambervale': 'Ambervale',
   'city.brightwater': 'Brightwater',
   'city.cedarpoint': 'Cedar Point',

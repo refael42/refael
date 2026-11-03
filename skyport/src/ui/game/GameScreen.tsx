@@ -62,6 +62,7 @@ import { readDebugParams } from './debugParams';
 import { FlightCard } from './FlightCard';
 import { flightCode, sameView, viewOf, WANT_ACTION, type FlightView } from './flightInfo';
 import { BottomBar, type BarItem } from './BottomBar';
+import { sideWidth } from './Sheet';
 import { AirlinesPanel } from './AirlinesPanel';
 import { FlightBoard } from './FlightBoard';
 import { Hud, type HudData } from './Hud';
@@ -644,6 +645,10 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
   const tierOk = rev >= 0 && checkTier(ctrl.state).ok;
   const airlineNews = rev >= 0 && (ctrl.state.offers.length > 0 || ctrl.state.contracts.some((c) => c.warned || canExpand(ctrl.state, c)));
+  // landscape phones: compact bar, and the best-value tip beside it when there is room
+  const short = size.h > 0 && size.h < 500;
+  const barRow = short && size.w >= 800 && !!offer;
+  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport');
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
@@ -719,7 +724,10 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           <Hud data={hud} onSettings={() => setSettings(true)} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
-        <Toasts items={toasts.filter((x) => now - x.at < TOAST_MS)} now={now} />
+        {/* with a side panel open, toasts move into the part of the map that is still visible */}
+        <View style={sidePanel ? { [rtl ? 'marginLeft' : 'marginRight']: sideWidth(size.w) } : null}>
+          <Toasts items={toasts.filter((x) => now - x.at < TOAST_MS)} now={now} />
+        </View>
         {showFps ? (
           <View style={styles.fps} pointerEvents="none">
             <FpsMeter />
@@ -739,7 +747,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       ) : null}
       {!card && !panel ? (
         <View
-          style={[styles.bar, { paddingBottom: insets.bottom + 10 }]}
+          style={[styles.bar, { paddingBottom: insets.bottom + (short ? 6 : 10) }, barRow && { flexDirection: dir.row, justifyContent: 'center', alignItems: 'flex-end' }]}
           pointerEvents="box-none"
           onLayout={(e) => {
             safe.current.bottom = e.nativeEvent.layout.height;
@@ -753,7 +761,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
                 barPos.current.best = { x: l.x + l.width / 2, y: l.y + barWrapY.current };
               }}
               onPress={() => ctrl.send({ type: 'buyUpgrade', id: offer.id, count: 1 })}
-              style={({ pressed }) => [styles.best, { flexDirection: dir.row }, pressed && { transform: [{ scale: 0.97 }] }]}
+              style={({ pressed }) => [styles.best, { flexDirection: dir.row }, barRow && styles.bestSide, pressed && { transform: [{ scale: 0.97 }] }]}
               accessibilityRole="button"
               accessibilityLabel={t('upgrades.bestNow')}
             >
@@ -769,6 +777,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           ) : null}
           <BottomBar
             items={barItems}
+            compact={short}
+            maxWidth={barRow ? size.w - BEST_SIDE_W - 30 : undefined}
             onPress={(id) => setPanel(id)}
             onItemLayout={(id, x, y) => {
               barPos.current[id] = { x: x + barOrigin.current.x, y: y + barOrigin.current.y };
@@ -864,6 +874,9 @@ export function tierCombos(tier: number): (readonly [number, number])[] {
   return out;
 }
 
+/** Width of the best-value tip when it sits beside the bar (landscape). */
+const BEST_SIDE_W = 270;
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#86c06a' },
   fill: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 },
@@ -874,6 +887,7 @@ const styles = StyleSheet.create({
   bar: { position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center', paddingHorizontal: 10, gap: 8 },
   best: { alignItems: 'center', gap: 6, backgroundColor: C.glassStrong, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, maxWidth: 360, borderWidth: 1, borderColor: '#fde68a', ...SHADOW_SM },
   bestText: { color: C.text, fontSize: 13, fontWeight: '700', flexShrink: 1 },
+  bestSide: { maxWidth: BEST_SIDE_W, marginBottom: 12 },
   bestCost: { alignItems: 'center', gap: 3, backgroundColor: C.green, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   bestCostText: { color: '#fff', fontWeight: '800', fontSize: 12 },
   buildBar: { alignItems: 'center', gap: 10, backgroundColor: C.glassStrong, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, maxWidth: 440, ...SHADOW_SM },

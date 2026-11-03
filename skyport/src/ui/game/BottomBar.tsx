@@ -18,22 +18,28 @@ export const BottomBar = memo(function BottomBar({
   onPress,
   onItemLayout,
   onLayout,
+  compact: dense = false,
+  maxWidth,
 }: {
   items: BarItem[];
   onPress: (id: string) => void;
   onItemLayout?: (id: string, cx: number, cy: number) => void;
   onLayout?: (x: number, y: number) => void;
+  /** Landscape: smaller buttons, the map needs the height. */
+  compact?: boolean;
+  /** Width left for the bar (defaults to the window). */
+  maxWidth?: number;
 }) {
   const t = useT();
   const dir = useDir();
   const { width } = useWindowDimensions();
   // one row when every button gets at least MIN_W, otherwise two even rows (never overlapping)
-  const avail = Math.min(width - 20, 640) - PAD * 2 - BORDER * 2;
+  const avail = Math.min(maxWidth ?? width - 20, 640) - PAD * 2 - BORDER * 2;
   const n = items.length;
   const fit = (cols: number) => Math.floor((avail - GAP * (cols - 1)) / cols);
   const cols = fit(n) >= MIN_W ? n : Math.ceil(n / 2);
-  const w = Math.min(MAX_W, fit(cols));
-  const compact = w < 66;
+  const w = Math.min(dense ? 70 : MAX_W, fit(cols));
+  const compact = dense || w < 66;
   return (
     <View
       style={[styles.bar, { flexDirection: dir.row, width: cols * w + GAP * (cols - 1) + PAD * 2 + BORDER * 2 }]}
@@ -47,7 +53,7 @@ export const BottomBar = memo(function BottomBar({
             const l = e.nativeEvent.layout;
             onItemLayout?.(it.id, l.x + l.width / 2, l.y + l.height / 2);
           }}
-          style={({ pressed }) => [styles.btn, { width: w }, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.btn, { width: w }, dense && styles.btnDense, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel={t(it.label)}
         >
@@ -84,6 +90,7 @@ const styles = StyleSheet.create({
     ...SHADOW_SM,
   },
   btn: { paddingHorizontal: 2, paddingVertical: 6, borderRadius: 18, alignItems: 'center', gap: 2 },
+  btnDense: { paddingVertical: 3 },
   pressed: { backgroundColor: C.chip, transform: [{ scale: 0.96 }] },
   label: { color: C.text, fontSize: 12, fontWeight: '700' },
   labelSmall: { fontSize: 11 },
