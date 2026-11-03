@@ -29,7 +29,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M7 Airlines | done | see below |
 | M8 Full fleet | done | see below |
 | M9 Advanced ATC | done | see below |
-| M10 Maintenance & fuel | next | |
+| M10 Maintenance & fuel | done | see below |
+| M11 Events | next | weather events, birds, FOD, emergencies, VIPs, celebrities, air show, holidays |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -287,10 +288,52 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   0.6–4% diverted, ~1.5% go-arounds, 9–14 guest (diverted-in) flights landed; on time 87/68/87%.
   Seed 7 is harder than in M8 (more lateness at tier 3), the other two are as good or better.
 
+### M10 — maintenance & fuel (done)
+- Fuel farm (from the small airfield; the dirt strip pump never runs dry): a stock in liters that
+  the fuel trucks draw from. When stock plus what is on its way falls below 45%, an order goes out
+  by itself and a tanker drives in by road (main road, service road, a gate in the north fence)
+  and unloads at the fuel bay. An empty farm leaves the truck waiting at the plane.
+- Suppliers: budget (cheap, often late), regular (reliable) and green (dearer; every flight it
+  goes into gets a little mood). Urgent orders cost 2.2× and arrive in 45 s. Airlines pay for the
+  fuel pumped into their planes (a small margin; the game is not running dry). Upgrade line
+  "Fuel farm" (more tanks, sized so each tier's traffic can bridge a tanker's lead time).
+- Mechanics (new staff role, regional airport on) and technical faults (AOG): about one arrival in
+  twenty is grounded at its stand until the mechanics' van comes and fits spare parts from the
+  parts store (its own suppliers, urgent orders, "Parts store" line). No part in stock: the
+  mechanic waits for the delivery. A hired mechanic sends the van by himself; otherwise it is a
+  tap (a red wrench bubble). The airline allows for part of the repair in the schedule.
+- Hangar (regional on, 2nd bay at the city airport): contracted airlines send their smaller planes
+  in for A and B checks when a bay is free and the sky is quiet. A check is mechanic work with
+  parts, pays 5× / 14× the landing fee, lifts the airline's mood a little, and a hangar makes faults
+  rarer. The hangar has its own one-way taxi loop so no link crosses another (a test checks the
+  clearance of every hangar link against every other link).
+- Taxi rule tightened: a departure entering a shared stretch reserves on until its whole tail fits
+  on the waiting spot including the gap it stops short (found as a reverse-ops deadlock at tier 4).
+- Tier 4's runway capacity is now 44 flights a day (one runway for both, wake gaps behind jets).
+- Art: fuel farm with up to four tanks (ladders, railings, hazard diamonds, pipes to a pump skid,
+  bund wall, extinguisher, no-smoking sign) and a live level gauge; parts warehouse with an open
+  roller door, colored shelves, a forklift and pallets; arched hangar with lit open doors; gate
+  booth with a raised boom; service road; fuel tanker semi, parts box truck and mechanics' van
+  (roof ladder, lockers, beacon); mechanic in navy coveralls with a red toolbox and a welding
+  flicker; warning triangle and cones around a grounded plane.
+- Screen: "Supplies" panel (stock gauge with the reorder mark, use per minute, how long it lasts,
+  deliveries on the way, supplier cards, urgent order, hangar status), toasts, a fault chip and a
+  repair meter on the flight card.
+- Test switches `fault=1` (a grounded plane, selected) and `tanker=1` (deliveries unloading).
+- The atlas builds only the vehicles a tier uses (tanker from the small airfield, van and parts
+  truck from the regional airport), so loading stays as fast as in M9 (~4.8 s on the headless
+  test browser). The save/reload browser test now waits for the game to be ready instead of a
+  fixed 2.5 s (it was on the edge already in M9).
+- Balance (bot, 4 h, seeds 1/7/13): tier 3 at 57–59 min, tier 4 at 150–177 min (M9: 144–155);
+  27/27/11 diverted (M9: 5/36/23), on time 72/72/82% (M9: 87/68/87%), 17–28 hangar checks,
+  9–12 faults, the fuel farm ran dry at most once. Each new system (faults, checks, fuel) adds a
+  little pressure at the single-runway city airport; softened until the total matched M9's
+  (faults 3% of arrivals with the repair in the schedule, checks only with a quiet sky).
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1&wx=fog|cross|west|calm`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1&wx=fog|cross|west|calm&fault=1&tanker=1`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

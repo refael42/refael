@@ -6,6 +6,8 @@ import { decorPos } from '../sim/game/tiers';
 import { layoutFor } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
+import { capacity, storeActive } from '../sim/game/supplies';
+import { GAUGE_STEPS } from './art/objects';
 import type { IconName } from './art/icons';
 import { OUTFITS } from './art/people';
 import type { Camera } from './camera';
@@ -23,12 +25,14 @@ const WANT_ICON: Record<number, IconName> = {
   [WANT.board]: 'actBoard',
   [WANT.clearTakeoff]: 'actTakeoff',
   [WANT.bags]: 'actBags',
+  [WANT.repair]: 'actRepair',
 };
 
 /** Where the radar mast stands, beside the control tower. */
 const RADAR_POS: readonly [number, number] = [16.5, 15.3];
 
 const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
+const MECH_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'mechanic'));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
 export function bubbleAnchor(f: { x: number; y: number; z: number; aircraft: number }, zoom: number): { x: number; y: number } {
@@ -139,8 +143,69 @@ export function drawGame(
     const k = Math.max(0, VEHICLE_KINDS.indexOf(v.kind));
     w.shadow(sp.vehicleShadow(k, d), sx + 2, sy + 2, 1, 0.28);
     w.sprite(sp.vehicle(k, d), sx, sy, 1, x + y);
+    if (v.kind === 'mech' && v.state === 'fueling') {
+      // the mechanic stands at the engine with the toolbox; now and then a welding flash
+      const f = s.flights.find((q) => q.id === v.flight);
+      if (f && !f.partWait) {
+        const mx = lerp(x, f.x, 0.55);
+        const my = lerp(y, f.y, 0.55);
+        const frame = Math.floor(o.time * 2 + v.id) % 2 === 0 ? 4 : 1;
+        w.sprite(sp.person(MECH_OUTFIT, false, f.x < x, frame), isoX(mx, my), isoY(mx, my), 1, mx + my + 0.05);
+        if (Math.floor(o.time * 7 + v.id) % 9 === 0) w.fx(sp.glow(GLOW_COLORS.white), isoX(mx, my) + 6, isoY(mx, my, 0.45), 0.7, 0.9);
+      } else if (f) {
+        // waiting for a part: by the van, arms folded
+        w.sprite(sp.person(MECH_OUTFIT, true, false, 4), isoX(x + 0.3, y + 0.25), isoY(x + 0.3, y + 0.25), 1, x + y + 0.6);
+      }
+    }
     if (v.state !== 'idle' && Math.floor(o.time * 3 + v.id * 0.5) % 2 === 0) {
       const b = BEACON[v.kind];
+      const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
+      w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 1, 0.95);
+    }
+  }
+
+  // the fuel farm's level gauge follows the stock
+  if (LL.depot && storeActive(s, 'fuel')) {
+    const gx = LL.depot.farm[0] - 0.29;
+    const gy = LL.depot.farm[1] + 0.27;
+    const fill = (s.stores.fuel.stock / Math.max(1, capacity(s, 'fuel'))) * GAUGE_STEPS;
+    w.sprite(sp.gauge(fill), isoX(gx, gy), isoY(gx, gy), 1, gx + gy + 0.4);
+  }
+  // grounded planes: a warning triangle at the nose and cones at the wingtips
+  for (const f of s.flights) {
+    if (f.aog !== 1 || f.check || f.dockedAt === 0 || f.offBlockAt > 0) continue;
+    const art = planeArt(f.aircraft);
+    const cx = Math.cos(f.heading);
+    const cy = Math.sin(f.heading);
+    const tx = f.x + cx * art.length * 0.66;
+    const ty = f.y + cy * art.length * 0.66;
+    w.sprite(sp.warnTriangle, isoX(tx, ty), isoY(tx, ty), 1, tx + ty);
+    for (const side of [-1, 1]) {
+      const wx2 = f.x - cy * side * art.span * 0.56;
+      const wy2 = f.y + cx * side * art.span * 0.56;
+      w.sprite(sp.cone, isoX(wx2, wy2), isoY(wx2, wy2), 1, wx2 + wy2);
+    }
+    // the red beacon on the van's side of the plane blinks
+    if (Math.floor(o.time * 2.5 + f.id) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), isoX(tx, ty), isoY(tx, ty, 0.3), 0.8, 0.9);
+  }
+
+  // supply trucks on their way in, unloading at the depot, and leaving
+  for (const dv of s.deliveries) {
+    if (dv.state === 'ordered') continue;
+    const x = lerp(dv.px, dv.x, a);
+    const y = lerp(dv.py, dv.y, a);
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    if (!visible(sx, sy, 60)) continue;
+    const d = dirIndex(dv.heading);
+    const kind = dv.store === 0 ? 'tanker' : 'partsTruck';
+    const k = VEHICLE_KINDS.indexOf(kind);
+    w.shadow(sp.vehicleShadow(k, d), sx + 2, sy + 2, 1, 0.28);
+    w.sprite(sp.vehicle(k, d), sx, sy, 1, x + y);
+    // hazard lights while unloading, a slower amber blink for an urgent run
+    const blink = dv.state === 'unloading' ? Math.floor(o.time * 2) % 2 === 0 : dv.urgent && Math.floor(o.time * 3 + dv.id) % 2 === 0;
+    if (blink) {
+      const b = BEACON[kind];
       const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
       w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 1, 0.95);
     }
@@ -155,11 +220,12 @@ export function drawGame(
   const seen = new Array(STAFF_ROLES.length).fill(0);
   for (const m of s.staff) {
     const role = STAFF_ROLES[m.role];
-    const spot = L.staffSpots[role.id];
+    // (mechanics wait by their van at the supply area)
+    const spot = role.id === 'mechanic' && L.depot ? ([L.depot.mech.home[0] + 0.45, L.depot.mech.home[1] - 0.35] as const) : L.staffSpots[role.id];
     if (!spot) continue;
     const n = seen[m.role]++;
-    if (role.id !== 'atc') {
-      const kind = role.id === 'fueler' ? 'fuel' : 'bags';
+    if (role.id !== 'atc' && role.id !== 'agent') {
+      const kind = role.id === 'fueler' ? 'fuel' : role.id === 'porter' ? 'bags' : 'mech';
       const busy = s.vehicles.filter((v) => v.kind === kind && v.state !== 'idle').length;
       if (n < busy) continue;
     }

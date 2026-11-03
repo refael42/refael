@@ -81,7 +81,7 @@ describe('applicants', () => {
 
   it('the starting pool has one modest applicant per role', () => {
     const s = createGame(7);
-    expect(s.applicants.map((a) => a.role).sort()).toEqual(STAFF_ROLES.map((_, i) => i));
+    expect(s.applicants.map((a) => a.role).sort()).toEqual(STAFF_ROLES.map((r, i) => (r.unlockTier <= s.tier ? i : -1)).filter((i) => i >= 0));
     for (const a of s.applicants) expect(a.rarity).toBeLessThanOrEqual(1);
   });
 });

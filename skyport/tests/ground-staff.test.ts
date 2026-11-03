@@ -102,7 +102,8 @@ describe('taxiway graph', () => {
 describe('staff', () => {
   it('starts with one applicant per role', () => {
     const s = createGame(1);
-    expect(s.applicants.map((a) => a.role).sort()).toEqual(STAFF_ROLES.map((_, i) => i));
+    // (the mechanic comes with the regional airport)
+    expect(s.applicants.map((a) => a.role).sort()).toEqual(STAFF_ROLES.map((r, i) => (r.unlockTier <= s.tier ? i : -1)).filter((i) => i >= 0));
     for (const a of s.applicants) {
       expect(a.speed).toBeGreaterThanOrEqual(0.8);
       expect(a.speed).toBeLessThanOrEqual(1.3 * RARITIES[a.rarity].statMul + 1e-9);
@@ -131,7 +132,7 @@ describe('staff', () => {
   it('with a full crew, the airfield runs by itself', () => {
     const s = createGame(8);
     hireAll(s);
-    expect(s.staff.length).toBe(STAFF_ROLES.length);
+    expect(s.staff.length).toBe(STAFF_ROLES.filter((r) => r.unlockTier <= s.tier).length);
     const before = s.money.toNumber();
     runFor(s, 900);
     expect(s.stats.served).toBeGreaterThan(12);

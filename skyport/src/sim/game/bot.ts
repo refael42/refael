@@ -2,6 +2,7 @@
  * A simple player: answers every request after a reaction delay. Used by
  * tests and the balance script (pure, deterministic).
  */
+import { storeActive, storeIndex, STORE_KINDS } from './supplies';
 import { STAFF_ROLES } from '../../data/staff';
 import { MAX_PER_ROLE, staffCount } from './staff';
 import { checkTier } from './tiers';
@@ -38,6 +39,11 @@ export function botCommands(s: GameState, opts: BotOptions = { reaction: 1 }): C
         break;
       case WANT.bags:
         out.push({ type: 'sendBags', flightId: f.id });
+        break;
+      case WANT.repair:
+        out.push({ type: 'repair', flightId: f.id });
+        // the other services can go on meanwhile
+        if ((f.wants & (1 << WANT.bags)) !== 0) out.push({ type: 'sendBags', flightId: f.id });
         break;
     }
     // also handle a second pending service at the stand
@@ -99,6 +105,14 @@ export function botAirlines(s: GameState): Command[] {
 
 /** Buys the best-value upgrade it can afford (keeps a small reserve for staff). */
 export function botBuys(s: GameState): Command[] {
+  // ran dry with nothing arriving soon: an urgent order
+  const out: Command[] = [];
+  for (const kind of STORE_KINDS) {
+    if (!storeActive(s, kind) || !s.stores[kind].out) continue;
+    const k = storeIndex(kind);
+    if (!s.deliveries.some((d) => d.store === k && (d.state !== 'ordered' || d.eta - s.time < 50))) out.push({ type: 'urgentOrder', store: k });
+  }
+  if (out.length > 0) return out;
   if (checkTier(s).ok) return [{ type: 'upgradeTier' }];
   // save up for the next tier once its other requirements are met
   const t = checkTier(s);

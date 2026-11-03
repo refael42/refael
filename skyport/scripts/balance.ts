@@ -34,6 +34,9 @@ let prevRate = 0;
 let bestJump = 1;
 let bestJumpAt = 0;
 let taps = 0;
+let fuelOutCount = 0;
+let partsOutCount = 0;
+let faultCount = 0;
 let airlineLeft = 0;
 let airlineWarnings = 0;
 const STEPS_PER_MIN = 30 * 60;
@@ -50,6 +53,11 @@ for (let m = 1; m <= minutes; m++) {
     stepGame(s);
     for (const e of eventsSince(s, lastEvent)) {
       lastEvent = e.id;
+      if (e.kind === 'supplyOut') {
+        if (e.a === 0) fuelOutCount++;
+        else partsOutCount++;
+      }
+      if (e.kind === 'aog') faultCount++;
       if (e.kind === 'upgraded' || e.kind === 'hired') {
         purchases++;
         const gap = s.time - lastBuy;
@@ -94,6 +102,10 @@ const report = {
   served: st.served,
   diverted: st.diverted,
   goArounds: st.goArounds,
+  checks: st.checks,
+  fuelOut: fuelOutCount,
+  partsOut: partsOutCount,
+  faults: faultCount,
   guestsServed: st.guests,
   onTimePct: Math.round((st.onTime / Math.max(1, st.onTime + st.late)) * 100),
   rating: Math.round(s.rating * 100) / 100,

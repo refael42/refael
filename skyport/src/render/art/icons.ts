@@ -10,7 +10,7 @@ export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
-  'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow',
+  'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -21,6 +21,7 @@ export const ACTION_COLORS = {
   board: '#3b82f6',
   takeoff: '#6366f1',
   bags: '#8b5cf6',
+  repair: '#ef4444',
 } as const;
 
 const SLATE = '#334155';
@@ -65,12 +66,26 @@ function drawPlane(canvas: SkCanvas, f: SkPaint, color: string, rotateDeg: numbe
 }
 
 /** Glyph used inside a round action bubble (white on color). */
-function actionGlyph(canvas: SkCanvas, kind: 'land' | 'fuel' | 'board' | 'takeoff' | 'bags', f: SkPaint) {
+function actionGlyph(canvas: SkCanvas, kind: 'land' | 'fuel' | 'board' | 'takeoff' | 'bags' | 'repair', f: SkPaint) {
   canvas.save();
   canvas.translate(32, 28);
   canvas.scale(0.52, 0.52);
   canvas.translate(-32, -32);
-  if (kind === 'land') drawPlane(canvas, f, '#ffffff', 135);
+  if (kind === 'repair') {
+    // a wrench: handle and an open jaw
+    const st = Skia.Paint();
+    st.setAntiAlias(true);
+    st.setStyle(PaintStyle.Stroke);
+    st.setStrokeCap(StrokeCap.Round);
+    st.setStrokeWidth(11);
+    st.setColor(Skia.Color('#ffffff'));
+    canvas.drawLine(14, 52, 38, 28, st);
+    f.setColor(Skia.Color('#ffffff'));
+    canvas.drawCircle(44, 21, 15, f);
+    f.setColor(Skia.Color(ACTION_COLORS.repair));
+    canvas.drawPath(path([44, 21, 62, 10, 62, 22, 52, 27]), f);
+    canvas.drawCircle(44, 21, 5, f);
+  } else if (kind === 'land') drawPlane(canvas, f, '#ffffff', 135);
   else if (kind === 'takeoff') drawPlane(canvas, f, '#ffffff', 45);
   else if (kind === 'bags') {
     f.setColor(Skia.Color('#ffffff'));
@@ -427,8 +442,9 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
     case 'actFuel':
     case 'actBoard':
     case 'actTakeoff':
-    case 'actBags': {
-      const kind = name === 'actLand' ? 'land' : name === 'actFuel' ? 'fuel' : name === 'actBoard' ? 'board' : name === 'actBags' ? 'bags' : 'takeoff';
+    case 'actBags':
+    case 'actRepair': {
+      const kind = name === 'actLand' ? 'land' : name === 'actFuel' ? 'fuel' : name === 'actBoard' ? 'board' : name === 'actBags' ? 'bags' : name === 'actRepair' ? 'repair' : 'takeoff';
       const col = ACTION_COLORS[kind];
       // soft drop shadow
       f.setColor(Skia.Color('rgba(15,23,42,0.35)'));

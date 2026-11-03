@@ -8,6 +8,7 @@ import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { routeLineUp } from '../sim/game/layout';
+import { chaikin } from '../sim/game/path';
 import { GLYPHS } from './art/glyphs';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
 import { HALF_H, HALF_W, isoX, isoY } from './iso';
@@ -241,10 +242,11 @@ function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: num
 /** Painted ring radius of a stand by its size. */
 const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
+  const hangarBays = L.stands.filter((st, i) => st.hangar && open[i]).length;
   const statics: StaticSprite[] = [];
   const minX = isoX(0, H) - 64;
   const maxX = isoX(W, 0) + 64;
@@ -427,8 +429,39 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     g.poly(apron, GRAVEL);
     // concrete in front of the bigger buildings, out to the stand lane
     for (const bd of L.buildings ?? []) {
-      if (bd.kind === 'helipad') continue;
+      if (bd.kind === 'helipad' || (bd.kind === 'hangar' && hangarBays === 0)) continue;
       g.rect(bd.pos[0] - 0.6, bd.pos[1] + bd.size[1] - 0.3, bd.pos[0] + bd.size[0] + 0.6, ay1, GRAVEL);
+    }
+    // the hangar apron: concrete slabs with yellow lead-in lines into each open door
+    if (hangarBays > 0) {
+      const hb = (L.buildings ?? []).find((b) => b.kind === 'hangar')!;
+      g.rect(hb.pos[0] - 0.3, hb.pos[1] + hb.size[1], hb.pos[0] + hb.size[0] + 0.3, hb.pos[1] + hb.size[1] + 2.5, '#c9ced6');
+      for (let x = hb.pos[0]; x < hb.pos[0] + hb.size[0]; x += 1.03) g.line(x, hb.pos[1] + hb.size[1], x, hb.pos[1] + hb.size[1] + 2.5, 'rgba(100,116,139,0.35)', 1);
+      L.stands.forEach((st, i) => {
+        if (!st.hangar || !open[i]) return;
+        g.line(st.pos[0], hb.pos[1] + hb.size[1] - 0.05, st.pos[0], st.pos[1] + 0.9, '#facc15', 2.6);
+      });
+    }
+    // the supply area: a concrete yard inside the gate, the service road outside
+    if (L.depot) {
+      const D = L.depot;
+      g.rect(D.farm[0] - 1.55, D.farm[1] - 1.05, tier >= 3 ? D.store[0] + 1.25 : D.fuelBay[0] + 0.9, D.farm[1] + 1.25, '#d4d8de');
+      const road: number[] = [];
+      for (const p of D.serviceRoad) road.push(p[0], p[1], 0);
+      road.push(D.gate[0], D.gate[1], 0, D.gate[0], D.gate[1] + 0.6, 0);
+      const smooth = chaikin(road, 2);
+      ribbon(g, smooth, 0.74, '#4b5563');
+      ribbon(g, smooth, 0.62, '#6b7280');
+      // dashed center line on the service road
+      for (let k = 0; k + 1 < D.serviceRoad.length; k++) {
+        const [ax, ay] = D.serviceRoad[k];
+        const [bx, by] = D.serviceRoad[k + 1];
+        const n = Math.floor(Math.hypot(bx - ax, by - ay) / 0.5);
+        for (let i = 0; i < n; i += 2) g.line(ax + ((bx - ax) * i) / n, ay + ((by - ay) * i) / n, ax + ((bx - ax) * (i + 0.8)) / n, ay + ((by - ay) * (i + 0.8)) / n, '#e2e8f0', 1);
+      }
+      // painted bays for the tanker and the van, a stop line at the gate
+      g.ellipse(D.fuelBay[0], D.fuelBay[1], 0.42, 0.42, 'rgba(250,204,21,0.25)');
+      g.line(D.gate[0] - 0.32, D.gate[1] + 0.05, D.gate[0] + 0.32, D.gate[1] + 0.05, '#f8fafc', 2);
     }
 
     // taxi tracks and the runway: smooth dirt with a darker rim and a lighter worn center
@@ -558,7 +591,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         const y0 = ay + ((by - ay) * i) / n;
         const x1 = ax + ((bx - ax) * (i + 1)) / n;
         const y1 = ay + ((by - ay) * (i + 1)) / n;
-        const gate = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01 && Math.min(x0, x1) < landX1 && Math.max(x0, x1) > landX0;
+        const onNorth = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01;
+        const depotGate = !!L.depot && onNorth && Math.min(x0, x1) < L.depot.gate[0] + 0.45 && Math.max(x0, x1) > L.depot.gate[0] - 0.45;
+        const gate = depotGate || (onNorth && Math.min(x0, x1) < landX1 && Math.max(x0, x1) > landX0);
         if (gate) continue;
         for (const z of [0.24, 0.13]) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
@@ -576,7 +611,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     c.drawPath(posts.build(), g.s);
     // stand numbers painted next to each built stand
     L.stands.forEach((st, i) => {
-      if (open[i] && st.size !== 'heli') paintText(c, String(i + 1), st.pos[0] + (RING[st.size] ?? 0.78) + 0.17, st.pos[1] - 0.55, '#facc15', 0.028);
+      if (open[i] && st.size !== 'heli' && !st.hangar) paintText(c, String(i + 1), st.pos[0] + (RING[st.size] ?? 0.78) + 0.17, st.pos[1] - 0.55, '#facc15', 0.028);
     });
   });
 
@@ -610,6 +645,18 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       const n = Math.round(bd.size[0] / 2.15);
       for (let k = 0; k < n; k++) prop(sprites.pier(k === n - 1), bx + k * 2.15, by, 2.15 * 0.5 + bd.size[1], 140);
     }
+  }
+  if (hangarBays > 0) {
+    const hb = (L.buildings ?? []).find((b) => b.kind === 'hangar')!;
+    prop(sprites.hangar(hangarBays), hb.pos[0], hb.pos[1], hb.size[0] * 0.5 + hb.size[1], 260);
+  }
+  // the supply area: fuel farm (more tanks as it grows), parts store (regional on), gate booth
+  if (L.depot) {
+    const D = L.depot;
+    const tanks = [1, 2, 2, 3, 3, 4][Math.max(0, Math.min(5, farmLevel))];
+    prop(sprites.fuelFarm(tanks), D.farm[0], D.farm[1], 0.2, 120);
+    if (tier >= 3) prop(sprites.partsStore, D.store[0], D.store[1], 0.4, 100);
+    prop(sprites.gateBooth, D.gate[0] + 0.5, D.gate[1] + 0.12, 0.3, 40);
   }
   L.stands.forEach((st, i) => {
     if (!open[i] || !st.bridge) return;
@@ -649,7 +696,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   for (let x = 2; x < W - 2; x += 1.3) {
     for (const y of [F.y0 - 1.6, F.y1 + 1.8]) {
       const jitter = (hash01(seed * 7) - 0.5) * 0.8;
-      if (hash01(seed * 11) < 0.62 && !(y < F.y0 && x > 20.5 && x < 24)) treeAt(x + jitter, y + jitter * 0.6, seed);
+      // (gaps for the main road and the service road to the supply gate)
+      const roadGap = y < F.y0 && ((x > 20.5 && x < 24) || (!!L.depot && x > 21.5 && x < L.depot.gate[0] + 1));
+      if (hash01(seed * 11) < 0.62 && !roadGap) treeAt(x + jitter, y + jitter * 0.6, seed);
       seed++;
     }
   }
@@ -662,7 +711,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   }
   // a little grove near the hut
   if (L.runway.surface !== 'asphalt') treeAt(18.6, 17.9, 501);
-  treeAt(28.4, 17.8, 503);
+  if (!L.depot || L.depot.farm[1] + 1.5 < 17.8) treeAt(28.4, 17.8, 503);
   // scattered trees in the countryside
   for (let i = 0; i < 70; i++) {
     const x = hash01(2000 + i) * W;

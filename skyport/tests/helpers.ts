@@ -1,3 +1,5 @@
+import { levelCap, upgradeDef } from '../src/data/upgrades';
+import { capacity, STORE_KINDS } from '../src/sim/game/supplies';
 import { applyStructural, botCommands, createGame, layoutOf, onRunway, queueCommand, stepGame, type GameState } from '../src/sim';
 
 export interface RunReport {
@@ -43,4 +45,15 @@ export function openStands(s: GameState, n: number): void {
   s.upg.stand = Math.max(0, n - 1);
   s.upgRev++;
   applyStructural(s);
+}
+
+/** A fuel farm and parts store sized for the tier (what a player would have built), full. */
+export function stockUp(s: GameState): void {
+  for (const id of ['fuelFarm', 'partsStore']) {
+    const def = upgradeDef(id)!;
+    s.upg[id] = Math.max(s.upg[id] ?? 0, levelCap(def, s.tier));
+  }
+  s.upgRev++;
+  applyStructural(s);
+  for (const k of STORE_KINDS) s.stores[k].stock = capacity(s, k);
 }

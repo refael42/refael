@@ -274,16 +274,137 @@ export function buildCar(kind: CarKind, color: string): StackPart[] {
   return parts;
 }
 
+/** The mechanics' van: white with orange stripes, roof ladder, side lockers, a beacon. */
+function mechVan(): StackPart[] {
+  const body = '#f8fafc';
+  const parts: StackPart[] = [];
+  for (const u of [0.15, -0.15]) for (const v of [-0.082, 0.082]) parts.push(...wheel(u, v, 0.036, 0.028));
+  // body: a tall box with a sloped nose
+  parts.push(rbox(-0.24, -0.095, 0.2, 0.095, 0.03, 0.2, 0.02, (t) => paint(body, t)));
+  parts.push(cabin(0.12, -0.093, 0.26, 0.093, 0.03, 0.15, 0.06, 0, (t) => paint(body, t * 0.8)));
+  parts.push(cabin(0.12, -0.09, 0.235, 0.09, 0.13, 0.2, 0.06, 0, glass, { outline: false, bias: 1 }));
+  // orange and navy stripes along the sides
+  for (const v of [-0.097, 0.095]) {
+    parts.push(boxPart(-0.235, v, 0.17, v + 0.002, 0.085, 0.105, () => '#f97316', { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.235, v, 0.17, v + 0.002, 0.075, 0.085, () => '#1e3a8a', { outline: false, bias: 2 }));
+    // locker doors with handles
+    for (const u0 of [-0.2, -0.11, -0.02]) {
+      parts.push(boxPart(u0, v, u0 + 0.08, v + 0.002, 0.115, 0.185, () => '#e2e8f0', { outline: false, bias: 2, dots: [{ u: u0 + 0.065, v: v < 0 ? v - 0.002 : v + 0.004, h: 0.15, r: 0.006, color: '#475569' }] }));
+    }
+  }
+  // roof: ladder rack, a ladder, a beacon bar
+  for (const v of [-0.07, 0.064]) parts.push(boxPart(-0.22, v, 0.1, v + 0.006, 0.2, 0.215, () => '#64748b', { outline: false, bias: 3 }));
+  parts.push(boxPart(-0.21, -0.03, 0.09, -0.018, 0.215, 0.225, () => '#cbd5e1', { outline: false, bias: 4 }));
+  parts.push(boxPart(-0.21, 0.018, 0.09, 0.03, 0.215, 0.225, () => '#cbd5e1', { outline: false, bias: 4 }));
+  for (let k = 0; k < 7; k++) parts.push(boxPart(-0.2 + k * 0.045, -0.02, -0.192 + k * 0.045, 0.02, 0.217, 0.224, () => '#94a3b8', { outline: false, bias: 4 }));
+  parts.push(boxPart(0.11, -0.055, 0.14, 0.055, 0.2, 0.222, (t) => (t > 0.5 ? '#fdba74' : '#f97316'), { outline: false, bias: 5 }));
+  // bumper, grille, lights
+  parts.push(boxPart(0.255, -0.08, 0.27, 0.08, 0.03, 0.075, () => DARK, { outline: false, bias: 2, dots: lights(0.272, 0.06, 0.07, '#fff7d6', 0.012) }));
+  parts.push(boxPart(-0.25, -0.085, -0.238, 0.085, 0.03, 0.06, () => DARK, { outline: false, bias: 2, dots: lights(-0.252, 0.07, 0.12, '#ef4444', 0.01) }));
+  for (const v of [-1, 1]) parts.push(boxPart(0.16, v * 0.103 - 0.006, 0.18, v * 0.103 + 0.006, 0.13, 0.165, () => DARK, { outline: false, bias: 2 }));
+  return parts;
+}
+
+/** Fuel tanker semi: a red tractor and a long polished tank trailer on five axles. */
+function tankerTruck(): StackPart[] {
+  const cab = '#b91c1c';
+  const parts: StackPart[] = [];
+  // tractor wheels and trailer bogies
+  for (const u of [0.42, 0.25, 0.18]) for (const v of [-0.1, 0.1]) parts.push(...wheel(u, v, 0.045, 0.036));
+  for (const u of [-0.38, -0.46, -0.54]) for (const v of [-0.1, 0.1]) parts.push(...wheel(u, v, 0.045, 0.036));
+  parts.push(boxPart(0.12, -0.08, 0.5, 0.08, 0.04, 0.075, (t) => shade('#1f2937', -0.1 + t * 0.2)));
+  // cab with sleeper, sun visor, chrome stacks
+  parts.push(rbox(0.3, -0.115, 0.54, 0.115, 0.075, 0.2, 0.02, (t) => paint(cab, t)));
+  parts.push(cabin(0.36, -0.11, 0.535, 0.11, 0.2, 0.3, 0.05, 0, glass, { outline: false, bias: 1 }));
+  parts.push(rbox(0.25, -0.11, 0.38, 0.11, 0.075, 0.33, 0.015, (t) => paint(cab, t)));
+  parts.push(boxPart(0.36, -0.1, 0.52, 0.1, 0.3, 0.315, (t) => shade(cab, 0.15 + t * 0.15)));
+  parts.push(boxPart(0.49, -0.105, 0.545, 0.105, 0.29, 0.305, () => '#111827', { outline: false, bias: 2 }));
+  for (const v of [-0.12, 0.12]) parts.push(tubePart({ u0: 0.26, u1: 0.28, v, hc: 0.3, r: 0.012, tall: 8, profile: () => 1, color: (_h, rel) => shade(CHROME, rel * 0.2), samples: 3, outline: false, bias: 2 }));
+  parts.push(boxPart(0.54, -0.1, 0.56, 0.1, 0.05, 0.14, () => CHROME, { outline: false, bias: 2, dots: lights(0.562, 0.075, 0.11, '#fff7d6', 0.014) }));
+  for (const v of [-1, 1]) parts.push(boxPart(0.46, v * 0.13 - 0.008, 0.48, v * 0.13 + 0.008, 0.2, 0.26, () => DARK, { outline: false, bias: 2 }));
+  // fifth wheel, landing legs
+  parts.push(boxPart(0.14, -0.06, 0.24, 0.06, 0.075, 0.09, () => '#111827', { outline: false }));
+  for (const v of [-0.07, 0.07]) parts.push(boxPart(-0.02, v - 0.008, 0.0, v + 0.008, 0.02, 0.1, () => '#475569', { outline: false, bias: 1 }));
+  // the tank: polished aluminium, ribs, a walkway with hatches, a red diamond placard
+  parts.push(
+    tubePart({
+      u0: -0.6,
+      u1: 0.24,
+      v: 0,
+      hc: 0.21,
+      r: 0.12,
+      tall: 0.95,
+      profile: (s) => (s < 0.04 ? 0.82 + s * 4.5 : s > 0.96 ? 0.82 + (1 - s) * 4.5 : 1),
+      color: (_h, rel) => (rel > 0.82 ? '#f8fafc' : rel > 0.55 ? '#dfe5ec' : shade('#b8c2ce', -0.25 * (1 - rel))),
+      samples: 16,
+    }),
+  );
+  for (const u of [-0.42, -0.2, 0.02]) {
+    parts.push(tubePart({ u0: u, u1: u + 0.02, v: 0, hc: 0.21, r: 0.124, tall: 0.95, profile: () => 1, color: (_h, rel) => shade('#94a3b8', -0.2 + rel * 0.3), samples: 2, outline: false, bias: 1 }));
+  }
+  parts.push(
+    boxPart(-0.52, -0.03, 0.16, 0.03, 0.32, 0.33, () => '#94a3b8', {
+      outline: false,
+      bias: 3,
+      dots: [
+        { u: -0.4, v: 0, h: 0.335, r: 0.018, color: '#475569' },
+        { u: -0.2, v: 0, h: 0.335, r: 0.018, color: '#475569' },
+        { u: 0.0, v: 0, h: 0.335, r: 0.018, color: '#475569' },
+      ],
+    }),
+  );
+  for (const v of [-0.123, 0.12]) parts.push(boxPart(-0.12, v, -0.07, v + 0.003, 0.18, 0.23, () => '#dc2626', { outline: false, bias: 3 }));
+  // rear bumper with lights, valve cabinet underneath
+  parts.push(boxPart(-0.62, -0.1, -0.6, 0.1, 0.04, 0.09, () => '#1f2937', { outline: false, bias: 2, dots: lights(-0.622, 0.08, 0.07, '#ef4444', 0.012) }));
+  parts.push(boxPart(-0.3, -0.07, -0.12, 0.07, 0.05, 0.1, (t) => shade('#475569', -0.1 + t * 0.2), { outline: false, bias: 1 }));
+  return parts;
+}
+
+/** Spare-parts box truck: white cab, a tall box with a roller door and the supplier's blue band. */
+function partsTruck(): StackPart[] {
+  const parts: StackPart[] = [];
+  for (const u of [0.2, -0.17, -0.25]) for (const v of [-0.09, 0.09]) parts.push(...wheel(u, v, 0.04, 0.03));
+  parts.push(boxPart(-0.3, -0.07, 0.28, 0.07, 0.035, 0.07, (t) => shade('#1f2937', -0.1 + t * 0.2)));
+  parts.push(rbox(0.12, -0.1, 0.32, 0.1, 0.06, 0.16, 0.02, (t) => paint('#f1f5f9', t)));
+  parts.push(cabin(0.12, -0.096, 0.315, 0.096, 0.16, 0.25, 0.06, 0, glass, { outline: false, bias: 1 }));
+  parts.push(boxPart(0.12, -0.096, 0.25, 0.096, 0.25, 0.265, (t) => shade('#f1f5f9', 0.1 + t * 0.15)));
+  parts.push(boxPart(0.315, -0.085, 0.33, 0.085, 0.05, 0.11, () => DARK, { outline: false, bias: 2, dots: lights(0.332, 0.065, 0.095, '#fff7d6', 0.012) }));
+  // the box
+  parts.push(rbox(-0.33, -0.11, 0.11, 0.11, 0.07, 0.34, 0.01, (t) => (t > 0.94 ? '#ffffff' : shade('#eef2f7', -0.12 + t * 0.12))));
+  for (const v of [-0.112, 0.11]) {
+    parts.push(boxPart(-0.32, v, 0.1, v + 0.002, 0.2, 0.25, () => '#2563eb', { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.32, v, 0.1, v + 0.002, 0.25, 0.258, () => '#facc15', { outline: false, bias: 2 }));
+  }
+  // roller door at the back (ribbed), tail lights
+  for (let k = 0; k < 6; k++) parts.push(boxPart(-0.334, -0.09, -0.33, 0.09, 0.09 + k * 0.04, 0.12 + k * 0.04, () => (k % 2 ? '#cbd5e1' : '#e2e8f0'), { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.34, -0.1, -0.33, 0.1, 0.045, 0.075, () => '#1f2937', { outline: false, bias: 2, dots: lights(-0.342, 0.085, 0.06, '#ef4444', 0.011) }));
+  return parts;
+}
+
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
-  return kind === 'fuel' ? fuelTruck() : bagTrain();
+  switch (kind) {
+    case 'fuel':
+      return fuelTruck();
+    case 'bags':
+      return bagTrain();
+    case 'mech':
+      return mechVan();
+    case 'tanker':
+      return tankerTruck();
+    case 'partsTruck':
+      return partsTruck();
+  }
 }
 
 /** Where the roof beacon sits on each service vehicle (model space), for the blinking light. */
 export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = {
   fuel: { u: 0.22, v: 0, h: 0.31 },
   bags: { u: 0.205, v: 0, h: 0.31 },
+  mech: { u: 0.125, v: 0, h: 0.225 },
+  tanker: { u: 0.4, v: 0, h: 0.33 },
+  partsTruck: { u: 0.2, v: 0, h: 0.27 },
 };

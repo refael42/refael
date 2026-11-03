@@ -1,3 +1,4 @@
+import { storeCap } from '../../data/supplies';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -13,7 +14,7 @@ import {
   milestonesReached,
   nextMilestone,
   unitCost,
-  type Big,
+  Big,
   type GameState,
 } from '../../sim';
 import { Icon } from '../Icon';
@@ -70,6 +71,12 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.ils', { a: from, b: to });
     case 'lanes':
       return t('eff.lanes', { a: 1 + from, b: 1 + to });
+    case 'storage': {
+      // capacity of the fuel farm (liters) or the parts store (pieces)
+      const fuel = def.id === 'fuelFarm';
+      const cap = (l: number) => formatBig(Big.fromNumber(storeCap(fuel ? 'fuel' : 'parts', l)));
+      return t('eff.storage', { a: cap(from), b: cap(to), unit: t(fuel ? 'sup.liters' : 'sup.pieces') });
+    }
     default:
       return t('eff.speed', { a: Math.round(a * 100), b: Math.round(b * 100) });
   }

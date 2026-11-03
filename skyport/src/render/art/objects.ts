@@ -564,3 +564,226 @@ export function drawCargoShed(p: IsoPen): void {
   p.box(2.5, 2.25, 2.95, 2.6, 0, 0.25, '#a16207');
   p.box(2.55, 2.3, 2.9, 2.55, 0.25, 0.5, '#f59e0b');
 }
+
+// ------------------------------------------------------------------ supply area and hangar (M10)
+
+/** A vertical tank (stacked rings): white shell, red band, a light lid with a vent. r in screen px. */
+function tank(p: IsoPen, x: number, y: number, r: number, h: number): void {
+  p.shadow(x + 0.15, y + 0.15, r * 1.6, r * 0.7, 0.22);
+  for (let z = 0; z < h; z += 0.022) {
+    const t = z / h;
+    const band = t > 0.62 && t < 0.7;
+    p.circle(x, y, z, r, band ? '#e8473f' : t < 0.04 ? '#cbd5e1' : shade('#eef2f6', -0.08 + t * 0.08), false);
+  }
+  p.circle(x, y, h, r, '#f8fafc');
+  p.circle(x, y, h + 0.01, r * 0.82, '#e2e8f0', false);
+  // vent and hatch on the lid
+  p.box(x - 0.04, y - 0.04, x + 0.04, y + 0.04, h, h + 0.08, '#94a3b8');
+  p.circle(x + 0.12, y - 0.1, h + 0.012, r * 0.18, '#64748b', false);
+  // railing posts around the lid
+  for (let k = 0; k < 10; k++) {
+    const a = (k / 10) * Math.PI * 2;
+    const rx = Math.cos(a) * (r / 32) * 0.98;
+    const ry = Math.sin(a) * (r / 32) * 0.98;
+    if (Math.sin(a) + Math.cos(a) < -0.2) continue;
+    p.line(x + rx, y + ry, h, x + rx, y + ry, h + 0.09, '#94a3b8', 0.8);
+  }
+  // a hazard diamond on the front
+  const fx = x + (r / 32) * 0.72;
+  const fy = y + (r / 32) * 0.72;
+  p.poly([fx, fy, h * 0.45, fx + 0.05, fy - 0.05, h * 0.38, fx, fy, h * 0.31, fx - 0.05, fy + 0.05, h * 0.38], '#dc2626', false);
+}
+
+/** Fuel farm: 1..4 tanks inside a low bund wall, pipes to a pump skid, a ladder, placards. Center anchor, ~2.7 x 1.7 tiles. */
+export function drawFuelFarm(p: IsoPen, tanks: number): void {
+  p.shadow(0, 0, 66, 26, 0.14);
+  // concrete pad and the bund wall (it would hold a spill)
+  p.box(-1.35, -0.85, 1.35, 0.85, 0, 0.03, '#d6dbe1', false);
+  p.poly([-1.25, -0.75, 0.031, 1.25, -0.75, 0.031, 1.25, 0.75, 0.031, -1.25, 0.75, 0.031], '#bfc6cf', false);
+  p.box(-1.35, -0.85, 1.35, -0.78, 0.03, 0.14, '#cbd5e1');
+  p.box(-1.35, -0.85, -1.28, 0.85, 0.03, 0.14, '#cbd5e1');
+  const spots: [number, number, number, number][] = [
+    [-0.62, -0.18, 15, 0.95],
+    [0.3, -0.25, 13, 0.82],
+    [-0.75, 0.5, 11, 0.7],
+    [0.95, 0.38, 10, 0.62],
+  ];
+  // pipes from each tank to the pump skid at the front right
+  for (let i = 0; i < Math.min(tanks, spots.length); i++) {
+    const [x, y] = spots[i];
+    p.line(x + 0.2, y + 0.2, 0.08, 0.95, 0.55, 0.08, '#ca8a04', 2.2);
+    p.line(x + 0.2, y + 0.2, 0.08, 0.95, 0.55, 0.08, '#facc15', 1.2);
+  }
+  for (let i = 0; i < Math.min(tanks, spots.length); i++) {
+    const [x, y, r, h] = spots[i];
+    tank(p, x, y, r, h);
+  }
+  // a stair up the side of the big tank
+  const [bx, by, br, bh] = spots[0];
+  for (let k = 0; k < 9; k++) {
+    const a = 0.4 + k * 0.17;
+    const rr = (br / 32) * 1.06;
+    p.line(bx + Math.cos(a) * rr, by + Math.sin(a) * rr, (k / 9) * bh, bx + Math.cos(a + 0.17) * rr, by + Math.sin(a + 0.17) * rr, ((k + 1) / 9) * bh, '#475569', 1.4);
+  }
+  // a gauge board on the front of the big tank (the level is drawn on top while playing)
+  p.box(bx + 0.3, by + 0.42, bx + 0.37, by + 0.49, 0.06, 0.64, '#f8fafc');
+  p.line(bx + 0.335, by + 0.455, 0.09, bx + 0.335, by + 0.455, 0.61, '#334155', 3.2);
+  // pump skid with two motors and a filter
+  p.box(0.75, 0.42, 1.25, 0.72, 0.03, 0.1, '#64748b');
+  p.box(0.8, 0.46, 0.98, 0.68, 0.1, 0.24, '#2563eb');
+  p.box(1.03, 0.46, 1.2, 0.68, 0.1, 0.24, '#2563eb');
+  p.box(0.86, 0.5, 0.92, 0.64, 0.24, 0.3, '#94a3b8');
+  // extinguisher and a no-smoking sign by the gap in the wall
+  p.box(1.25, -0.6, 1.33, -0.52, 0, 0.16, '#dc2626');
+  p.box(1.26, -0.59, 1.32, -0.53, 0.16, 0.19, '#111827');
+  p.line(1.3, -0.25, 0, 1.3, -0.25, 0.42, '#64748b', 1.2);
+  p.circle(1.3, -0.25, 0.47, 3.4, '#dc2626');
+  p.circle(1.3, -0.25, 0.47, 2.4, '#f8fafc', false);
+  p.line(1.27, -0.28, 0.45, 1.33, -0.22, 0.49, '#dc2626', 0.9);
+}
+
+/** The level gauge on the big tank: 0..GAUGE_STEPS. */
+export const GAUGE_STEPS = 8;
+export function drawGauge(p: IsoPen, fill: number): void {
+  const h = 0.5 * (fill / GAUGE_STEPS);
+  const c = fill <= 1 ? '#ef4444' : fill <= 3 ? '#f59e0b' : '#22c55e';
+  p.line(0, 0, 0.1, 0, 0, 0.1 + Math.max(0.012, h), c, 2.4);
+  // the float marker
+  p.line(-0.03, 0.03, 0.1 + h, 0.03, -0.03, 0.1 + h, '#111827', 1.4);
+}
+
+/** Parts store: a ribbed warehouse, roller door up (shelves inside), loading dock, forklift, pallets. Center anchor 2.0 x 1.4. */
+export function drawPartsStore(p: IsoPen): void {
+  p.shadow(0.0, 0.0, 54, 24, 0.18);
+  p.box(-1.0, -0.7, 1.0, 0.7, 0, 0.8, '#dbe4ee');
+  for (let x = -0.9; x < 1.0; x += 0.14) p.line(x, 0.7, 0.02, x, 0.7, 0.78, '#b6c2cf', 0.7);
+  for (let y = -0.6; y < 0.7; y += 0.14) p.line(1.0, y, 0.02, 1.0, y, 0.78, '#a9b6c4', 0.7);
+  // the open roller door: dark inside, shelves with boxes in many colors
+  p.poly([-0.55, 0.7, 0.06, 0.25, 0.7, 0.06, 0.25, 0.7, 0.6, -0.55, 0.7, 0.6], '#1f2937');
+  const box = ['#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#a855f7', '#eab308'];
+  for (let row = 0; row < 3; row++) {
+    const z = 0.12 + row * 0.15;
+    p.line(-0.5, 0.69, z, 0.2, 0.69, z, '#64748b', 1);
+    for (let k = 0; k < 5; k++) {
+      const x = -0.47 + k * 0.135;
+      p.poly([x, 0.69, z + 0.01, x + 0.09, 0.69, z + 0.01, x + 0.09, 0.69, z + 0.09, x, 0.69, z + 0.09], box[(row * 2 + k) % box.length], false);
+    }
+  }
+  p.poly([-0.57, 0.7, 0.6, 0.27, 0.7, 0.6, 0.27, 0.7, 0.66, -0.57, 0.7, 0.66], '#94a3b8');
+  // dock leveller and bumpers
+  p.box(-0.6, 0.7, 0.3, 0.95, 0, 0.06, '#9ca3af');
+  p.box(-0.62, 0.7, -0.56, 0.74, 0.06, 0.16, '#111827');
+  p.box(0.26, 0.7, 0.32, 0.74, 0.06, 0.16, '#111827');
+  // a small office corner with a window and a sign (a gear on blue)
+  p.poly([0.45, 0.7, 0.3, 0.85, 0.7, 0.3, 0.85, 0.7, 0.55, 0.45, 0.7, 0.55], '#7dd3fc');
+  p.poly([0.5, 0.7, 0.62, 0.9, 0.7, 0.62, 0.9, 0.7, 0.76, 0.5, 0.7, 0.76], '#1d4ed8');
+  p.circle(0.6, 0.71, 0.69, 2.6, '#f8fafc', false);
+  // shallow roof with a skylight strip and a vent
+  p.gableX(-1.0, -0.7, 1.0, 0.7, 0.8, 0.18, '#8b98a8', 0.06);
+  p.box(0.5, -0.3, 0.68, -0.12, 0.88, 1.0, '#94a3b8');
+  // forklift: yellow body, mast, forks with a pallet of crates
+  p.shadow(0.75, 1.2, 14, 6, 0.2);
+  p.box(0.6, 1.05, 0.88, 1.28, 0.03, 0.18, '#facc15');
+  p.box(0.66, 1.12, 0.82, 1.24, 0.18, 0.3, '#1f2937');
+  p.line(0.58, 1.1, 0.03, 0.58, 1.1, 0.42, '#334155', 1.6);
+  p.line(0.58, 1.24, 0.03, 0.58, 1.24, 0.42, '#334155', 1.6);
+  p.box(0.38, 1.08, 0.56, 1.26, 0.06, 0.09, '#a16207');
+  p.box(0.4, 1.1, 0.54, 1.24, 0.09, 0.2, '#d97706');
+  // pallets by the door
+  p.box(-0.95, 0.85, -0.7, 1.08, 0, 0.05, '#a16207');
+  p.box(-0.93, 0.87, -0.72, 1.06, 0.05, 0.22, '#e2e8f0');
+  p.box(-0.93, 0.87, -0.72, 1.06, 0.22, 0.25, '#3b82f6', false);
+}
+
+/**
+ * Maintenance hangar: an arched roof over two big door openings toward +y
+ * (open where a bay is built), lights inside, a blue fascia band, side
+ * windows. Footprint corner anchor, 6.2 x 2.6 tiles.
+ */
+export function drawHangar(p: IsoPen, bays: number): void {
+  const W = 6.2;
+  const D = 2.6;
+  const H = 1.15;
+  p.shadow(W / 2, D / 2, 130, 56, 0.22);
+  p.box(0, 0, W, D, 0, H, '#e5e9ef');
+  // side windows (+x end) and a personnel door
+  for (let y = 0.3; y < D - 0.3; y += 0.36) p.poly([W, y, 0.62, W, y + 0.24, 0.62, W, y + 0.24, 0.86, W, y, 0.86], '#93c5fd');
+  p.poly([W, D - 0.55, 0, W, D - 0.3, 0, W, D - 0.3, 0.45, W, D - 0.55, 0.45], '#475569');
+  // the two door openings on the apron side
+  const doors: [number, number][] = [
+    [0.22, 2.95],
+    [3.25, 5.98],
+  ];
+  doors.forEach(([x0, x1], i) => {
+    const open = i < bays;
+    if (open) {
+      p.poly([x0, D, 0, x1, D, 0, x1, D, 1.0, x0, D, 1.0], '#1e293b');
+      // lights hanging from the trusses, a work platform and a tool cart inside
+      for (let x = x0 + 0.3; x < x1 - 0.1; x += 0.45) p.box(x, D - 0.02, x + 0.18, D, 0.9, 0.93, '#fef9c3', false);
+      p.poly([x0 + 0.1, D, 0.02, x1 - 0.1, D, 0.02, x1 - 0.1, D, 0.05, x0 + 0.1, D, 0.05], '#475569', false);
+      p.box(x0 + 0.25, D - 0.05, x0 + 0.55, D, 0.05, 0.4, '#facc15', false);
+      p.box(x1 - 0.55, D - 0.05, x1 - 0.3, D, 0.05, 0.22, '#dc2626', false);
+      // the door leaves slid aside
+      p.box(x0 - 0.04, D, x0 + 0.06, D + 0.08, 0, 1.0, '#cbd5e1');
+      p.box(x1 - 0.06, D, x1 + 0.04, D + 0.08, 0, 1.0, '#cbd5e1');
+    } else {
+      // closed: ribbed panels
+      p.poly([x0, D, 0, x1, D, 0, x1, D, 1.0, x0, D, 1.0], '#cbd5e1');
+      for (let x = x0 + 0.34; x < x1; x += 0.34) p.line(x, D + 0.002, 0, x, D + 0.002, 1.0, '#94a3b8', 0.9);
+    }
+  });
+  // fascia band over the doors with a white wordmark of squares
+  p.poly([0, D, 1.0, W, D, 1.0, W, D, H, 0, D, H], '#1d4ed8');
+  for (let k = 0; k < 6; k++) p.poly([2.6 + k * 0.17, D + 0.002, 1.04, 2.72 + k * 0.17, D + 0.002, 1.04, 2.72 + k * 0.17, D + 0.002, 1.11, 2.6 + k * 0.17, D + 0.002, 1.11], '#f8fafc', false);
+  // arched roof across y: strips from the back to the front, ribs along x
+  const N = 10;
+  const zAt = (t: number) => H + 0.55 * Math.sin(Math.PI * t);
+  for (let k = 0; k < N; k++) {
+    const t0 = k / N;
+    const t1 = (k + 1) / N;
+    const y0 = t0 * D;
+    const y1 = t1 * D;
+    const slope = Math.cos(Math.PI * (t0 + t1) * 0.5);
+    p.poly([-0.05, y0, zAt(t0), W + 0.05, y0, zAt(t0), W + 0.05, y1, zAt(t1), -0.05, y1, zAt(t1)], shade('#94a3b8', 0.12 * slope - 0.05 * (1 - Math.abs(slope))), false);
+  }
+  for (let x = 0.0; x <= W + 0.01; x += 0.62) {
+    for (let k = 0; k < N; k++) {
+      const t0 = k / N;
+      const t1 = (k + 1) / N;
+      p.line(x, t0 * D, zAt(t0) + 0.005, x, t1 * D, zAt(t1) + 0.005, '#7c8a9c', 0.8);
+    }
+  }
+  // the arched gable end (+x)
+  const end: number[] = [W, 0, H];
+  for (let k = 0; k <= N; k++) end.push(W, (k / N) * D, zAt(k / N));
+  end.push(W, D, H);
+  p.poly(end, '#d6dce4', false);
+  // a skylight ridge and a windsock-style beacon on top
+  p.box(W * 0.2, D * 0.45, W * 0.8, D * 0.55, zAt(0.5), zAt(0.5) + 0.04, '#bae6fd', false);
+  p.line(W - 0.3, D * 0.5, zAt(0.5), W - 0.3, D * 0.5, zAt(0.5) + 0.3, '#64748b', 1.2);
+  p.circle(W - 0.3, D * 0.5, zAt(0.5) + 0.32, 2.2, '#ef4444', false);
+}
+
+/** Gate in the north fence: a guard booth and a raised boom. */
+export function drawGateBooth(p: IsoPen): void {
+  p.shadow(0.2, 0.2, 18, 8, 0.2);
+  p.box(0, 0, 0.36, 0.36, 0, 0.42, '#f1f5f9');
+  p.poly([0.36, 0.06, 0.18, 0.36, 0.3, 0.18, 0.36, 0.3, 0.36, 0.36, 0.06, 0.36], '#7dd3fc');
+  p.poly([0.06, 0.36, 0.18, 0.3, 0.36, 0.18, 0.3, 0.36, 0.36, 0.06, 0.36, 0.36], '#7dd3fc');
+  p.box(-0.04, -0.04, 0.4, 0.4, 0.42, 0.47, '#1d4ed8');
+  // the boom: a post and a striped arm raised at an angle
+  p.box(0.45, 0.4, 0.53, 0.48, 0, 0.3, '#475569');
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6;
+    const b = (k + 1) / 6;
+    p.line(0.49 + a * 0.35, 0.44, 0.3 + a * 0.75, 0.49 + b * 0.35, 0.44, 0.3 + b * 0.75, k % 2 ? '#f8fafc' : '#ef4444', 2.2);
+  }
+}
+
+/** A traffic cone with a reflective band, a tripod warning triangle (AOG). */
+export function drawWarnTriangle(p: IsoPen): void {
+  p.line(-0.06, 0, 0, 0, 0, 0.14, '#111827', 1);
+  p.line(0.06, 0, 0, 0, 0, 0.14, '#111827', 1);
+  p.poly([-0.09, 0, 0.12, 0.09, 0, 0.12, 0, 0, 0.28], '#ef4444');
+  p.poly([-0.05, 0, 0.15, 0.05, 0, 0.15, 0, 0, 0.24], '#f8fafc', false);
+}

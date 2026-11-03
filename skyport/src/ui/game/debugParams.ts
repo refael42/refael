@@ -33,13 +33,17 @@ export interface DebugParams {
   full: boolean;
   /** Fixed weather (screenshots): fog, cross(wind), west(erly: the runway turns), calm. */
   wx: string | null;
+  /** Ground one parked plane with a fault after the warp (screenshots). */
+  fault: boolean;
+  /** A tanker (and parts van) unloading at the supply area (screenshots). */
+  tanker: boolean;
 
   /** Any test switch in the URL (then no loading/saving by default). */
   isTest: boolean;
 }
 
 export function readDebugParams(): DebugParams {
-  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0, follow: false, full: false, wx: null };
+  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0, follow: false, full: false, wx: null, fault: false, tanker: false };
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return out;
   const q = new URLSearchParams(window.location.search);
   const num = (k: string) => {
@@ -66,8 +70,10 @@ export function readDebugParams(): DebugParams {
   out.follow = q.get('follow') === '1';
   out.full = q.get('full') === '1';
   out.wx = q.get('wx');
+  out.fault = q.get('fault') === '1';
+  out.tanker = q.get('tanker') === '1';
   const cam = (q.get('cam') ?? '').split(',').map(Number);
   if (cam.length === 3 && cam.every((v) => Number.isFinite(v))) out.cam = [cam[0], cam[1], cam[2]];
-  out.isTest = ['seed', 'warp', 'auto', 'stands', 'crew', 'money', 'panel', 'hook', 'select', 'speed', 'tier', 'build', 'full', 'wx'].some((k) => q.has(k));
+  out.isTest = ['seed', 'warp', 'auto', 'stands', 'crew', 'money', 'panel', 'hook', 'select', 'speed', 'tier', 'build', 'full', 'wx', 'fault', 'tanker'].some((k) => q.has(k));
   return out;
 }

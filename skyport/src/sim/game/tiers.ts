@@ -1,9 +1,11 @@
+import { homeOf } from './vehicles';
 /**
  * Growing the airport: requirements, a construction project, and the
  * switch to the new layout at a quiet moment (no plane on the ground), so
  * no taxi route ever spans two maps. The new tier keeps every old node and
  * stand in place, so planes in the air and parked ones stay valid.
  */
+import { refillOnTierUp } from './supplies';
 import { layoutFor, nextTier, tierDef } from '../../data/tiers';
 import { Big } from '../big';
 import { pushEvent } from './events';
@@ -81,13 +83,16 @@ export function switchTier(s: GameState, to: number): void {
   applyStructural(s);
   const L = layoutFor(s.tier);
   for (const v of s.vehicles) {
-    const h = v.kind === 'fuel' ? L.fuel.home : L.bags.home;
+    const h = homeOf(L, v.kind).home;
     if (v.state === 'idle') {
       v.x = v.px = h[0];
       v.y = v.py = h[1];
     }
   }
   refreshApplicants(s);
+  // the new supply area starts full (trucks still out on the old roads are done)
+  s.deliveries = [];
+  refillOnTierUp(s);
   pushEvent(s, 'tierUp', 0, 0, s.tier);
 }
 

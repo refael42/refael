@@ -1,5 +1,6 @@
 import type { AircraftDef } from '../../data/aircraft';
 import { Big } from '../big';
+import { FUEL_SELL } from '../../data/supplies';
 import type { Flight } from './types';
 import type { Effects } from './upgrades';
 
@@ -17,7 +18,7 @@ export function punctualityMultiplier(onTime: number): number {
 
 export interface Revenue {
   total: Big;
-  /** landing, parking, passenger fees, kiosk (after multipliers). */
+  /** landing, parking, passenger fees, fuel sold (after multipliers). */
   parts: [number, number, number, number];
 }
 
@@ -28,11 +29,12 @@ export function flightRevenue(f: Flight, ac: AircraftDef, fx?: Effects, tierPay 
   const landing = ac.landingFee * (fx?.landingFee ?? 1) * mul;
   const parking = parked * PARK_RATE * mul;
   const pax = ac.paxFee * (fx?.paxFee ?? 1) * f.boarded * mul;
-  // the kiosk now earns from real shoppers in the terminal (terminal.ts)
-  const kiosk = 0;
+  // the fuel pumped into the plane (fuel is fuel: no mood or punctuality on its price)
+  // (the kiosk earns from real shoppers in the terminal, terminal.ts)
   void fx?.kioskPerPax;
-  const total = Math.max(1, Math.round(landing + parking + pax + kiosk));
-  return { total: Big.fromNumber(total), parts: [landing, parking, pax, kiosk] };
+  const fuel = Math.max(0, f.fuel || 0) * FUEL_SELL * tierPay;
+  const total = Math.max(1, Math.round(landing + parking + pax + fuel));
+  return { total: Big.fromNumber(total), parts: [landing, parking, pax, fuel] };
 }
 
 /** Rating 1..5 as a moving average of how happy each flight left. */

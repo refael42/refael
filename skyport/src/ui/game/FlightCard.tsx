@@ -96,6 +96,22 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
             </View>
           </Chip>
         ) : null}
+        {v.aog === 1 && !v.check ? (
+          <Chip tone="bad">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="wrench" size={13} />
+              <Text style={[styles.chipText, { color: C.red }]}>{t(v.partWait ? 'card.waitPart' : 'card.fault')}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.check ? (
+          <Chip tone="accent">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="build" size={13} />
+              <Text style={[styles.chipText, { color: C.primary }]}>{t(v.check === 2 ? 'card.checkB' : 'card.checkA')}</Text>
+            </View>
+          </Chip>
+        ) : null}
         {v.guest ? (
           <Chip tone="good">
             <Text style={[styles.chipText, { color: C.green }]}>{t('card.guest')}</Text>
@@ -112,6 +128,7 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
         {v.checked >= 0 && v.checked < 1 ? <Meter label={t('card.checkedIn')} value={v.checked} color="#14b8a6" /> : null}
         {v.airborne ? <Meter label={t('card.patience')} value={v.patience} color={v.patience < 0.35 ? C.red : C.amber} /> : null}
         {v.phase === 'deboarding' ? <Meter label={t('card.deboarding')} value={v.deboard} color={C.blue} /> : null}
+        {v.repair >= 0 ? <Meter label={t('card.repair')} value={v.repair} color={C.red} /> : null}
         {v.fuelActive ? <Meter label={t('card.fuel')} value={v.fuel} color={C.amber} /> : null}
         {v.bagsActive ? <Meter label={t('card.bags')} value={v.bags} color="#8b5cf6" /> : null}
         {v.phase === 'boarding' ? <Meter label={t('card.boarding')} value={v.board} color={C.green} /> : null}

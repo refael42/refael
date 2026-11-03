@@ -63,7 +63,7 @@ export default function App() {
     const tier = Math.max(boot.state?.tier ?? 1, dbg.tier, screen === 'gallery' ? 5 : 1);
     const id = setTimeout(() => {
       setIconSheet(buildUiIcons());
-      setSprites(buildSprites({ combos: tierCombos(tier) }));
+      setSprites(buildSprites({ combos: tierCombos(tier), tier }));
     }, 30);
     return () => clearTimeout(id);
   }, [boot, sprites, screen]);

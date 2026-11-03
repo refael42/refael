@@ -7,6 +7,7 @@ import { cleanName, moveDecor, rushTier, startTierBuild } from './tiers';
 import { buyUpgrade, rushBuild } from './upgrades';
 import { declineOffer, endContract, expandContract, negotiateOffer, signOffer } from './airlines';
 import { requestService } from './vehicles';
+import { setSupplier, urgentOrder } from './supplies';
 
 /** UI entry point: commands are applied at the start of the next step. */
 export function queueCommand(s: GameState, cmd: Command): void {
@@ -49,6 +50,13 @@ export function applyCommand(s: GameState, cmd: Command): void {
       if (r === 'queued') pushEvent(s, 'bagsQueued', f.x, f.y, f.id);
       return;
     }
+    case 'repair': {
+      const f = findFlight(s, cmd.flightId);
+      if (!f) return reject(s, REJECT.unknownFlight, cmd.flightId);
+      // no van at this airport yet, or nothing to repair
+      if (!s.vehicles.some((v) => v.kind === 'mech') || requestService(s, f, 'mech') === 'rejected') return reject(s, REJECT.notReady, f.id);
+      return;
+    }
     case 'buyUpgrade': {
       const code = buyUpgrade(s, String(cmd.id), Number.isFinite(cmd.count) ? cmd.count : 1);
       if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
@@ -86,6 +94,13 @@ export function applyCommand(s: GameState, cmd: Command): void {
       if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
       return;
     }
+    case 'setSupplier':
+      if (!setSupplier(s, Number(cmd.store), Number(cmd.supplier))) pushEvent(s, 'cmdRejected', 0, 0, REJECT.notReady, 0, 0);
+      return;
+    case 'urgentOrder':
+      // refused: nothing to fill, or no money for it
+      if (!urgentOrder(s, Number(cmd.store))) pushEvent(s, 'cmdRejected', 0, 0, REJECT.noMoney, 0, 0);
+      return;
     case 'setProfile': {
       s.profile = { manager: cleanName(cmd.manager), airport: cleanName(cmd.airport) };
       return;

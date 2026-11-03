@@ -160,8 +160,9 @@ export function safeRunEnd(g: Graph, flow: Flow, route: number[], from: number, 
   const n = route.length;
   let j = from;
   while (j < n - 1 && !flow.safe[route[j]]) j++;
+  // (a plane stops a little short of an edge it can't enter: count that gap too)
   let room = flow.safe[route[j]] ? g.edges[route[j]].len : 0;
-  while (j < n - 1 && room < tail && flow.safe[route[j + 1]]) {
+  while (j < n - 1 && room < tail + STOP_GAP + 0.1 && flow.safe[route[j + 1]]) {
     j++;
     room += g.edges[route[j]].len;
   }

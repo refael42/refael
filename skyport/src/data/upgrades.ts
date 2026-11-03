@@ -28,7 +28,9 @@ export type EffectKind =
   /** Air traffic control: shorter wake gaps, more holding patience, landing in fog. */
   | 'tower'
   | 'radar'
-  | 'ils';
+  | 'ils'
+  /** Capacity of a supply store (fuel farm, parts store), by level. */
+  | 'storage';
 
 export interface UpgradeDef {
   id: string;
@@ -77,11 +79,15 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'gates', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 300000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [150, 240], icon: 'plane' },
   { id: 'cargoApron', category: 'apron', unlockTier: 4, maxLevel: 1, baseCost: 500000, growth: 1, effect: 'opens', per: 1, buildSeconds: [180], icon: 'bag' },
   { id: 'helipad', category: 'apron', unlockTier: 5, maxLevel: 1, baseCost: 4e6, growth: 1, effect: 'opens', per: 1, buildSeconds: [120], icon: 'plane' },
+  { id: 'hangar', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 40000, growth: 6, effect: 'opens', per: 1, buildSeconds: [150, 240], levelTier: [3, 4], icon: 'wrench' },
   { id: 'lounge', category: 'comfort', unlockTier: 4, maxLevel: 10, baseCost: 150000, growth: 1.6, effect: 'comfort', per: 0.02, icon: 'star' },
   // air traffic control
   { id: 'tower', category: 'runway', unlockTier: 2, maxLevel: 5, baseCost: 1500, growth: 6, effect: 'tower', per: 0.1, buildSeconds: [60, 90, 120, 150, 180], levelTier: [2, 2, 3, 4, 5], icon: 'gear' },
   { id: 'radar', category: 'runway', unlockTier: 2, maxLevel: 3, baseCost: 2500, growth: 10, effect: 'radar', per: 0.25, buildSeconds: [60, 120, 180], levelTier: [2, 3, 4], icon: 'clock' },
   { id: 'ils', category: 'runway', unlockTier: 2, maxLevel: 3, baseCost: 2000, growth: 12, effect: 'ils', per: 1, buildSeconds: [90, 150, 210], levelTier: [2, 3, 4], icon: 'land' },
+  // supplies: bigger fuel farm and parts store
+  { id: 'fuelFarm', category: 'vehicles', unlockTier: 2, maxLevel: 5, baseCost: 1200, growth: 7, effect: 'storage', per: 1, buildSeconds: [60, 90, 120, 180, 240], levelTier: [2, 3, 3, 4, 5], icon: 'fuel' },
+  { id: 'partsStore', category: 'vehicles', unlockTier: 3, maxLevel: 4, baseCost: 15000, growth: 5, effect: 'storage', per: 1, buildSeconds: [60, 90, 150, 200], levelTier: [3, 4, 4, 5], icon: 'wrench' },
   { id: 'night', category: 'comfort', unlockTier: 1, maxLevel: 10, baseCost: 250, growth: 1.8, effect: 'offlineCap', per: 1, icon: 'clock' },
 ];
 

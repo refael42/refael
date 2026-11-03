@@ -34,6 +34,13 @@ import {
   drawTree,
   drawTrolleys,
   drawWindsock,
+  drawFuelFarm,
+  drawGauge,
+  GAUGE_STEPS,
+  drawPartsStore,
+  drawHangar,
+  drawGateBooth,
+  drawWarnTriangle,
   drawRadar,
   RADAR_FRAMES,
   IsoPen,
@@ -49,7 +56,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020'];
@@ -66,10 +73,16 @@ export function dirIndex(heading: number): number {
 export interface Content {
   /** [airlineIndex, aircraftIndex] liveries to draw. */
   combos: readonly (readonly [number, number])[];
+  /** Airport tier: things only bigger airports have are left out below it (faster to build). Default: all. */
+  tier?: number;
 }
+
+/** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3 };
 
 export interface SpriteSet {
   atlas: Atlas;
+  tier: number;
   combos: readonly (readonly [number, number])[];
   comboIndex: (airline: number, aircraft: number) => number;
   plane: (combo: number, dir: number) => number;
@@ -91,6 +104,14 @@ export interface SpriteSet {
   pier: (end: boolean) => number;
   jetBridge: number;
   cargoShed: number;
+  /** Supply area: fuel farm by tank count (1..4), its level gauge (0..GAUGE_STEPS), parts store, gate booth. */
+  fuelFarm: (tanks: number) => number;
+  gauge: (fill: number) => number;
+  partsStore: number;
+  gateBooth: number;
+  /** Hangar with 1 or 2 bays open. */
+  hangar: (bays: number) => number;
+  warnTriangle: number;
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
@@ -186,7 +207,13 @@ export function buildSprites(content: Content): SpriteSet {
   // vehicles
   const vehicleBase: number[] = [];
   const vehicleShadowBase: number[] = [];
+  const tier = content.tier ?? 99;
   for (const kind of VEHICLE_KINDS) {
+    if (VEHICLE_TIER[kind] > tier) {
+      vehicleBase.push(-1);
+      vehicleShadowBase.push(-1);
+      continue;
+    }
     vehicleBase.push(b.size);
     for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d, undefined, VEHICLE_SCALE);
     vehicleShadowBase.push(b.size);
@@ -237,6 +264,15 @@ export function buildSprites(content: Content): SpriteSet {
   for (const end of [false, true]) b.add(-1.7 * T, -1.6 * T, 2.4 * T, 2.0 * T, (c, ox, oy) => drawPierSegment(new IsoPen(c, ox, oy, S), end));
   const jetBridge = b.add(-2.2 * T, -0.8 * T, 0.8 * T, 1.6 * T, (c, ox, oy) => drawJetBridge(new IsoPen(c, ox, oy, S), BRIDGE_LEN));
   const cargoShed = b.add(-2.3 * T, -1.8 * T, 3.6 * T, 3.0 * T, (c, ox, oy) => drawCargoShed(new IsoPen(c, ox, oy, S)));
+  const farmBase = b.size;
+  for (let n = 1; n <= 4; n++) b.add(-2.4 * T, -2.6 * T, 2.4 * T, 1.5 * T, (c, ox, oy) => drawFuelFarm(new IsoPen(c, ox, oy, S), n));
+  const gaugeBase = b.size;
+  for (let k = 0; k <= GAUGE_STEPS; k++) b.add(-5 * S, -26 * S, 5 * S, 4 * S, (c, ox, oy) => drawGauge(new IsoPen(c, ox, oy, S), k));
+  const partsStore = b.add(-2.5 * T, -2.1 * T, 1.9 * T, 1.5 * T, (c, ox, oy) => drawPartsStore(new IsoPen(c, ox, oy, S)));
+  const gateBooth = b.add(-1.0 * T, -1.4 * T, 1.2 * T, 0.9 * T, (c, ox, oy) => drawGateBooth(new IsoPen(c, ox, oy, S)));
+  const hangarBase = b.size;
+  for (let n = 1; n <= 2; n++) b.add(-3.0 * T, -2.3 * T, 6.6 * T, 4.7 * T, (c, ox, oy) => drawHangar(new IsoPen(c, ox, oy, S), n));
+  const warnTriangle = b.add(-8 * S, -14 * S, 8 * S, 4 * S, (c, ox, oy) => drawWarnTriangle(new IsoPen(c, ox, oy, S)));
 
   // static objects (anchor = object origin on the ground)
   const hut = b.add(-1.9 * 32 * S, -1.6 * 32 * S, 2.2 * 32 * S, 2.0 * 32 * S, (c, ox, oy) => drawHut(new IsoPen(c, ox, oy, S)));
@@ -352,6 +388,7 @@ export function buildSprites(content: Content): SpriteSet {
   ICON_NAMES.forEach((n, i) => iconIndex.set(n, i));
 
   return {
+    tier,
     atlas,
     combos,
     // a livery that is not in this atlas falls back to the same aircraft in other colors
@@ -362,8 +399,8 @@ export function buildSprites(content: Content): SpriteSet {
     plane: (combo, dir) => planeBase[combo] + dir,
     planeShadow: (ac, dir) => (shadowBase.get(ac) ?? 0) + dir,
     person: (o, back, mirror, frame) => personBase + ((o * 2 + (back ? 1 : 0)) * 2 + (mirror ? 1 : 0)) * PERSON_FRAMES + frame,
-    vehicle: (k, d) => vehicleBase[k] + d,
-    vehicleShadow: (k, d) => vehicleShadowBase[k] + d,
+    vehicle: (k, d) => (vehicleBase[k] >= 0 ? vehicleBase[k] : vehicleBase[0]) + d,
+    vehicleShadow: (k, d) => (vehicleShadowBase[k] >= 0 ? vehicleShadowBase[k] : vehicleShadowBase[0]) + d,
     car: (v, d) => carBase[v] + d,
     carShadow: (v, d) => (carShadowBase.get(CAR_VARIANTS[v]?.kind ?? 'sedan') ?? 0) + d,
     glow: (c) => glowBase + c,
@@ -377,6 +414,12 @@ export function buildSprites(content: Content): SpriteSet {
     pier: (end) => pierBase + (end ? 1 : 0),
     jetBridge,
     cargoShed,
+    fuelFarm: (n) => farmBase + Math.max(0, Math.min(3, n - 1)),
+    gauge: (k) => gaugeBase + Math.max(0, Math.min(GAUGE_STEPS, Math.round(k))),
+    partsStore,
+    gateBooth,
+    hangar: (n) => hangarBase + (n >= 2 ? 1 : 0),
+    warnTriangle,
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,

@@ -414,9 +414,10 @@ export function updateStaff(s: GameState): void {
         break;
       }
       case 'fueler':
-      case 'porter': {
-        const kind = role.id === 'fueler' ? 'fuel' : 'bags';
-        const want = kind === 'fuel' ? WANT.fuel : WANT.bags;
+      case 'porter':
+      case 'mechanic': {
+        const kind = role.id === 'fueler' ? 'fuel' : role.id === 'porter' ? 'bags' : 'mech';
+        const want = kind === 'fuel' ? WANT.fuel : kind === 'bags' ? WANT.bags : WANT.repair;
         if (!s.vehicles.some((v) => v.kind === kind && v.state === 'idle')) break;
         for (const f of s.flights) {
           if (wantsAction(f, want) && ripe(f.readyAt) && requestService(s, f, kind) !== 'rejected') {

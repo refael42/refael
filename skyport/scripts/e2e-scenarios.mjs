@@ -99,7 +99,9 @@ export default [
       if (!(file.v >= 4)) throw new Error('unexpected save version ' + file.v);
       const before = await page.evaluate(() => window.__skyport.stats());
       await page.goto(page.url().replace(/\?.*$/, '?save=1&hook=1'));
-      await page.waitForTimeout(2500);
+      // the reloaded game is up once its test hook is (the atlas build takes a few seconds on CI)
+      await page.waitForFunction(() => !!window.__skyport, null, { timeout: 20000 });
+      await page.waitForTimeout(500);
       const after = await page.evaluate(() => window.__skyport.stats());
       if (!(before.money > 0)) throw new Error('nothing earned before saving');
       // the reloaded game continues from the save (plus a little offline pay), not from zero
@@ -283,5 +285,11 @@ export default [
   { name: 'm9-west-close', viewport: { width: 844, height: 390 }, query: '/?seed=12&tier=4&full=1&crew=1&warp=320&auto=1&wx=west&cam=50,25,1.4', wait: 3000, touch: true, langs: ['he'] },
   { name: 'm9-cross', viewport: { width: 844, height: 390 }, query: '/?seed=13&tier=2&stands=3&crew=1&warp=200&auto=1&wx=cross&select=1', wait: 3000, touch: true },
   { name: 'm9-tower', viewport: { width: 844, height: 390 }, query: '/?seed=14&tier=3&full=1&crew=1&warp=120&auto=1&wx=cross&cam=17.6,15.9,2.2', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm10-depot', viewport: { width: 844, height: 390 }, query: '/?seed=31&tier=3&full=1&crew=1&warp=200&auto=1&tanker=1&cam=31.3,15.4,1.7', wait: 3000, touch: true },
+  { name: 'm10-depot-t2', viewport: { width: 844, height: 390 }, query: '/?seed=32&tier=2&stands=4&crew=1&warp=240&auto=1&tanker=1&cam=30,17,1.8', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm10-hangar', viewport: { width: 844, height: 390 }, query: '/?seed=33&tier=4&full=1&crew=1&warp=420&auto=1&cam=12,19.6,1.35', wait: 3000, touch: true },
+  { name: 'm10-fault', viewport: { width: 844, height: 390 }, query: '/?seed=34&tier=3&full=1&crew=1&warp=160&auto=1&fault=1&select=1', wait: 3000, touch: true },
+  { name: 'm10-panel', viewport: { width: 844, height: 390 }, query: '/?seed=35&tier=3&full=1&crew=1&warp=200&auto=1&tanker=1&panel=supplies', wait: 2500, touch: true },
+  { name: 'm10-panel-tablet', viewport: { width: 1180, height: 820 }, query: '/?seed=35&tier=4&full=1&crew=1&warp=300&auto=1&panel=supplies', wait: 2500, touch: true, scale: 1, langs: ['he'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

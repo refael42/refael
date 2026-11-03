@@ -3,6 +3,8 @@
  * a "best value" estimate. Effects are read through effects(s) (cached per
  * state revision).
  */
+import { capacity, storeActive } from './supplies';
+import { REORDER_AT, STORES } from '../../data/supplies';
 import { airportCapacity, flightsPerDay } from './airlines';
 import { levelCap, UPGRADES, upgradeDef, type EffectKind, type UpgradeDef } from '../../data/upgrades';
 import { Big } from '../big';
@@ -116,10 +118,13 @@ export function applyStructural(s: GameState): void {
   const L = layoutOf(s.tier);
   // a stand is open once the level of its build line is reached (no line = there from the start)
   s.standOpen = L.stands.map((st) => !st.line || level(s, st.line) >= (st.level ?? 1));
-  s.standsBuilt = s.standOpen.filter(Boolean).length;
+  // (hangar bays are for maintenance visits, not for the schedule)
+  s.standsBuilt = s.standOpen.filter((o, i) => o && !L.stands[i].hangar).length;
   while (s.stands.length < L.stands.length) s.stands.push({ occupant: 0, reserved: 0 });
-  const want = { fuel: 1 + Math.round(effectValue(s, 'truck')), bags: 1 + Math.round(effectValue(s, 'cart')) };
-  for (const kind of ['fuel', 'bags'] as const) {
+  // the mechanics' van comes with the parts store (regional airport on); a second one at the city airport
+  const vans = storeActive(s, 'parts') ? (s.tier >= 4 ? 2 : 1) : 0;
+  const want = { fuel: 1 + Math.round(effectValue(s, 'truck')), bags: 1 + Math.round(effectValue(s, 'cart')), mech: vans };
+  for (const kind of ['fuel', 'bags', 'mech'] as const) {
     let have = s.vehicles.filter((v) => v.kind === kind).length;
     while (have < want[kind]) {
       s.vehicles.push(makeVehicle(s.nextId++, kind, L));
@@ -248,8 +253,8 @@ export function offers(s: GameState): UpgradeOffer[] {
         gain = rate * (0.25 + 0.6 * Math.min(1, holdingShare + 0.2));
         break;
       case 'opens':
-        // a new kind of stand brings new, bigger aircraft and airlines
-        gain = rate * 0.6;
+        // a new kind of stand brings new, bigger aircraft and airlines (a hangar bay: maintenance fees)
+        gain = rate * (def.id === 'hangar' ? 0.12 : 0.6);
         break;
       case 'ils':
         // fewer diversions in fog (fog is only now and then)
@@ -263,6 +268,20 @@ export function offers(s: GameState): UpgradeOffer[] {
       case 'cart':
         gain = rate * 0.06;
         break;
+      case 'storage': {
+        // a bigger store pays when the current one can't bridge a delivery
+        const kind = def.id === 'fuelFarm' ? 'fuel' : 'parts';
+        if (!storeActive(s, kind)) {
+          gain = 0;
+          break;
+        }
+        const st = s.stores[kind];
+        const sup = STORES[kind].suppliers[st.supplier];
+        const need = st.use * ((sup?.lead ?? 150) + 60) * 1.5;
+        const pressure = need / Math.max(1, capacity(s, kind) * REORDER_AT);
+        gain = rate * (st.out ? 0.5 : pressure > 1 ? 0.3 : pressure > 0.6 ? 0.06 : 0.004);
+        break;
+      }
       default:
         gain = rate * delta * 0.15;
     }

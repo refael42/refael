@@ -15,16 +15,17 @@ export function cityKey(i: number): TKey {
 
 export const WANT_ACTION: Record<
   number,
-  { key: TKey; icon: IconName; color: string; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' | 'sendBags' } | undefined
+  { key: TKey; icon: IconName; color: string; cmd: 'clearLanding' | 'sendFuel' | 'startBoarding' | 'clearTakeoff' | 'sendBags' | 'repair' } | undefined
 > = {
   [WANT.clearLanding]: { key: 'action.clearLanding', icon: 'land', color: ACTION_COLORS.land, cmd: 'clearLanding' },
   [WANT.fuel]: { key: 'action.fuel', icon: 'fuel', color: ACTION_COLORS.fuel, cmd: 'sendFuel' },
   [WANT.board]: { key: 'action.board', icon: 'pax', color: ACTION_COLORS.board, cmd: 'startBoarding' },
   [WANT.clearTakeoff]: { key: 'action.clearTakeoff', icon: 'takeoff', color: ACTION_COLORS.takeoff, cmd: 'clearTakeoff' },
   [WANT.bags]: { key: 'action.bags', icon: 'bag', color: ACTION_COLORS.bags, cmd: 'sendBags' },
+  [WANT.repair]: { key: 'action.repair', icon: 'wrench', color: ACTION_COLORS.repair, cmd: 'repair' },
 };
 
-const ORDER = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
+const ORDER = [WANT.clearLanding, WANT.repair, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
 
 /** Flat, comparable view of a flight for the card (polled twice a second). */
 export interface FlightView {
@@ -61,6 +62,11 @@ export interface FlightView {
   hold: '' | 'fog' | 'crosswind' | 'turn' | 'wake' | 'runway';
   /** Diverted here from another airport (pays double). */
   guest: boolean;
+  /** Grounded with a fault (1), in for a check (check 1/2), repair progress, waiting for a part. */
+  aog: number;
+  check: number;
+  repair: number;
+  partWait: boolean;
 }
 
 export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): FlightView {
@@ -94,6 +100,10 @@ export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): Flig
     rep: rep >= 0 ? Math.round(rep) : -1,
     hold,
     guest: f.guest,
+    aog: f.aog,
+    check: f.check,
+    repair: f.aog === 1 && f.repState >= 3 ? Math.round(f.repWork * 100) / 100 : -1,
+    partWait: f.partWait,
   };
 }
 

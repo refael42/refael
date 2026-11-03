@@ -4,7 +4,9 @@ import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
-import { hash01 } from '../hash';
+import { hash01, hashU32 } from '../hash';
+import { storeActive } from './supplies';
+import { hangarFaultFactor, startCheck, updateChecks } from './maintenance';
 import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule, updateGuests } from './airlines';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
@@ -29,7 +31,7 @@ function holdFuel(s: GameState, f: Flight): number {
   return (1 + wakeCat(f) * 0.3) * (1 + effectValue(s, 'radar'));
 }
 /** Order in which a tap on the plane handles pending actions. */
-const WANT_ORDER: readonly Want[] = [WANT.clearLanding, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
+const WANT_ORDER: readonly Want[] = [WANT.clearLanding, WANT.repair, WANT.bags, WANT.fuel, WANT.board, WANT.clearTakeoff];
 
 export function isHeli(f: Flight): boolean {
   return AIRCRAFT[f.aircraft]?.stand === 'heli';
@@ -203,6 +205,13 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     dir: opsOf(L, s.rwyDir).dir,
     guest: false,
     goArounds: 0,
+    aog: 0,
+    repState: 0,
+    repWork: 0,
+    repNeed: 0,
+    repParts: 0,
+    partWait: false,
+    check: 0,
     payMul: contractOf(s, al)?.pay ?? 1,
   };
   s.flights.push(f);
@@ -214,6 +223,7 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
 export function updateSpawning(s: GameState): void {
   refillSchedule(s);
   updateGuests(s, (p) => spawnFlight(s, p));
+  updateChecks(s, (p) => spawnFlight(s, p));
   if (s.time < s.nextArrival) return;
   const p = dueArrival(s);
   if (!p) return;
@@ -264,7 +274,7 @@ export function freeStand(s: GameState, aircraft = 0): number {
   const need = AIRCRAFT[aircraft]?.stand ?? 'small';
   let best = -1;
   for (let i = 0; i < Math.min(L.stands.length, s.stands.length); i++) {
-    if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0) continue;
+    if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0 || L.stands[i].hangar) continue;
     if (!standFits(L.stands[i].size, need)) continue;
     if (best < 0 || SIZE_RANK[L.stands[i].size] < SIZE_RANK[L.stands[best].size]) best = i;
   }
@@ -467,6 +477,43 @@ function dock(s: GameState, f: Flight): void {
   f.paxTimer = 0.4;
   setPhase(f, 'deboarding');
   pushEvent(s, 'docked', f.x, f.y, f.id);
+  checkForFault(s, f);
+}
+
+/** Share of arrivals that turn out to have a technical fault (from the regional airport on). */
+export const AOG_CHANCE = 0.03;
+
+/**
+ * The walk-around at the stand: now and then a fault grounds the plane (AOG)
+ * until a mechanic fixes it, with spare parts from the store. The airline
+ * allows for part of the repair in the schedule.
+ */
+function checkForFault(s: GameState, f: Flight): void {
+  if (f.check) {
+    startCheck(f);
+    return;
+  }
+  if (!storeActive(s, 'parts') || isHeli(f)) return;
+  if (hash01(hashU32(s.seed ^ 0xa06) + f.id * 977) >= AOG_CHANCE * faultFactor(s)) return;
+  groundPlane(s, f);
+}
+
+/** Grounds a parked plane with a fault (repair time and parts by its size). */
+export function groundPlane(s: GameState, f: Flight): void {
+  const cat = wakeCat(f);
+  f.aog = 1;
+  f.repState = FUEL.none;
+  f.repWork = 0;
+  f.repNeed = 20 + 10 * cat;
+  f.repParts = cat >= 3 ? 2 : 1;
+  // the airline knows a fault is nobody's fault: the repair goes into the schedule
+  f.slot += f.repNeed + 10;
+  pushEvent(s, 'aog', f.x, f.y, f.id);
+}
+
+/** Regular checks in the hangar make faults rarer (set by the hangar, M10c). */
+export function faultFactor(s: GameState): number {
+  return hangarFaultFactor(s);
 }
 
 /** Tries to start taxiing out; false while the taxiway ahead is taken. */
@@ -554,7 +601,8 @@ export function refreshWants(s: GameState, f: Flight): void {
   const atStand = p === 'deboarding' || p === 'turnaround' || p === 'boarding';
   if (atStand && f.bagState === FUEL.none) w |= 1 << WANT.bags;
   if ((p === 'deboarding' || p === 'turnaround') && f.fuelState === FUEL.none) w |= 1 << WANT.fuel;
-  if (p === 'turnaround' && f.fuelState === FUEL.done && !f.boardingStarted) w |= 1 << WANT.board;
+  if (p === 'turnaround' && f.fuelState === FUEL.done && !f.boardingStarted && f.aog !== 1) w |= 1 << WANT.board;
+  if ((p === 'deboarding' || p === 'turnaround') && f.aog === 1 && f.repState === FUEL.none) w |= 1 << WANT.repair;
   if ((p === 'taxiOut' || p === 'holdShort') && !f.takeoffCleared) w |= 1 << WANT.clearTakeoff;
   if (w & ~f.wants) f.readyAt = s.time;
   f.wants = w;
@@ -821,7 +869,7 @@ export function clearTakeoff(s: GameState, f: Flight): boolean {
 }
 
 export function startBoarding(s: GameState, f: Flight): boolean {
-  if (f.phase !== 'turnaround' || f.fuelState !== FUEL.done || f.boardingStarted) return false;
+  if (f.phase !== 'turnaround' || f.fuelState !== FUEL.done || f.boardingStarted || f.aog === 1) return false;
   f.boardingStarted = true;
   if (s.time - f.readyAt < 4) f.mood = Math.min(1, f.mood + 0.04);
   f.paxTimer = 0;

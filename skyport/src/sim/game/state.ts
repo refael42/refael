@@ -1,3 +1,4 @@
+import { makeStore } from './supplies';
 import { layoutFor } from '../../data/tiers';
 import { Big } from '../big';
 import { normalizeSeed } from '../rng';
@@ -28,6 +29,7 @@ export function createGame(seed: number): GameState {
     stands: L.stands.map(() => ({ occupant: 0, reserved: 0 })),
     fuelQueue: [],
     bagQueue: [],
+    mechQueue: [],
     edgeHold: [],
     nodeHold: [],
     standsBuilt: 1,
@@ -53,6 +55,9 @@ export function createGame(seed: number): GameState {
     rep: [],
     nextOfferAt: 0,
     nextGuestAt: 600,
+    nextCheckAt: 240,
+    stores: { fuel: makeStore('fuel'), parts: makeStore('parts') },
+    deliveries: [],
     schedule: [],
     departed: [],
     decor: {},
@@ -68,7 +73,7 @@ export function createGame(seed: number): GameState {
     nextId: 3,
     nextArrival: 2,
     spotCursor: 0,
-    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0), wages: Big.fromNumber(0), spent: Big.fromNumber(0), lostBags: 0, sales: Big.fromNumber(0), queueSecs: 0, queued: 0, goArounds: 0, guests: 0 },
+    stats: { served: 0, pax: 0, onTime: 0, late: 0, diverted: 0, earned: Big.fromNumber(0), wages: Big.fromNumber(0), spent: Big.fromNumber(0), lostBags: 0, sales: Big.fromNumber(0), queueSecs: 0, queued: 0, goArounds: 0, guests: 0, checks: 0 },
     events: [],
     nextEventId: 1,
     queue: [],

@@ -1,4 +1,7 @@
 /** The airfield: canvas + camera + taps + HUD + flight card + toasts. */
+import { levelCap, upgradeDef } from '../../data/upgrades';
+import { groundPlane } from '../../sim/game/flights';
+import { capacity, placeOrder, storeActive, STORE_KINDS } from '../../sim/game/supplies';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSharedValue } from 'react-native-reanimated';
@@ -9,6 +12,7 @@ import { useDir, useLang, useT, type TKey } from '../../i18n';
 import { makeCamera, updateCamera, useCameraResponder, viewToWorld, type DragHandler } from '../../render/camera';
 import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
+import { SupplyPanel } from './SupplyPanel';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
@@ -36,6 +40,7 @@ import {
   decorSpotOk,
   botAirlines,
   approachBlocker,
+  Big,
   botBuys,
   canExpand,
   repOf,
@@ -157,17 +162,33 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       }
       c.takeEvents();
     }
+    // screenshots: a grounded plane at its stand
+    if (debug.fault) {
+      const f = c.state.flights.find((x) => x.dockedAt > 0 && x.offBlockAt === 0 && !x.check && x.aog === 0);
+      if (f) groundPlane(c.state, f);
+    }
+    // screenshots: a tanker unloading at the fuel farm (and, from the regional airport, the parts van)
+    if (debug.tanker && storeActive(c.state, 'fuel')) {
+      for (const k of STORE_KINDS) {
+        if (!storeActive(c.state, k)) continue;
+        c.state.stores[k].stock = capacity(c.state, k) * 0.3;
+        placeOrder(c.state, k, true);
+      }
+      for (const d of c.state.deliveries) d.eta = c.state.time;
+      for (let i = 0; i < 30 * 200 && c.state.deliveries.some((d) => d.state !== 'unloading'); i++) c.tick(1000 / 30);
+      c.takeEvents();
+    }
     return c;
   }, []);
   const [tier, setTier] = useState(ctrl.state.tier);
   useEffect(() => {
     const want = tierCombos(tier);
     const have = sprites.combos;
-    if (want.every(([a, c]) => have.some(([x, y]) => x === a && y === c))) return;
+    if (sprites.tier >= tier && want.every(([a, c]) => have.some(([x, y]) => x === a && y === c))) return;
     setRebuilding(true);
     // let the overlay paint before the (synchronous) atlas build
     const id = setTimeout(() => {
-      setSprites(buildSprites({ combos: want }));
+      setSprites(buildSprites({ combos: want, tier }));
       setRebuilding(false);
     }, 60);
     return () => clearTimeout(id);
@@ -175,9 +196,10 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const L = layoutOf(tier);
   // which stands are built, as a string so the world is rebuilt only when it changes
   const [openSig, setOpenSig] = useState(() => ctrl.state.standOpen.map((o) => (o ? '1' : '0')).join(''));
-  const [stations, setStations] = useState(() => counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
+  // counters, lanes and the fuel farm size in one number (each a digit)
+  const [stations, setStations] = useState(() => (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
   const world = useMemo(
-    () => buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10), stations % 10),
+    () => buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100)),
     [L, sprites, tier, openSig, stations],
   );
   const cam = useMemo(() => {
@@ -356,6 +378,34 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'diversionRequest':
             toast('fuel', t('toast.diversionRequest', { code: codeOf(e.a) }), 'good');
             break;
+          case 'supplyArrived':
+            toast(e.a === 0 ? 'fuel' : 'wrench', t('toast.supplyArrived', { what: t(e.a === 0 ? 'sup.fuel' : 'sup.parts'), n: formatBig(Big.fromNumber(Math.round(e.b))) + (e.a === 0 ? ' ' + t('sup.liters') : '') }), 'good', 'supply' + e.a);
+            break;
+          case 'supplyOut':
+            toast('warn', t(e.a === 0 ? 'toast.fuelOut' : 'toast.partsOut'), 'warn', 'out' + e.a);
+            break;
+          case 'supplyLow':
+            toast('coin', t('toast.supplyLow', { what: t(e.a === 0 ? 'sup.fuel' : 'sup.parts') }), 'warn', 'low' + e.a);
+            break;
+          case 'supplyOrdered':
+            if (e.c === 1) toast('hourglass', t('toast.urgent'), 'info', 'urgent');
+            break;
+          case 'aog':
+            toast('wrench', t('toast.aog', { code: codeOf(e.a) }), 'warn');
+            break;
+          case 'repairDone':
+            toast('check', t('toast.repairDone', { code: codeOf(e.a) }), 'good');
+            break;
+          case 'waitingPart':
+            toast('hourglass', t('toast.waitingPart', { code: codeOf(e.a) }), 'warn', 'part');
+            break;
+          case 'checkRequest':
+            toast('build', t('toast.checkRequest', { code: codeOf(e.a), check: t(e.b === 2 ? 'sup.checkB' : 'sup.checkA') }), 'info');
+            break;
+          case 'checkDone':
+            toast('coin', t('toast.checkDone', { check: t(e.c === 2 ? 'sup.checkB' : 'sup.checkA'), n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
+            break;
           case 'cmdRejected':
             if (e.a === REJECT.noStand) toast('warn', t('toast.noStand'), 'warn', 'noStand');
             else if (e.a === REJECT.notReady) toast('hourglass', t('toast.notReady'), 'info', 'notReady');
@@ -509,7 +559,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const openNow = st.standOpen.map((o) => (o ? '1' : '0')).join('');
       setOpenSig((old) => (old === openNow ? old : openNow));
       setTier((old) => (old === st.tier ? old : st.tier));
-      const sig = counterCount(st) * 10 + laneCount(st);
+      const sig = (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
       setStations((old) => (old === sig ? old : sig));
       updateTutorial();
       setRev((r) => r + 1);
@@ -538,7 +588,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     if (ev.length) onEvents(ev);
     if (debug.select && !autoSelected.current && ctrl.state.flights.length > 0) {
       autoSelected.current = true;
-      setSelected(ctrl.state.flights[0].id);
+      const grounded = debug.fault ? ctrl.state.flights.find((f) => f.aog === 1 && !f.check) : undefined;
+      setSelected((grounded ?? ctrl.state.flights[0]).id);
     }
     cam.viewW = size.w;
     cam.viewH = size.h;
@@ -721,13 +772,15 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // landscape phones: compact bar, and the best-value tip beside it when there is room
   const short = size.h > 0 && size.h < 500;
   const barRow = short && size.w >= 800 && !!offer;
-  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport');
+  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies');
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
     { id: 'airlines', icon: 'tail', label: 'bar.airlines', badge: airlineNews },
     { id: 'board', icon: 'board', label: 'bar.board' },
     { id: 'airport', icon: 'plane', label: 'bar.airport', badge: tierOk },
+    // supplies: from the small airfield on (the dirt strip pump never runs dry)
+    ...(ctrl.state.tier >= 2 ? [{ id: 'supplies', icon: 'fuel' as const, label: 'bar.supplies' as const, badge: ctrl.state.stores.fuel.out || ctrl.state.stores.parts.out || ctrl.state.stores.fuel.low || ctrl.state.stores.parts.low }] : []),
     { id: 'build', icon: 'build', label: 'bar.build' },
   ];
 
@@ -879,6 +932,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }}
         />
       ) : null}
+      {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (
         <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]} pointerEvents="box-none">
@@ -950,10 +1004,16 @@ function fullAirport(s: GameState): void {
   s.upg.tower = Math.max(s.upg.tower ?? 0, s.tier - 1);
   s.upg.radar = Math.max(s.upg.radar ?? 0, Math.min(3, s.tier - 1));
   s.upg.ils = Math.max(s.upg.ils ?? 0, Math.min(3, s.tier - 2));
+  // tanks and shelves sized for the tier, full
+  for (const id of ['fuelFarm', 'partsStore']) {
+    const def = upgradeDef(id);
+    if (def) s.upg[id] = Math.max(s.upg[id] ?? 0, levelCap(def, s.tier));
+  }
   s.upg.truck2 = Math.max(s.upg.truck2 ?? 0, Math.min(5, s.tier));
   s.upg.cart2 = Math.max(s.upg.cart2 ?? 0, Math.min(5, s.tier));
   s.upgRev++;
   applyStructural(s);
+  for (const k of STORE_KINDS) if (storeActive(s, k)) s.stores[k].stock = capacity(s, k);
   s.stats.served = Math.max(s.stats.served, 400);
   AIRLINES.forEach((_, i) => {
     if (s.contracts.length >= contractSlots(s)) return;

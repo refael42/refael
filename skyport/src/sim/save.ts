@@ -24,6 +24,8 @@ import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
 import { DAY_SECONDS } from './game/clock';
 import { normalizeSeed } from './rng';
+import { STORES } from '../data/supplies';
+import { capacity, incoming, STORE_KINDS } from './game/supplies';
 
 export const SAVE_KEY = 'skyport.save.v1';
 
@@ -62,6 +64,8 @@ export function serializeGame(s: GameState, savedAt: number): string {
     offers: s.offers.map((o) => ({ ...o, al: AIRLINES[o.al]?.id })),
     rep: Object.fromEntries(AIRLINES.map((a, i) => [a.id, s.rep[i] ?? REP_START])),
     nextOfferAt: s.nextOfferAt,
+    // what is still on its way was paid for: it is saved as if it had arrived
+    stores: Object.fromEntries(STORE_KINDS.map((k) => [k, { stock: s.stores[k].stock + incoming(s, k), supplier: s.stores[k].supplier }])),
     upg: s.upg,
     builds: s.builds,
     priceMul: s.priceMul,
@@ -317,6 +321,7 @@ export function cleanGame(raw: unknown): GameState | null {
     queued: int(st.queued, 0, 0),
     goArounds: int(st.goArounds, 0, 0),
     guests: int(st.guests, 0, 0),
+    checks: int(st.checks, 0, 0),
   };
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
@@ -340,6 +345,13 @@ export function cleanGame(raw: unknown): GameState | null {
   s.schedule = [];
   s.departed = [];
   s.nextGuestAt = s.time + 600;
+  s.nextCheckAt = s.time + 240;
+  const rs = isObj(raw.stores) ? raw.stores : {};
+  for (const k of STORE_KINDS) {
+    const r = isObj(rs[k]) ? rs[k] : {};
+    s.stores[k].supplier = int(r.supplier, STORES[k].defaultSupplier, 0, STORES[k].suppliers.length - 1);
+    s.stores[k].stock = num(r.stock, capacity(s, k), 0, capacity(s, k));
+  }
   // ids must stay unique: never go below what is already used
   let maxId = 2 + s.vehicles.length;
   for (const m of s.staff) maxId = Math.max(maxId, m.id);

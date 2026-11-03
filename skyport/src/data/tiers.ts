@@ -8,6 +8,8 @@ export type P2 = readonly [number, number];
 export type P3 = readonly [number, number, number];
 
 export interface StandDef {
+  /** A maintenance bay in front of the hangar: only planes coming in for a check park here. */
+  hangar?: boolean;
   id: string;
   pos: P2;
   size: StandSize;
@@ -21,7 +23,7 @@ export interface StandDef {
   bridge?: boolean;
 }
 
-export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad';
+export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad' | 'hangar';
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -120,8 +122,65 @@ export interface TierLayout {
   road: readonly P2[];
   parking: { x0: number; y0: number; x1: number; y1: number };
   camera: { center: P2; zoom: number };
+  /** Supply area by the north fence (from the small airfield on): fuel farm, parts store, mechanics. */
+  depot?: Depot;
   /** Flights a game day the taxiways can carry on time (single shared lane = a hard limit). */
   groundCapacity: number;
+}
+
+export interface Depot {
+  /** Service road from the main road along the outside of the fence to the gate. */
+  serviceRoad: readonly P2[];
+  /** Gate in the north fence. */
+  gate: P2;
+  /** Fuel farm (tank group center) and where the tanker parks to unload. */
+  farm: P2;
+  fuelBay: P2;
+  /** Parts store (warehouse center) and where the delivery van stops. */
+  store: P2;
+  partsBay: P2;
+  /** Mechanics' van parking and the point it leaves through toward the apron. */
+  mech: ServiceHome;
+}
+
+/** The maintenance hangar on the west grass (regional airport on): two bays in front of its doors. */
+const HANGAR: BuildingDef = { kind: 'hangar', pos: [8.75, 16.1], size: [6.2, 2.6] };
+/**
+ * Its own one-way taxi loop off the end of the main taxiway: past both bays
+ * and back, so no link crosses another (planes could meet at a crossing).
+ */
+const HANGAR_LANE = {
+  nodes: { HW1: [15.35, 22.3] as P2, HWm: [11.75, 22.3] as P2, HW2: [10.0, 22.3] as P2, HW3: [10.5, 23.9] as P2 },
+  edges: [
+    ['Lg', 'HW1'],
+    ['HW1', 'HWm'],
+    ['HWm', 'HW2'],
+    ['HW2', 'HW3'],
+    ['HW3', 'T3'],
+  ] as [string, string][],
+};
+const HANGAR_BAYS: readonly StandDef[] = [
+  { id: 'HG1', pos: [9.85, 20.0], size: 'medium', from: 'HWm', to: 'HW2', line: 'hangar', level: 1, hangar: true },
+  { id: 'HG2', pos: [13.15, 20.0], size: 'medium', from: 'HW1', to: 'HWm', line: 'hangar', level: 2, hangar: true },
+];
+
+/** The supply area sits inside the north fence at x 28..35, whatever the fence's y. */
+function depotAt(y0: number): Depot {
+  const ys = y0 - 0.85;
+  return {
+    serviceRoad: [
+      [22.35, ys - 0.7],
+      [23.1, ys],
+      [30.6, ys],
+      [31.3, ys + 0.45],
+    ],
+    gate: [31.3, y0],
+    farm: [29.4, y0 + 1.55],
+    fuelBay: [31.3, y0 + 1.45],
+    store: [33.75, y0 + 1.45],
+    partsBay: [32.25, y0 + 0.95],
+    mech: { home: [32.6, y0 + 2.75], via: [31.6, y0 + 3.6] },
+  };
 }
 
 export interface TierDef {
@@ -307,6 +366,7 @@ const SMALL_AIRFIELD: TierLayout = {
   takeoff: { liftoffX: 21, climb: DIRT_STRIP.takeoff.climb },
   decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
   camera: { center: [20.4, 23.0], zoom: 0.68 },
+  depot: depotAt(15.6),
   groundCapacity: 42,
 };
 
@@ -371,9 +431,11 @@ const REGIONAL: TierLayout = {
       Mb: [37.0, 23.9],
       Mc: [33.8, 23.9],
       Md: [30.6, 23.9],
+      ...HANGAR_LANE.nodes,
     },
     edges: [
       ...SMALL_AIRFIELD.taxi.edges,
+      ...HANGAR_LANE.edges,
       ['T1', 'K1'],
       ['K1', 'K2'],
       ['K2', 'T5'],
@@ -405,8 +467,9 @@ const REGIONAL: TierLayout = {
     { id: 'F1', pos: [38.4, 21.6], size: 'fbo', from: 'Ma', to: 'Mb', line: 'fbo', level: 1 },
     { id: 'M1', pos: [35.4, 20.9], size: 'medium', from: 'Mb', to: 'Mc', line: 'standMed', level: 1 },
     { id: 'M2', pos: [32.2, 20.9], size: 'medium', from: 'Mc', to: 'Md', line: 'standMed', level: 2 },
+    ...HANGAR_BAYS,
   ],
-  buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }],
+  buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }, HANGAR],
   rev: {
     approach: approachFromEast(44),
     // a dog-leg to the hold so even the longest tail is clear of the K lane while waiting
@@ -430,6 +493,7 @@ const REGIONAL: TierLayout = {
     },
   },
   windsock: [20, 30.4],
+  depot: depotAt(13.6),
   groundCapacity: 46,
   camera: { center: [28, 23.5], zoom: 0.5 },
 };
@@ -476,6 +540,7 @@ const CITY: TierLayout = {
     { kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] },
     { kind: 'pier', pos: [42.2, 15.8], size: [8.6, 1.5] },
     { kind: 'cargo', pos: [53.2, 16.4], size: [3.2, 2.0] },
+    HANGAR,
   ],
   rev: {
     approach: approachFromEast(55),
@@ -498,7 +563,9 @@ const CITY: TierLayout = {
       ],
     },
   },
-  groundCapacity: 50,
+  depot: depotAt(12.4),
+  // (one runway for landings and takeoffs, with wake gaps behind the jets: more than this and planes queue)
+  groundCapacity: 44,
   camera: { center: [33, 23.5], zoom: 0.42 },
 };
 
@@ -516,7 +583,7 @@ const INTERNATIONAL: TierLayout = {
   depRunway: { x0: 13, x1: 58, y: DEP_Y, width: 1.8 },
   taxi: {
     ...CITY.taxi,
-    nodes: { ...CITY.taxi.nodes, W1: [12.0, 24.4], W2: [9.0, 28.8], W3: [9.2, 32.0], H2: [11.4, 32.3] },
+    nodes: { ...CITY.taxi.nodes, W1: [12.6, 24.9], W2: [9.0, 28.8], W3: [9.2, 32.0], H2: [11.4, 32.3] },
     edges: [...CITY.taxi.edges.filter(([a, b]) => !(a === 'T3' && b === 'H')), ['T3', 'W1'], ['W1', 'W2'], ['W2', 'W3'], ['W3', 'H2']],
     holdShort: 'H2',
     lineUp: [
@@ -558,6 +625,7 @@ const INTERNATIONAL: TierLayout = {
     },
   },
   windsock: [20, 30.6],
+  depot: depotAt(12.4),
   groundCapacity: 64,
   camera: { center: [33, 25.5], zoom: 0.4 },
 };

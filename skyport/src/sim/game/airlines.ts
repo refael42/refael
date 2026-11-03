@@ -53,7 +53,7 @@ export function kindOf(al: number): AirlineKindDef {
 /** Is any built stand of this kind open at the current tier? */
 function openStand(s: GameState, test: (st: StandDef) => boolean): boolean {
   const L = layoutOf(s.tier);
-  return L.stands.some((st, i) => s.standOpen[i] && test(st));
+  return L.stands.some((st, i) => s.standOpen[i] && !st.hangar && test(st));
 }
 
 /** Facilities some airlines insist on: built stands of a kind, or the lounge. */
@@ -257,6 +257,8 @@ function unhappy(s: GameState, c: Contract): boolean {
 
 /** Books a finished flight (paid on takeoff, or diverted) on its airline. */
 export function airlineFlightDone(s: GameState, f: Flight, result: 'onTime' | 'late' | 'diverted'): void {
+  // a ferry flight for a check is not a scheduled flight (the airline thanks you at the check)
+  if (f.check) return;
   const k = kindOf(f.airline);
   const d = repDelta(result, f.mood, f.lostBags, k.loyalty);
   if (f.guest) {
@@ -325,7 +327,8 @@ export function updateGuests(s: GameState, spawn: (p: Planned) => Flight | null)
   if (s.tier < 2 || s.tierSwitch) return;
   // the tower only takes a diversion in when there is room: two free stands and a quiet sky
   let free = 0;
-  for (let i = 0; i < s.stands.length; i++) if (s.standOpen[i] && s.stands[i].occupant === 0 && s.stands[i].reserved === 0) free++;
+  const GL = layoutOf(s.tier);
+  for (let i = 0; i < s.stands.length; i++) if (s.standOpen[i] && !GL.stands[i]?.hangar && s.stands[i].occupant === 0 && s.stands[i].reserved === 0) free++;
   let circling = 0;
   for (const f of s.flights) if (f.phase === 'holding' || f.phase === 'inbound') circling++;
   if (free < 2 || circling > 1) return;
@@ -358,7 +361,7 @@ export function airlineStandCap(s: GameState, al: number): number {
   if (fleet.length === 0) return 0;
   const need = AIRCRAFT[fleet[0]].stand;
   const L = layoutOf(s.tier);
-  const n = L.stands.filter((st, i) => s.standOpen[i] && standFits(st.size, need)).length;
+  const n = L.stands.filter((st, i) => s.standOpen[i] && !st.hangar && standFits(st.size, need)).length;
   return n * (PER_STAND[need] ?? 6);
 }
 

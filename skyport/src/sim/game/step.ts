@@ -12,6 +12,7 @@ import { updateWeather } from './weather';
 import { updateBuilds } from './upgrades';
 import type { GameState } from './types';
 import { updateVehicles } from './vehicles';
+import { updateSupplies } from './supplies';
 
 /** Advances the game by one fixed step. dt must be DT (kept for clarity). */
 export function stepGame(s: GameState, dt: number = DT): void {
@@ -28,6 +29,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateFlights(s, dt);
   updateDepartingPax(s);
   updateVehicles(s, dt);
+  updateSupplies(s, dt);
   updatePeople(s, dt);
   updateTerminal(s, dt);
   payWages(s);

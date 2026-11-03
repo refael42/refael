@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { stockUp } from './helpers';
+
 import { AIRCRAFT, paxGroupOf, planeArt, standFits } from '../src/data/aircraft';
 import { AIRLINES } from '../src/data/airlines';
 import { TIERS } from '../src/data/tiers';
@@ -43,6 +45,7 @@ function airport(tier: number, seed = 1): GameState {
   s.upg.cart2 = 5;
   s.upgRev++;
   applyStructural(s);
+  stockUp(s);
   s.stats.served = 5000;
   return s;
 }
@@ -55,6 +58,40 @@ function sign(s: GameState, id: string, perDay: number): void {
 }
 
 describe('layouts of the bigger airports', () => {
+  it('the hangar taxi loop keeps clear of every other taxi link', () => {
+    const segDist = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number, dx: number, dy: number) => {
+      const pt = (px: number, py: number, x0: number, y0: number, x1: number, y1: number) => {
+        const vx = x1 - x0;
+        const vy = y1 - y0;
+        const t = Math.max(0, Math.min(1, ((px - x0) * vx + (py - y0) * vy) / (vx * vx + vy * vy || 1)));
+        return Math.hypot(px - x0 - vx * t, py - y0 - vy * t);
+      };
+      // (segments that cross have distance 0: checked through the endpoints and an orientation test)
+      const o = (x0: number, y0: number, x1: number, y1: number, x2: number, y2: number) => Math.sign((x1 - x0) * (y2 - y0) - (y1 - y0) * (x2 - x0));
+      if (o(ax, ay, bx, by, cx, cy) * o(ax, ay, bx, by, dx, dy) < 0 && o(cx, cy, dx, dy, ax, ay) * o(cx, cy, dx, dy, bx, by) < 0) return 0;
+      return Math.min(pt(ax, ay, cx, cy, dx, dy), pt(bx, by, cx, cy, dx, dy), pt(cx, cy, ax, ay, bx, by), pt(dx, dy, ax, ay, bx, by));
+    };
+    for (const t of TIERS.filter((x) => x.layout && x.id >= 3)) {
+      const g = graphOf(t.id);
+      for (let i = 0; i < g.edges.length; i++) {
+        for (let j = i + 1; j < g.edges.length; j++) {
+          const a = g.edges[i];
+          const b = g.edges[j];
+          if (a.from === b.from || a.from === b.to || a.to === b.from || a.to === b.to) continue;
+          const hangar = (e: typeof a) => /^H[WG]/.test(g.ids[e.from]) || /^H[WG]/.test(g.ids[e.to]);
+          if (!hangar(a) && !hangar(b)) continue;
+          const [ax, ay] = g.pos[a.from];
+          const [bx, by] = g.pos[a.to];
+          const [cx, cy] = g.pos[b.from];
+          const [dx, dy] = g.pos[b.to];
+          const d = segDist(ax, ay, bx, by, cx, cy, dx, dy);
+          // (the same clearance the traffic tests demand between any two planes on the ground)
+          expect(d, `tier ${t.id}: ${g.ids[a.from]}>${g.ids[a.to]} vs ${g.ids[b.from]}>${g.ids[b.to]}`).toBeGreaterThan(0.95);
+        }
+      }
+    }
+  });
+
   it('a plane waiting at the hold short point has its whole tail off every arrival lane', () => {
     for (const t of TIERS) {
       const L = layoutOf(t.id);

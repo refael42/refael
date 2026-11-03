@@ -61,7 +61,24 @@ export type GameEventKind =
   | 'fogOut'
   | 'crosswind'
   | 'goAround'
-  | 'diversionRequest';
+  | 'diversionRequest'
+  /** a: store (0 fuel, 1 parts), b: amount, c: 1 when urgent. */
+  | 'supplyOrdered'
+  | 'supplyArrived'
+  /** a: store. Ran dry. */
+  | 'supplyOut'
+  /** a: store. Running low with nothing on the way (no money for an order). */
+  | 'supplyLow'
+  /** a: flight id. A technical fault: grounded until repaired. */
+  | 'aog'
+  | 'repairStart'
+  | 'repairDone'
+  /** a: flight id. The mechanic waits for a spare part. */
+  | 'waitingPart'
+  /** a: flight id, b: check (1 A, 2 B). */
+  | 'checkRequest'
+  /** a: flight id, b: fee, c: check. */
+  | 'checkDone';
 
 export interface GameEvent {
   id: number;
@@ -85,6 +102,7 @@ export type Command =
   | { type: 'startBoarding'; flightId: number }
   | { type: 'clearTakeoff'; flightId: number }
   | { type: 'sendBags'; flightId: number }
+  | { type: 'repair'; flightId: number }
   | { type: 'hire'; applicantId: number }
   | { type: 'negotiate'; applicantId: number }
   | { type: 'trial'; applicantId: number }
@@ -105,7 +123,10 @@ export type Command =
   | { type: 'negotiateOffer'; offerId: number; mode: number }
   | { type: 'declineOffer'; offerId: number }
   | { type: 'expandContract'; airline: number }
-  | { type: 'endContract'; airline: number };
+  | { type: 'endContract'; airline: number }
+  /** store: 0 fuel, 1 parts. */
+  | { type: 'setSupplier'; store: number; supplier: number }
+  | { type: 'urgentOrder'; store: number };
 
 export type FlightPhase =
   | 'inbound'
@@ -126,7 +147,7 @@ export type FlightPhase =
   | 'diverted';
 
 /** What the flight is waiting for the player (or staff) to do. */
-export const WANT = { none: 0, clearLanding: 1, fuel: 2, board: 3, clearTakeoff: 4, bags: 5 } as const;
+export const WANT = { none: 0, clearLanding: 1, fuel: 2, board: 3, clearTakeoff: 4, bags: 5, repair: 6 } as const;
 export type Want = (typeof WANT)[keyof typeof WANT];
 
 /** Service progress (fuel, bags): 0 none, 1 requested (queued), 2 vehicle driving, 3 working, 4 done. */
@@ -224,6 +245,17 @@ export interface Flight {
   guest: boolean;
   /** Missed approaches so far. */
   goArounds: number;
+  /** Technical fault found at the stand (AOG): 0 none, 1 grounded, 2 repaired. */
+  aog: number;
+  /** Repair progress: service state (like fuel), work 0..1, seconds it takes, parts still to fit. */
+  repState: number;
+  repWork: number;
+  repNeed: number;
+  repParts: number;
+  /** The mechanic is there but the part is not (store empty). */
+  partWait: boolean;
+  /** In for a scheduled check in the hangar: 0 no, 1 A check, 2 B check. */
+  check: number;
 }
 
 /** A signed airline contract. */
@@ -332,7 +364,8 @@ export interface Person {
 
 export type VehicleState = 'idle' | 'toPlane' | 'fueling' | 'return';
 
-export type ServiceKind = 'fuel' | 'bags';
+/** Service vehicles: fuel truck, baggage cart, mechanics' van. */
+export type ServiceKind = 'fuel' | 'bags' | 'mech';
 
 export interface Vehicle {
   id: number;
@@ -374,6 +407,8 @@ export interface Stats {
   /** Missed approaches, and planes diverted here from other airports that landed. */
   goArounds: number;
   guests: number;
+  /** Checks finished in the hangar. */
+  checks: number;
 }
 
 export interface Build {
@@ -436,6 +471,41 @@ export interface Applicant extends Person0 {
   negotiated: boolean;
 }
 
+/** One kind of supply on hand (fuel in liters, spare parts in pieces). */
+export interface StoreState {
+  stock: number;
+  /** Index into the store's supplier table. */
+  supplier: number;
+  /** Units used per second, smoothed (for reorder and the panel). */
+  use: number;
+  /** Announced running dry (until restocked). */
+  out: boolean;
+  /** Announced running low without money to order (until an order goes out). */
+  low: boolean;
+}
+
+/** A supply order and the truck that brings it. */
+export interface Delivery {
+  id: number;
+  /** 0 fuel, 1 parts. */
+  store: number;
+  amount: number;
+  urgent: boolean;
+  /** When the truck turns off the main road toward the gate. */
+  eta: number;
+  state: 'ordered' | 'driving' | 'unloading' | 'leaving';
+  /** Unloading progress 0..1 (stock goes up as it unloads). */
+  done: number;
+  path: number[];
+  pathPos: number;
+  x: number;
+  y: number;
+  /** Position at the previous step (render interpolation). */
+  px: number;
+  py: number;
+  heading: number;
+}
+
 export interface GameState {
   version: number;
   seed: number;
@@ -457,6 +527,8 @@ export interface GameState {
   fuelQueue: number[];
   /** Flight ids waiting for the baggage cart. */
   bagQueue: number[];
+  /** Grounded flights waiting for the mechanics' van. */
+  mechQueue: number[];
   /** Taxi graph reservations: flight id per edge / node (0 = free). */
   edgeHold: number[];
   nodeHold: number[];
@@ -497,6 +569,11 @@ export interface GameState {
   nextOfferAt: number;
   /** When the next plane may ask to divert here (transient). */
   nextGuestAt: number;
+  /** When the next airline may send a plane in for a check (transient). */
+  nextCheckAt: number;
+  /** Fuel farm and spare-parts store, and the deliveries on their way. */
+  stores: { fuel: StoreState; parts: StoreState };
+  deliveries: Delivery[];
   /** Planned arrivals, earliest first (transient, rebuilt from the contracts). */
   schedule: Planned[];
   /** Latest departures for the board (transient). */
