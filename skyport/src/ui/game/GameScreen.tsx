@@ -1,6 +1,7 @@
 /** The airfield: canvas + camera + taps + HUD + flight card + toasts. */
 import { levelCap, upgradeDef } from '../../data/upgrades';
-import { groundPlane } from '../../sim/game/flights';
+import { INCIDENTS, type IncidentKind } from '../../data/incidents';
+import { groundPlane, spawnFlight } from '../../sim/game/flights';
 import { capacity, placeOrder, storeActive, STORE_KINDS } from '../../sim/game/supplies';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
@@ -15,6 +16,7 @@ import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
 import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
+import { IncidentsPanel } from './IncidentsPanel';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
@@ -41,8 +43,12 @@ import {
   decorPos,
   decorSpotOk,
   botAirlines,
+  activeIncidents,
   approachBlocker,
   Big,
+  isWeekend,
+  startIncident,
+  stormActive,
   currentGoal,
   GOALS,
   goalReward,
@@ -108,6 +114,9 @@ function hudOf(c: GameController): HudData {
     fog,
     cross: s.wxCross,
     haze: Math.round(Math.max(0, 1 - w.vis) * 20) / 20,
+    storm: stormActive(s),
+    incidents: activeIncidents(s).length,
+    weekend: isWeekend(s.time),
   };
 }
 
@@ -172,6 +181,24 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     if (debug.fault) {
       const f = c.state.flights.find((x) => x.dockedAt > 0 && x.offBlockAt === 0 && !x.check && x.aog === 0);
       if (f) groundPlane(c.state, f);
+    }
+    // screenshots: an incident under way (announced ones skip their warning)
+    if (debug.inc && INCIDENTS.some((d) => d.kind === debug.inc)) {
+      // an emergency needs a plane in the air to declare it
+      if (debug.inc === 'emergency') spawnFlight(c.state);
+      const inc = startIncident(c.state, debug.inc as IncidentKind, (p) => spawnFlight(c.state, p));
+      if (inc && inc.state === 'announced') inc.at = c.state.time;
+      // (let it get going: the car or the trucks on their way, the VIP on the ground)
+      const ahead = debug.inc === 'vip' ? 240 : debug.inc === 'fod' ? 6 : 2;
+      const vf = inc?.flight ? c.state.flights.find((x) => x.id === inc.flight) : undefined;
+      for (let i = 0; i < 30 * ahead; i++) {
+        // the VIP: until it is at its stand, the carpet out
+        if (debug.inc === 'vip' && vf && vf.dockedAt > 0 && c.state.time - vf.dockedAt > 4) break;
+        if ((debug.inc === 'emergency' || debug.inc === 'vip') && vf && !vf.landCleared && i % 30 === 0) c.send({ type: 'clearLanding', flightId: vf.id });
+        if (debug.auto && i % 3 === 0) for (const cmd of botCommands(c.state, { reaction: 1 })) c.send(cmd);
+        c.tick(1000 / 30);
+      }
+      c.takeEvents();
     }
     // screenshots: a tanker unloading at the fuel farm (and, from the regional airport, the parts van)
     if (debug.tanker && storeActive(c.state, 'fuel')) {
@@ -309,8 +336,18 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       cam.x = isoX(debug.cam[0], debug.cam[1]);
       cam.y = isoY(debug.cam[0], debug.cam[1]);
       cam.zoom = debug.cam[2];
+    } else if (debug.inc) {
+      // screenshots of an incident: look at it (its plane, or where it is)
+      const inc = ctrl.state.incidents.find((i) => i.kind === debug.inc);
+      const f = inc?.flight ? ctrl.state.flights.find((x) => x.id === inc.flight) : undefined;
+      const at = f ? [f.x, f.y] : inc && inc.x ? [inc.x, inc.y] : null;
+      if (at) {
+        cam.x = isoX(at[0], at[1]);
+        cam.y = isoY(at[0], at[1]);
+        cam.zoom = 1.5;
+      }
     }
-  }, [size, cam]);
+  }, [size, cam, ctrl]);
 
   const toast = useCallback((icon: Toast['icon'], text: string, tone: Toast['tone'] = 'info', key?: string) => {
     const tnow = performance.now();
@@ -516,6 +553,47 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             fx.sparkle(isoX(NL.hut[0] + 1, NL.hut[1] + 0.7), isoY(NL.hut[0] + 1, NL.hut[1] + 0.7) - 40);
             break;
           }
+          case 'incidentSoon': {
+            const kind = INCIDENTS[e.a]?.kind;
+            if (kind) toast(kind === 'airshow' ? 'plane' : 'cloud', t(`inc.${kind}.soon` as TKey, { t: Math.round(e.c) }), 'warn', 'inc' + kind);
+            break;
+          }
+          case 'incidentStart': {
+            const kind = INCIDENTS[e.a]?.kind;
+            if (!kind) break;
+            const inc = ctrl.state.incidents.find((i) => i.id === e.b);
+            const code = inc?.flight ? codeOf(inc.flight) : '';
+            toast(kind === 'vip' ? 'star' : kind === 'airshow' ? 'plane' : 'warn', t(`inc.${kind}.start` as TKey, { code }), kind === 'vip' || kind === 'airshow' ? 'good' : 'warn', 'inc' + kind);
+            break;
+          }
+          case 'incidentEnd': {
+            const kind = INCIDENTS[e.a]?.kind;
+            // (emergencies and VIPs have their own moment when it happens)
+            if (!kind || kind === 'emergency' || kind === 'vip' || kind === 'birds') break;
+            if (e.b > 0 && kind !== 'fod') toast('coin', t(`inc.${kind}.good` as TKey, { n: formatBig(Big.fromNumber(e.c)) }), 'good');
+            else if (kind === 'storm') toast('sun', t('inc.storm.end'), 'good');
+            else if (kind === 'fod') toast('check', t('inc.fod.good'), 'good');
+            break;
+          }
+          case 'emergencyLanded':
+            toast('check', t('inc.emergency.good', { n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
+            break;
+          case 'emergencyMissed':
+            toast('warn', t('inc.emergency.bad'), 'warn');
+            break;
+          case 'birdStrike':
+            toast('warn', t('toast.birdStrike', { code: codeOf(e.a) }), 'warn');
+            break;
+          case 'vipTip':
+            toast('star', t('toast.vipTip', { code: codeOf(e.a), n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            break;
+          case 'fodCar':
+            toast('wrench', t('toast.fodCar'), 'info', 'fodCar');
+            break;
+          case 'weekend':
+            toast('sun', t('toast.weekend'), 'good', 'weekend');
+            break;
           case 'goalDone': {
             const g = GOALS[e.a];
             if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good');
@@ -803,7 +881,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // landscape phones: compact bar, and the best-value tip beside it when there is room
   const short = size.h > 0 && size.h < 500;
   const barRow = short && size.w >= 800 && !!offer;
-  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies');
+  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies' || panel === 'events' || panel === 'help');
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
@@ -888,6 +966,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     <View style={styles.root}>
       <View ref={mapRef as never} style={styles.fill} onLayout={onLayout} {...responder.panHandlers}>
         {size.w > 0 ? <SceneCanvas snap={snap} res={res} width={size.w} height={size.h} /> : null}
+        {hud.storm ? <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,23,42,0.28)' }]} pointerEvents="none" testID="storm" /> : null}
         {hud.haze > 0 ? <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(226,232,240,${(hud.haze * 0.62).toFixed(2)})` }]} pointerEvents="none" testID="fog" /> : null}
       </View>
       <View style={[styles.top, { paddingTop: insets.top + 6 }]} pointerEvents="box-none">
@@ -897,7 +976,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             safe.current.top = insets.top + 6 + e.nativeEvent.layout.height;
           }}
         >
-          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onCoinPos={onCoinPos} bump={bump} />
+          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
@@ -992,6 +1071,21 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           initialTab={debug.tab}
           onClose={() => setPanel(null)}
           onPick={(id) => {
+            const f = ctrl.state.flights.find((x) => x.id === id);
+            if (!f) return;
+            setSelected(id);
+            cam.target = { x: isoX(f.x, f.y), y: isoY(f.x, f.y, f.z) };
+            setPanel(null);
+          }}
+        />
+      ) : null}
+      {panel === 'events' ? (
+        <IncidentsPanel
+          state={ctrl.state}
+          rev={rev}
+          send={(c) => ctrl.send(c)}
+          onClose={() => setPanel(null)}
+          onShow={(id) => {
             const f = ctrl.state.flights.find((x) => x.id === id);
             if (!f) return;
             setSelected(id);

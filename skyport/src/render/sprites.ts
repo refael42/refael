@@ -41,6 +41,11 @@ import {
   drawHangar,
   drawGateBooth,
   drawWarnTriangle,
+  drawFireStation,
+  drawDebris,
+  drawBird,
+  drawRedCarpet,
+  drawRain,
   drawRadar,
   RADAR_FRAMES,
   IsoPen,
@@ -56,7 +61,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020'];
@@ -78,7 +83,7 @@ export interface Content {
 }
 
 /** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
-const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3 };
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2 };
 
 export interface SpriteSet {
   atlas: Atlas;
@@ -112,6 +117,12 @@ export interface SpriteSet {
   /** Hangar with 1 or 2 bays open. */
   hangar: (bays: number) => number;
   warnTriangle: number;
+  /** Incidents: fire station, runway debris, a bird (frame 0/1), the VIP carpet, a rain streak. */
+  fireStation: number;
+  debris: number;
+  bird: (frame: number) => number;
+  redCarpet: number;
+  rain: number;
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
@@ -273,6 +284,12 @@ export function buildSprites(content: Content): SpriteSet {
   const hangarBase = b.size;
   for (let n = 1; n <= 2; n++) b.add(-3.0 * T, -2.3 * T, 6.6 * T, 4.7 * T, (c, ox, oy) => drawHangar(new IsoPen(c, ox, oy, S), n));
   const warnTriangle = b.add(-8 * S, -14 * S, 8 * S, 4 * S, (c, ox, oy) => drawWarnTriangle(new IsoPen(c, ox, oy, S)));
+  const fireStation = b.add(-1.6 * T, -1.6 * T, 2.0 * T, 1.7 * T, (c, ox, oy) => drawFireStation(new IsoPen(c, ox, oy, S)));
+  const debris = b.add(-10 * S, -6 * S, 10 * S, 8 * S, (c, ox, oy) => drawDebris(new IsoPen(c, ox, oy, S)));
+  const birdBase = b.size;
+  for (let f = 0; f < 2; f++) b.add(-7 * S, -6 * S, 7 * S, 5 * S, (c, ox, oy) => drawBird(new IsoPen(c, ox, oy, S), f));
+  const redCarpet = b.add(-0.4 * T, -1.3 * T, 2.0 * T, 0.3 * T, (c, ox, oy) => drawRedCarpet(new IsoPen(c, ox, oy, S)));
+  const rain = b.add(-3 * S, -18 * S, 5 * S, 4 * S, (c, ox, oy) => drawRain(new IsoPen(c, ox, oy, S)));
 
   // static objects (anchor = object origin on the ground)
   const hut = b.add(-1.9 * 32 * S, -1.6 * 32 * S, 2.2 * 32 * S, 2.0 * 32 * S, (c, ox, oy) => drawHut(new IsoPen(c, ox, oy, S)));
@@ -420,6 +437,11 @@ export function buildSprites(content: Content): SpriteSet {
     gateBooth,
     hangar: (n) => hangarBase + (n >= 2 ? 1 : 0),
     warnTriangle,
+    fireStation,
+    debris,
+    bird: (f) => birdBase + (f % 2),
+    redCarpet,
+    rain,
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,

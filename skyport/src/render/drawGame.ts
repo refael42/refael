@@ -1,20 +1,20 @@
 /** Writes the game state into the frame snapshot (JS thread, every frame). */
 import { planeArt } from '../data/aircraft';
 import { STAFF_ROLES } from '../data/staff';
-import { layoutOf } from '../sim/game/layout';
+import { doorPoint, layoutOf } from '../sim/game/layout';
 import { decorPos } from '../sim/game/tiers';
-import { layoutFor } from '../data/tiers';
+import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
 import { capacity, storeActive } from '../sim/game/supplies';
 import { GAUGE_STEPS } from './art/objects';
 import type { IconName } from './art/icons';
-import { OUTFITS } from './art/people';
+import { OUTFITS, PAX_OUTFITS } from './art/people';
 import type { Camera } from './camera';
 import type { Effects } from './effects';
 import { isoX, isoY, Z_PX } from './iso';
 import type { SnapWriter } from './scene';
-import { BEACON } from './art/vehicles';
+import { BEACON, CAR_VARIANTS } from './art/vehicles';
 import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
 import { parkedCars, roadCars, type CarPose } from './traffic';
 import type { World } from './world';
@@ -33,6 +33,7 @@ const RADAR_POS: readonly [number, number] = [16.5, 15.3];
 
 const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
 const MECH_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'mechanic'));
+const PAX_OUTFIT_IDX = PAX_OUTFITS.map((id) => Math.max(0, OUTFITS.findIndex((o) => o.id === id)));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
 export function bubbleAnchor(f: { x: number; y: number; z: number; aircraft: number }, zoom: number): { x: number; y: number } {
@@ -188,6 +189,8 @@ export function drawGame(
     // the red beacon on the van's side of the plane blinks
     if (Math.floor(o.time * 2.5 + f.id) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), isoX(tx, ty), isoY(tx, ty, 0.3), 0.8, 0.9);
   }
+
+  drawIncidents(w, s, sp, o, a, inv, visible, { x0: vx0, x1: vx1, y0: vy0, y1: vy1 });
 
   // supply trucks on their way in, unloading at the depot, and leaving
   for (const dv of s.deliveries) {
@@ -444,4 +447,148 @@ export function constructionSite(s: GameState): { at: readonly [number, number];
   else if (b.id === 'truck2') at = [L.fuel.home[0] + 0.8, L.fuel.home[1] - 0.6];
   else at = [L.bags.home[0] - 0.8, L.bags.home[1] - 0.4];
   return { at, progress: 1 - b.remaining / Math.max(0.001, b.total) };
+}
+
+/** Incidents: response vehicles, debris, birds, storm, the air show, VIP carpet, emergency pulse. */
+function drawIncidents(
+  w: SnapWriter,
+  s: GameState,
+  sp: SpriteSet,
+  o: DrawOptions,
+  a: number,
+  inv: number,
+  visible: (x: number, y: number, r: number) => boolean,
+  view: { x0: number; x1: number; y0: number; y1: number },
+): void {
+  const L = layoutOf(s.tier);
+  for (const inc of s.incidents) {
+    // response vehicles (shown until they are back at the station)
+    for (const u of inc.units) {
+      if (u.state === 'home') continue;
+      const x = lerp(u.px, u.x, a);
+      const y = lerp(u.py, u.y, a);
+      const sx = isoX(x, y);
+      const sy = isoY(x, y);
+      if (!visible(sx, sy, 50)) continue;
+      const d = dirIndex(u.heading);
+      const k = VEHICLE_KINDS.indexOf(u.kind);
+      w.shadow(sp.vehicleShadow(k, d), sx + 2, sy + 2, 1, 0.28);
+      w.sprite(sp.vehicle(k, d), sx, sy, 1, x + y);
+      if (Math.floor(o.time * 4 + inc.id) % 2 === 0) {
+        const b = BEACON[u.kind];
+        const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
+        w.fx(sp.glow(u.kind === 'fire' ? GLOW_COLORS.red : GLOW_COLORS.amber), p.x, p.y, 1.1, 0.95);
+      }
+    }
+    if (inc.state !== 'active') {
+      // the crowd gathers while an air show is announced
+      if (inc.kind === 'airshow' && inc.state === 'announced') drawCrowd(w, sp, L, o.time, 0.6);
+      continue;
+    }
+    switch (inc.kind) {
+      case 'fod': {
+        const sx = isoX(inc.x, inc.y);
+        const sy = isoY(inc.x, inc.y);
+        w.sprite(sp.debris, sx, sy, 1, inc.x + inc.y - 0.2);
+        if (Math.floor(o.time * 2) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.amber), sx, sy - 3, 0.6, 0.8);
+        break;
+      }
+      case 'birds': {
+        // a flock wheeling over the touchdown zone
+        for (let i = 0; i < 11; i++) {
+          const ang = o.time * 0.9 + i * 0.57 + Math.sin(i * 1.7) * 0.4;
+          const r = 1.2 + (i % 4) * 0.45;
+          const bx = inc.x + Math.cos(ang) * r;
+          const by = inc.y - 1.5 + Math.sin(ang) * r * 0.6;
+          const bz = 0.9 + (i % 3) * 0.25 + Math.sin(o.time * 2 + i) * 0.08;
+          w.over(sp.bird(Math.floor(o.time * 8 + i) % 2), isoX(bx, by), isoY(bx, by, bz), 1.8 * Math.max(1, inv * 0.6));
+        }
+        break;
+      }
+      case 'storm': {
+        // rain over everything in view, slanting; now and then lightning lights the sky
+        const W = view.x1 - view.x0;
+        const H = view.y1 - view.y0;
+        for (let i = 0; i < 160; i++) {
+          const fx = (Math.sin(i * 12.9898) * 43758.5453) % 1;
+          const fy = (Math.sin(i * 78.233) * 12543.123) % 1;
+          const x = view.x0 + (((fx + 1) % 1) * W + o.time * 60 * inv) % W;
+          const y = view.y0 + (((fy + 1) % 1) * H + o.time * 520 * inv) % H;
+          w.over(sp.rain, x, y, 1.4 * inv);
+        }
+        const flash = (o.time * 0.37 + inc.id * 0.13) % 1;
+        if (flash < 0.025 || (flash > 0.05 && flash < 0.065)) w.fx(sp.glow(GLOW_COLORS.white), (view.x0 + view.x1) / 2, (view.y0 + view.y1) / 2, 60 * inv, 0.55);
+        break;
+      }
+      case 'airshow':
+        drawCrowd(w, sp, L, o.time, 1);
+        drawAirshow(w, sp, L, s.time - inc.at + o.alpha / 30);
+        break;
+      case 'emergency': {
+        const f = s.flights.find((x) => x.id === inc.flight);
+        if (f && f.dockedAt === 0) {
+          const x = lerp(f.px, f.x, a);
+          const y = lerp(f.py, f.y, a);
+          const z = lerp(f.pz, f.z, a);
+          const pulse = 0.5 + 0.5 * Math.sin(o.time * 6);
+          w.fx(sp.glow(GLOW_COLORS.red), isoX(x, y), isoY(x, y, z), (2.2 + pulse) * Math.max(1, inv * 0.5), 0.55 + 0.35 * pulse);
+        }
+        break;
+      }
+      case 'vip':
+        break;
+    }
+  }
+  // VIPs at their stand: red carpet to the door, a black car waiting
+  for (const f of s.flights) {
+    if (!f.vip || f.dockedAt === 0 || f.offBlockAt > 0) continue;
+    const door = doorPoint(L, f.aircraft, f.x, f.y, f.heading);
+    w.decal(sp.redCarpet, isoX(door[0], door[1]), isoY(door[0], door[1]), 1, 1);
+    const cx = door[0] + 0.55;
+    const cy = door[1] - 1.5;
+    const car = CAR_VARIANTS.findIndex((c) => c.kind === 'suv' && c.color === '#111827');
+    if (car >= 0) w.sprite(sp.car(car, dirIndex(Math.PI * 0.5)), isoX(cx, cy), isoY(cx, cy), 1, cx + cy);
+  }
+}
+
+/** Spectators lining the apron edge by the parking lot. */
+function drawCrowd(w: SnapWriter, sp: SpriteSet, L: TierLayout, time: number, share: number): void {
+  const PK = L.parking;
+  const n = Math.round(22 * share);
+  for (let i = 0; i < n; i++) {
+    const x = PK.x0 - 0.4 + (i % 11) * 0.3 + (i >= 11 ? 0.15 : 0);
+    const y = PK.y1 + 0.35 + (i >= 11 ? 0.32 : 0);
+    const outfit = PAX_OUTFIT_IDX[i % PAX_OUTFIT_IDX.length];
+    // a little bounce: they are excited
+    const frame = Math.floor(time * 2 + i) % 3 === 0 ? 1 : 4;
+    w.sprite(sp.person(outfit, false, i % 2 === 1, frame), isoX(x, y), isoY(x, y), 1, x + y);
+  }
+}
+
+/** Three aerobatic planes looping over the runway, trailing smoke. */
+function drawAirshow(w: SnapWriter, sp: SpriteSet, L: TierLayout, t: number): void {
+  const r = L.runway;
+  const cx = (r.x0 + r.x1) / 2;
+  const cy = r.y - 1.8;
+  const combo = sp.comboIndex(0, 0);
+  if (combo < 0) return;
+  for (let k = 0; k < 3; k++) {
+    const pos = (tt: number) => {
+      const th = tt * 0.7;
+      return {
+        x: cx + Math.cos(th) * 6.5 + (k - 1) * 0.9 * Math.sin(th),
+        y: cy + Math.sin(th) * 2.6 - (k - 1) * 0.9 * Math.cos(th),
+        z: 2.0 + Math.sin(th * 2) * 0.9 + (k === 1 ? 0.3 : 0),
+      };
+    };
+    const p = pos(t);
+    const q = pos(t + 0.05);
+    const heading = Math.atan2(q.y - p.y, q.x - p.x);
+    // smoke: puffs left behind along the path, fading
+    for (let j = 1; j <= 14; j++) {
+      const s0 = pos(t - j * 0.12);
+      w.fx(sp.puff, isoX(s0.x, s0.y), isoY(s0.x, s0.y, s0.z), 0.5 + j * 0.05, Math.max(0, 0.75 - j * 0.05));
+    }
+    w.sprite(sp.plane(combo, dirIndex(heading)), isoX(p.x, p.y), isoY(p.x, p.y, p.z), 1 / planeRes(0), 2000 + p.x + p.y + p.z);
+  }
 }

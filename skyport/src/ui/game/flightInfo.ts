@@ -59,7 +59,10 @@ export interface FlightView {
   kind: string;
   rep: number;
   /** Why a cleared plane is still circling ('' = it isn't). */
-  hold: '' | 'fog' | 'crosswind' | 'turn' | 'wake' | 'runway';
+  hold: '' | 'fog' | 'storm' | 'closed' | 'crosswind' | 'turn' | 'wake' | 'runway';
+  /** Declared an emergency / a VIP flight. */
+  emergency: boolean;
+  vip: boolean;
   /** Diverted here from another airport (pays double). */
   guest: boolean;
   /** Grounded with a fault (1), in for a check (check 1/2), repair progress, waiting for a part. */
@@ -104,6 +107,8 @@ export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): Flig
     check: f.check,
     repair: f.aog === 1 && f.repState >= 3 ? Math.round(f.repWork * 100) / 100 : -1,
     partWait: f.partWait,
+    emergency: f.emergency,
+    vip: f.vip,
   };
 }
 

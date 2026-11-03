@@ -10,7 +10,7 @@ export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
-  'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair',
+  'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -369,6 +369,26 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       stroke([20, 27, 40, 27], '#a5b4fc', 4);
       circ(44, 46, 13, '#10b981');
       stroke([37, 46, 42, 51, 51, 41], '#ffffff', 4.5);
+      break;
+    }
+    case 'bell': {
+      // a bell with a clapper and a little motion line
+      const b = Skia.PathBuilder.Make();
+      b.moveTo(32, 10);
+      b.cubicTo(20, 10, 16, 22, 16, 32);
+      b.lineTo(16, 42);
+      b.lineTo(10, 48);
+      b.lineTo(54, 48);
+      b.lineTo(48, 42);
+      b.lineTo(48, 32);
+      b.cubicTo(48, 22, 44, 10, 32, 10);
+      b.close();
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawPath(b.build(), f);
+      circ(32, 8, 4, '#f59e0b');
+      circ(32, 53, 6, '#b45309');
+      stroke([52, 14, 57, 20], '#fbbf24', 3.5);
+      stroke([12, 14, 7, 20], '#fbbf24', 3.5);
       break;
     }
     case 'wind': {

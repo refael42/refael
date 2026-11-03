@@ -80,7 +80,25 @@ export type GameEventKind =
   /** a: flight id, b: fee, c: check. */
   | 'checkDone'
   /** a: goal index, b: reward. */
-  | 'goalDone';
+  | 'goalDone'
+  /** a: incident kind index, b: incident id, c: seconds until it starts. */
+  | 'incidentSoon'
+  | 'incidentStart'
+  /** a: kind index, b: result (1 good, -1 bad), c: coins. */
+  | 'incidentEnd'
+  /** a: incident id. The inspection car drives out. */
+  | 'fodCar'
+  /** a: flight id. Fire trucks roll out. */
+  | 'fireOut'
+  /** a: flight id, b: reward. */
+  | 'emergencyLanded'
+  | 'emergencyMissed'
+  /** a: flight id. */
+  | 'birdStrike'
+  /** a: flight id, b: tip. */
+  | 'vipTip'
+  /** a: game day. */
+  | 'weekend';
 
 export interface GameEvent {
   id: number;
@@ -258,6 +276,45 @@ export interface Flight {
   partWait: boolean;
   /** In for a scheduled check in the hangar: 0 no, 1 A check, 2 B check. */
   check: number;
+  /** Incidents: declared an emergency; a VIP flight (and whether it tipped); took a bird on landing. */
+  emergency: boolean;
+  vip: boolean;
+  vipGood: boolean;
+  birdHit: boolean;
+}
+
+/** A vehicle an incident sends out (the runway inspection car, a fire truck). */
+export interface IncidentUnit {
+  kind: 'opsCar' | 'fire';
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  heading: number;
+  path: number[];
+  pathPos: number;
+  state: 'home' | 'out' | 'work' | 'back';
+}
+
+/** Something happening at the airport (see incidents.ts). */
+export interface Incident {
+  id: number;
+  kind: import('../../data/incidents').IncidentKind;
+  state: 'announced' | 'active' | 'done';
+  /** When it starts (announced) or started (active). */
+  at: number;
+  /** When it ends (0 = when it resolves); for a finished one, when it ended. */
+  ends: number;
+  /** The flight it is about (emergency, VIP, bird strike), 0 = none. */
+  flight: number;
+  /** Where (debris, the flock). */
+  x: number;
+  y: number;
+  units: IncidentUnit[];
+  /** How it went: 1 well, -1 badly, 0 neither. */
+  result: number;
+  /** Coins it brought in (tickets, a reward, a tip). */
+  amount: number;
 }
 
 /** A signed airline contract. */
@@ -575,6 +632,15 @@ export interface GameState {
   nextCheckAt: number;
   /** Index of the goal being worked on (GOALS in goals.ts). */
   goal: number;
+  /** Incidents under way and the last few finished (transient). */
+  incidents: Incident[];
+  nextIncidentAt: number;
+  /** When each kind last started (cooldowns, transient). */
+  incidentLast: Record<string, number>;
+  /** Runway 1 closed until this time (after an emergency landing). */
+  runwayClosedUntil: number;
+  /** Game day already announced as a weekend day (transient). */
+  weekendDay: number;
   /** Fuel farm and spare-parts store, and the deliveries on their way. */
   stores: { fuel: StoreState; parts: StoreState };
   deliveries: Delivery[];

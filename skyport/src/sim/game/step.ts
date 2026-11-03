@@ -1,7 +1,8 @@
 import { applyCommand } from './commands';
 import { DT } from './constants';
 import { pruneEvents } from './events';
-import { updateDepartingPax, updateFlights, updateSpawning } from './flights';
+import { spawnFlight, updateDepartingPax, updateFlights, updateSpawning } from './flights';
+import { updateIncidents } from './incidents';
 import { updatePeople } from './people';
 import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
@@ -25,6 +26,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   s.tick++;
   s.time = s.tick * dt;
   updateWeather(s);
+  updateIncidents(s, dt, (p) => spawnFlight(s, p));
   updateSpawning(s);
   updateStaff(s);
   updateFlights(s, dt);

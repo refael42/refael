@@ -91,8 +91,21 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
         {v.hold ? (
           <Chip tone="bad">
             <View style={[styles.chipRow, { flexDirection: dir.row }]}>
-              <Icon name={v.hold === 'fog' ? 'fog' : v.hold === 'crosswind' || v.hold === 'turn' ? 'wind' : 'hourglass'} size={13} />
+              <Icon name={v.hold === 'fog' ? 'fog' : v.hold === 'crosswind' || v.hold === 'turn' || v.hold === 'storm' ? 'wind' : 'hourglass'} size={13} />
               <Text style={[styles.chipText, { color: C.red }]}>{t(`hold.${v.hold}` as TKey)}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.emergency ? (
+          <Chip tone="bad">
+            <Text style={[styles.chipText, { color: C.red }]}>{t('card.emergency')}</Text>
+          </Chip>
+        ) : null}
+        {v.vip ? (
+          <Chip tone="accent">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="star" size={13} />
+              <Text style={[styles.chipText, { color: C.primary }]}>{t('card.vip')}</Text>
             </View>
           </Chip>
         ) : null}

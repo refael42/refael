@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as SIM from '../src/sim';
 
 import { openStands } from './helpers';
 
@@ -441,5 +442,33 @@ describe('flight board', () => {
     s.contracts[0].perDay = 30;
     for (let i = 0; i < 30 * 400; i++) stepGame(s);
     expect(arrivalsBoard(s).some((r) => r.status === 'delayed' || r.status === 'holding')).toBe(true);
+  });
+});
+
+describe('stand room shared between airlines', () => {
+  it('two airlines flying the same size of plane share its stands: the second is offered only what is left', () => {
+    const { airlineStandCap, airlineStandRoom, applyStructural, createGame, makeOffer, signOffer, switchTier, layoutOf } = SIM;
+    const s = createGame(77);
+    switchTier(s, 4);
+    for (const st of layoutOf(4).stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
+    s.upg.lounge = 1;
+    s.upgRev++;
+    applyStructural(s);
+    s.contracts = [];
+    // large-jet airlines that could sign here
+    const big = AIRLINES.map((_, i) => i).filter((i) => {
+      s.rep[i] = 100;
+      return !SIM.airlineBlocker(s, i) && airlineStandCap(s, i) > 0 && AIRCRAFT[SIM.fleetHere(s, i)[0]]?.stand === 'large';
+    });
+    expect(big.length).toBeGreaterThanOrEqual(2);
+    const [a, b] = big;
+    const cap = airlineStandCap(s, b);
+    expect(airlineStandRoom(s, b)).toBe(cap);
+    const o = makeOffer(s, a);
+    s.offers.push(o);
+    expect(signOffer(s, o.id)).toBe(0);
+    expect(airlineStandRoom(s, b)).toBe(Math.max(0, cap - o.perDay));
+    // and an offer from the second never asks for more than that
+    if (airlineStandRoom(s, b) > 0) expect(makeOffer(s, b).perDay).toBeLessThanOrEqual(airlineStandRoom(s, b));
   });
 });

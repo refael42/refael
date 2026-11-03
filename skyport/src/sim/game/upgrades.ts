@@ -268,6 +268,9 @@ export function offers(s: GameState): UpgradeOffer[] {
       case 'cart':
         gain = rate * 0.06;
         break;
+      case 'birds':
+        gain = rate * 0.03;
+        break;
       case 'storage': {
         // a bigger store pays when the current one can't bridge a delivery
         const kind = def.id === 'fuelFarm' ? 'fuel' : 'parts';

@@ -381,9 +381,54 @@ function partsTruck(): StackPart[] {
   return parts;
 }
 
+/** Airport crash tender: a big red truck on three axles, lime stripes, a roof water cannon, light bar. */
+function fireTruck(): StackPart[] {
+  const red = '#dc2626';
+  const parts: StackPart[] = [];
+  for (const u of [0.24, -0.1, -0.24]) for (const v of [-0.115, 0.115]) parts.push(...wheel(u, v, 0.055, 0.04));
+  parts.push(boxPart(-0.32, -0.1, 0.34, 0.1, 0.04, 0.08, (t) => shade('#1f2937', -0.1 + t * 0.2)));
+  // body: low cab in front, tall tank and pump body behind
+  parts.push(rbox(0.12, -0.125, 0.38, 0.125, 0.07, 0.2, 0.025, (t) => paint(red, t)));
+  parts.push(cabin(0.14, -0.12, 0.375, 0.12, 0.2, 0.29, 0.07, 0, glass, { outline: false, bias: 1 }));
+  parts.push(boxPart(0.14, -0.12, 0.3, 0.12, 0.29, 0.305, (t) => shade(red, 0.15 + t * 0.15)));
+  parts.push(rbox(-0.34, -0.13, 0.13, 0.13, 0.07, 0.31, 0.02, (t) => paint(red, t)));
+  // lime-yellow reflective band and roller shutters for the hoses
+  for (const v of [-0.133, 0.13]) {
+    parts.push(boxPart(-0.33, v, 0.37, v + 0.003, 0.12, 0.145, () => '#d9f99d', { outline: false, bias: 2 }));
+    for (const u0 of [-0.3, -0.18, -0.06]) parts.push(boxPart(u0, v, u0 + 0.1, v + 0.003, 0.16, 0.28, (t) => (Math.floor(t * 8) % 2 ? '#cbd5e1' : '#e2e8f0'), { outline: false, bias: 2 }));
+  }
+  // roof: water cannon on a turret, walkway, the light bar over the cab
+  parts.push(boxPart(-0.06, -0.04, 0.04, 0.04, 0.31, 0.35, () => '#475569', { outline: false, bias: 3 }));
+  parts.push(tubePart({ u0: 0.0, u1: 0.16, v: 0, hc: 0.36, r: 0.016, tall: 1, profile: (s) => 1 - s * 0.4, color: (_h, rel) => shade(CHROME, rel * 0.2), samples: 4, outline: false, bias: 4 }));
+  parts.push(boxPart(-0.3, -0.03, -0.1, 0.03, 0.31, 0.318, () => '#94a3b8', { outline: false, bias: 3 }));
+  parts.push(boxPart(0.2, -0.08, 0.24, 0.08, 0.305, 0.33, (t) => (t > 0.5 ? '#fca5a5' : '#ef4444'), { outline: false, bias: 5 }));
+  parts.push(boxPart(0.375, -0.1, 0.39, 0.1, 0.05, 0.13, () => '#e5e7eb', { outline: false, bias: 2, dots: lights(0.392, 0.08, 0.11, '#fff7d6', 0.014) }));
+  parts.push(boxPart(-0.355, -0.1, -0.34, 0.1, 0.05, 0.1, () => '#1f2937', { outline: false, bias: 2, dots: lights(-0.357, 0.08, 0.09, '#ef4444', 0.012) }));
+  for (const v of [-1, 1]) parts.push(boxPart(0.3, v * 0.14 - 0.008, 0.32, v * 0.14 + 0.008, 0.2, 0.26, () => DARK, { outline: false, bias: 2 }));
+  return parts;
+}
+
+/** Runway inspection car: a yellow pickup, an orange light bar and a checkered flag on a whip. */
+function opsCar(): StackPart[] {
+  const body = '#facc15';
+  const parts: StackPart[] = [];
+  for (const u of [0.13, -0.13]) for (const v of [-0.075, 0.075]) parts.push(...wheel(u, v, 0.034, 0.026));
+  parts.push(rbox(-0.21, -0.085, 0.21, 0.085, 0.03, 0.105, 0.025, (t) => paint(body, t), { dots: [...lights(0.212, 0.06, 0.08, '#fff7d6', 0.011), ...lights(-0.212, 0.06, 0.08, '#ef4444', 0.01)] }));
+  parts.push(cabin(-0.02, -0.08, 0.15, 0.08, 0.105, 0.18, 0.04, 0.01, glass, { outline: false, bias: 1 }));
+  parts.push(boxPart(0.0, -0.075, 0.11, 0.075, 0.18, 0.192, (t) => shade(body, 0.15 + t * 0.15)));
+  // open bed with a toolbox, the light bar, black-and-white checks on the doors
+  parts.push(boxPart(-0.2, -0.07, -0.03, 0.07, 0.09, 0.1, () => shade(body, -0.45), { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.17, -0.06, -0.08, 0.06, 0.1, 0.14, () => '#334155', { outline: false, bias: 3 }));
+  parts.push(boxPart(0.03, -0.06, 0.08, 0.06, 0.192, 0.21, (t) => (t > 0.5 ? '#fdba74' : '#f97316'), { outline: false, bias: 4 }));
+  for (const v of [-0.087, 0.085]) for (let k = 0; k < 4; k++) parts.push(boxPart(0.0 + k * 0.03, v, 0.03 + k * 0.03, v + 0.002, 0.05 + (k % 2) * 0.025, 0.075 + (k % 2) * 0.025, () => '#111827', { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.19, 0.055, -0.185, 0.06, 0.1, 0.36, () => '#64748b', { outline: false, bias: 3 }));
+  for (let k = 0; k < 4; k++) parts.push(boxPart(-0.185 - (k % 2) * 0.03, 0.058, -0.155 - (k % 2) * 0.03, 0.06, 0.3 + Math.floor(k / 2) * 0.03, 0.33 + Math.floor(k / 2) * 0.03, () => (k % 3 === 0 ? '#111827' : '#f8fafc'), { outline: false, bias: 4 }));
+  return parts;
+}
+
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -397,6 +442,10 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return tankerTruck();
     case 'partsTruck':
       return partsTruck();
+    case 'fire':
+      return fireTruck();
+    case 'opsCar':
+      return opsCar();
   }
 }
 
@@ -407,4 +456,6 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   mech: { u: 0.125, v: 0, h: 0.225 },
   tanker: { u: 0.4, v: 0, h: 0.33 },
   partsTruck: { u: 0.2, v: 0, h: 0.27 },
+  fire: { u: 0.22, v: 0, h: 0.34 },
+  opsCar: { u: 0.055, v: 0, h: 0.215 },
 };

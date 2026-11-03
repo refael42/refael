@@ -30,7 +30,9 @@ export type EffectKind =
   | 'radar'
   | 'ils'
   /** Capacity of a supply store (fuel farm, parts store), by level. */
-  | 'storage';
+  | 'storage'
+  /** Bird control (falconer, scare cannons): fewer flocks over the runway. */
+  | 'birds';
 
 export interface UpgradeDef {
   id: string;
@@ -88,6 +90,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // supplies: bigger fuel farm and parts store
   { id: 'fuelFarm', category: 'vehicles', unlockTier: 2, maxLevel: 5, baseCost: 1200, growth: 7, effect: 'storage', per: 1, buildSeconds: [60, 90, 120, 180, 240], levelTier: [2, 3, 3, 4, 5], icon: 'fuel' },
   { id: 'partsStore', category: 'vehicles', unlockTier: 3, maxLevel: 4, baseCost: 15000, growth: 5, effect: 'storage', per: 1, buildSeconds: [60, 90, 150, 200], levelTier: [3, 4, 4, 5], icon: 'wrench' },
+  { id: 'birdControl', category: 'runway', unlockTier: 3, maxLevel: 3, baseCost: 12000, growth: 6, effect: 'birds', per: 1, levelTier: [3, 4, 5], icon: 'star' },
   { id: 'night', category: 'comfort', unlockTier: 1, maxLevel: 10, baseCost: 250, growth: 1.8, effect: 'offlineCap', per: 1, icon: 'clock' },
 ];
 

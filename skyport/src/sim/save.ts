@@ -22,7 +22,7 @@ import type { AirlineOffer, Applicant, Build, Contract, GameState, Person0, Staf
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
-import { DAY_SECONDS } from './game/clock';
+import { DAY_SECONDS, gameClock } from './game/clock';
 import { normalizeSeed } from './rng';
 import { STORES } from '../data/supplies';
 import { capacity, incoming, STORE_KINDS } from './game/supplies';
@@ -348,6 +348,8 @@ export function cleanGame(raw: unknown): GameState | null {
   s.departed = [];
   s.nextGuestAt = s.time + 600;
   s.nextCheckAt = s.time + 240;
+  s.nextIncidentAt = s.time + 300;
+  s.weekendDay = gameClock(s.time).day;
   const rs = isObj(raw.stores) ? raw.stores : {};
   for (const k of STORE_KINDS) {
     const r = isObj(rs[k]) ? rs[k] : {};

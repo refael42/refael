@@ -30,7 +30,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M8 Full fleet | done | see below |
 | M9 Advanced ATC | done | see below |
 | M10 Maintenance & fuel | done | see below |
-| M11 Events | next | weather events, birds, FOD, emergencies, VIPs, celebrities, air show, holidays |
+| M11 Events | part 1 done | see below; next: celebrity, historic plane, medical case, inspector, holidays |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -330,6 +330,39 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   little pressure at the single-runway city airport; softened until the total matched M9's
   (faults 3% of arrivals with the repair in the schedule, checks only with a quiet sky).
 
+### M11 — events (part 1)
+- Events table (`src/data/incidents.ts`): kind, first tier, weight, duration, warning, cooldown.
+  One every 8–15 minutes from the small airfield on, picked by weight with hashes (never the
+  shared RNG); one runway closure at a time.
+  - Thunderstorm (announced 45 s ahead): no landings, takeoffs or fueling for 75 s. Rain
+    streaks, a dark sky, lightning flashes.
+  - Birds (regional on): a flock wheels over the touchdown zone; the next plane to land takes a
+    bird and gets an inspection by the mechanic. "Bird control" upgrade makes flocks rarer.
+  - Debris on the runway: closed until the yellow inspection car (checkered flag, light bar)
+    drives out from the new fire station, picks it up and drives back.
+  - Emergency: an inbound plane declares one; it lands before everyone (no takeoff or other
+    landing ahead of it), two crash tenders roll out beside the runway with red lights, the
+    runway is inspected 20 s after it lands. In time: the airline's thanks (coins, reputation,
+    rating); left circling past 3 minutes: blame.
+  - VIP flight: red carpet with brass stanchions to the door and a black car; happy and on time
+    it tips as much again as it pays (and the airline likes you more).
+  - Air show (announced 2 minutes ahead): the runway closes for 60 s, three aerobatic planes
+    loop over the field trailing smoke, a crowd lines the apron, tickets sell.
+  - Weekend (game days 6–7): fuller planes; the HUD says so.
+- Fairness: through a storm or an air show nobody circling loses patience; during any closure
+  parked planes' slots move with it (the airline knows).
+- Screen: a bell in the HUD with a red count opens "Events" (what is happening, what to do, time
+  left, "Clear to land" and "Show the plane" for an emergency, how recent ones went); toasts for
+  every step; emergency and VIP chips on the flight card; storm/closure as hold reasons.
+- Found and fixed through the balance runs: airline offers were capped by the stands of their plane
+  size per airline, so three large-jet airlines could all be offered the same two gates (a tier-4
+  pile-up of "no free stand"). Offers and expansions now count what the other contracts already
+  fly on those stands. Tier 4 capacity 42 flights a day.
+- Balance (bot, 4 h, seeds 1/7/13): tier 4 at 155–178 min; 37/25/27 diverted (M10: 27/27/11), on
+  time 68/66/78%, 11–19 hangar checks. Events add some pressure; seed 13's old tier-4 pile-up is
+  gone.
+- Test switch `inc=storm|birds|fod|emergency|vip|airshow` (starts it, under way, camera on it).
+
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a
   fragment for hosts that wrap the page) that runs from any sub-path. Published as a private
@@ -349,7 +382,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1&wx=fog|cross|west|calm&fault=1&tanker=1`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1&wx=fog|cross|west|calm&fault=1&tanker=1&inc=storm|birds|fod|emergency|vip|airshow`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

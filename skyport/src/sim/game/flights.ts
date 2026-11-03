@@ -7,6 +7,7 @@ import { rand, randInt, randRange, randWeighted } from '../rng';
 import { hash01, hashU32 } from '../hash';
 import { storeActive } from './supplies';
 import { hangarFaultFactor, startCheck, updateChecks } from './maintenance';
+import { airportDisrupted, airportPaused, birdCheck, runwayBlocked, stormActive, vipTip, weekendPax } from './incidents';
 import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule, updateGuests } from './airlines';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
@@ -141,8 +142,9 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
   const hold = appr.hold;
   const ang = Math.atan2(sp[1] - hold[1], sp[0] - hold[0]);
   const edge: Path = [sp[0], sp[1], sp[2], hold[0] + Math.cos(ang) * appr.holdRadius, hold[1] + Math.sin(ang) * appr.holdRadius, hold[2]];
-  const paxIn = randInt(s, ac.paxMin, ac.paxMax);
-  const paxOut = randInt(s, ac.paxMin, ac.paxMax);
+  // (weekends: fuller planes)
+  const paxIn = weekendPax(s.time, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
+  const paxOut = weekendPax(s.time, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
   const f: Flight = {
     id: s.nextId++,
     airline: al,
@@ -212,6 +214,10 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     repParts: 0,
     partWait: false,
     check: 0,
+    emergency: false,
+    vip: false,
+    vipGood: false,
+    birdHit: false,
     payMul: contractOf(s, al)?.pay ?? 1,
   };
   s.flights.push(f);
@@ -287,8 +293,10 @@ export function freeStand(s: GameState, aircraft = 0): number {
  * fog the ILS can't handle, too much crosswind for its size, wake turbulence,
  * or the runway in use.
  */
-export function approachBlocker(s: GameState, f: Flight): 'fog' | 'crosswind' | 'turn' | 'wake' | 'runway' | null {
+export function approachBlocker(s: GameState, f: Flight): 'fog' | 'storm' | 'closed' | 'crosswind' | 'turn' | 'wake' | 'runway' | null {
   if (foggedIn(s)) return 'fog';
+  if (stormActive(s)) return 'storm';
+  if (!isHeli(f) && runwayBlocked(s, 1)) return 'closed';
   const w = weather(s);
   if (!isHeli(f) && crosswind(w) > CROSSWIND_LIMIT[wakeCat(f)]) return 'crosswind';
   if (isHeli(f)) return null;
@@ -311,6 +319,10 @@ function weatherLetsIn(s: GameState, f: Flight): boolean {
 function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
   if (!f.landCleared || f.stand < 0 || s.tierSwitch) return false;
   if (!weatherLetsIn(s, f)) return false;
+  // lightning: nobody flies; a closed runway: nobody lands on it (the helipad is elsewhere)
+  if (stormActive(s) || (!isHeli(f) && runwayBlocked(s, 1))) return false;
+  // an emergency lands first
+  if (!f.emergency && s.flights.some((o) => o.emergency && o.landCleared && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
   // a helicopter flies straight to its pad
   if (isHeli(f)) return true;
   // the runway is being turned around: hold until it is done
@@ -349,6 +361,7 @@ function timeToThreshold(s: GameState, f: Flight, L: TierLayout): number {
  * near the limit and thick fog make a missed approach likelier; a better tower less so.
  */
 export function mustGoAround(s: GameState, f: Flight, L: TierLayout): boolean {
+  if (runwayBlocked(s, 1)) return true;
   for (const o of s.flights) {
     if (o === f || isHeli(o)) continue;
     if (runwayOf(o, L) === 1) return true;
@@ -381,6 +394,9 @@ function goAround(s: GameState, f: Flight, L: TierLayout): void {
 
 function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
   const dep = L.depRunway ? 2 : 1;
+  if (runwayBlocked(s, dep)) return false;
+  // a cleared emergency gets the runway first
+  if (dep === 1 && s.flights.some((o) => o.emergency && o.landCleared && o !== f && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
   if (s.time < wakeClearAt(s, dep, f)) return false;
   for (const o of s.flights) {
     if (o === f || isHeli(o)) continue;
@@ -478,6 +494,12 @@ function dock(s: GameState, f: Flight): void {
   setPhase(f, 'deboarding');
   pushEvent(s, 'docked', f.x, f.y, f.id);
   checkForFault(s, f);
+  // a bird on landing: the plane is looked over before it flies again
+  if (f.birdHit && f.aog === 0 && storeActive(s, 'parts')) {
+    groundPlane(s, f);
+    f.repNeed = 30;
+    f.repParts = 0;
+  }
 }
 
 /** Share of arrivals that turn out to have a technical fault (from the regional airport on). */
@@ -573,7 +595,15 @@ function offBlock(s: GameState, f: Flight): void {
 
 function pay(s: GameState, f: Flight): void {
   const rev = flightRevenue(f, AIRCRAFT[f.aircraft], effects(s), tierDef(s.tier).pay);
-  const amount = rev.total;
+  let amount = rev.total;
+  // a VIP flight that leaves happy and on time tips as much again; a bad one costs you with the airline
+  if (f.vip) {
+    if (vipTip(f)) {
+      amount = amount.add(rev.total);
+      s.rep[f.airline] = Math.min(100, (s.rep[f.airline] ?? 50) + 3);
+      pushEvent(s, 'vipTip', f.x, f.y, f.id, rev.total.toNumber());
+    } else s.rep[f.airline] = Math.max(0, (s.rep[f.airline] ?? 50) - 2);
+  }
   recordIncome(s, amount.toNumber(), rev.parts, f.boarded);
   s.money = s.money.add(amount);
   s.stats.earned = s.stats.earned.add(amount);
@@ -626,7 +656,8 @@ function waitingDrain(s: GameState, f: Flight, dt: number): void {
 
 export function updateFlights(s: GameState, dt: number): void {
   // during a runway change nobody may push back: the slots of planes at their stands move with it
-  if (s.turning) for (const f of s.flights) if (f.dockedAt > 0 && f.offBlockAt === 0) f.slot += dt;
+  // (the same for a storm or a closed runway: the airline knows)
+  if (s.turning || airportDisrupted(s)) for (const f of s.flights) if (f.dockedAt > 0 && f.offBlockAt === 0) f.slot += dt;
   const L = layoutOf(s.tier);
   let w = 0;
   for (let i = 0; i < s.flights.length; i++) {
@@ -683,11 +714,12 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       f.z += (tz - f.z) * k;
       turnToward(f, f.holdAngle + Math.PI / 2, 3, dt);
       if (!f.landCleared) {
-        f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(s, f));
+        if (!airportPaused(s)) f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(s, f));
         f.mood = Math.max(0, f.mood - 0.006 * dt);
       } else {
         // a runway change is nobody's fault: pilots wait it out more calmly
-        f.patience -= dt / (HOLD_PATIENCE_S * 2.5 * holdFuel(s, f) * (s.turning ? 2 : 1));
+        // (nor a storm or a closed runway; through a storm or an air show nobody minds at all)
+        if (!airportPaused(s)) f.patience -= dt / (HOLD_PATIENCE_S * 2.5 * holdFuel(s, f) * (s.turning || airportDisrupted(s) ? 2 : 1));
       }
       if (f.patience <= 0) {
         f.patience = 0;
@@ -704,6 +736,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
           f.z = 0;
           dock(s, f);
           pushEvent(s, 'touchdown', f.x, f.y, f.id);
+          birdCheck(s, f);
           return true;
         }
         if (mustGoAround(s, f, L)) {
@@ -737,6 +770,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
         stirWake(s, 1, f);
         beginArrivalRoute(s, f);
         pushEvent(s, 'touchdown', f.x, f.y, f.id);
+          birdCheck(s, f);
       }
       return true;
     }

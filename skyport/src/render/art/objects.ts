@@ -787,3 +787,65 @@ export function drawWarnTriangle(p: IsoPen): void {
   p.poly([-0.09, 0, 0.12, 0.09, 0, 0.12, 0, 0, 0.28], '#ef4444');
   p.poly([-0.05, 0, 0.15, 0.05, 0, 0.15, 0, 0, 0.24], '#f8fafc', false);
 }
+
+// ------------------------------------------------------------------ incidents (M11)
+
+/** Fire station: two bays with red roll-up doors, a hose-drying tower, a siren. Footprint corner anchor 1.7 x 1.3. */
+export function drawFireStation(p: IsoPen): void {
+  p.shadow(0.85, 0.65, 50, 22, 0.2);
+  p.box(0, 0, 1.7, 1.3, 0, 0.62, '#f1f5f9');
+  // two red doors on the apron side with windows across the top
+  for (const x0 of [0.12, 0.9]) {
+    p.poly([x0, 1.3, 0.02, x0 + 0.68, 1.3, 0.02, x0 + 0.68, 1.3, 0.48, x0, 1.3, 0.48], '#dc2626');
+    for (let z = 0.08; z < 0.46; z += 0.07) p.line(x0, 1.302, z, x0 + 0.68, 1.302, z, '#b91c1c', 0.7);
+    p.poly([x0 + 0.06, 1.303, 0.38, x0 + 0.62, 1.303, 0.38, x0 + 0.62, 1.303, 0.45, x0 + 0.06, 1.303, 0.45], '#bfdbfe', false);
+  }
+  // red band and a white "112"-style plate
+  p.poly([0, 1.3, 0.52, 1.7, 1.3, 0.52, 1.7, 1.3, 0.6, 0, 1.3, 0.6], '#dc2626', false);
+  p.poly([0.75, 1.303, 0.53, 0.95, 1.303, 0.53, 0.95, 1.303, 0.59, 0.75, 1.303, 0.59], '#f8fafc', false);
+  p.box(-0.04, -0.04, 1.74, 1.34, 0.62, 0.68, '#94a3b8');
+  // hose tower at the back corner with a siren on top
+  p.box(1.3, 0.05, 1.62, 0.37, 0.62, 1.35, '#e2e8f0');
+  p.poly([1.62, 0.12, 0.8, 1.62, 0.3, 0.8, 1.62, 0.3, 1.25, 1.62, 0.12, 1.25], '#cbd5e1');
+  p.box(1.28, 0.03, 1.64, 0.39, 1.35, 1.4, '#475569');
+  p.circle(1.46, 0.21, 1.47, 3.4, '#ef4444');
+  // a hydrant by the door
+  p.box(0.02, 1.42, 0.1, 1.5, 0, 0.14, '#ef4444');
+  p.circle(0.06, 1.46, 0.15, 2.2, '#b91c1c', false);
+}
+
+/** Debris on the runway: a few scattered bits and a glint. */
+export function drawDebris(p: IsoPen): void {
+  p.poly([-0.12, -0.05, 0.01, 0.0, -0.1, 0.01, 0.06, -0.02, 0.01, -0.04, 0.04, 0.01], '#64748b');
+  p.poly([0.1, 0.04, 0.01, 0.18, 0.02, 0.01, 0.16, 0.1, 0.01], '#94a3b8');
+  p.box(-0.02, 0.08, 0.06, 0.12, 0, 0.03, '#78716c');
+  p.circle(-0.05, 0.12, 0.02, 1.4, '#e2e8f0', false);
+}
+
+/** A bird in flight (dark gull), wings up (0) or down (1). */
+export function drawBird(p: IsoPen, frame: number): void {
+  const up = frame === 0 ? 0.07 : -0.03;
+  p.line(0, 0, 0, -0.12, -0.04, up, '#1f2937', 1.6);
+  p.line(0, 0, 0, 0.12, 0.04, up, '#1f2937', 1.6);
+  p.circle(0, 0, 0, 1.1, '#334155', false);
+}
+
+/** VIP red carpet from the stand toward the terminal, gold-edged, with brass stanchions and ropes. Along -y, 1.6 long. */
+export function drawRedCarpet(p: IsoPen): void {
+  p.poly([-0.17, 0, 0.005, 0.17, 0, 0.005, 0.17, -1.6, 0.005, -0.17, -1.6, 0.005], '#b91c1c', false);
+  p.line(-0.17, 0, 0.006, -0.17, -1.6, 0.006, '#facc15', 1.2);
+  p.line(0.17, 0, 0.006, 0.17, -1.6, 0.006, '#facc15', 1.2);
+  for (const side of [-0.26, 0.26]) {
+    for (let k = 0; k < 4; k++) {
+      const y = -0.15 - k * 0.45;
+      p.line(side, y, 0, side, y, 0.22, '#ca8a04', 1.6);
+      p.circle(side, y, 0.23, 1.6, '#fde047', false);
+      if (k < 3) p.line(side, y, 0.18, side, y - 0.45, 0.18, '#7f1d1d', 1.4);
+    }
+  }
+}
+
+/** A rain streak (screen-space line slanting with the wind). */
+export function drawRain(p: IsoPen): void {
+  p.line(0, 0, 0.5, 0.05, 0.05, 0.0, 'rgba(203,213,225,0.75)', 1);
+}

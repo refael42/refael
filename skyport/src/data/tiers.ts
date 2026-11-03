@@ -141,6 +141,8 @@ export interface Depot {
   partsBay: P2;
   /** Mechanics' van parking and the point it leaves through toward the apron. */
   mech: ServiceHome;
+  /** Fire station (footprint corner) and where its trucks wait. */
+  fire: { station: P2; home: P2 };
 }
 
 /** The maintenance hangar on the west grass (regional airport on): two bays in front of its doors. */
@@ -180,6 +182,7 @@ function depotAt(y0: number): Depot {
     store: [33.75, y0 + 1.45],
     partsBay: [32.25, y0 + 0.95],
     mech: { home: [32.6, y0 + 2.75], via: [31.6, y0 + 3.6] },
+    fire: { station: [25.95, y0 + 0.55], home: [26.85, y0 + 2.45] },
   };
 }
 
@@ -565,7 +568,7 @@ const CITY: TierLayout = {
   },
   depot: depotAt(12.4),
   // (one runway for landings and takeoffs, with wake gaps behind the jets: more than this and planes queue)
-  groundCapacity: 44,
+  groundCapacity: 42,
   camera: { center: [33, 23.5], zoom: 0.42 },
 };
 

@@ -446,6 +446,14 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     if (L.depot) {
       const D = L.depot;
       g.rect(D.farm[0] - 1.55, D.farm[1] - 1.05, tier >= 3 ? D.store[0] + 1.25 : D.fuelBay[0] + 0.9, D.farm[1] + 1.25, '#d4d8de');
+      // the fire station's forecourt with red-and-white bay markings
+      const FS = D.fire.station;
+      g.rect(FS[0] - 0.15, FS[1] - 0.1, FS[0] + 1.85, FS[1] + 2.1, '#cfd4db');
+      for (const x0 of [FS[0] + 0.12, FS[0] + 0.9]) {
+        g.line(x0, FS[1] + 1.35, x0, FS[1] + 2.05, '#dc2626', 2);
+        g.line(x0 + 0.68, FS[1] + 1.35, x0 + 0.68, FS[1] + 2.05, '#dc2626', 2);
+      }
+      g.line(FS[0] + 0.1, FS[1] + 2.0, FS[0] + 1.6, FS[1] + 2.0, '#f8fafc', 1.6);
       const road: number[] = [];
       for (const p of D.serviceRoad) road.push(p[0], p[1], 0);
       road.push(D.gate[0], D.gate[1], 0, D.gate[0], D.gate[1] + 0.6, 0);
@@ -657,6 +665,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     prop(sprites.fuelFarm(tanks), D.farm[0], D.farm[1], 0.2, 120);
     if (tier >= 3) prop(sprites.partsStore, D.store[0], D.store[1], 0.4, 100);
     prop(sprites.gateBooth, D.gate[0] + 0.5, D.gate[1] + 0.12, 0.3, 40);
+    prop(sprites.fireStation, D.fire.station[0], D.fire.station[1], 1.7 + 1.3, 90);
   }
   L.stands.forEach((st, i) => {
     if (!open[i] || !st.bridge) return;

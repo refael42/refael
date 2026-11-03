@@ -12,6 +12,7 @@ import { FUEL, type Flight, type GameState, type ServiceKind, type Vehicle } fro
 import { effects } from './upgrades';
 import { draw, storeActive } from './supplies';
 import { finishCheck } from './maintenance';
+import { stormActive } from './incidents';
 import { STORES } from '../../data/supplies';
 
 const SAMPLE = makeSample();
@@ -164,6 +165,8 @@ export function updateVehicles(s: GameState, dt: number): void {
         }
         const fx = effects(s);
         if (v.kind === 'fuel') {
+          // lightning nearby: no fueling on the ramp until the storm passes
+          if (stormActive(s)) break;
           // from the fuel farm: an empty farm leaves the truck waiting at the plane
           const want = Math.min(f.fuelNeed - f.fuel, fuelRateOf(AIRCRAFT[f.aircraft]) * fx.fuelRate * dt);
           f.fuel = Math.min(f.fuelNeed, f.fuel + draw(s, 'fuel', want));

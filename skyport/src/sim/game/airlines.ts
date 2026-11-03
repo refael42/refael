@@ -365,6 +365,23 @@ export function airlineStandCap(s: GameState, al: number): number {
   return n * (PER_STAND[need] ?? 6);
 }
 
+/**
+ * What is left of that for this airline once the other contracts flying the
+ * same size of plane have their flights (they all share those stands).
+ */
+export function airlineStandRoom(s: GameState, al: number): number {
+  const total = airlineStandCap(s, al);
+  if (total === 0) return 0;
+  const need = AIRCRAFT[fleetHere(s, al)[0]].stand;
+  let used = 0;
+  for (const c of s.contracts) {
+    if (c.al === al) continue;
+    const fleet = fleetHere(s, c.al);
+    if (fleet.length > 0 && AIRCRAFT[fleet[0]].stand === need) used += c.perDay;
+  }
+  return Math.max(0, total - used);
+}
+
 export function makeOffer(s: GameState, al: number): AirlineOffer {
   const id = s.nextId++;
   const k = kindOf(al);
@@ -373,7 +390,7 @@ export function makeOffer(s: GameState, al: number): AirlineOffer {
   return {
     id,
     al,
-    perDay: Math.max(1, Math.min(k.maxPerDay, airlineStandCap(s, al) || k.perDay, Math.round(k.perDay * tierDef(s.tier).traffic * (0.85 + 0.3 * gh(s, id * 17 + 2))))),
+    perDay: Math.max(1, Math.min(k.maxPerDay, airlineStandRoom(s, al) || k.perDay, Math.round(k.perDay * tierDef(s.tier).traffic * (0.85 + 0.3 * gh(s, id * 17 + 2))))),
     pay: round2(k.pay * (0.9 + 0.2 * u) * (0.9 + rep / 500)),
     goal: k.goal,
     days: k.days,
@@ -405,7 +422,8 @@ export function updateAirlines(s: GameState): void {
   if (s.time < s.nextOfferAt) return;
   s.nextOfferAt = s.time + 110 + gh(s, s.tick * 3 + 11) * 80;
   if (s.offers.length >= MAX_OFFERS) return;
-  const pool = availableAirlines(s);
+  // (only airlines whose planes still have room on their size of stand)
+  const pool = availableAirlines(s).filter((i) => airlineStandRoom(s, i) >= 1);
   if (pool.length === 0) return;
   // airlines that like you come first
   const w = pool.map((i) => AIRLINES[i].weight * (0.5 + repOf(s, i) / 100));
@@ -475,7 +493,7 @@ export function canExpand(s: GameState, c: Contract): boolean {
   return (
     repOf(s, c.al) >= REP_EXPAND &&
     c.perDay < kindOf(c.al).maxPerDay &&
-    c.perDay + kindOf(c.al).step <= Math.max(c.perDay, airlineStandCap(s, c.al)) &&
+    c.perDay + kindOf(c.al).step <= Math.max(c.perDay, airlineStandRoom(s, c.al)) &&
     s.time - c.expandedAt >= EXPAND_COOLDOWN &&
     c.endsAt === 0
   );

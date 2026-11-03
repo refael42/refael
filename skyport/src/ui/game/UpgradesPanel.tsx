@@ -71,6 +71,8 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.ils', { a: from, b: to });
     case 'lanes':
       return t('eff.lanes', { a: 1 + from, b: 1 + to });
+    case 'birds':
+      return t('eff.birds', { a: Math.round(Math.min(80, 30 * from)), b: Math.round(Math.min(80, 30 * to)) });
     case 'storage': {
       // capacity of the fuel farm (liters) or the parts store (pieces)
       const fuel = def.id === 'fuelFarm';
