@@ -1,6 +1,7 @@
 /** The airfield: canvas + camera + taps + HUD + flight card + toasts. */
 import { levelCap, upgradeDef } from '../../data/upgrades';
-import { INCIDENTS, type IncidentKind } from '../../data/incidents';
+import { INCIDENTS, VISITORS, type IncidentKind } from '../../data/incidents';
+import { HOLIDAYS } from '../../data/holidays';
 import { groundPlane, spawnFlight } from '../../sim/game/flights';
 import { capacity, placeOrder, storeActive, STORE_KINDS } from '../../sim/game/supplies';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -26,7 +27,7 @@ import { buildSprites, type SpriteSet } from '../../render/sprites';
 import { recordFrame, useFrameLoop } from '../../render/useFrameLoop';
 import { buildWorld } from '../../render/world';
 import { useSettings } from '../../settings/store';
-import { AIRCRAFT, planeArt } from '../../data/aircraft';
+import { AIRCRAFT, aircraftIndex, planeArt } from '../../data/aircraft';
 import { RARITIES, STAFF_ROLES } from '../../data/staff';
 import {
   applyOffline,
@@ -47,6 +48,8 @@ import {
   approachBlocker,
   Big,
   isWeekend,
+  epochDay,
+  nextHoliday,
   startIncident,
   stormActive,
   currentGoal,
@@ -117,6 +120,7 @@ function hudOf(c: GameController): HudData {
     storm: stormActive(s),
     incidents: activeIncidents(s).length,
     weekend: isWeekend(s.time),
+    holiday: s.holiday,
   };
 }
 
@@ -183,18 +187,27 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       if (f) groundPlane(c.state, f);
     }
     // screenshots: an incident under way (announced ones skip their warning)
-    if (debug.inc && INCIDENTS.some((d) => d.kind === debug.inc)) {
-      // an emergency needs a plane in the air to declare it
-      if (debug.inc === 'emergency') spawnFlight(c.state);
-      const inc = startIncident(c.state, debug.inc as IncidentKind, (p) => spawnFlight(c.state, p));
+    // (celebrityPrivate: the celebrity with the press kept out)
+    const incKind = debug.inc === 'celebrityPrivate' ? 'celebrity' : debug.inc;
+    if (incKind && INCIDENTS.some((d) => d.kind === incKind)) {
+      // an emergency or a medical case needs a plane in the air to declare it
+      if (incKind === 'emergency' || incKind === 'medical') spawnFlight(c.state);
+      if (incKind === 'celebrity') c.state.stats.served = Math.max(c.state.stats.served, 10);
+      const inc = startIncident(c.state, incKind as IncidentKind, (p) => spawnFlight(c.state, p));
       if (inc && inc.state === 'announced') inc.at = c.state.time;
-      // (let it get going: the car or the trucks on their way, the VIP on the ground)
-      const ahead = debug.inc === 'vip' ? 240 : debug.inc === 'fod' ? 6 : 2;
+      if (inc && debug.inc === 'celebrityPrivate') c.send({ type: 'celebPrivacy', incident: inc.id, private: true });
+      // (let it get going: the car or the trucks on their way, the visitor on the ground)
+      const atStand = incKind === 'vip' || incKind === 'celebrity' || incKind === 'historic' || incKind === 'medical';
+      const ahead = atStand ? 300 : incKind === 'fod' ? 6 : 2;
       const vf = inc?.flight ? c.state.flights.find((x) => x.id === inc.flight) : undefined;
       for (let i = 0; i < 30 * ahead; i++) {
-        // the VIP: until it is at its stand, the carpet out
-        if (debug.inc === 'vip' && vf && vf.dockedAt > 0 && c.state.time - vf.dockedAt > 4) break;
-        if ((debug.inc === 'emergency' || debug.inc === 'vip') && vf && !vf.landCleared && i % 30 === 0) c.send({ type: 'clearLanding', flightId: vf.id });
+        // the visitor: until it is at its stand (the carpet out, the press there, the visitors around)
+        if ((incKind === 'vip' || incKind === 'celebrity') && vf && vf.dockedAt > 0 && c.state.time - vf.dockedAt > 4) break;
+        if (incKind === 'historic' && vf && vf.dockedAt > 0 && c.state.time - vf.dockedAt > 20) break;
+        // the medical case: the paramedics at the door
+        if (incKind === 'medical' && inc && inc.units[0]?.state === 'work') break;
+        if (atStand && vf && !vf.landCleared && i % 30 === 0) c.send({ type: 'clearLanding', flightId: vf.id });
+        if (incKind === 'emergency' && vf && !vf.landCleared && i % 30 === 0) c.send({ type: 'clearLanding', flightId: vf.id });
         if (debug.auto && i % 3 === 0) for (const cmd of botCommands(c.state, { reaction: 1 })) c.send(cmd);
         c.tick(1000 / 30);
       }
@@ -211,8 +224,16 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       for (let i = 0; i < 30 * 200 && c.state.deliveries.some((d) => d.state !== 'unloading'); i++) c.tick(1000 / 30);
       c.takeEvents();
     }
+    // the real date, for the holidays (a test can pretend it is one)
+    c.send({ type: 'setToday', day: todayFor(debug.hol, debug.holDay) });
     return c;
   }, []);
+  // past midnight the date moves on
+  useEffect(() => {
+    if (debug.hol) return;
+    const id = setInterval(() => ctrl.send({ type: 'setToday', day: todayFor(null, 1) }), 60000);
+    return () => clearInterval(id);
+  }, [ctrl]);
   const [tier, setTier] = useState(ctrl.state.tier);
   useEffect(() => {
     const want = tierCombos(tier);
@@ -338,13 +359,15 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       cam.zoom = debug.cam[2];
     } else if (debug.inc) {
       // screenshots of an incident: look at it (its plane, or where it is)
-      const inc = ctrl.state.incidents.find((i) => i.kind === debug.inc);
+      const inc = ctrl.state.incidents.find((i) => i.kind === (debug.inc === 'celebrityPrivate' ? 'celebrity' : debug.inc));
       const f = inc?.flight ? ctrl.state.flights.find((x) => x.id === inc.flight) : undefined;
-      const at = f ? [f.x, f.y] : inc && inc.x ? [inc.x, inc.y] : null;
+      // (a visitor at its stand: a little toward the terminal, where the carpet, the press or the visitors are)
+      const atStand = f && f.dockedAt > 0 && (f.celeb || f.historic || inc?.kind === 'medical');
+      const at = f ? (atStand ? [f.x - 0.35, f.y - 1.0] : [f.x, f.y]) : inc && inc.x ? [inc.x, inc.y] : null;
       if (at) {
         cam.x = isoX(at[0], at[1]);
         cam.y = isoY(at[0], at[1]);
-        cam.zoom = 1.5;
+        cam.zoom = atStand ? 1.8 : 1.5;
       }
     }
   }, [size, cam, ctrl]);
@@ -362,7 +385,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   useEffect(() => {
     const id = setTimeout(() => {
       if (boot.futureSave) toast('warn', t('toast.saveFuture'), 'warn');
-      else if (!boot.state) toast('land', t('toast.welcome'), 'good');
+      // (not after a test fast-forward: the airfield is no longer new)
+      else if (!boot.state && debug.warp === 0) toast('land', t('toast.welcome'), 'good');
     }, 600);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -563,13 +587,16 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             if (!kind) break;
             const inc = ctrl.state.incidents.find((i) => i.id === e.b);
             const code = inc?.flight ? codeOf(inc.flight) : '';
-            toast(kind === 'vip' ? 'star' : kind === 'airshow' ? 'plane' : 'warn', t(`inc.${kind}.start` as TKey, { code }), kind === 'vip' || kind === 'airshow' ? 'good' : 'warn', 'inc' + kind);
+            const icon = INCIDENT_ICON[kind] ?? 'warn';
+            const happy = kind === 'vip' || kind === 'airshow' || kind === 'celebrity' || kind === 'historic';
+            toast(icon, t(`inc.${kind}.start` as TKey, { code }), happy ? 'good' : 'warn', 'inc' + kind);
             break;
           }
           case 'incidentEnd': {
             const kind = INCIDENTS[e.a]?.kind;
             // (emergencies and VIPs have their own moment when it happens)
-            if (!kind || kind === 'emergency' || kind === 'vip' || kind === 'birds') break;
+            if (!kind || kind === 'emergency' || kind === 'vip' || kind === 'birds' || kind === 'medical' || kind === 'celebrity') break;
+            if (kind === 'historic' && e.b <= 0) break;
             if (e.b > 0 && kind !== 'fod') toast('coin', t(`inc.${kind}.good` as TKey, { n: formatBig(Big.fromNumber(e.c)) }), 'good');
             else if (kind === 'storm') toast('sun', t('inc.storm.end'), 'good');
             else if (kind === 'fod') toast('check', t('inc.fod.good'), 'good');
@@ -593,6 +620,37 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             break;
           case 'weekend':
             toast('sun', t('toast.weekend'), 'good', 'weekend');
+            break;
+          case 'holiday': {
+            const h = HOLIDAYS[e.a];
+            if (h) toast('party', t(e.b > 0 ? 'toast.holiday' : 'toast.holidayRush', { name: t(`hol.${h.id}.title` as TKey) }), 'good', 'holiday');
+            break;
+          }
+          case 'ambulanceOut':
+            toast('medic', t('toast.ambulance', { code: codeOf(e.a) }), 'info', 'ambulance');
+            break;
+          case 'medicalDone':
+            toast('medic', t('inc.medical.good', { n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
+            break;
+          case 'medicalMissed':
+            toast('warn', t('inc.medical.bad'), 'warn');
+            break;
+          case 'celebDocked':
+            toast('camera', t(e.b ? 'toast.celebPress' : 'toast.celebPrivate'), 'good', 'celeb');
+            break;
+          case 'celebTip':
+            toast('star', t('toast.celebTip', { n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
+            break;
+          case 'buzz':
+            toast('camera', t('toast.buzz'), 'good');
+            break;
+          case 'badPress':
+            toast('warn', t('toast.badPress'), 'warn');
+            break;
+          case 'exhibitOpen':
+            toast('ticket', t('toast.exhibitOpen'), 'good');
             break;
           case 'goalDone': {
             const g = GOALS[e.a];
@@ -651,7 +709,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const sel = selectedRef.current;
       const f = sel ? ctrl.state.flights.find((x) => x.id === sel) : undefined;
       const hold = f && f.landCleared && (f.phase === 'holding' || f.phase === 'inbound') ? (approachBlocker(ctrl.state, f) ?? '') : '';
-      const v = f ? viewOf(f, repOf(ctrl.state, f.airline), hold) : null;
+      const v = f ? viewOf(f, repOf(ctrl.state, f.airline), hold, ctrl.state.time) : null;
       if (sel && !f) setSelected(0);
       setCard((old) => (sameView(old, v) ? old : v));
       setNow(performance.now());
@@ -865,6 +923,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         }),
       selected: () => selectedRef.current,
       camera: () => ({ x: cam.x, y: cam.y, zoom: cam.zoom }),
+      incidents: () => ctrl.state.incidents.map((i) => ({ kind: i.kind, state: i.state, choice: i.choice, result: i.result, amount: i.amount })),
+      holiday: () => ({ holiday: ctrl.state.holiday, day: ctrl.state.holidayDay, today: ctrl.state.today }),
     };
     return () => {
       delete w.__skyport;
@@ -1188,6 +1248,24 @@ function fullAirport(s: GameState): void {
   });
 }
 
+/** The toast icon for each kind of incident. */
+const INCIDENT_ICON: Partial<Record<IncidentKind, Toast['icon']>> = {
+  vip: 'star',
+  airshow: 'plane',
+  storm: 'cloud',
+  medical: 'medic',
+  celebrity: 'camera',
+  historic: 'ticket',
+};
+
+/** Today on the player's device (an epoch day), or the given day of a holiday for screenshots. */
+function todayFor(hol: string | null, day: number): number {
+  const d = new Date();
+  const today = epochDay(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  const h = HOLIDAYS.find((x) => x.id === hol);
+  return h ? nextHoliday(h.id, today - 20) + day - 1 : today;
+}
+
 export function tierCombos(tier: number): (readonly [number, number])[] {
   const out: (readonly [number, number])[] = [];
   AIRLINES.forEach((al, i) => {
@@ -1197,6 +1275,15 @@ export function tierCombos(tier: number): (readonly [number, number])[] {
       if (k >= 0 && AIRCRAFT[k].unlockTier <= tier) out.push([i, k]);
     }
   });
+  // the special visitors (a celebrity's jet, the historic plane) from the small airfield on
+  if (tier >= 2) {
+    const al = (id: string) => AIRLINES.findIndex((a) => a.id === id);
+    const add = (a: number, k: number) => {
+      if (a >= 0 && k >= 0 && (AIRCRAFT[k].unlockTier <= tier || k === aircraftIndex(VISITORS.historicPlane)) && !out.some(([x, y]) => x === a && y === k)) out.push([a, k]);
+    };
+    for (const id of VISITORS.celebPlanes) add(al(VISITORS.celebAirline), aircraftIndex(id));
+    add(al(VISITORS.historicAirline), aircraftIndex(VISITORS.historicPlane));
+  }
   return out;
 }
 

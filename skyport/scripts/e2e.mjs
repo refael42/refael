@@ -29,6 +29,8 @@ const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--ena
 let failures = 0;
 for (const sc of scenarios) {
   if (only && !only.includes(sc.name)) continue;
+  // art-review scenarios run only when asked for by name
+  if (!only && sc.review) continue;
   for (const lang of sc.langs ?? ['he', 'en']) {
     const ctx = await browser.newContext({ viewport: sc.viewport, deviceScaleFactor: sc.scale ?? 2, hasTouch: !!sc.touch, isMobile: !!sc.touch });
     const page = await ctx.newPage();

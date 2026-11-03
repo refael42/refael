@@ -2,12 +2,13 @@
 import { AIRCRAFT, paxGroupOf, planeArt, standFits } from '../../data/aircraft';
 import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
+import { EXHIBIT_SECONDS } from '../../data/incidents';
 import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
 import { hash01, hashU32 } from '../hash';
 import { storeActive } from './supplies';
 import { hangarFaultFactor, startCheck, updateChecks } from './maintenance';
-import { airportDisrupted, airportPaused, birdCheck, runwayBlocked, stormActive, vipTip, weekendPax } from './incidents';
+import { airportDisrupted, airportPaused, birdCheck, boostPax, runwayBlocked, stormActive, vipTip } from './incidents';
 import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule, updateGuests } from './airlines';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
@@ -126,8 +127,10 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     al = ok[pick];
   }
   const fleet = fleetForRep(s, al);
-  if (fleet.length === 0) return null;
-  const aircraft = fleet[randInt(s, 0, fleet.length - 1)];
+  if (fleet.length === 0 && planned?.ac === undefined) return null;
+  // (a special visitor brings its own plane; the roll still happens so the dice stay in step)
+  const rolled = fleet.length > 0 ? fleet[randInt(s, 0, fleet.length - 1)] : -1;
+  const aircraft = planned?.ac ?? rolled;
   const ac = AIRCRAFT[aircraft];
   const cities = CITIES.map((c, i) => ({ c, i })).filter(({ c }) => c.range <= s.tier + 1);
   const rolledOrigin = cities[randInt(s, 0, cities.length - 1)].i;
@@ -142,9 +145,9 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
   const hold = appr.hold;
   const ang = Math.atan2(sp[1] - hold[1], sp[0] - hold[0]);
   const edge: Path = [sp[0], sp[1], sp[2], hold[0] + Math.cos(ang) * appr.holdRadius, hold[1] + Math.sin(ang) * appr.holdRadius, hold[2]];
-  // (weekends: fuller planes)
-  const paxIn = weekendPax(s.time, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
-  const paxOut = weekendPax(s.time, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
+  // (weekends, holidays and a buzz: fuller planes)
+  const paxIn = boostPax(s, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
+  const paxOut = boostPax(s, randInt(s, ac.paxMin, ac.paxMax), ac.paxMax);
   const f: Flight = {
     id: s.nextId++,
     airline: al,
@@ -218,6 +221,10 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     vip: false,
     vipGood: false,
     birdHit: false,
+    medical: false,
+    celeb: false,
+    historic: false,
+    holdUntil: 0,
     payMul: contractOf(s, al)?.pay ?? 1,
   };
   s.flights.push(f);
@@ -316,13 +323,18 @@ function weatherLetsIn(s: GameState, f: Flight): boolean {
   return isHeli(f) || crosswind(weather(s)) <= CROSSWIND_LIMIT[wakeCat(f)];
 }
 
+/** Lands before everyone else: an emergency, or a medical case (PAN-PAN). */
+function priority(f: Flight): boolean {
+  return f.emergency || f.medical;
+}
+
 function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
   if (!f.landCleared || f.stand < 0 || s.tierSwitch) return false;
   if (!weatherLetsIn(s, f)) return false;
   // lightning: nobody flies; a closed runway: nobody lands on it (the helipad is elsewhere)
   if (stormActive(s) || (!isHeli(f) && runwayBlocked(s, 1))) return false;
-  // an emergency lands first
-  if (!f.emergency && s.flights.some((o) => o.emergency && o.landCleared && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
+  // an emergency (or a sick passenger) lands first
+  if (!priority(f) && s.flights.some((o) => priority(o) && o.landCleared && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
   // a helicopter flies straight to its pad
   if (isHeli(f)) return true;
   // the runway is being turned around: hold until it is done
@@ -396,7 +408,7 @@ function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
   const dep = L.depRunway ? 2 : 1;
   if (runwayBlocked(s, dep)) return false;
   // a cleared emergency gets the runway first
-  if (dep === 1 && s.flights.some((o) => o.emergency && o.landCleared && o !== f && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
+  if (dep === 1 && s.flights.some((o) => priority(o) && o.landCleared && o !== f && (o.phase === 'holding' || o.phase === 'inbound'))) return false;
   if (s.time < wakeClearAt(s, dep, f)) return false;
   for (const o of s.flights) {
     if (o === f || isHeli(o)) continue;
@@ -488,6 +500,11 @@ function dock(s: GameState, f: Flight): void {
   f.speed = 0;
   f.dockedAt = s.time;
   f.slot = s.time + ac.baseTurnaround * kindOf(f.airline).turnaround;
+  // a historic plane stands on show first
+  if (f.historic) {
+    f.holdUntil = s.time + EXHIBIT_SECONDS;
+    f.slot += EXHIBIT_SECONDS;
+  }
   // a jet bridge: no stairs in the rain, people love it
   if (gatePoint(layoutOf(s.tier), f.stand)) f.mood = Math.min(1, f.mood + 0.08);
   f.paxTimer = 0.4;
@@ -631,7 +648,7 @@ export function refreshWants(s: GameState, f: Flight): void {
   const atStand = p === 'deboarding' || p === 'turnaround' || p === 'boarding';
   if (atStand && f.bagState === FUEL.none) w |= 1 << WANT.bags;
   if ((p === 'deboarding' || p === 'turnaround') && f.fuelState === FUEL.none) w |= 1 << WANT.fuel;
-  if (p === 'turnaround' && f.fuelState === FUEL.done && !f.boardingStarted && f.aog !== 1) w |= 1 << WANT.board;
+  if (p === 'turnaround' && f.fuelState === FUEL.done && !f.boardingStarted && f.aog !== 1 && f.holdUntil <= s.time) w |= 1 << WANT.board;
   if ((p === 'deboarding' || p === 'turnaround') && f.aog === 1 && f.repState === FUEL.none) w |= 1 << WANT.repair;
   if ((p === 'taxiOut' || p === 'holdShort') && !f.takeoffCleared) w |= 1 << WANT.clearTakeoff;
   if (w & ~f.wants) f.readyAt = s.time;
@@ -800,6 +817,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       return true;
     }
     case 'deboarding': {
+      // a sick passenger: the paramedics go first, everyone else waits (and understands)
+      if (f.medical) return true;
       waitingDrain(s, f, dt);
       f.paxTimer -= dt;
       if (f.deboarded < f.paxIn && f.paxTimer <= 0) {
@@ -903,7 +922,7 @@ export function clearTakeoff(s: GameState, f: Flight): boolean {
 }
 
 export function startBoarding(s: GameState, f: Flight): boolean {
-  if (f.phase !== 'turnaround' || f.fuelState !== FUEL.done || f.boardingStarted || f.aog === 1) return false;
+  if (f.phase !== 'turnaround' || f.fuelState !== FUEL.done || f.boardingStarted || f.aog === 1 || f.holdUntil > s.time) return false;
   f.boardingStarted = true;
   if (s.time - f.readyAt < 4) f.mood = Math.min(1, f.mood + 0.04);
   f.paxTimer = 0;

@@ -3,6 +3,8 @@
  * in i18n). Units: distances in tiles, speeds in tiles/second, times in
  * seconds, money in coins.
  */
+import type { Livery } from './airlines';
+
 export type AircraftCategory =
   | 'lightSingle'
   | 'lightTwin'
@@ -14,7 +16,8 @@ export type AircraftCategory =
   | 'jumbo'
   | 'cargo'
   | 'bizjet'
-  | 'heli';
+  | 'heli'
+  | 'vintage';
 
 export type StandSize = 'small' | 'medium' | 'large' | 'huge' | 'hugeX' | 'cargo' | 'fbo' | 'heli';
 export type WakeCategory = 'light' | 'medium' | 'heavy' | 'super';
@@ -68,6 +71,8 @@ export interface AircraftDef {
   /** Seconds per bag (or cargo unit) for the cart (default 0.32). */
   bagTime?: number;
   art: AircraftArt;
+  /** Its own paint whoever flies it (a historic plane keeps its colors). */
+  livery?: Livery;
 }
 
 export const AIRCRAFT: readonly AircraftDef[] = [
@@ -147,6 +152,15 @@ export const AIRCRAFT: readonly AircraftDef[] = [
     landingFee: 50, paxFee: 30,
     art: { length: 1.2, radius: 0.13, tall: 1.1, span: 1.5, chord: 0.0, sweep: 0, wing: 'high', engines: 'rotor',
       engineSize: 0.05, tail: 'normal', windowRows: 1, windows: 2, gear: 0.06 },
+  },
+  {
+    // a polished-metal propliner from the golden age: it only comes on a visit (M11), never in a fleet
+    id: 'heritage', model: 'Silver Star', category: 'vintage', paxMin: 2, paxMax: 3, stand: 'small', wake: 'light',
+    unlockTier: 99, unlockServed: 0, approachSpeed: 2.3, taxiSpeed: 1.0, runwayLength: 9, fuelLoad: 600, baseTurnaround: 40, noise: 78,
+    landingFee: 30, paxFee: 0,
+    art: { length: 1.42, radius: 0.12, tall: 1.05, span: 1.74, chord: 0.26, sweep: 0.08, wing: 'low', engines: 'wingProps',
+      engineSize: 0.085, tail: 'normal', windowRows: 1, windows: 6, gear: 0.1 },
+    livery: { body: '#d6dce3', belly: '#bfc7d0', tail: '#c0392b', stripe: '#1f3a5f', accent: '#f2c14e', wing: '#c9d0d8', engine: '#8e98a3' },
   },
 ];
 

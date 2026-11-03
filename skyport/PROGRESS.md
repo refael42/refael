@@ -30,7 +30,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M8 Full fleet | done | see below |
 | M9 Advanced ATC | done | see below |
 | M10 Maintenance & fuel | done | see below |
-| M11 Events | part 1 done | see below; next: celebrity, historic plane, medical case, inspector, holidays |
+| M11 Events | done | weather, birds, debris, emergencies, VIPs, air shows; medical cases, celebrities, historic planes, real-date holidays (the undercover inspector moves to M12 with the reviews) |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -362,6 +362,63 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
   time 68/66/78%, 11–19 hangar checks. Events add some pressure; seed 13's old tier-4 pile-up is
   gone.
 - Test switch `inc=storm|birds|fod|emergency|vip|airshow` (starts it, under way, camera on it).
+
+### M11 — events (part 2)
+- Medical case: an inbound plane reports a sick passenger. It gets landing priority (like an
+  emergency). Once cleared, an ambulance (white box, red band, yellow-and-green checks,
+  blue-and-red lights) comes in by road through the depot gate and waits on the apron. When the
+  plane is at its stand, the ambulance pulls up by the service door on the far side.
+  - Nobody gets off before the patient: two paramedics wheel the stretcher across, then the
+    ambulance drives off up the road.
+  - In time: the airline's thanks (coins, reputation, rating). Left circling past 5 minutes, the
+    patient is flown elsewhere (blame).
+- Celebrity: a private jet (the Kestrel at an FBO stand, else a light twin, in Velvetjet colors)
+  pays 3x and carries the star and a small entourage. You choose in Events:
+  - "Let the press in" (default): paparazzi with flashes and a TV camera along the red carpet.
+    A happy, on-time visit makes the news, giving +15% passengers on new flights for a game day
+    (a "buzz" card in Events). A bad visit costs rating.
+  - "Keep it private": bodyguards in black. A good visit tips as much again as it pays.
+  - Either way the star walks the carpet to a black limousine.
+- Historic plane: a polished-metal propliner ("Silver Star", its own livery whoever flies it)
+  asks to visit. Land it and it stands on show for 3 minutes before it may board.
+  - Display: a velvet rope with brass posts in front of it, visitors along the rope (some
+    strolling, photo flashes), a ticket booth with a striped awning, an information sign.
+  - Tickets: 0.5 coins a second x tier pay x rating, counted live in Events, paid when the show
+    ends; then it flies on like any other.
+- Holidays on real dates: the UI sends the device's date (command `setToday`, so the sim stays
+  deterministic). `sim/game/calendar.ts` works out the Hebrew calendar arithmetically (molad and
+  postponements); the dates are checked against known ones, e.g. Rosh Hashanah 2023–2027,
+  Hanukkah 2025, and Independence Day moving off the weekend in 2024 and 2025.
+  - Holidays: Rosh Hashanah, Sukkot, Hanukkah, Tu BiShvat, Purim, Passover, Independence Day,
+    Lag BaOmer and Shavuot, plus New Year and Halloween.
+  - Each holiday plus its travel days before it: planes 5–30% fuller (stacks with weekends).
+  - Decorations: string lights chasing along the terminal roof and holiday-colored bunting over
+    the front, plus a centerpiece on the roof:
+    - a gold hanukkiah with one more candle lit each night, and the shamash;
+    - a sukkah with a palm roof and hanging fruit;
+    - apples and honey;
+    - saplings;
+    - masks and falling confetti;
+    - Elijah's cup and matzah;
+    - Israeli flags, with fireworks;
+    - wheat sheaves;
+    - a balloon arch, with fireworks;
+    - pumpkins that glow (at the dirt strip, by the hut).
+  - Lag BaOmer has a bonfire on the grass with flickering flames and sparks.
+  - A toast, a "Day n · holiday" label in the HUD, and a card in Events.
+- Help: new "Events" and "Holidays" topics.
+- Test switches:
+  - `inc=medical|celebrity|celebrityPrivate|historic`;
+  - `hol=<id>&holday=<n>` (pretend it is that day of a holiday);
+  - after a warp the welcome hint no longer covers screenshots.
+- The undercover aviation inspector and the "rumor" (spec section 13) move to M12, where the
+  reviews and the Aviation Guide live.
+- Balance (bot, 4 h, seeds 1/7/13): tier 4 at 162/166/155 min, 49/19/27 diverted, on time
+  74/75/77%. Part 1 for comparison: 178/–/155 min, 37/25/27 diverted, 68/66/78%. The new
+  visitors add some load (the historic plane holds a stand for 3 minutes) but nothing piles up.
+- Tests: the fault-rate test now measures over three games (a few hundred arrivals) instead of one
+  hundred: new incident flights shifted which arrivals the hash picks, and one game was too few
+  to say "about 3%".
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

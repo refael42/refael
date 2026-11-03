@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { useDir, useT } from '../../i18n';
+import { useDir, useT, type TKey } from '../../i18n';
+import { HOLIDAYS } from '../../data/holidays';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
 
@@ -25,6 +26,8 @@ export interface HudData {
   /** Incidents under way or announced (the events button's count). */
   incidents: number;
   weekend: boolean;
+  /** The holiday on now (HOLIDAYS index, -1 none). */
+  holiday: number;
 }
 
 /** HUD fields compared twice a second (a new object only when something shows differently). */
@@ -42,7 +45,8 @@ export function sameHud(a: HudData, b: HudData): boolean {
     a.haze === b.haze &&
     a.storm === b.storm &&
     a.incidents === b.incidents &&
-    a.weekend === b.weekend
+    a.weekend === b.weekend &&
+    a.holiday === b.holiday
   );
 }
 
@@ -128,8 +132,12 @@ export const Hud = memo(function Hud({
               <Text style={styles.time} numberOfLines={1}>
                 {data.time}
               </Text>
-              <Text style={[styles.day, data.weekend && { color: C.primary }]} numberOfLines={1}>
-                {data.weekend ? t('hud.weekend', { n: data.day }) : t('hud.day', { n: data.day })}
+              <Text style={[styles.day, (data.weekend || data.holiday >= 0) && { color: C.primary }]} numberOfLines={1}>
+                {data.holiday >= 0 && HOLIDAYS[data.holiday]
+                  ? t('hud.holiday', { name: t(`hol.${HOLIDAYS[data.holiday].id}.title` as TKey), n: data.day })
+                  : data.weekend
+                    ? t('hud.weekend', { n: data.day })
+                    : t('hud.day', { n: data.day })}
               </Text>
             </View>
           </View>

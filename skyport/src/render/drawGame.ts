@@ -17,6 +17,7 @@ import type { SnapWriter } from './scene';
 import { BEACON, CAR_VARIANTS } from './art/vehicles';
 import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
 import { parkedCars, roadCars, type CarPose } from './traffic';
+import { drawEventScenes, drawHolidayDecor } from './drawEvents';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
@@ -191,6 +192,8 @@ export function drawGame(
   }
 
   drawIncidents(w, s, sp, o, a, inv, visible, { x0: vx0, x1: vx1, y0: vy0, y1: vy1 });
+  drawEventScenes(w, s, sp, { time: o.time, alpha: a, inv, visible });
+  drawHolidayDecor(w, s, sp, { time: o.time, alpha: a, inv, visible });
 
   // supply trucks on their way in, unloading at the depot, and leaving
   for (const dv of s.deliveries) {
@@ -477,7 +480,12 @@ function drawIncidents(
       if (Math.floor(o.time * 4 + inc.id) % 2 === 0) {
         const b = BEACON[u.kind];
         const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
-        w.fx(sp.glow(u.kind === 'fire' ? GLOW_COLORS.red : GLOW_COLORS.amber), p.x, p.y, 1.1, 0.95);
+        w.fx(sp.glow(u.kind === 'fire' ? GLOW_COLORS.red : u.kind === 'ambulance' ? GLOW_COLORS.blue : GLOW_COLORS.amber), p.x, p.y, 1.1, 0.95);
+      } else if (u.kind === 'ambulance') {
+        // the ambulance flashes blue and red
+        const b = BEACON[u.kind];
+        const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, (b.v + 0.06) * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
+        w.fx(sp.glow(GLOW_COLORS.red), p.x, p.y, 1.1, 0.95);
       }
     }
     if (inc.state !== 'active') {

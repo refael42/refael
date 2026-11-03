@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDir, useT, type TKey } from '../../i18n';
 import { Icon } from '../Icon';
 import { C, SHADOW } from '../theme';
+import { formatDuration } from '../../sim';
 import { cityKey, WANT_ACTION, type FlightView } from './flightInfo';
 
 function Meter({ label, value, color }: { label: string; value: number; color: string }) {
@@ -106,6 +107,30 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
             <View style={[styles.chipRow, { flexDirection: dir.row }]}>
               <Icon name="star" size={13} />
               <Text style={[styles.chipText, { color: C.primary }]}>{t('card.vip')}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.medical ? (
+          <Chip tone="bad">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="medic" size={13} />
+              <Text style={[styles.chipText, { color: C.red }]}>{t('card.medical')}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.celeb ? (
+          <Chip tone="accent">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="camera" size={13} />
+              <Text style={[styles.chipText, { color: C.primary }]}>{t('card.celeb')}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.historic >= 0 ? (
+          <Chip tone="accent">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name="ticket" size={13} />
+              <Text style={[styles.chipText, { color: C.primary }]}>{v.historic > 0 ? t('card.onShow', { t: formatDuration(v.historic) }) : t('card.historic')}</Text>
             </View>
           </Chip>
         ) : null}

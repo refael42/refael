@@ -426,9 +426,60 @@ function opsCar(): StackPart[] {
   return parts;
 }
 
+/**
+ * Ambulance: a white box body on a van cab, a red band and a yellow-and-green
+ * checkered stripe, a blue light bar, a rear door with a step, and a white
+ * star (six arms) in a red disc on the sides and the roof.
+ */
+function ambulance(): StackPart[] {
+  const body = '#fbfdff';
+  const parts: StackPart[] = [];
+  for (const u of [0.16, -0.16]) for (const v of [-0.085, 0.085]) parts.push(...wheel(u, v, 0.037, 0.028));
+  parts.push(boxPart(-0.25, -0.08, 0.27, 0.08, 0.03, 0.06, (t) => shade('#1f2937', t * 0.2)));
+  // the box (taller than the cab) and the cab with its sloped nose
+  parts.push(rbox(-0.27, -0.102, 0.12, 0.102, 0.05, 0.255, 0.015, (t) => paint(body, t)));
+  parts.push(cabin(0.11, -0.092, 0.28, 0.092, 0.04, 0.165, 0.07, 0, (t) => paint(body, t * 0.8)));
+  parts.push(cabin(0.115, -0.088, 0.255, 0.088, 0.14, 0.205, 0.06, 0, glass, { outline: false, bias: 1 }));
+  for (const v of [-0.104, 0.102]) {
+    // red band, then the checkered stripe (yellow and green) under the windows
+    parts.push(boxPart(-0.265, v, 0.27, v + 0.002, 0.135, 0.155, () => '#dc2626', { outline: false, bias: 2 }));
+    for (let k = 0; k < 9; k++) {
+      const u0 = -0.265 + k * 0.042;
+      parts.push(boxPart(u0, v, u0 + 0.042, v + 0.002, 0.09, 0.112, () => (k % 2 ? '#22c55e' : '#facc15'), { outline: false, bias: 2 }));
+      parts.push(boxPart(u0, v, u0 + 0.042, v + 0.002, 0.112, 0.134, () => (k % 2 ? '#facc15' : '#22c55e'), { outline: false, bias: 2 }));
+    }
+    // the emblem: a red disc with a white six-armed star
+    parts.push(boxPart(-0.12, v, -0.04, v + 0.002, 0.165, 0.245, () => '#dc2626', { outline: false, bias: 3, dots: [{ u: -0.08, v: v < 0 ? v - 0.003 : v + 0.005, h: 0.205, r: 0.022, color: '#ffffff' }] }));
+    // a small side window in the box
+    parts.push(boxPart(0.03, v, 0.1, v + 0.002, 0.175, 0.225, () => GLASS, { outline: false, bias: 2 }));
+  }
+  // roof: the light bar over the cab (blue and red), a big emblem, an air vent
+  parts.push(boxPart(0.06, -0.075, 0.105, 0.075, 0.255, 0.278, (t) => (t > 0.5 ? '#93c5fd' : '#2563eb'), { outline: false, bias: 5, dots: [{ u: 0.083, v: -0.06, h: 0.28, r: 0.012, color: '#ef4444' }, { u: 0.083, v: 0.06, h: 0.28, r: 0.012, color: '#ef4444' }] }));
+  parts.push(boxPart(-0.2, -0.055, -0.08, 0.055, 0.255, 0.26, () => '#dc2626', { outline: false, bias: 4, dots: [{ u: -0.14, v: 0, h: 0.262, r: 0.026, color: '#ffffff' }] }));
+  parts.push(boxPart(-0.25, -0.03, -0.22, 0.03, 0.255, 0.275, () => '#cbd5e1', { outline: false, bias: 4 }));
+  // rear doors with a split and a step; tail lights; front bumper and lights
+  parts.push(boxPart(-0.278, -0.095, -0.27, 0.095, 0.06, 0.245, () => '#eef2f7', { outline: false, bias: 2, dots: lights(-0.28, 0.07, 0.22, '#ef4444', 0.011) }));
+  parts.push(boxPart(-0.281, -0.003, -0.278, 0.003, 0.07, 0.24, () => '#94a3b8', { outline: false, bias: 3 }));
+  parts.push(boxPart(-0.3, -0.07, -0.27, 0.07, 0.035, 0.05, () => '#475569', { outline: false, bias: 2 }));
+  parts.push(boxPart(0.275, -0.08, 0.29, 0.08, 0.035, 0.08, () => DARK, { outline: false, bias: 2, dots: lights(0.292, 0.06, 0.07, '#fff7d6', 0.012) }));
+  for (const v of [-1, 1]) parts.push(boxPart(0.17, v * 0.1 - 0.006, 0.19, v * 0.1 + 0.006, 0.13, 0.165, () => DARK, { outline: false, bias: 2 }));
+  return parts;
+}
+
+/** A long black limousine for the celebrity: chrome trim and dark glass all round. */
+function limo(): StackPart[] {
+  const body = '#111827';
+  const parts: StackPart[] = [];
+  for (const u of [0.2, -0.2]) for (const v of [-0.07, 0.07]) parts.push(...wheel(u, v, 0.032, 0.024, '#e5e7eb'));
+  parts.push(rbox(-0.3, -0.08, 0.3, 0.08, 0.03, 0.095, 0.03, (t) => paint(body, t), { dots: [...lights(0.302, 0.055, 0.07, '#fff7d6', 0.011), ...lights(-0.302, 0.055, 0.07, '#ef4444', 0.01)] }));
+  parts.push(cabin(-0.2, -0.072, 0.16, 0.072, 0.095, 0.16, 0.05, 0.04, (t) => (t > 0.9 ? '#374151' : '#0b1220'), { outline: false, bias: 1 }));
+  for (const v of [-0.082, 0.08]) parts.push(boxPart(-0.29, v, 0.29, v + 0.002, 0.07, 0.076, () => '#e5e7eb', { outline: false, bias: 2 }));
+  return parts;
+}
+
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -446,6 +497,10 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return fireTruck();
     case 'opsCar':
       return opsCar();
+    case 'ambulance':
+      return ambulance();
+    case 'limo':
+      return limo();
   }
 }
 
@@ -458,4 +513,6 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   partsTruck: { u: 0.2, v: 0, h: 0.27 },
   fire: { u: 0.22, v: 0, h: 0.34 },
   opsCar: { u: 0.055, v: 0, h: 0.215 },
+  ambulance: { u: 0.083, v: 0, h: 0.285 },
+  limo: { u: 0, v: 0, h: 0 },
 };

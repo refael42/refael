@@ -98,7 +98,24 @@ export type GameEventKind =
   /** a: flight id, b: tip. */
   | 'vipTip'
   /** a: game day. */
-  | 'weekend';
+  | 'weekend'
+  /** a: holiday index (HOLIDAYS), b: day of it (0 = the travel days before). */
+  | 'holiday'
+  /** a: flight id. The ambulance is on its way. */
+  | 'ambulanceOut'
+  /** a: flight id, b: reward. The patient is in good hands. */
+  | 'medicalDone'
+  | 'medicalMissed'
+  /** a: flight id, b: 1 = the press is in, 0 = private. */
+  | 'celebDocked'
+  /** a: flight id, b: tip (private visit). */
+  | 'celebTip'
+  /** a: flight id. The press loved it: more people want to fly. */
+  | 'buzz'
+  /** a: flight id. The press saw a bad visit. */
+  | 'badPress'
+  /** a: flight id. A historic plane opened for visitors. */
+  | 'exhibitOpen';
 
 export interface GameEvent {
   id: number;
@@ -146,7 +163,11 @@ export type Command =
   | { type: 'endContract'; airline: number }
   /** store: 0 fuel, 1 parts. */
   | { type: 'setSupplier'; store: number; supplier: number }
-  | { type: 'urgentOrder'; store: number };
+  | { type: 'urgentOrder'; store: number }
+  /** A celebrity visit: let the press in (false) or keep it private (true). */
+  | { type: 'celebPrivacy'; incident: number; private: boolean }
+  /** The real date (epoch day), for the holidays. */
+  | { type: 'setToday'; day: number };
 
 export type FlightPhase =
   | 'inbound'
@@ -281,11 +302,18 @@ export interface Flight {
   vip: boolean;
   vipGood: boolean;
   birdHit: boolean;
+  /** A sick passenger on board: nobody gets off before the paramedics have them. */
+  medical: boolean;
+  /** A celebrity's private plane; a historic plane on a visit. */
+  celeb: boolean;
+  historic: boolean;
+  /** No boarding before this time (a historic plane on show). */
+  holdUntil: number;
 }
 
 /** A vehicle an incident sends out (the runway inspection car, a fire truck). */
 export interface IncidentUnit {
-  kind: 'opsCar' | 'fire';
+  kind: 'opsCar' | 'fire' | 'ambulance';
   x: number;
   y: number;
   px: number;
@@ -293,7 +321,8 @@ export interface IncidentUnit {
   heading: number;
   path: number[];
   pathPos: number;
-  state: 'home' | 'out' | 'work' | 'back';
+  /** (the ambulance waits inside the gate, then goes to the plane) */
+  state: 'home' | 'out' | 'wait' | 'go' | 'work' | 'back';
 }
 
 /** Something happening at the airport (see incidents.ts). */
@@ -315,6 +344,8 @@ export interface Incident {
   result: number;
   /** Coins it brought in (tickets, a reward, a tip). */
   amount: number;
+  /** The player's choice (a celebrity: 0 = let the press in, 1 = keep it private). */
+  choice: number;
 }
 
 /** A signed airline contract. */
@@ -364,6 +395,8 @@ export interface Planned {
   num: number;
   origin: number;
   dest: number;
+  /** A special visitor's own aircraft (AIRCRAFT index), instead of one from the airline's fleet. */
+  ac?: number;
 }
 
 /** A finished departure kept for the board. */
@@ -641,6 +674,13 @@ export interface GameState {
   runwayClosedUntil: number;
   /** Game day already announced as a weekend day (transient). */
   weekendDay: number;
+  /** The real date (epoch day) the player's device says it is, -1 unknown (transient: the UI sends it). */
+  today: number;
+  /** The holiday on now (HOLIDAYS index, -1 none) and the day of it (0 = travel days before). */
+  holiday: number;
+  holidayDay: number;
+  /** More people want to fly until then (a celebrity visit in the news). */
+  buzzUntil: number;
   /** Fuel farm and spare-parts store, and the deliveries on their way. */
   stores: { fuel: StoreState; parts: StoreState };
   deliveries: Delivery[];

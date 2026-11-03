@@ -103,32 +103,40 @@ describe('technical faults (AOG)', () => {
   });
 
   it('about one arrival in twenty has a fault, and every one gets fixed and flies on', () => {
-    const s = regional(5);
-    s.upg.stand = 4;
-    s.upg.standMed = 2;
-    s.upgRev++;
-    const seen = new Set<number>();
-    const fixed = new Set<number>();
-    let docked = 0;
-    let last = 0;
-    for (let i = 0; i < 30 * 3600 * 2; i++) {
-      if (i % 3 === 0) for (const c of botCommands(s, { reaction: 0.5 })) queueCommand(s, c);
-      stepGame(s);
-      for (const e of s.events) {
-        if (e.id <= last) continue;
-        last = e.id;
-        if (e.kind === 'docked') docked++;
-        if (e.kind === 'aog') seen.add(e.a);
-        if (e.kind === 'repairDone') fixed.add(e.a);
+    // (three games, so the share is measured over a few hundred arrivals, not a lucky hundred)
+    let seenAll = 0;
+    let fixedAll = 0;
+    let openAll = 0;
+    let dockedAll = 0;
+    for (const seed of [5, 6, 7]) {
+      const s = regional(seed);
+      s.upg.stand = 4;
+      s.upg.standMed = 2;
+      s.upgRev++;
+      const seen = new Set<number>();
+      const fixed = new Set<number>();
+      let last = 0;
+      for (let i = 0; i < 30 * 3600 * 2; i++) {
+        if (i % 3 === 0) for (const c of botCommands(s, { reaction: 0.5 })) queueCommand(s, c);
+        stepGame(s);
+        for (const e of s.events) {
+          if (e.id <= last) continue;
+          last = e.id;
+          if (e.kind === 'docked') dockedAll++;
+          if (e.kind === 'aog') seen.add(e.a);
+          if (e.kind === 'repairDone') fixed.add(e.a);
+        }
       }
+      seenAll += seen.size;
+      fixedAll += fixed.size;
+      // all but the ones still being repaired right now
+      openAll += s.flights.filter((f) => f.aog === 1).length;
     }
-    const rate = seen.size / Math.max(1, docked);
+    const rate = seenAll / Math.max(1, dockedAll);
     expect(rate).toBeGreaterThan(AOG_CHANCE * 0.4);
     expect(rate).toBeLessThan(AOG_CHANCE * 2);
-    // all but the ones still being repaired right now
-    const open = s.flights.filter((f) => f.aog === 1).length;
-    expect(fixed.size).toBeGreaterThanOrEqual(seen.size - open);
-  }, 120000);
+    expect(fixedAll).toBeGreaterThanOrEqual(seenAll - openAll);
+  }, 240000);
 });
 
 describe('the hangar', () => {

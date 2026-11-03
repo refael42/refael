@@ -52,6 +52,8 @@ import {
   type TreeKind,
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
+import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
+import { HOLIDAYS } from '../data/holidays';
 import { buildPlane } from './art/plane';
 import { drawStack, measureStack, type StackPart } from './art/stack';
 import { buildCar, buildVehicle, CAR_VARIANTS, type CarKind, type VehicleKind } from './art/vehicles';
@@ -61,10 +63,18 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
-export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3 } as const;
-const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020'];
+export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3, blue: 4, pink: 5, purple: 6, gold: 7 } as const;
+const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020', '#3b82f6', '#ec4899', '#a855f7', '#facc15'];
+
+/** Every color the holiday string lights use (one bulb sprite each). */
+export const BULB_COLORS: readonly string[] = [...new Set(HOLIDAYS.flatMap((h) => h.colors))];
+/** Rope barrier lengths (tiles) for the historic plane's display: along x, along y. */
+export const ROPE_X = 2.0;
+export const ROPE_Y = 0.9;
+/** Bunting length (tiles, along x) over the terminal front. */
+export const BUNTING_LEN = 2.6;
 const CAR_KINDS: readonly CarKind[] = [...new Set(CAR_VARIANTS.map((c) => c.kind))];
 
 /** Heading in radians -> sprite direction index. */
@@ -83,7 +93,7 @@ export interface Content {
 }
 
 /** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
-const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2 };
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2 };
 
 export interface SpriteSet {
   atlas: Atlas;
@@ -123,6 +133,16 @@ export interface SpriteSet {
   bird: (frame: number) => number;
   redCarpet: number;
   rain: number;
+  /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
+  stretcher: number;
+  rope: (alongY: boolean) => number;
+  ticketBooth: number;
+  infoSign: number;
+  tvCamera: number;
+  /** Holidays: the centerpiece and bunting of each (HOLIDAYS index), a light bulb by BULB_COLORS index. */
+  holidayPiece: (h: number) => number;
+  bunting: (h: number) => number;
+  bulb: (c: number) => number;
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
@@ -187,7 +207,7 @@ export function buildSprites(content: Content): SpriteSet {
   for (const [al, ac] of combos) {
     const first = b.size;
     for (let d = 0; d < DIRS; d++) {
-      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d, undefined, planeRes(ac));
+      stackSprite(b, (dir) => buildPlane(planeArt(ac), AIRCRAFT[ac].livery ?? AIRLINES[al].livery, (dir / DIRS) * Math.PI * 2), d, undefined, planeRes(ac));
     }
     planeBase.push(first);
   }
@@ -290,6 +310,30 @@ export function buildSprites(content: Content): SpriteSet {
   for (let f = 0; f < 2; f++) b.add(-7 * S, -6 * S, 7 * S, 5 * S, (c, ox, oy) => drawBird(new IsoPen(c, ox, oy, S), f));
   const redCarpet = b.add(-0.4 * T, -1.3 * T, 2.0 * T, 0.3 * T, (c, ox, oy) => drawRedCarpet(new IsoPen(c, ox, oy, S)));
   const rain = b.add(-3 * S, -18 * S, 5 * S, 4 * S, (c, ox, oy) => drawRain(new IsoPen(c, ox, oy, S)));
+  const stretcher = b.add(-14 * S, -12 * S, 14 * S, 8 * S, (c, ox, oy) => drawStretcher(new IsoPen(c, ox, oy, S)));
+  const ropeX = b.add(-0.2 * T, -0.5 * T, (ROPE_X + 0.2) * T, (ROPE_X * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_X, false));
+  const ropeY = b.add(-(ROPE_Y + 0.2) * T, -0.5 * T, 0.2 * T, (ROPE_Y * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_Y, true));
+  const ticketBooth = b.add(-0.6 * T, -0.9 * T, 0.8 * T, 0.7 * T, (c, ox, oy) => drawTicketBooth(new IsoPen(c, ox, oy, S)));
+  const infoSign = b.add(-0.3 * T, -0.8 * T, 0.6 * T, 0.5 * T, (c, ox, oy) => drawInfoSign(new IsoPen(c, ox, oy, S)));
+  const tvCamera = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.3 * T, (c, ox, oy) => drawTvCamera(new IsoPen(c, ox, oy, S)));
+  const holidayBase = b.size;
+  for (const h of HOLIDAYS) b.add(-1.2 * T, -1.6 * T, 1.4 * T, 0.9 * T, (c, ox, oy) => drawHolidayPiece(new IsoPen(c, ox, oy, S), h.id));
+  const buntingBase = b.size;
+  for (const h of HOLIDAYS) b.add(-0.2 * T, -0.4 * T, (BUNTING_LEN + 0.2) * T, (BUNTING_LEN * 0.5 + 0.3) * T, (c, ox, oy) => drawBunting(new IsoPen(c, ox, oy, S), BUNTING_LEN, h.colors));
+  const bulbBase = b.size;
+  for (const hex of BULB_COLORS) {
+    b.add(-3 * S, -3 * S, 3 * S, 3 * S, (c, ox, oy) => {
+      const p = Skia.Paint();
+      p.setAntiAlias(true);
+      p.setColor(Skia.Color('#334155'));
+      c.drawCircle(ox, oy, 1.7 * S, p);
+      p.setColor(Skia.Color(hex));
+      c.drawCircle(ox, oy, 1.3 * S, p);
+      p.setColor(Skia.Color('#ffffff'));
+      p.setAlphaf(0.7);
+      c.drawCircle(ox - 0.4 * S, oy - 0.4 * S, 0.45 * S, p);
+    });
+  }
 
   // static objects (anchor = object origin on the ground)
   const hut = b.add(-1.9 * 32 * S, -1.6 * 32 * S, 2.2 * 32 * S, 2.0 * 32 * S, (c, ox, oy) => drawHut(new IsoPen(c, ox, oy, S)));
@@ -442,6 +486,14 @@ export function buildSprites(content: Content): SpriteSet {
     bird: (f) => birdBase + (f % 2),
     redCarpet,
     rain,
+    stretcher,
+    rope: (alongY) => (alongY ? ropeY : ropeX),
+    ticketBooth,
+    infoSign,
+    tvCamera,
+    holidayPiece: (h) => holidayBase + h,
+    bunting: (h) => buntingBase + h,
+    bulb: (c) => bulbBase + c,
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,

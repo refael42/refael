@@ -11,6 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
+  'medic', 'camera', 'ticket', 'party',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -389,6 +390,60 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       circ(32, 53, 6, '#b45309');
       stroke([52, 14, 57, 20], '#fbbf24', 3.5);
       stroke([12, 14, 7, 20], '#fbbf24', 3.5);
+      break;
+    }
+    case 'medic': {
+      // a red disc with a white six-armed star (the ambulance emblem)
+      circ(32, 32, 26, '#dc2626');
+      circ(32, 32, 22, '#ef4444');
+      f.setColor(Skia.Color('#ffffff'));
+      for (let k = 0; k < 3; k++) {
+        canvas.save();
+        canvas.rotate(k * 60, 32, 32);
+        canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 13, 10, 38), 3, 3), f);
+        canvas.restore();
+      }
+      circ(32, 32, 4, '#ef4444');
+      break;
+    }
+    case 'camera': {
+      // a press camera: body, big lens, flash on top with a burst
+      f.setColor(Skia.Color('#334155'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(8, 22, 48, 30), 7, 7), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(14, 16, 14, 8), 3, 3), f);
+      circ(34, 37, 12, '#e2e8f0');
+      circ(34, 37, 9, '#1e293b');
+      circ(31, 34, 3, '#93c5fd');
+      f.setColor(Skia.Color('#f8fafc'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(42, 12, 12, 9), 2, 2), f);
+      stroke([48, 4, 48, 8], '#facc15', 3);
+      stroke([56, 7, 53, 10], '#facc15', 3);
+      stroke([40, 7, 43, 10], '#facc15', 3);
+      break;
+    }
+    case 'ticket': {
+      // an admission ticket with notches and a perforation
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(6, 16, 52, 32), 5, 5), f);
+      circ(6, 32, 6, '#ffffff');
+      circ(58, 32, 6, '#ffffff');
+      for (let y = 19; y < 46; y += 6) stroke([42, y, 42, y + 3], '#fff7ed', 2.5);
+      f.setColor(Skia.Color('#fff7ed'));
+      canvas.drawPath(path([24, 22, 26.5, 28, 33, 28.5, 28, 32.5, 29.8, 39, 24, 35.4, 18.2, 39, 20, 32.5, 15, 28.5, 21.5, 28]), f);
+      break;
+    }
+    case 'party': {
+      // a party popper with confetti and streamers
+      f.setColor(Skia.Color('#8b5cf6'));
+      canvas.drawPath(path([8, 56, 22, 22, 42, 42]), f);
+      f.setColor(Skia.Color('#facc15'));
+      canvas.drawPath(path([12, 46, 16, 36, 26, 46, 20, 49]), f);
+      stroke([30, 20, 36, 10, 44, 14], '#ec4899', 3.5);
+      stroke([42, 30, 52, 26, 56, 32], '#22c55e', 3.5);
+      circ(46, 8, 3.5, '#3b82f6');
+      circ(56, 18, 3, '#f97316');
+      circ(30, 8, 2.5, '#22c55e');
+      circ(58, 42, 3, '#ec4899');
       break;
     }
     case 'wind': {

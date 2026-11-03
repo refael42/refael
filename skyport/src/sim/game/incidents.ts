@@ -9,18 +9,37 @@
  * - emergency: an inbound plane lands first; fire trucks stand by; praise or blame
  * - vip: a VIP flight; red carpet; a big tip if the passengers leave happy and on time
  * - airshow: announced ahead; the runway closes while the team flies; tickets sell
+ * - medical: a sick passenger; the ambulance comes in by road and meets the plane
+ * - celebrity: a private jet; let the press in (buzz: fuller planes) or keep it private (a tip)
+ * - historic: a vintage plane visits, stands on show, visitors buy tickets
  *
- * Weekends (game days 6 and 7) bring fuller planes.
+ * Weekends (game days 6 and 7), holidays (real dates) and a buzz bring fuller planes.
  */
-import { AIRCRAFT } from '../../data/aircraft';
-import { INCIDENT_GAP, INCIDENTS, incidentDef, WEEKEND_PAX, type IncidentKind } from '../../data/incidents';
+import { AIRCRAFT, aircraftIndex, planeArt, standFits, type StandSize } from '../../data/aircraft';
+import { AIRLINES } from '../../data/airlines';
+import { HOLIDAYS } from '../../data/holidays';
+import {
+  BUZZ_PAX,
+  BUZZ_SECONDS,
+  CELEB_PAY,
+  EXHIBIT_RATE,
+  INCIDENT_GAP,
+  INCIDENTS,
+  incidentDef,
+  MEDICAL_DEADLINE,
+  MEDICAL_WORK,
+  VISITORS,
+  WEEKEND_PAX,
+  type IncidentKind,
+} from '../../data/incidents';
 import { tierDef, type P2 } from '../../data/tiers';
 import { Big } from '../big';
 import { hash01, hashU32 } from '../hash';
-import { fleetHere } from './airlines';
+import { aircraftHere, fleetHere } from './airlines';
+import { holidayOn } from './calendar';
 import { gameClock } from './clock';
 import { pushEvent } from './events';
-import { layoutOf, opsOf } from './layout';
+import { doorSide, layoutOf, opsOf } from './layout';
 import { chaikin, makeSample, samplePath } from './path';
 import type { Flight, GameState, Incident, IncidentUnit, Planned } from './types';
 import { level } from './upgrades';
@@ -83,6 +102,38 @@ export function weekendPax(time: number, n: number, max: number): number {
   return isWeekend(time) ? Math.min(max, Math.round(n * WEEKEND_PAX)) : n;
 }
 
+/** How much fuller planes are now: the weekend, a holiday, a celebrity in the news. */
+export function paxBoost(s: GameState): number {
+  let k = isWeekend(s.time) ? WEEKEND_PAX : 1;
+  if (s.holiday >= 0) k *= HOLIDAYS[s.holiday]?.pax ?? 1;
+  if (s.time < s.buzzUntil) k *= BUZZ_PAX;
+  return k;
+}
+
+/** Passengers for a new flight with the boost (never above the seats). */
+export function boostPax(s: GameState, n: number, max: number): number {
+  const k = paxBoost(s);
+  return k === 1 ? n : Math.min(max, Math.round(n * k));
+}
+
+/** The real date changed (or arrived): which holiday is it? Announced once when one begins. */
+function updateHoliday(s: GameState): void {
+  const now = holidayOn(s.today);
+  const h = now ? now.h : -1;
+  const day = now ? now.day : 0;
+  if (h === s.holiday && day === s.holidayDay) return;
+  const fresh = h >= 0 && h !== s.holiday;
+  s.holiday = h;
+  s.holidayDay = day;
+  if (fresh) pushEvent(s, 'holiday', 0, 0, h, day);
+}
+
+/** The UI tells the sim the date (an epoch day: days since 1970-01-01). */
+export function setToday(s: GameState, day: number): void {
+  s.today = Number.isFinite(day) ? Math.floor(day) : -1;
+  updateHoliday(s);
+}
+
 // ------------------------------------------------------------------ scheduling
 
 function cooling(s: GameState, kind: IncidentKind): boolean {
@@ -105,6 +156,7 @@ function newIncident(s: GameState, kind: IncidentKind): Incident {
     units: [],
     result: 0,
     amount: 0,
+    choice: 0,
   };
   s.incidents.push(inc);
   s.incidentLast[kind] = s.time;
@@ -124,20 +176,52 @@ function possible(s: GameState, kind: IncidentKind): boolean {
       return s.flights.some((f) => emergencyCandidate(f));
     case 'vip':
       return freeStands(s) >= 2 && s.contracts.some((c) => fleetHere(s, c.al).length > 0);
+    case 'medical':
+      return s.flights.some((f) => emergencyCandidate(f));
+    case 'celebrity':
+      return freeStands(s) >= 2 && celebPlane(s) >= 0;
+    case 'historic':
+      return freeStands(s) >= 2 && freeStands(s, 'small') >= 1;
     default:
       return true;
   }
 }
 
 function emergencyCandidate(f: Flight): boolean {
-  return (f.phase === 'inbound' || f.phase === 'holding') && !f.landCleared && !f.guest && !f.check && !f.vip && !f.emergency;
+  return (f.phase === 'inbound' || f.phase === 'holding') && !f.landCleared && !special(f);
 }
 
-function freeStands(s: GameState): number {
+/** Already part of a story (a guest, a check, an incident): leave it alone. */
+function special(f: Flight): boolean {
+  return f.guest || f.check > 0 || f.vip || f.emergency || f.medical || f.celeb || f.historic;
+}
+
+/** Free stands (that take this size of plane, if given). */
+function freeStands(s: GameState, need?: StandSize): number {
   const L = layoutOf(s.tier);
   let n = 0;
-  for (let i = 0; i < s.stands.length; i++) if (s.standOpen[i] && !L.stands[i]?.hangar && !s.stands[i].occupant && !s.stands[i].reserved) n++;
+  for (let i = 0; i < s.stands.length; i++) {
+    const st = L.stands[i];
+    if (!st || !s.standOpen[i] || st.hangar || s.stands[i].occupant || s.stands[i].reserved) continue;
+    if (need && !standFits(st.size, need)) continue;
+    n++;
+  }
   return n;
+}
+
+/** The celebrity's plane: a business jet where it can park, else a light twin (-1 = none fits now). */
+function celebPlane(s: GameState): number {
+  for (const id of VISITORS.celebPlanes) {
+    const k = aircraftIndex(id);
+    if (k >= 0 && aircraftHere(s, k) && freeStands(s, AIRCRAFT[k].stand) >= 1) return k;
+  }
+  return -1;
+}
+
+function visitorFlight(s: GameState, spawn: (p: Planned) => Flight | null, airline: string, ac: number): Flight | null {
+  const al = Math.max(0, AIRLINES.findIndex((a) => a.id === airline));
+  const id = s.nextId++;
+  return spawn({ id, at: s.time, al, num: 1 + Math.floor(gh(s, id) * 99), origin: Math.floor(gh(s, id + 1) * 6), dest: Math.floor(gh(s, id + 2) * 6), ac });
 }
 
 /** Picks the next incident when one is due. */
@@ -167,6 +251,40 @@ export function startIncident(s: GameState, kind: IncidentKind, spawn: (p: Plann
     f.patience = Math.max(f.patience, 0.6);
     inc.flight = f.id;
     inc.ends = s.time + EMERGENCY_DEADLINE;
+    return inc;
+  }
+  if (kind === 'medical') {
+    const f = s.flights.find((x) => emergencyCandidate(x));
+    if (!f) return null;
+    const inc = newIncident(s, kind);
+    f.medical = true;
+    f.patience = Math.max(f.patience, 0.6);
+    inc.flight = f.id;
+    inc.ends = s.time + MEDICAL_DEADLINE;
+    return inc;
+  }
+  if (kind === 'celebrity') {
+    const f = visitorFlight(s, spawn, VISITORS.celebAirline, celebPlane(s));
+    if (!f) return null;
+    const inc = newIncident(s, kind);
+    f.celeb = true;
+    f.payMul = CELEB_PAY;
+    f.mood = Math.max(f.mood, 0.85);
+    // the star and a small entourage (with plenty of luggage)
+    f.paxIn = Math.min(f.paxIn, 2 + Math.floor(gh(s, f.id + 5) * 3));
+    f.paxOut = Math.min(f.paxOut, 2 + Math.floor(gh(s, f.id + 6) * 3));
+    f.bagsIn = f.paxIn * 2;
+    f.bagsOut = f.paxOut * 2;
+    inc.flight = f.id;
+    return inc;
+  }
+  if (kind === 'historic') {
+    const f = visitorFlight(s, spawn, VISITORS.historicAirline, aircraftIndex(VISITORS.historicPlane));
+    if (!f) return null;
+    const inc = newIncident(s, kind);
+    f.historic = true;
+    f.payMul = 1;
+    inc.flight = f.id;
     return inc;
   }
   if (kind === 'vip') {
@@ -247,7 +365,7 @@ export function updateIncidents(s: GameState, dt: number, spawn: (p: Planned) =>
     for (const u of inc.units) {
       u.px = u.x;
       u.py = u.y;
-      // (units of a finished incident still drive home)
+      // (units of a finished incident still drive home; the ambulance drives off to the hospital)
       if (inc.state === 'done' && u.state === 'back' && moveUnit(u, dt)) u.state = 'home';
     }
     if (inc.state === 'done') continue;
@@ -292,6 +410,15 @@ export function updateIncidents(s: GameState, dt: number, spawn: (p: Planned) =>
         else if (f.paid > 0) finish(s, inc, f.vipGood ? 1 : -1, f.vipGood ? f.paid : 0);
         break;
       }
+      case 'medical':
+        updateMedical(s, inc, dt);
+        break;
+      case 'celebrity':
+        updateCeleb(s, inc);
+        break;
+      case 'historic':
+        updateHistoric(s, inc, dt);
+        break;
     }
   }
   // keep the panel short
@@ -399,4 +526,206 @@ export function birdCheck(s: GameState, f: Flight): void {
 export function vipTip(f: Flight): boolean {
   f.vipGood = f.vip && f.mood >= 0.7 && f.onTime > 0;
   return f.vipGood;
+}
+
+// ------------------------------------------------------------------ medical case
+
+function addMoney(s: GameState, amount: number): void {
+  s.money = s.money.add(Big.fromNumber(amount));
+  s.stats.earned = s.stats.earned.add(Big.fromNumber(amount));
+}
+
+/** Main road points beyond the service road turn-off, farthest first. */
+function outerRoad(s: GameState): P2[] {
+  const L = layoutOf(s.tier);
+  const start = L.depot ? L.depot.serviceRoad[0] : L.road[0];
+  return L.road.filter((p) => p[1] < start[1] - 0.3).sort((a, b) => a[1] - b[1]);
+}
+
+/** Where the ambulance waits on the apron (inside the gate) until the plane is at its stand. */
+export function ambulanceWait(s: GameState): P2 {
+  const D = layoutOf(s.tier).depot;
+  return D ? [D.mech.via[0] - 0.95, D.mech.via[1] - 0.25] : [26, 20];
+}
+
+/** In by road, through the gate, to the waiting spot. */
+function ambulanceIn(s: GameState): number[] {
+  const D = layoutOf(s.tier).depot!;
+  const pts: number[] = [];
+  for (const p of outerRoad(s)) pts.push(p[0] + 0.18, p[1], 0);
+  for (const p of D.serviceRoad) pts.push(p[0], p[1] + 0.18, 0);
+  const w = ambulanceWait(s);
+  pts.push(D.gate[0] + 0.12, D.gate[1], 0, D.gate[0] + 0.05, D.gate[1] + 0.45, 0, D.gate[0] - 0.2, D.gate[1] + 2.3, 0, w[0], w[1], 0);
+  return pts;
+}
+
+/** Out through the gate and up the road (to the hospital). */
+function ambulanceOut(s: GameState, from: P2): number[] {
+  const D = layoutOf(s.tier).depot!;
+  const via = D.mech.via;
+  const pts: number[] = [from[0], from[1], 0, via[0], via[1], 0, D.gate[0] + 0.3, D.gate[1] + 1.2, 0, D.gate[0] - 0.1, D.gate[1], 0];
+  for (let i = D.serviceRoad.length - 1; i >= 0; i--) pts.push(D.serviceRoad[i][0], D.serviceRoad[i][1] - 0.18, 0);
+  const outer = outerRoad(s).reverse();
+  for (const p of outer) pts.push(p[0] - 0.18, p[1], 0);
+  return pts;
+}
+
+/**
+ * Where the ambulance stops by the plane: by the service door on the side away
+ * from the terminal (clear of the stairs, the jet bridge and the passengers),
+ * a lane further out than the fuel truck.
+ */
+export function ambulanceSpot(s: GameState, f: Flight): { at: P2; approach: P2 } {
+  const L = layoutOf(s.tier);
+  const art = planeArt(f.aircraft);
+  const side = -doorSide(L, f.x, f.y, f.heading);
+  const nx = -Math.sin(f.heading);
+  const ny = Math.cos(f.heading);
+  const cx = Math.cos(f.heading);
+  const cy = Math.sin(f.heading);
+  const u = art.length * 0.3;
+  const v = side * (art.radius + 0.95);
+  const at: P2 = [f.x + cx * u + nx * v, f.y + cy * u + ny * v];
+  const approach: P2 = [at[0] - cx * 0.9 + nx * side * 0.35, at[1] - cy * 0.9 + ny * side * 0.35];
+  return { at, approach };
+}
+
+/**
+ * A sick passenger: the plane gets landing priority; the ambulance comes in by
+ * road once it is cleared, waits on the apron, meets it at the stand (nobody
+ * gets off before the patient) and drives off to the hospital.
+ */
+function updateMedical(s: GameState, inc: Incident, dt: number): void {
+  const f = s.flights.find((x) => x.id === inc.flight);
+  if (f && f.landCleared && inc.units.length === 0) {
+    const pts = ambulanceIn(s);
+    const u = unitAt('ambulance', [pts[0], pts[1]]);
+    sendUnit(u, pts, 'out');
+    inc.units.push(u);
+    pushEvent(s, 'ambulanceOut', f.x, f.y, f.id);
+  }
+  const u = inc.units[0];
+  if (u) {
+    if (u.state === 'out' && moveUnit(u, dt)) u.state = 'wait';
+    if (u.state === 'wait' && f && f.medical && f.dockedAt > 0) {
+      const spot = ambulanceSpot(s, f);
+      const D = layoutOf(s.tier).depot!;
+      sendUnit(u, [u.x, u.y, 0, D.mech.via[0], D.mech.via[1], 0, spot.approach[0], spot.approach[1], 0, spot.at[0], spot.at[1], 0], 'go');
+    }
+    if (u.state === 'go' && moveUnit(u, dt)) {
+      u.state = 'work';
+      u.pathPos = 0;
+    }
+    if (u.state === 'work' && f) {
+      u.pathPos += dt;
+      if (u.pathPos >= MEDICAL_WORK) {
+        // the patient is in good hands: everyone else may get off now
+        f.medical = false;
+        const amount = Math.round(AIRCRAFT[f.aircraft].landingFee * 2 * tierDef(s.tier).pay);
+        addMoney(s, amount);
+        s.rating = Math.min(5, s.rating + 0.1);
+        s.rep[f.airline] = Math.min(100, (s.rep[f.airline] ?? 50) + 3);
+        pushEvent(s, 'medicalDone', u.x, u.y, f.id, amount);
+        sendUnit(u, ambulanceOut(s, [u.x, u.y]), 'back');
+        finish(s, inc, 1, amount);
+        return;
+      }
+    }
+  }
+  // flown elsewhere: diverted, or still circling past the deadline
+  const circling = !!f && !f.landCleared && (f.phase === 'inbound' || f.phase === 'holding');
+  if (!f || f.phase === 'diverted' || (s.time >= inc.ends && circling)) {
+    s.rating = Math.max(1, s.rating - 0.1);
+    if (f) {
+      s.rep[f.airline] = Math.max(0, (s.rep[f.airline] ?? 50) - 3);
+      f.medical = false;
+    }
+    pushEvent(s, 'medicalMissed', f?.x ?? 0, f?.y ?? 0, inc.flight);
+    // the ambulance turns round where it is
+    if (u && u.state !== 'back') sendUnit(u, u.state === 'out' ? [u.x, u.y, 0, ...ambulanceIn(s).slice(0, 3)] : ambulanceOut(s, [u.x, u.y]), 'back');
+    finish(s, inc, -1);
+  }
+}
+
+// ------------------------------------------------------------------ celebrity
+
+/** Let the press in (false) or keep the visit private (true), until the plane leaves. */
+export function setCelebPrivacy(s: GameState, incident: number, priv: boolean): boolean {
+  const inc = s.incidents.find((i) => i.id === incident && i.kind === 'celebrity' && i.state === 'active');
+  if (!inc) return false;
+  const f = s.flights.find((x) => x.id === inc.flight);
+  if (!f || f.offBlockAt > 0) return false;
+  inc.choice = priv ? 1 : 0;
+  return true;
+}
+
+/**
+ * A celebrity's private plane. With the press in, a good visit makes the news
+ * (buzz: fuller planes for a day) and a bad one makes worse news; kept
+ * private, a good visit tips as much again as the flight paid.
+ */
+function updateCeleb(s: GameState, inc: Incident): void {
+  const f = s.flights.find((x) => x.id === inc.flight);
+  if (!f) {
+    finish(s, inc, 0);
+    return;
+  }
+  if (f.phase === 'diverted') {
+    finish(s, inc, -1);
+    return;
+  }
+  if (f.dockedAt > 0 && inc.x === 0) {
+    inc.x = f.x;
+    inc.y = f.y;
+    pushEvent(s, 'celebDocked', f.x, f.y, f.id, inc.choice === 0 ? 1 : 0);
+  }
+  if (f.paid <= 0) return;
+  const good = f.mood >= 0.7 && f.onTime > 0;
+  if (inc.choice === 1) {
+    if (good) {
+      addMoney(s, f.paid);
+      pushEvent(s, 'celebTip', f.x, f.y, f.id, f.paid);
+    }
+    finish(s, inc, good ? 1 : -1, good ? f.paid : 0);
+    return;
+  }
+  if (good) {
+    s.buzzUntil = Math.max(s.buzzUntil, s.time + BUZZ_SECONDS);
+    s.rating = Math.min(5, s.rating + 0.05);
+    pushEvent(s, 'buzz', f.x, f.y, f.id);
+  } else {
+    s.rating = Math.max(1, s.rating - 0.15);
+    pushEvent(s, 'badPress', f.x, f.y, f.id);
+  }
+  finish(s, inc, good ? 1 : -1, 0);
+}
+
+// ------------------------------------------------------------------ historic plane
+
+/** Ticket coins a second while a historic plane is on show. */
+export function exhibitRate(s: GameState): number {
+  return EXHIBIT_RATE * tierDef(s.tier).pay * s.rating;
+}
+
+/** A historic plane on a visit: on show at its stand (boarding waits), visitors buy tickets. */
+function updateHistoric(s: GameState, inc: Incident, dt: number): void {
+  const f = s.flights.find((x) => x.id === inc.flight);
+  if (!f || f.phase === 'diverted') {
+    // it flew on to another airport
+    finish(s, inc, 0);
+    return;
+  }
+  if (f.dockedAt <= 0) return;
+  if (inc.x === 0) {
+    inc.x = f.x;
+    inc.y = f.y;
+    pushEvent(s, 'exhibitOpen', f.x, f.y, f.id);
+  }
+  if (s.time < f.holdUntil) {
+    inc.amount += exhibitRate(s) * dt;
+    return;
+  }
+  const amount = Math.round(inc.amount);
+  addMoney(s, amount);
+  finish(s, inc, 1, amount);
 }

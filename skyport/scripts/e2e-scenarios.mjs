@@ -380,6 +380,43 @@ export default [
   { name: 'm11-vip', viewport: { width: 844, height: 390 }, query: '/?seed=44&tier=2&stands=4&crew=1&warp=200&auto=1&inc=vip', wait: 2500, touch: true, langs: ['he'] },
   { name: 'm11-airshow', viewport: { width: 844, height: 390 }, query: '/?seed=45&tier=2&stands=4&crew=1&warp=200&auto=1&inc=airshow&cam=22,22,0.9', wait: 3000, touch: true },
   { name: 'm11-birds', viewport: { width: 844, height: 390 }, query: '/?seed=46&tier=3&full=1&crew=1&warp=200&auto=1&inc=birds', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'm11-medical', viewport: { width: 844, height: 390 }, query: '/?seed=51&tier=2&stands=4&crew=1&warp=200&auto=1&inc=medical', wait: 1200, touch: true },
+  { name: 'm11-celebrity', viewport: { width: 844, height: 390 }, query: '/?seed=52&tier=2&stands=4&crew=1&warp=200&auto=1&inc=celebrity', wait: 2500, touch: true },
+  {
+    name: 'm11-celebrity-panel',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=52&tier=2&stands=4&crew=1&warp=200&auto=1&inc=celebrity&panel=events&hook=1',
+    wait: 2000,
+    touch: true,
+    actions: async (page) => {
+      // choosing privacy reaches the game (and the bodyguards replace the press at the stand)
+      await page.getByTestId('celeb-private').click();
+      await page.waitForFunction(() => window.__skyport.incidents().some((i) => i.kind === 'celebrity' && i.choice === 1), null, { timeout: 4000 });
+    },
+  },
+  { name: 'm11-celebrity-private', viewport: { width: 844, height: 390 }, query: '/?seed=53&tier=3&full=1&crew=1&warp=200&auto=1&inc=celebrityPrivate', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'm11-historic', viewport: { width: 844, height: 390 }, query: '/?seed=54&tier=2&stands=4&crew=1&warp=200&auto=1&inc=historic', wait: 2500, touch: true },
+  { name: 'm11-historic-panel', viewport: { width: 844, height: 390 }, query: '/?seed=54&tier=2&stands=4&crew=1&warp=200&auto=1&inc=historic&panel=events', wait: 2000, touch: true, langs: ['he'] },
+  { name: 'm11-hanukkah', viewport: { width: 844, height: 390 }, query: '/?seed=55&tier=2&stands=4&crew=1&warp=120&auto=1&hol=hanukkah&holday=5&cam=21.6,18.6,1.9', wait: 2500, touch: true },
+  {
+    name: 'm11-hanukkah-panel',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=55&tier=2&stands=4&crew=1&warp=120&auto=1&hol=hanukkah&holday=5&panel=events&hook=1',
+    wait: 2000,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      // the date reached the game: Hanukkah, fifth candle, and the panel says so
+      const h = await page.evaluate(() => window.__skyport.holiday());
+      if (h.day !== 5) throw new Error('expected the 5th day of Hanukkah, got ' + JSON.stringify(h));
+      await page.getByTestId('holiday-card').waitFor({ timeout: 3000 });
+    },
+  },
+  { name: 'm11-sukkot', viewport: { width: 844, height: 390 }, query: '/?seed=56&tier=3&full=1&crew=1&warp=120&auto=1&hol=sukkot&holday=2&cam=21.6,18.6,1.9', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'm11-independence', viewport: { width: 844, height: 390 }, query: '/?seed=57&tier=4&full=1&crew=1&warp=120&auto=1&hol=independence&cam=21.0,17.6,1.2', wait: 3000, touch: true, langs: ['he'] },
+  { name: 'm11-halloween', viewport: { width: 844, height: 390 }, query: '/?seed=58&tier=1&warp=120&auto=1&hol=halloween&cam=20.6,18.9,1.9', wait: 2500, touch: true, langs: ['en'] },
+  // (art review of every holiday's decorations; not part of the regular run)
+  ...['roshHashana', 'tuBishvat', 'purim', 'passover', 'lagBaomer', 'shavuot', 'newYear'].map((h) => ({ name: 'review-' + h, review: true, viewport: { width: 844, height: 390 }, query: `/?seed=59&tier=2&stands=4&warp=60&hol=${h}&holday=1&cam=${h === 'lagBaomer' ? '19.6,19.4' : '21.6,18.6'},1.9`, wait: 2000, touch: true, langs: ['en'] })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { stockUp } from './helpers';
 
 import { AIRLINES } from '../src/data/airlines';
-import { INCIDENTS, incidentDef } from '../src/data/incidents';
+import { HOLIDAYS, holidayIndex } from '../src/data/holidays';
+import { BUZZ_PAX, EXHIBIT_SECONDS, INCIDENTS, incidentDef, MEDICAL_DEADLINE } from '../src/data/incidents';
 import {
   applyStructural,
   Big,
@@ -23,6 +24,11 @@ import {
   switchTier,
   weekendPax,
   DAY_SECONDS,
+  epochDay,
+  holidayOn,
+  nextHoliday,
+  paxBoost,
+  boostPax,
   type GameState,
 } from '../src/sim';
 import { spawnFlight } from '../src/sim/game/flights';
@@ -182,6 +188,138 @@ describe('incidents', () => {
     expect(weekendPax(DAY_SECONDS * 5.5, 10, 20)).toBe(12);
     expect(weekendPax(DAY_SECONDS * 5.5, 19, 20)).toBe(20);
     expect(weekendPax(0, 10, 20)).toBe(10);
+  });
+
+  it('a medical case: the ambulance comes by road, nobody gets off before the patient, and you are thanked', () => {
+    const s = airfield(11);
+    spawnFlight(s);
+    const inc = startIncident(s, 'medical', spawner(s))!;
+    expect(inc).not.toBeNull();
+    const f = s.flights.find((x) => x.id === inc.flight)!;
+    expect(f.medical).toBe(true);
+    const rating = s.rating;
+    const money = s.money.toNumber();
+    let offEarly = 0;
+    let sawWait = false;
+    play(s, 400, () => {
+      if (f.medical && f.deboarded > 0) offEarly++;
+      if (inc.units[0]?.state === 'wait' || inc.units[0]?.state === 'go') sawWait = true;
+      return inc.state === 'done';
+    });
+    expect(inc.state).toBe('done');
+    expect(inc.result).toBe(1);
+    expect(offEarly).toBe(0);
+    expect(sawWait).toBe(true);
+    expect(inc.units[0].kind).toBe('ambulance');
+    expect(inc.units[0].state).toBe('back');
+    expect(f.medical).toBe(false);
+    expect(s.rating).toBeGreaterThan(rating);
+    expect(s.money.toNumber()).toBeGreaterThan(money);
+    // and then everyone else gets off
+    play(s, 60, () => f.deboarded >= f.paxIn);
+    expect(f.deboarded).toBe(f.paxIn);
+    // the ambulance drives off the map
+    play(s, 60, () => inc.units[0].state === 'home');
+    expect(inc.units[0].state).toBe('home');
+  });
+
+  it('a medical case left circling is flown elsewhere and counts against you', () => {
+    const s = airfield(12);
+    spawnFlight(s);
+    const inc = startIncident(s, 'medical', spawner(s))!;
+    const rating = s.rating;
+    for (let i = 0; i < 30 * (MEDICAL_DEADLINE + 10) && inc.state !== 'done'; i++) stepGame(s);
+    expect(inc.result).toBe(-1);
+    expect(s.rating).toBeLessThan(rating);
+  });
+
+  it('a celebrity kept private tips as much again when the visit goes well', () => {
+    const s = airfield(13);
+    s.stats.served = 50;
+    const inc = startIncident(s, 'celebrity', spawner(s))!;
+    expect(inc).not.toBeNull();
+    const f = s.flights.find((x) => x.id === inc.flight)!;
+    expect(f.celeb).toBe(true);
+    queueCommand(s, { type: 'celebPrivacy', incident: inc.id, private: true });
+    play(s, 600, () => inc.state === 'done');
+    expect(inc.choice).toBe(1);
+    expect(inc.result).toBe(1);
+    expect(inc.amount).toBe(f.paid);
+    expect(s.events.some((e) => e.kind === 'celebTip')).toBe(true);
+    expect(s.buzzUntil).toBe(0);
+  });
+
+  it('a celebrity with the press in makes the news: fuller planes for a day', () => {
+    const s = airfield(14);
+    s.stats.served = 50;
+    const inc = startIncident(s, 'celebrity', spawner(s))!;
+    play(s, 600, () => inc.state === 'done');
+    expect(inc.result).toBe(1);
+    expect(s.buzzUntil).toBeGreaterThan(s.time);
+    expect(paxBoost(s)).toBeCloseTo(BUZZ_PAX * (isWeekend(s.time) ? 1.2 : 1));
+    expect(boostPax(s, 100, 200)).toBeGreaterThan(100);
+  });
+
+  it('a historic plane stands on show (no boarding meanwhile) and sells tickets', () => {
+    const s = airfield(15);
+    const inc = startIncident(s, 'historic', spawner(s))!;
+    expect(inc).not.toBeNull();
+    const f = s.flights.find((x) => x.id === inc.flight)!;
+    expect(f.historic).toBe(true);
+    play(s, 300, () => f.dockedAt > 0);
+    expect(f.holdUntil).toBeCloseTo(f.dockedAt + EXHIBIT_SECONDS, 5);
+    const money = s.money.toNumber();
+    play(s, EXHIBIT_SECONDS - 5);
+    expect(f.boardingStarted).toBe(false);
+    expect(inc.amount).toBeGreaterThan(0);
+    play(s, 30, () => inc.state === 'done');
+    expect(inc.state).toBe('done');
+    expect(inc.result).toBe(1);
+    expect(s.money.toNumber()).toBeGreaterThan(money);
+    // then it flies on like any other
+    play(s, 200, () => f.paid > 0);
+    expect(f.paid).toBeGreaterThan(0);
+  });
+
+  it('holidays fall on their real dates (Hebrew calendar and general ones)', () => {
+    const on = (y: number, m: number, d: number) => holidayOn(epochDay(y, m, d));
+    const id = (y: number, m: number, d: number) => (on(y, m, d) ? HOLIDAYS[on(y, m, d)!.h].id : null);
+    expect(id(2026, 9, 12)).toBe('roshHashana');
+    expect(on(2026, 9, 12)!.day).toBe(1);
+    expect(id(2025, 10, 7)).toBe('sukkot');
+    expect(id(2025, 12, 15)).toBe('hanukkah');
+    expect(on(2026, 12, 7)!.day).toBe(3);
+    expect(id(2026, 2, 2)).toBe('tuBishvat');
+    expect(id(2026, 3, 3)).toBe('purim');
+    expect(id(2026, 4, 2)).toBe('passover');
+    expect(id(2026, 5, 22)).toBe('shavuot');
+    // Independence Day moves off the weekend: 2025 (5 Iyar on a Saturday) and 2024 (on a Monday)
+    expect(id(2025, 5, 1)).toBe('independence');
+    expect(id(2024, 5, 14)).toBe('independence');
+    expect(id(2026, 4, 22)).toBe('independence');
+    expect(id(2026, 12, 31)).toBe('newYear');
+    expect(id(2027, 1, 1)).toBe('newYear');
+    expect(id(2026, 10, 31)).toBe('halloween');
+    // the travel days before are busy too (day 0), ordinary days are not
+    expect(on(2026, 4, 1)!.day).toBe(0);
+    expect(on(2026, 11, 3)).toBeNull();
+    expect(nextHoliday('hanukkah', epochDay(2026, 11, 3))).toBe(epochDay(2026, 12, 5));
+  });
+
+  it('a holiday is announced once and fills the planes', () => {
+    const s = airfield(16);
+    queueCommand(s, { type: 'setToday', day: epochDay(2026, 4, 3) });
+    stepGame(s);
+    expect(s.holiday).toBe(holidayIndex('passover'));
+    expect(s.events.filter((e) => e.kind === 'holiday').length).toBe(1);
+    queueCommand(s, { type: 'setToday', day: epochDay(2026, 4, 4) });
+    stepGame(s);
+    expect(s.events.filter((e) => e.kind === 'holiday').length).toBe(1);
+    expect(s.holidayDay).toBe(3);
+    expect(paxBoost(s)).toBeGreaterThanOrEqual(HOLIDAYS[holidayIndex('passover')].pax);
+    queueCommand(s, { type: 'setToday', day: epochDay(2026, 11, 3) });
+    stepGame(s);
+    expect(s.holiday).toBe(-1);
   });
 
   it('over a long game several kinds happen, none gets stuck, and it is deterministic', () => {

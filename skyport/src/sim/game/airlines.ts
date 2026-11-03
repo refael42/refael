@@ -257,8 +257,9 @@ function unhappy(s: GameState, c: Contract): boolean {
 
 /** Books a finished flight (paid on takeoff, or diverted) on its airline. */
 export function airlineFlightDone(s: GameState, f: Flight, result: 'onTime' | 'late' | 'diverted'): void {
-  // a ferry flight for a check is not a scheduled flight (the airline thanks you at the check)
-  if (f.check) return;
+  // a ferry flight for a check is not a scheduled flight (the airline thanks you at the check);
+  // nor is a celebrity's private plane or a historic plane on a visit
+  if (f.check || f.celeb || f.historic) return;
   const k = kindOf(f.airline);
   const d = repDelta(result, f.mood, f.lostBags, k.loyalty);
   if (f.guest) {

@@ -39,6 +39,11 @@ export const OUTFITS: readonly Outfit[] = [
   // navy coveralls, a red cap and a red toolbox
   { id: 'mechanic', skin: '#c99272', hair: '#3b2a20', hairStyle: 'short', shirt: '#1e3a5f', pants: '#1e3a5f', shoes: '#1d1d22', hat: { kind: 'cap', color: '#dc2626' }, bag: { kind: 'briefcase', color: '#dc2626' }, size: 1 },
   { id: 'atc', skin: '#c58c63', hair: '#2b2b2b', hairStyle: 'bun', shirt: '#e0e7ff', pants: '#1e293b', shoes: '#111111', hat: { kind: 'headset', color: '#334155' }, size: 1 },
+  // events (M11): paramedic, press photographer, bodyguard, the celebrity
+  { id: 'medic', skin: '#e0ac69', hair: '#3b2a20', hairStyle: 'short', shirt: '#f8fafc', pants: '#1f2937', shoes: '#111111', vest: '#f97316', size: 1 },
+  { id: 'press', skin: '#f2c7a5', hair: '#6b4226', hairStyle: 'short', shirt: '#64748b', pants: '#a8a29e', shoes: '#44403c', hat: { kind: 'cap', color: '#111827' }, bag: { kind: 'backpack', color: '#1f2937' }, size: 1 },
+  { id: 'guard', skin: '#a8714f', hair: '#1f1a17', hairStyle: 'bald', shirt: '#111827', pants: '#111827', shoes: '#0b0b0b', hat: { kind: 'headset', color: '#0b0b0b' }, size: 1.05 },
+  { id: 'star', skin: '#f0c9a8', hair: '#fde68a', hairStyle: 'long', shirt: '#f0abfc', pants: '#f8fafc', shoes: '#c026d3', bag: { kind: 'briefcase', color: '#facc15' }, size: 1 },
 ];
 
 export const PAX_OUTFITS = ['tourist', 'business', 'businessW', 'family', 'kid', 'student', 'vip', 'elder'] as const;

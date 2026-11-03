@@ -63,6 +63,10 @@ export interface FlightView {
   /** Declared an emergency / a VIP flight. */
   emergency: boolean;
   vip: boolean;
+  /** A sick passenger on board; a celebrity's jet; a historic plane on a visit (seconds left on show, -1 none). */
+  medical: boolean;
+  celeb: boolean;
+  historic: number;
   /** Diverted here from another airport (pays double). */
   guest: boolean;
   /** Grounded with a fault (1), in for a check (check 1/2), repair progress, waiting for a part. */
@@ -72,7 +76,7 @@ export interface FlightView {
   partWait: boolean;
 }
 
-export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): FlightView {
+export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = '', now = 0): FlightView {
   const al = AIRLINES[f.airline];
   return {
     id: f.id,
@@ -109,6 +113,9 @@ export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): Flig
     partWait: f.partWait,
     emergency: f.emergency,
     vip: f.vip,
+    medical: f.medical,
+    celeb: f.celeb,
+    historic: f.historic ? (f.dockedAt > 0 && f.holdUntil > 0 ? Math.max(0, Math.ceil(f.holdUntil - now)) : 0) : -1,
   };
 }
 

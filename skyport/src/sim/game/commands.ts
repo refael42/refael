@@ -8,6 +8,7 @@ import { buyUpgrade, rushBuild } from './upgrades';
 import { declineOffer, endContract, expandContract, negotiateOffer, signOffer } from './airlines';
 import { requestService } from './vehicles';
 import { setSupplier, urgentOrder } from './supplies';
+import { setCelebPrivacy, setToday } from './incidents';
 
 /** UI entry point: commands are applied at the start of the next step. */
 export function queueCommand(s: GameState, cmd: Command): void {
@@ -100,6 +101,12 @@ export function applyCommand(s: GameState, cmd: Command): void {
     case 'urgentOrder':
       // refused: nothing to fill, or no money for it
       if (!urgentOrder(s, Number(cmd.store))) pushEvent(s, 'cmdRejected', 0, 0, REJECT.noMoney, 0, 0);
+      return;
+    case 'celebPrivacy':
+      if (!setCelebPrivacy(s, Number(cmd.incident), !!cmd.private)) pushEvent(s, 'cmdRejected', 0, 0, REJECT.notReady, 0, 0);
+      return;
+    case 'setToday':
+      setToday(s, Number(cmd.day));
       return;
     case 'setProfile': {
       s.profile = { manager: cleanName(cmd.manager), airport: cleanName(cmd.airport) };
