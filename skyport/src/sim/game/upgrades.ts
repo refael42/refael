@@ -251,6 +251,14 @@ export function offers(s: GameState): UpgradeOffer[] {
         // a new kind of stand brings new, bigger aircraft and airlines
         gain = rate * 0.6;
         break;
+      case 'ils':
+        // no more diversions in fog
+        gain = rate * 0.2;
+        break;
+      case 'tower':
+      case 'radar':
+        gain = rate * 0.1;
+        break;
       case 'truck':
       case 'cart':
         gain = rate * 0.06;

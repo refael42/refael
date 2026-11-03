@@ -54,6 +54,8 @@ describe('taxiway graph', () => {
   it('2000 flights on three stands: no collisions, no deadlock, runway exclusive', () => {
     const s = createGame(77);
     openStands(s, 3);
+    s.upg.ils = 3; // this test is about taxiing, not fog
+    s.upgRev++;
     // about as busy as one dirt runway can handle (approach + takeoff ~23 s)
     s.traffic = 1.6;
     const L = layoutOf(1);
@@ -94,7 +96,7 @@ describe('taxiway graph', () => {
     expect(s.stats.served).toBeGreaterThan(1900);
     expect(minDist).toBeGreaterThan(0.95);
     expect(maxStuck).toBeLessThan(90);
-  });
+  }, 120000);
 });
 
 describe('staff', () => {

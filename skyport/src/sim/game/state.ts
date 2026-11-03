@@ -32,6 +32,9 @@ export function createGame(seed: number): GameState {
     nodeHold: [],
     standsBuilt: 1,
     standOpen: [true],
+    rwyDir: 1,
+    wxFog: false,
+    wxCross: false,
     wake: [
       { cat: 0, at: -99 },
       { cat: 0, at: -99 },

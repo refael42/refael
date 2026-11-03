@@ -55,7 +55,13 @@ export type GameEventKind =
   | 'contractExpanded'
   | 'airlineWarning'
   | 'airlineHappy'
-  | 'airlineLeft';
+  | 'airlineLeft'
+  | 'runwayFlip'
+  | 'fogIn'
+  | 'fogOut'
+  | 'crosswind'
+  | 'goAround'
+  | 'diversionRequest';
 
 export interface GameEvent {
   id: number;
@@ -211,6 +217,8 @@ export interface Flight {
   sched: number;
   /** Contract pay multiplier at the time it was planned. */
   payMul: number;
+  /** Runway direction its current approach or departure was planned for (1 or -1). */
+  dir: number;
 }
 
 /** A signed airline contract. */
@@ -449,6 +457,13 @@ export interface GameState {
   standOpen: boolean[];
   /** Last plane that used each runway (wake turbulence), transient. */
   wake: { cat: number; at: number }[];
+  /** Runway direction in use: 1 = landing and taking off toward +x, -1 = the other way (transient). */
+  rwyDir: number;
+  /** Tests only: pin the runway direction (0 = follow the wind). Never saved. */
+  forceDir?: number;
+  /** Weather alerts already announced (transient). */
+  wxFog: boolean;
+  wxCross: boolean;
   /** Traffic multiplier (marketing raises it). */
   traffic: number;
   staff: StaffMember[];

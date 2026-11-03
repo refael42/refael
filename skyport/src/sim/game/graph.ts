@@ -17,6 +17,19 @@ export interface GraphEdge {
   len: number;
 }
 
+/** One direction of operations: where arrivals leave the runway, where departures wait, which edges are waiting spots. */
+export interface Flow {
+  exits: number[];
+  /** Exit node a plane takes for each stand (-1 for a helipad). */
+  standExit: number[];
+  holdShort: number;
+  /**
+   * Edges a plane may wait on: neither the edge nor its end node is used by
+   * any arrival route of this direction.
+   */
+  safe: boolean[];
+}
+
 export interface Graph {
   ids: string[];
   pos: [number, number][];
@@ -35,9 +48,16 @@ export interface Graph {
    * any arrival route. Departures never stop anywhere else (holding area rule).
    */
   safe: boolean[];
+  /** Per runway direction (1 = toward +x, -1 = the other way when the layout has one). */
+  flows: Map<number, Flow>;
 }
 
 const cache = new Map<number, Graph>();
+
+/** The operations for a runway direction (falls back to the normal one). */
+export function flowOf(g: Graph, dir: number): Flow {
+  return g.flows.get(dir) ?? (g.flows.get(1) as Flow);
+}
 
 export function graphOf(tier: number): Graph {
   const hit = cache.get(tier);
@@ -57,6 +77,7 @@ function buildGraph(L: TierLayout): Graph {
     pos.push([p[0], p[1]]);
   };
   for (const [id, p] of Object.entries(L.taxi.nodes)) addNode(id, p);
+  if (L.rev) for (const [id, p] of Object.entries(L.rev.nodes)) if (!index.has(id)) addNode(id, p);
   for (const st of L.stands) if (st.from && st.to) addNode(st.id, st.pos);
   const edges: GraphEdge[] = [];
   const addEdge = (a: string, b: string) => {
@@ -66,6 +87,7 @@ function buildGraph(L: TierLayout): Graph {
     edges.push({ from, to, len: Math.hypot(pos[to][0] - pos[from][0], pos[to][1] - pos[from][1]) });
   };
   for (const [a, b] of L.taxi.edges) addEdge(a, b);
+  if (L.rev) for (const [a, b] of L.rev.edges) addEdge(a, b);
   for (const st of L.stands) {
     if (!st.from || !st.to) continue;
     addEdge(st.from, st.id);
@@ -88,34 +110,49 @@ function buildGraph(L: TierLayout): Graph {
     standExit: [],
     holdShort: index.get(L.taxi.holdShort) as number,
     safe: [],
+    flows: new Map(),
   };
+  const node = (id: string) => {
+    const n = index.get(id);
+    if (n === undefined) throw new Error(`unknown node ${id}`);
+    return n;
+  };
+  g.flows.set(1, buildFlow(g, g.exits, g.holdShort));
+  if (L.rev) g.flows.set(-1, buildFlow(g, [node(L.rev.exit)], node(L.rev.holdShort)));
+  const fwd = g.flows.get(1) as Flow;
+  g.standExit = fwd.standExit;
+  g.safe = fwd.safe;
+  return g;
+}
+
+function buildFlow(g: Graph, exits: number[], holdShort: number): Flow {
   // each stand is reached from the nearest exit that leads to it
-  g.standExit = g.standNode.map((sn) => {
+  const standExit = g.standNode.map((sn) => {
     if (sn < 0) return -1;
-    for (const ex of g.exits) if (findRoute(g, ex, sn)) return ex;
+    for (const ex of exits) if (findRoute(g, ex, sn)) return ex;
     throw new Error('stand unreachable from every runway exit');
   });
   // everything an arrival may touch on its way to any stand
   const arrivalEdges = new Set<number>();
-  const arrivalNodes = new Set<number>(g.exits);
+  const arrivalNodes = new Set<number>(exits);
   for (let i = 0; i < g.standNode.length; i++) {
     const sn = g.standNode[i];
     if (sn < 0) continue;
-    const r = findRoute(g, g.standExit[i], sn);
+    const r = findRoute(g, standExit[i], sn);
     if (!r) throw new Error('stand unreachable from the runway exit');
     for (const e of r) {
       arrivalEdges.add(e);
-      arrivalNodes.add(edges[e].from);
+      arrivalNodes.add(g.edges[e].from);
       // stand nodes are private to the parked plane, not shared lane
-      if (!g.standNode.includes(edges[e].to)) arrivalNodes.add(edges[e].to);
+      if (!g.standNode.includes(g.edges[e].to)) arrivalNodes.add(g.edges[e].to);
     }
   }
-  g.safe = edges.map((e, i) => !arrivalEdges.has(i) && !arrivalNodes.has(e.to));
-  return g;
+  const safe = g.edges.map((e, i) => !arrivalEdges.has(i) && !arrivalNodes.has(e.to));
+  return { exits, standExit, holdShort, safe };
 }
 
 /** Index of the first edge in a route where a plane may stop and wait (-1 none). */
-export function firstSafe(g: Graph, route: number[]): number {
+export function firstSafe(g: Pick<Graph, 'safe'> | Flow, route: number[]): number {
   for (let i = 0; i < route.length; i++) if (g.safe[route[i]]) return i;
   return -1;
 }
@@ -256,7 +293,7 @@ const STOP_GAP = 0.25;
  * Moves a flight along its ground route, reserving ahead and stopping before
  * edges it cannot get. Returns true when the end of the route is reached.
  */
-export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number, tailClear: number, runs = false): boolean {
+export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number, tailClear: number, runs: Flow | null = null): boolean {
   const r = f.groute;
   if (!r) return true;
   const n = r.edges.length;
@@ -269,17 +306,16 @@ export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number
   }
   let stopAt = total;
   f.gWaiting = false;
-  const g = graphOf(s.tier);
   for (let k = f.gIdx + 1; k < n; k++) {
     const start = r.nodeDist[k];
     if (start - f.pathPos > LOOKAHEAD) break;
     if (f.gHeld.includes(r.edges[k])) continue;
     let ok: boolean;
-    if (runs && !g.safe[r.edges[k]] && g.safe[r.edges[k - 1]]) {
+    if (runs && !runs.safe[r.edges[k]] && runs.safe[r.edges[k - 1]]) {
       // leaving a waiting spot into a shared stretch: take all of it up to the next spot at once,
       // so a departure never stops where arrivals have to pass
       let j = k;
-      while (j < n - 1 && !g.safe[r.edges[j]]) j++;
+      while (j < n - 1 && !runs.safe[r.edges[j]]) j++;
       ok = tryReserveRun(s, f, r.edges.slice(k), j - k);
     } else ok = tryReserve(s, f, r.edges[k]);
     if (!ok) {

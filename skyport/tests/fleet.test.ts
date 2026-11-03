@@ -33,6 +33,11 @@ function airport(tier: number, seed = 1): GameState {
   switchTier(s, tier);
   for (const st of layoutOf(tier).stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
   s.upg.lounge = 1;
+  s.upg.ils = 3;
+  s.upg.counters = 3;
+  s.upg.lanes = 2;
+  s.upg.scanner = 10;
+  s.upg.conveyor = 10;
   s.upg.truck2 = 5;
   s.upg.cart2 = 5;
   s.upgRev++;
@@ -50,25 +55,43 @@ function sign(s: GameState, id: string, perDay: number): void {
 
 describe('layouts of the bigger airports', () => {
   for (const t of TIERS.filter((x) => x.layout)) {
-    it(`tier ${t.id}: the ground flow is a DAG, every stand is reachable and leads to the runway`, () => {
+    it(`tier ${t.id}: in each runway direction every stand is reachable, arrivals and departures each flow one way`, () => {
       const g = graphOf(t.id);
-      const seen = new Set<number>();
-      const visiting = new Set<number>();
-      const dfs = (n: number): boolean => {
-        if (visiting.has(n)) return false;
-        if (seen.has(n)) return true;
-        visiting.add(n);
-        for (const e of g.out[n]) if (!dfs(g.edges[e].to)) return false;
-        visiting.delete(n);
-        seen.add(n);
+      const acyclic = (used: Set<number>): boolean => {
+        const seen = new Set<number>();
+        const visiting = new Set<number>();
+        const dfs = (n: number): boolean => {
+          if (visiting.has(n)) return false;
+          if (seen.has(n)) return true;
+          visiting.add(n);
+          for (const e of g.out[n]) if (used.has(e) && !dfs(g.edges[e].to)) return false;
+          visiting.delete(n);
+          seen.add(n);
+          return true;
+        };
+        for (let n = 0; n < g.ids.length; n++) if (!dfs(n)) return false;
         return true;
       };
-      for (let n = 0; n < g.ids.length; n++) expect(dfs(n), `cycle through ${g.ids[n]}`).toBe(true);
-      g.standNode.forEach((sn, i) => {
-        if (sn < 0) return;
-        expect(findRoute(g, g.standExit[i], sn), `in to ${g.ids[sn]}`).not.toBeNull();
-        expect(findRoute(g, sn, g.holdShort), `out of ${g.ids[sn]}`).not.toBeNull();
-      });
+      for (const [dir, flow] of g.flows) {
+        const arrivals = new Set<number>();
+        const departures = new Set<number>();
+        g.standNode.forEach((sn, i) => {
+          if (sn < 0) return;
+          const inR = findRoute(g, flow.standExit[i], sn);
+          const outR = findRoute(g, sn, flow.holdShort);
+          expect(inR, `dir ${dir}: in to ${g.ids[sn]}`).not.toBeNull();
+          expect(outR, `dir ${dir}: out of ${g.ids[sn]}`).not.toBeNull();
+          for (const e of inR!) arrivals.add(e);
+          for (const e of outR!) departures.add(e);
+          // a departure's first waiting spot is somewhere on its way (it never sits on the shared lane)
+          expect(outR!.some((e) => flow.safe[e]), `dir ${dir}: ${g.ids[sn]} has a waiting spot`).toBe(true);
+        });
+        expect(acyclic(arrivals), `dir ${dir}: arrivals`).toBe(true);
+        expect(acyclic(departures), `dir ${dir}: departures`).toBe(true);
+        // waiting spots are never on an arrival route
+        for (const e of arrivals) expect(flow.safe[e]).toBe(false);
+      }
+      expect(g.flows.has(-1)).toBe(t.id >= 3);
     });
 
     it(`tier ${t.id}: parked planes do not overlap each other or the buildings`, () => {
@@ -298,5 +321,58 @@ describe('the international airport under load', () => {
     expect(s.stats.served - start).toBeGreaterThan(1900);
     expect(minDist).toBeGreaterThan(0.95);
     for (const id of ['sparrow', 'heron', 'falcon', 'albatross', 'pelican', 'kestrel', 'dragonfly']) expect(kinds.has(id), id).toBe(true);
+  }, 300000);
+});
+
+describe('runway direction', () => {
+  function busy(tier: number, seed: number): GameState {
+    const s = airport(tier, seed);
+    s.contracts = [];
+    const mix: Record<string, number> = tier >= 4 ? { meadowlark: 10, sunhop: 4, aurelia: 3, ironbird: 2, velvet: 3 } : { meadowlark: 10, sunhop: 4, velvet: 3 };
+    for (const id of Object.keys(mix)) {
+      s.rep[al(id)] = 100;
+      sign(s, id, mix[id]);
+    }
+    return s;
+  }
+
+  function run(s: GameState, flights: number, flipEvery: number): { served: number; minDist: number; conflicts: number } {
+    const L = layoutOf(s.tier);
+    const start = s.stats.served;
+    let minDist = Infinity;
+    let conflicts = 0;
+    let steps = 0;
+    while (s.stats.served - start + s.stats.diverted < flights) {
+      if (flipEvery > 0 && steps % (30 * flipEvery) === 0) s.forceDir = s.forceDir === -1 ? 1 : -1;
+      if (steps % 3 === 0) for (const c of botCommands(s, { reaction: 0.3 })) queueCommand(s, c);
+      stepGame(s);
+      steps++;
+      if (steps > 30 * 3600 * 30) throw new Error('stalled');
+      if (steps % 2) continue;
+      if (s.flights.filter((f) => runwayOf(f, L) === 1).length > 1 || s.flights.filter((f) => runwayOf(f, L) === 2).length > 1) conflicts++;
+      const ground = s.flights.filter((f) => isGround(f) && runwayOf(f, L) === 0 && f.phase !== 'takeoff' && AIRCRAFT[f.aircraft].stand !== 'heli');
+      for (let i = 0; i < ground.length; i++)
+        for (let j = i + 1; j < ground.length; j++) minDist = Math.min(minDist, Math.hypot(ground[i].x - ground[j].x, ground[i].y - ground[j].y));
+    }
+    return { served: s.stats.served - start, minDist, conflicts };
+  }
+
+  for (const tier of [3, 4, 5]) {
+    it(`tier ${tier}: 600 flights landing and taking off the other way`, () => {
+      const s = busy(tier, 30 + tier);
+      s.forceDir = -1;
+      const r = run(s, 600, 0);
+      expect(r.conflicts).toBe(0);
+      expect(r.minDist).toBeGreaterThan(0.95);
+      expect(r.served).toBeGreaterThan(570);
+    }, 300000);
+  }
+
+  it('tier 5: 600 flights with the wind turning every 4 minutes', () => {
+    const s = busy(5, 41);
+    const r = run(s, 600, 240);
+    expect(r.conflicts).toBe(0);
+    expect(r.minDist).toBeGreaterThan(0.95);
+    expect(r.served).toBeGreaterThan(570);
   }, 300000);
 });

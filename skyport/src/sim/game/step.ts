@@ -8,6 +8,7 @@ import { rollIncome } from './income';
 import { payWages, updateApplicants, updateStaff, updateStaffLife } from './staff';
 import { updateTierBuild } from './tiers';
 import { updateAirlines } from './airlines';
+import { updateWeather } from './weather';
 import { updateBuilds } from './upgrades';
 import type { GameState } from './types';
 import { updateVehicles } from './vehicles';
@@ -21,6 +22,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   }
   s.tick++;
   s.time = s.tick * dt;
+  updateWeather(s);
   updateSpawning(s);
   updateStaff(s);
   updateFlights(s, dt);

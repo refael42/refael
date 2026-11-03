@@ -19,38 +19,55 @@ function node(L: TierLayout, id: string): P2 {
   return n;
 }
 
-export function holdShortPoint(L: TierLayout): P2 {
-  return node(L, L.taxi.holdShort);
+/** The runway operations for a direction: 1 = toward +x, -1 = the opposite setup (when the layout has one). */
+export function opsOf(L: TierLayout, dir = 1) {
+  if (dir < 0 && L.rev) {
+    const r = L.rev;
+    return { approach: r.approach, holdShort: r.holdShort, lineUp: r.lineUp, takeoff: r.takeoff, dir: -1 };
+  }
+  return { approach: L.approach, holdShort: L.taxi.holdShort, lineUp: L.taxi.lineUp, takeoff: L.takeoff, dir: 1 };
 }
 
-export function routeLineUp(L: TierLayout): Path {
-  return chaikin(p3([holdShortPoint(L), ...L.taxi.lineUp]), 3);
+function nodeAny(L: TierLayout, id: string): P2 {
+  const n = L.taxi.nodes[id] ?? L.rev?.nodes[id];
+  if (!n) throw new Error(`Unknown taxi node ${id}`);
+  return n;
 }
 
-export function routeTakeoff(L: TierLayout): Path {
-  const start = L.taxi.lineUp[L.taxi.lineUp.length - 1];
+export function holdShortPoint(L: TierLayout, dir = 1): P2 {
+  return nodeAny(L, opsOf(L, dir).holdShort);
+}
+
+export function routeLineUp(L: TierLayout, dir = 1): Path {
+  return chaikin(p3([holdShortPoint(L, dir), ...opsOf(L, dir).lineUp]), 3);
+}
+
+export function routeTakeoff(L: TierLayout, dir = 1): Path {
+  const ops = opsOf(L, dir);
+  const start = ops.lineUp[ops.lineUp.length - 1];
   const rwy = L.depRunway ?? L.runway;
-  const out: Path = [start[0], start[1], 0, L.takeoff.liftoffX, rwy.y, 0];
-  for (const c of L.takeoff.climb) out.push(c[0], c[1], c[2]);
+  const out: Path = [start[0], start[1], 0, ops.takeoff.liftoffX, rwy.y, 0];
+  for (const c of ops.takeoff.climb) out.push(c[0], c[1], c[2]);
   return chaikin(out, 2);
 }
 
 /** Touchdown to the runway exit (the first exit unless another one is given). */
-export function routeRollout(L: TierLayout, exit?: P2): Path {
-  const td = L.approach.touchdown;
+export function routeRollout(L: TierLayout, exit?: P2, dir = 1): Path {
+  const td = opsOf(L, dir).approach.touchdown;
   const e = exit ?? node(L, L.taxi.exit);
   return [td[0], td[1], 0, e[0], e[1], 0];
 }
 
-export function routeLanding(L: TierLayout): Path {
-  const thr = L.approach.threshold;
-  const td = L.approach.touchdown;
+export function routeLanding(L: TierLayout, dir = 1): Path {
+  const a = opsOf(L, dir).approach;
+  const thr = a.threshold;
+  const td = a.touchdown;
   return [thr[0], thr[1], thr[2], (thr[0] + td[0]) / 2, (thr[1] + td[1]) / 2, thr[2] * 0.3, td[0], td[1], 0];
 }
 
 /** From the current position/heading to the threshold, through entry and FAF. */
-export function routeFinal(L: TierLayout, x: number, y: number, z: number, heading: number): Path {
-  const a = L.approach;
+export function routeFinal(L: TierLayout, x: number, y: number, z: number, heading: number, dir = 1): Path {
+  const a = opsOf(L, dir).approach;
   const ahead: Path = [x, y, z, x + Math.cos(heading) * 1.6, y + Math.sin(heading) * 1.6, z];
   const pts: Path = [...ahead, a.entry[0], a.entry[1], a.entry[2], a.faf[0], a.faf[1], a.faf[2], a.threshold[0], a.threshold[1], a.threshold[2]];
   return chaikin(pts, 3);

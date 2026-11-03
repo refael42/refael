@@ -62,6 +62,12 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.counters', { a: 1 + from, b: 1 + to });
     case 'opens':
       return t('eff.opens', { a: from, b: to });
+    case 'tower':
+      return t('eff.tower', { a: Math.round(a * 100), b: Math.round(b * 100) });
+    case 'radar':
+      return t('eff.radar', { a: Math.round(a * 100), b: Math.round(b * 100) });
+    case 'ils':
+      return t('eff.ils', { a: from, b: to });
     case 'lanes':
       return t('eff.lanes', { a: 1 + from, b: 1 + to });
     default:

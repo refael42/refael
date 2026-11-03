@@ -72,6 +72,20 @@ export interface TierLayout {
   depRunway?: { x0: number; x1: number; y: number; width: number };
   /** Bigger buildings on the airside (drawn by the renderer, kept clear by build mode). */
   buildings?: readonly BuildingDef[];
+  /**
+   * The same airport run the other way (wind from the west): approach from the
+   * east, an exit for that direction, departures to the east end. The extra
+   * nodes and edges join the one taxi graph; only exits and hold shorts change.
+   */
+  rev?: {
+    approach: TierLayout['approach'];
+    nodes: Readonly<Record<string, P2>>;
+    edges: readonly (readonly [string, string])[];
+    exit: string;
+    holdShort: string;
+    lineUp: readonly P2[];
+    takeoff: { liftoffX: number; climb: readonly P3[] };
+  };
   stands: readonly StandDef[];
   hut: P2;
   hutDoor: P2;
@@ -299,6 +313,34 @@ const SMALL_AIRFIELD: TierLayout = {
 /** Landing runway line of the bigger airports (moved south to make room for a parallel taxiway). */
 const RWY_Y = 27.8;
 
+/** The approach mirrored onto the east end of a runway (wind from the west). */
+function approachFromEast(x1: number): TierLayout['approach'] {
+  return {
+    spawns: [
+      [62, 14, 5.2],
+      [58, 9, 5.2],
+      [64, 20, 5.2],
+      [52, 8, 5.2],
+    ],
+    hold: [x1 - 4, 21, 3.1],
+    holdRadius: 1.6,
+    entry: [x1 + 0.8, RWY_Y - 2.6, 2.2],
+    faf: [x1 + 1.4, RWY_Y, 1.5],
+    threshold: [x1 - 2.6, RWY_Y, 0.35],
+    touchdown: [x1 - 5.2, RWY_Y, 0],
+  };
+}
+
+/** Taxiway from the west end of the stand lane onto the parallel taxiway, for departures heading east. */
+const WEST_LINK = {
+  nodes: { KW1: [15.6, 25.4] as P2, KW2: [24.0, 25.6] as P2 },
+  edges: [
+    ['T3', 'KW1'],
+    ['KW1', 'KW2'],
+    ['KW2', 'T1'],
+  ] as const,
+};
+
 /**
  * Tier 3 grows east and south: the runway moves south and gets a parallel
  * taxiway, so every plane leaves it at the first exit and taxis east to the
@@ -365,6 +407,27 @@ const REGIONAL: TierLayout = {
     { id: 'M2', pos: [32.2, 20.9], size: 'medium', from: 'Mc', to: 'Md', line: 'standMed', level: 2 },
   ],
   buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }],
+  rev: {
+    approach: approachFromEast(44),
+    nodes: { ...WEST_LINK.nodes, HE: [43.0, 26.3] },
+    edges: [...WEST_LINK.edges, ['K2', 'HE']],
+    exit: 'E',
+    holdShort: 'HE',
+    lineUp: [
+      [43.6, RWY_Y - 0.7],
+      [43.3, RWY_Y - 0.05],
+      [42.6, RWY_Y],
+    ],
+    takeoff: {
+      liftoffX: 35,
+      climb: [
+        [26, RWY_Y, 1.1],
+        [16, RWY_Y - 0.4, 2.8],
+        [4, RWY_Y - 2, 5],
+        [-8, RWY_Y - 5, 7.5],
+      ],
+    },
+  },
   windsock: [20, 30.4],
   groundCapacity: 46,
   camera: { center: [28, 23.5], zoom: 0.5 },
@@ -380,8 +443,18 @@ const CITY: TierLayout = {
   runway: { x0: 11, x1: 55, y: RWY_Y, width: 1.8, surface: 'asphalt' },
   taxi: {
     ...REGIONAL.taxi,
-    nodes: { ...REGIONAL.taxi.nodes, H: [14.2, 26.2], K3: [52.4, 25.6], T6: [51.8, 24.7], Na: [50.8, 23.9], Nb: [46.6, 23.9], Nc: [42.0, 23.9] },
-    edges: [...REGIONAL.taxi.edges, ['K2', 'K3'], ['K3', 'T6'], ['T6', 'Na'], ['Na', 'Nb'], ['Nb', 'Nc'], ['Nc', 'Ma']],
+    nodes: { ...REGIONAL.taxi.nodes, H: [14.2, 26.2], KR: [39.2, 25.6], K3: [52.4, 25.6], T6: [51.8, 24.7], Na: [50.8, 23.9], Nb: [46.6, 23.9], Nc: [42.0, 23.9] },
+    edges: [
+      ...REGIONAL.taxi.edges.filter(([a, b]) => !(a === 'K1' && b === 'K2')),
+      ['K1', 'KR'],
+      ['KR', 'K2'],
+      ['K2', 'K3'],
+      ['K3', 'T6'],
+      ['T6', 'Na'],
+      ['Na', 'Nb'],
+      ['Nb', 'Nc'],
+      ['Nc', 'Ma'],
+    ],
   },
   takeoff: {
     liftoffX: 25,
@@ -403,6 +476,27 @@ const CITY: TierLayout = {
     { kind: 'pier', pos: [42.2, 15.8], size: [8.6, 1.5] },
     { kind: 'cargo', pos: [53.2, 16.4], size: [3.2, 2.0] },
   ],
+  rev: {
+    approach: approachFromEast(55),
+    nodes: { ...WEST_LINK.nodes, ER: [38.8, RWY_Y], HE: [54.0, 26.3] },
+    edges: [...WEST_LINK.edges, ['ER', 'KR'], ['K3', 'HE']],
+    exit: 'ER',
+    holdShort: 'HE',
+    lineUp: [
+      [54.6, RWY_Y - 0.7],
+      [54.3, RWY_Y - 0.05],
+      [53.6, RWY_Y],
+    ],
+    takeoff: {
+      liftoffX: 46,
+      climb: [
+        [36, RWY_Y, 1.1],
+        [24, RWY_Y - 0.4, 2.8],
+        [10, RWY_Y - 2, 5],
+        [-4, RWY_Y - 5, 7.5],
+      ],
+    },
+  },
   groundCapacity: 50,
   camera: { center: [33, 23.5], zoom: 0.42 },
 };
@@ -441,6 +535,27 @@ const INTERNATIONAL: TierLayout = {
   },
   stands: [...CITY.stands, { id: 'P1', pos: [32.0, 17.4], size: 'heli', line: 'helipad', level: 1 }],
   buildings: [...(CITY.buildings ?? []), { kind: 'helipad', pos: [31.2, 16.6], size: [1.6, 1.6] }],
+  rev: {
+    approach: approachFromEast(57),
+    nodes: { ...WEST_LINK.nodes, ER: [38.8, RWY_Y], KE1: [58.8, 26.0], KE2: [59.4, 29.6], H2E: [57.6, 32.3] },
+    edges: [...WEST_LINK.edges, ['ER', 'KR'], ['K3', 'KE1'], ['KE1', 'KE2'], ['KE2', 'H2E']],
+    exit: 'ER',
+    holdShort: 'H2E',
+    lineUp: [
+      [57.9, DEP_Y - 0.5],
+      [57.6, DEP_Y - 0.05],
+      [57.0, DEP_Y],
+    ],
+    takeoff: {
+      liftoffX: 46,
+      climb: [
+        [36, DEP_Y, 1.1],
+        [24, DEP_Y + 0.6, 2.8],
+        [12, DEP_Y + 1.6, 5],
+        [0, DEP_Y + 2.6, 7.5],
+      ],
+    },
+  },
   windsock: [20, 30.6],
   groundCapacity: 64,
   camera: { center: [33, 25.5], zoom: 0.4 },

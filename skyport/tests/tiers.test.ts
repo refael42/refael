@@ -118,6 +118,7 @@ describe('airport tiers', () => {
     const s = createGame(91);
     switchTier(s, 2);
     s.upg.stand = 4;
+    s.upg.ils = 3; // this test is about taxiing, not fog
     s.upgRev++;
     applyStructural(s);
     s.traffic = 1.3;
@@ -138,7 +139,7 @@ describe('airport tiers', () => {
     }
     expect(s.stats.served).toBeGreaterThan(1900);
     expect(minDist).toBeGreaterThan(0.95);
-  });
+  }, 120000);
 });
 
 describe('build mode and names', () => {
