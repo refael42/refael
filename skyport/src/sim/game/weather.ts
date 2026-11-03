@@ -5,10 +5,11 @@
  * keeps light planes waiting, fog closes the runway to anyone the ILS can't
  * bring in, and on the bigger airports the runway in use turns into the wind.
  */
+import { AIRCRAFT } from '../../data/aircraft';
 import { layoutFor } from '../../data/tiers';
 import { hash01, hashU32 } from '../hash';
 import { pushEvent } from './events';
-import type { GameState } from './types';
+import type { FlightPhase, GameState } from './types';
 import { effectValue } from './upgrades';
 
 /** Seconds between weather keyframes. */
@@ -47,7 +48,9 @@ function keyAt(seed: number, k: number, tier: number): Key {
   // fog banks now and then (never in the first few minutes of a game)
   // (the dirt strip has no ILS to buy yet: its fog stays light)
   const fog = tier >= 2 && k >= 3 && wh(seed, k * 7 + 4) < 0.12;
-  const vis = fog ? 0.06 + 0.3 * wh(seed, k * 7 + 5) : 1;
+  // never thicker than the best ILS this tier can buy handles: fog is a problem you can solve
+  const floor = tier <= 2 ? 0.31 : tier === 3 ? 0.16 : 0.06;
+  const vis = fog ? floor + (0.37 - floor) * wh(seed, k * 7 + 5) : 1;
   return { windTo, speed, vis };
 }
 
@@ -78,8 +81,8 @@ const cache = new WeakMap<GameState, { tick: number; tier: number; w: Weather; m
 /** The weather now (computed once per step). */
 export function weather(s: GameState): Weather {
   const hit = cache.get(s);
-  if (hit && hit.tick === s.tick && hit.tier === s.tier && hit.rev === s.upgRev) return hit.w;
-  const w = weatherAt(s.seed, s.time, s.tier);
+  if (hit && hit.tick === s.tick && hit.tier === s.tier && hit.rev === s.upgRev && !s.wxForce) return hit.w;
+  const w = s.wxForce ?? weatherAt(s.seed, s.time, s.tier);
   cache.set(s, { tick: s.tick, tier: s.tier, w, minVis: minVisibilityRaw(s), rev: s.upgRev });
   return w;
 }
@@ -117,20 +120,40 @@ export function canReverse(tier: number): boolean {
   return !!layoutFor(tier).rev;
 }
 
+/** Phases in which a plane is committed to the runway direction it started with. */
+const COMMITTED: ReadonlySet<FlightPhase> = new Set<FlightPhase>(['final', 'landing', 'rollout', 'taxiIn', 'taxiOut', 'holdShort', 'lineUp']);
+
+/** Nobody on the runway or the taxiways in the old direction: the runway can turn. */
+export function readyToTurn(s: GameState): boolean {
+  for (const f of s.flights) {
+    if (AIRCRAFT[f.aircraft]?.stand === 'heli') continue;
+    if (COMMITTED.has(f.phase)) return false;
+    if (f.phase === 'takeoff' && f.z < 0.8) return false;
+  }
+  return true;
+}
+
 /**
  * Picks the runway direction from the wind (with some slack so it does not
- * flip back and forth) and announces fog and wind changes.
+ * flip back and forth) and announces fog and wind changes. A runway change is
+ * done like at a real airport: arrivals hold, the planes already on their way
+ * out leave the old way, and once the ground is clear the runway turns.
  */
 export function updateWeather(s: GameState): void {
   const w = weather(s);
   if (canReverse(s.tier)) {
     const hw = headwindForward(w);
     const want = s.forceDir ? s.forceDir : hw < -3 ? -1 : hw > 3 ? 1 : s.rwyDir;
-    if (want !== s.rwyDir) {
+    if (want === s.rwyDir) s.turning = 0;
+    else if (readyToTurn(s)) {
       s.rwyDir = want;
+      s.turning = 0;
       pushEvent(s, 'runwayFlip', 0, 0, want);
-    }
-  } else s.rwyDir = 1;
+    } else s.turning = want;
+  } else {
+    s.rwyDir = 1;
+    s.turning = 0;
+  }
   const fog = foggedIn(s);
   if (fog !== s.wxFog) {
     s.wxFog = fog;

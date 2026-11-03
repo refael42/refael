@@ -57,9 +57,13 @@ export interface FlightView {
   /** Airline kind id and its reputation with you (rounded, -1 unknown). */
   kind: string;
   rep: number;
+  /** Why a cleared plane is still circling ('' = it isn't). */
+  hold: '' | 'fog' | 'crosswind' | 'turn' | 'wake' | 'runway';
+  /** Diverted here from another airport (pays double). */
+  guest: boolean;
 }
 
-export function viewOf(f: Flight, rep = -1): FlightView {
+export function viewOf(f: Flight, rep = -1, hold: FlightView['hold'] = ''): FlightView {
   const al = AIRLINES[f.airline];
   return {
     id: f.id,
@@ -88,6 +92,8 @@ export function viewOf(f: Flight, rep = -1): FlightView {
     waiting: f.gWaiting,
     kind: al?.kind ?? 'regional',
     rep: rep >= 0 ? Math.round(rep) : -1,
+    hold,
+    guest: f.guest,
   };
 }
 

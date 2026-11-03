@@ -13,7 +13,8 @@ import {
   WX_KEY,
   type GameState,
 } from '../src/sim';
-import { approachBlocker, spawnFlight, WAKE_GAP, wakeClearAt } from '../src/sim/game/flights';
+import { approachBlocker, mustGoAround, spawnFlight, WAKE_GAP, wakeClearAt } from '../src/sim/game/flights';
+import { GUEST_BONUS, layoutOf, queueCommand, botCommands, eventsSince } from '../src/sim';
 
 const ac = (id: string) => AIRCRAFT.findIndex((a) => a.id === id);
 
@@ -40,6 +41,11 @@ describe('weather', () => {
     expect(weatherAt(5, 900)).not.toEqual(weatherAt(6, 900));
   });
 
+  it('fog is never thicker than the best ILS the tier can buy', () => {
+    const floor = [0, 0, 0.3, 0.15, 0, 0];
+    for (let tier = 2; tier <= 5; tier++) for (let t = 0; t < 3600 * 10; t += 30) expect(weatherAt(3, t, tier).vis).toBeGreaterThanOrEqual(floor[tier]);
+  });
+
   it('the dirt strip never gets fog; bigger airports sometimes do', () => {
     let fog1 = 0;
     let fog2 = 0;
@@ -61,10 +67,20 @@ describe('weather', () => {
 });
 
 describe('air traffic control', () => {
+  it('fixed weather (for screenshots) is used everywhere the weather is read', () => {
+    const s = createGame(2);
+    switchTier(s, 3);
+    s.wxForce = { windTo: 0, speed: 14, vis: 0.05 };
+    expect(foggedIn(s)).toBe(true);
+    stepGame(s);
+    expect(s.rwyDir).toBe(-1);
+    expect(s.wxFog).toBe(true);
+  });
+
   it('fog keeps planes out unless the ILS can bring them in', () => {
     const s = createGame(4);
     switchTier(s, 2);
-    const t = findTime(s.seed, 2, (w) => w.vis < 0.12);
+    const t = findTime(s.seed, 2, (w) => w.vis < 0.4);
     at(s, t);
     const f = spawnFlight(s)!;
     expect(foggedIn(s)).toBe(true);
@@ -127,7 +143,7 @@ describe('air traffic control', () => {
     s.upg.stand = 1;
     s.upgRev++;
     applyStructural(s);
-    const t = findTime(s.seed, 2, (w) => w.vis < 0.12, 600);
+    const t = findTime(s.seed, 2, (w) => w.vis < 0.4, 600);
     at(s, t);
     const dep = spawnFlight(s)!;
     const arr = spawnFlight(s)!;
@@ -146,3 +162,144 @@ describe('air traffic control', () => {
     expect(lined).toBe(true);
   });
 });
+
+describe('runway change', () => {
+  it('waits until nobody on the ground is still headed the old way', () => {
+    const s = createGame(2);
+    switchTier(s, 3);
+    s.upg.ils = 3;
+    s.upgRev++;
+    applyStructural(s);
+    s.wxForce = { windTo: Math.PI, speed: 14, vis: 1 };
+    stepGame(s);
+    expect(s.rwyDir).toBe(1);
+    const f = spawnFlight(s)!;
+    f.phase = 'taxiOut';
+    s.wxForce = { windTo: 0, speed: 14, vis: 1 };
+    stepGame(s);
+    expect(s.rwyDir).toBe(1);
+    expect(s.turning).toBe(-1);
+    f.phase = 'turnaround';
+    stepGame(s);
+    expect(s.rwyDir).toBe(-1);
+    expect(s.turning).toBe(0);
+  });
+});
+
+describe('go-arounds', () => {
+  it('a plane at the threshold goes around while the runway is still taken', () => {
+    const s = createGame(3);
+    const L = layoutOf(1);
+    const f = spawnFlight(s)!;
+    const o = spawnFlight(s)!;
+    o.phase = 'rollout';
+    expect(mustGoAround(s, f, L)).toBe(true);
+    o.phase = 'taxiIn';
+    // calm day, no fog: only the small base risk of an unstable approach is left
+    let n = 0;
+    for (let id = 1; id <= 4000; id++) {
+      f.id = id;
+      if (mustGoAround(s, f, L)) n++;
+    }
+    expect(n / 4000).toBeLessThan(0.08);
+  });
+
+  it('a gusty crosswind makes missed approaches likelier, a better tower less so', () => {
+    const s = createGame(8);
+    switchTier(s, 3);
+    s.upg.ils = 3;
+    s.upgRev++;
+    applyStructural(s);
+    const L = layoutOf(3);
+    const t = findTime(s.seed, 3, (w) => crosswind(w) > CROSSWIND_LIMIT[0] * 0.9 && crosswind(w) < CROSSWIND_LIMIT[0]);
+    at(s, t);
+    const f = spawnFlight(s)!;
+    f.aircraft = ac('sparrow');
+    const rate = () => {
+      let n = 0;
+      for (let id = 1; id <= 4000; id++) {
+        f.id = id;
+        if (mustGoAround(s, f, L)) n++;
+      }
+      return n / 4000;
+    };
+    const before = rate();
+    expect(before).toBeGreaterThan(0.03);
+    s.upg.tower = 3;
+    s.upgRev++;
+    expect(rate()).toBeLessThan(before * 0.75);
+  });
+
+  it('planes that go around come back and land', () => {
+    const s = createGame(21);
+    let steps = 0;
+    while (s.stats.goArounds < 4 && steps < 30 * 3600 * 12) {
+      if (steps % 3 === 0) for (const c of botCommands(s, { reaction: 0.3 })) queueCommand(s, c);
+      stepGame(s);
+      steps++;
+    }
+    expect(s.stats.goArounds).toBeGreaterThanOrEqual(4);
+    const ids = eventsSince(s, 0).filter((e) => e.kind === 'goAround').map((e) => e.a);
+    // let the last ones finish
+    for (let i = 0; i < 30 * 400; i++) stepGame(s);
+    for (const id of ids) {
+      const f = s.flights.find((x) => x.id === id);
+      // gone (served and pruned) or on the ground by now
+      if (f) expect(['holding', 'final', 'goAround', 'inbound']).not.toContain(f.phase);
+    }
+  }, 120000);
+});
+
+describe('diversions from other airports', () => {
+  it('now and then a plane low on fuel asks to come in, paying double', () => {
+    const s = createGame(31);
+    switchTier(s, 2);
+    s.upg.stand = 3;
+    s.upgRev++;
+    applyStructural(s);
+    s.nextGuestAt = s.time;
+    stepGame(s);
+    const ev = eventsSince(s, 0).find((e) => e.kind === 'diversionRequest');
+    expect(ev).toBeDefined();
+    const g = s.flights.find((f) => f.guest)!;
+    expect(g.payMul).toBe(GUEST_BONUS);
+    expect(g.patience).toBeLessThan(1);
+    expect(s.nextGuestAt).toBeGreaterThan(s.time + 400);
+  });
+
+  it('a guest you cannot take goes on elsewhere without counting against you', () => {
+    const s = createGame(32);
+    switchTier(s, 2);
+    s.upg.stand = 3;
+    s.upgRev++;
+    applyStructural(s);
+    s.nextGuestAt = s.time;
+    stepGame(s);
+    const g = s.flights.find((f) => f.guest)!;
+    for (const st of s.stands) st.reserved = 999999;
+    const rating = s.rating;
+    for (let i = 0; i < 30 * 900 && g.phase !== 'diverted'; i++) stepGame(s);
+    expect(g.phase).toBe('diverted');
+    expect(s.stats.diverted).toBe(0);
+    expect(s.rating).toBe(rating);
+  });
+
+  it('none come in while the airport is full', () => {
+    const s = createGame(34);
+    switchTier(s, 2);
+    for (const st of s.stands) st.reserved = 999999;
+    s.nextGuestAt = s.time;
+    stepGame(s);
+    expect(s.flights.some((f) => f.guest)).toBe(false);
+  });
+
+  it('the dirt strip gets none', () => {
+    const s = createGame(33);
+    for (let i = 0; i < 30 * 3600; i++) {
+      stepGame(s);
+      if (s.tier > 1) break;
+    }
+    expect(eventsSince(s, 0).some((e) => e.kind === 'diversionRequest' && s.tier === 1)).toBe(false);
+  });
+});
+

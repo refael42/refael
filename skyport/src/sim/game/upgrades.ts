@@ -252,12 +252,12 @@ export function offers(s: GameState): UpgradeOffer[] {
         gain = rate * 0.6;
         break;
       case 'ils':
-        // no more diversions in fog
-        gain = rate * 0.2;
+        // fewer diversions in fog (fog is only now and then)
+        gain = rate * 0.12;
         break;
       case 'tower':
       case 'radar':
-        gain = rate * 0.1;
+        gain = rate * 0.05;
         break;
       case 'truck':
       case 'cart':

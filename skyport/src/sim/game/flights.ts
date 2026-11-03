@@ -4,13 +4,14 @@ import { AIRLINES } from '../../data/airlines';
 import { CITIES } from '../../data/cities';
 import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
-import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule } from './airlines';
+import { hash01 } from '../hash';
+import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule, updateGuests } from './airlines';
 import { flightRevenue, nextRating } from './economy';
 import { recordIncome } from './income';
 import { effects, effectValue } from './upgrades';
 import { CROSSWIND_LIMIT, crosswind, foggedIn, weather } from './weather';
 import { pushEvent } from './events';
-import { canEnter, findRoute, firstSafe, flowOf, graphOf, groundMove, releaseAll, releaseEdge, routeGeometry, tryReserve, tryReserveRun } from './graph';
+import { canEnter, findRoute, flowOf, safeRunEnd, graphOf, groundMove, releaseAll, releaseEdge, routeGeometry, tryReserve, tryReserveRun } from './graph';
 import { doorPoint, gatePoint, layoutOf, opsOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
 import { angleDiff, chaikin, makeSample, pathLength, samplePath, type Path } from './path';
 import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
@@ -88,7 +89,7 @@ function stirWake(s: GameState, r: number, f: Flight): void {
 }
 
 export function isGround(f: Flight): boolean {
-  return f.z <= 0.001 && f.phase !== 'final' && f.phase !== 'holding' && f.phase !== 'inbound' && f.phase !== 'diverted';
+  return f.z <= 0.001 && f.phase !== 'final' && f.phase !== 'holding' && f.phase !== 'inbound' && f.phase !== 'diverted' && f.phase !== 'goAround';
 }
 
 function setPhase(f: Flight, phase: FlightPhase): void {
@@ -200,6 +201,8 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
     gWaiting: false,
     sched: planned?.at ?? s.time,
     dir: opsOf(L, s.rwyDir).dir,
+    guest: false,
+    goArounds: 0,
     payMul: contractOf(s, al)?.pay ?? 1,
   };
   s.flights.push(f);
@@ -210,6 +213,7 @@ export function spawnFlight(s: GameState, planned?: Planned): Flight | null {
 /** Arrivals come from the schedule; a full sky delays them (they show as delayed on the board). */
 export function updateSpawning(s: GameState): void {
   refillSchedule(s);
+  updateGuests(s, (p) => spawnFlight(s, p));
   if (s.time < s.nextArrival) return;
   const p = dueArrival(s);
   if (!p) return;
@@ -273,11 +277,12 @@ export function freeStand(s: GameState, aircraft = 0): number {
  * fog the ILS can't handle, too much crosswind for its size, wake turbulence,
  * or the runway in use.
  */
-export function approachBlocker(s: GameState, f: Flight): 'fog' | 'crosswind' | 'wake' | 'runway' | null {
+export function approachBlocker(s: GameState, f: Flight): 'fog' | 'crosswind' | 'turn' | 'wake' | 'runway' | null {
   if (foggedIn(s)) return 'fog';
   const w = weather(s);
   if (!isHeli(f) && crosswind(w) > CROSSWIND_LIMIT[wakeCat(f)]) return 'crosswind';
   if (isHeli(f)) return null;
+  if (s.turning) return 'turn';
   if (s.time < wakeClearAt(s, 1, f)) return 'wake';
   const L = layoutOf(s.tier);
   for (const o of s.flights) {
@@ -298,13 +303,70 @@ function canStartFinal(s: GameState, f: Flight, L: TierLayout): boolean {
   if (!weatherLetsIn(s, f)) return false;
   // a helicopter flies straight to its pad
   if (isHeli(f)) return true;
+  // the runway is being turned around: hold until it is done
+  if (s.turning) return false;
   if (s.time < wakeClearAt(s, 1, f)) return false;
+  let lead = -1;
   for (const o of s.flights) {
     if (o === f || isHeli(o)) continue;
-    if (o.phase === 'final' || runwayOf(o, L) === 1) return false;
+    if (o.phase === 'final' || o.phase === 'landing') return false;
+    // the tower may clear the next approach while the last plane is still rolling out,
+    // if it should be off the runway in time (if not: a go-around)
+    if (o.phase === 'rollout' && !o.gWaiting) {
+      if (lead < 0) lead = timeToThreshold(s, f, L);
+      if (rolloutLeft(o) < lead * 0.7) continue;
+    }
+    if (runwayOf(o, L) === 1) return false;
     if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.id < f.id) return false;
   }
   return true;
+}
+
+/** Seconds a plane still needs to roll out and leave the runway (rough, on the safe side). */
+function rolloutLeft(o: Flight): number {
+  // it keeps slowing down to taxi speed, and its tail still has to clear the runway edge
+  const v = (o.speed + AIRCRAFT[o.aircraft].taxiSpeed) / 2;
+  return (pathLength(o.path) - o.pathPos) / Math.max(0.5, v) + 3;
+}
+
+/** Seconds from here to the runway threshold on a new approach (rough). */
+function timeToThreshold(s: GameState, f: Flight, L: TierLayout): number {
+  return pathLength(routeFinal(L, f.x, f.y, f.z, f.heading, s.rwyDir)) / Math.max(0.5, AIRCRAFT[f.aircraft].approachSpeed);
+}
+
+/**
+ * At the threshold: is the runway clear, and is the approach stable? Crosswind
+ * near the limit and thick fog make a missed approach likelier; a better tower less so.
+ */
+export function mustGoAround(s: GameState, f: Flight, L: TierLayout): boolean {
+  for (const o of s.flights) {
+    if (o === f || isHeli(o)) continue;
+    if (runwayOf(o, L) === 1) return true;
+  }
+  const w = weather(s);
+  const cross = crosswind(w) / CROSSWIND_LIMIT[wakeCat(f)];
+  let risk = 0.015 + 0.12 * Math.max(0, cross - 0.6) + (w.vis < 0.5 ? 0.04 : 0);
+  risk *= Math.max(0.4, 1 - effectValue(s, 'tower') * 1.5);
+  return hash01(f.id * 131 + f.goArounds * 17 + 7) < risk;
+}
+
+/** Full power, climb out along the runway, then back to the hold to try again. */
+function goAround(s: GameState, f: Flight, L: TierLayout): void {
+  const appr = opsOf(L, f.dir).approach;
+  const d = f.dir;
+  const h = appr.hold;
+  const ang = Math.atan2(f.y - h[1], f.x - h[0]);
+  setPhase(f, 'goAround');
+  setPath(
+    f,
+    chaikin([f.x, f.y, f.z, f.x + d * 5, f.y, 1.4, f.x + d * 11, f.y - 2.5, 2.6, h[0] + Math.cos(ang) * appr.holdRadius, h[1] + Math.sin(ang) * appr.holdRadius, h[2]], 2),
+  );
+  f.speed = AIRCRAFT[f.aircraft].approachSpeed * 1.1;
+  f.goArounds++;
+  f.patience = Math.max(0.05, f.patience - 0.1);
+  f.mood = Math.max(0, f.mood - 0.05);
+  s.stats.goArounds++;
+  pushEvent(s, 'goAround', f.x, f.y, f.id);
 }
 
 function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
@@ -316,7 +378,8 @@ function canLineUp(s: GameState, f: Flight, L: TierLayout): boolean {
     if (dep === 1) {
       if (o.phase === 'final') return false;
       // landings first (one runway for both), but only those the weather lets in right now
-      if ((o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.stand >= 0 && weatherLetsIn(s, o)) return false;
+      // (and not during a runway change, which waits for the departures to clear out)
+      if (!s.turning && (o.phase === 'holding' || o.phase === 'inbound') && o.landCleared && o.stand >= 0 && weatherLetsIn(s, o)) return false;
     }
     if (o.phase === 'holdShort' && o.takeoffCleared && o.id < f.id) return false;
   }
@@ -338,6 +401,8 @@ function startFinal(s: GameState, f: Flight, L: TierLayout, speedMul = 1): void 
 }
 
 export function divert(s: GameState, f: Flight): void {
+  // an airline knows fog and crosswind are nobody's fault: it counts as a delay, not a failure
+  const wx = f.landCleared && f.stand >= 0 ? approachBlocker(s, f) : null;
   if (f.stand >= 0) {
     const st = s.stands[f.stand];
     if (st.reserved === f.id) st.reserved = 0;
@@ -347,10 +412,13 @@ export function divert(s: GameState, f: Flight): void {
   setPhase(f, 'diverted');
   setPath(f, routeDivert(f.x, f.y, f.z, f.heading));
   f.mood = 0;
-  s.stats.diverted++;
-  airlineFlightDone(s, f, 'diverted');
-  logDeparture(s, f, 1);
-  s.rating = nextRating(s.rating, 0);
+  airlineFlightDone(s, f, wx === 'fog' || wx === 'crosswind' || wx === 'turn' ? 'late' : 'diverted');
+  // a guest that goes on elsewhere was never yours to lose
+  if (!f.guest) {
+    s.stats.diverted++;
+    logDeparture(s, f, 1);
+    s.rating = nextRating(s.rating, 0);
+  }
   sendPaxHome(s, f);
   pushEvent(s, 'diverted', f.x, f.y, f.id, 0, f.id);
 }
@@ -414,14 +482,18 @@ function tryLeaveStand(s: GameState, f: Flight): boolean {
     return true;
   }
   const from = g.standNode[f.stand];
+  // nobody new pushes back while the runway is being turned around
+  if (s.turning) {
+    f.gWaiting = true;
+    return false;
+  }
   // depart into the wind: the direction is fixed when the plane leaves its stand
   const dir = s.rwyDir;
   const flow = flowOf(g, dir);
   const route = findRoute(g, from, flow.holdShort);
   if (!route) return false;
   // never stop on the shared lane: take the whole stretch up to a waiting spot at once
-  const k = firstSafe(flow, route);
-  if (!tryReserveRun(s, f, route, k < 0 ? route.length - 1 : k)) {
+  if (!tryReserveRun(s, f, route, safeRunEnd(g, flow, route, 0, tailClear(f)))) {
     f.gWaiting = true;
     return false;
   }
@@ -459,6 +531,7 @@ function pay(s: GameState, f: Flight): void {
   s.money = s.money.add(amount);
   s.stats.earned = s.stats.earned.add(amount);
   s.stats.served++;
+  if (f.guest) s.stats.guests++;
   s.stats.pax += f.boarded + f.deboarded;
   s.rating = nextRating(s.rating, f.mood);
   f.paid = amount.toNumber();
@@ -504,6 +577,8 @@ function waitingDrain(s: GameState, f: Flight, dt: number): void {
 }
 
 export function updateFlights(s: GameState, dt: number): void {
+  // during a runway change nobody may push back: the slots of planes at their stands move with it
+  if (s.turning) for (const f of s.flights) if (f.dockedAt > 0 && f.offBlockAt === 0) f.slot += dt;
   const L = layoutOf(s.tier);
   let w = 0;
   for (let i = 0; i < s.flights.length; i++) {
@@ -563,7 +638,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
         f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(s, f));
         f.mood = Math.max(0, f.mood - 0.006 * dt);
       } else {
-        f.patience -= dt / (HOLD_PATIENCE_S * 2.5 * holdFuel(s, f));
+        // a runway change is nobody's fault: pilots wait it out more calmly
+        f.patience -= dt / (HOLD_PATIENCE_S * 2.5 * holdFuel(s, f) * (s.turning ? 2 : 1));
       }
       if (f.patience <= 0) {
         f.patience = 0;
@@ -582,8 +658,24 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
           pushEvent(s, 'touchdown', f.x, f.y, f.id);
           return true;
         }
+        if (mustGoAround(s, f, L)) {
+          goAround(s, f, L);
+          return true;
+        }
         setPhase(f, 'landing');
         setPath(f, routeLanding(L, f.dir));
+      }
+      return true;
+    }
+    case 'goAround': {
+      if (follow(f, dt)) {
+        // back in the stack, still cleared: it lands as soon as the tower allows
+        setPhase(f, 'holding');
+        const h = opsOf(L, f.dir).approach.hold;
+        f.holdAngle = Math.atan2(f.y - h[1], f.x - h[0]);
+        let level = 0;
+        while (s.flights.some((o) => o !== f && o.phase === 'holding' && o.holdLevel === level)) level++;
+        f.holdLevel = level;
       }
       return true;
     }

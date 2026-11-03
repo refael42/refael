@@ -28,7 +28,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M6 Terminal & passengers | done | see below |
 | M7 Airlines | done | see below |
 | M8 Full fleet | done | see below |
-| M9 Advanced ATC | next | tower, radar, ILS, holding, go-around, diversions, wind and runway direction |
+| M9 Advanced ATC | done | see below |
+| M10 Maintenance & fuel | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -249,10 +250,47 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Balance (bot, 4 h, seeds 1/7/13): tier 3 at ~56 min, tier 4 at ~146–151 min, 3–4% diverted.
 - Test switch `full=1`: everything of the tier built and its airlines signed (screenshots).
 
+### M9 — advanced air traffic control (done)
+- Weather is a pure function of the seed and the clock (keyframes every 150 s, wind regimes that
+  last ~20 game minutes), so it is never saved and every game has its own. Mostly an easterly;
+  now and then a westerly. Fog banks from the small airfield on (never on the dirt strip).
+- Crosswind limits per wake class (light planes give up first); fog closes the runway below the
+  ILS minimum (ILS levels 0–3). Tower upgrades shorten wake gaps and make missed approaches rarer;
+  radar lets planes hold longer and allows more in the air.
+- Runway direction follows the wind on tiers 3–5 (own taxi routes for each direction). A runway
+  change is done like at a real airport: arrivals hold, nobody new pushes back, the departures
+  already out leave the old way, and once the ground is clear the runway turns (about a minute).
+  Without that, departures still headed the old way could block the new arrival lane (a real
+  deadlock found by the balance bot at tier 4; a test now flips the wind every 3 minutes).
+- Go-around: at the threshold a plane climbs away if the runway is still taken, or now and then
+  from an unstable approach (crosswind near the limit, fog); it comes back around. The tower may
+  clear the next approach while the plane ahead is still rolling out, if it should be off in time.
+- Diversions from other airports: every 7–15 minutes (from the small airfield on) a plane low on
+  fuel asks to come in. It pays double; if you can't take it, it goes on elsewhere without
+  counting against you.
+- Reverse-direction hold points got a dog-leg so a waiting jet's tail is off the shared lane, and a
+  departure entering a shared stretch reserves on until its whole tail fits on the waiting spot
+  (a test checks every layout and direction).
+- Screen: HUD weather chip (wind arrow in screen space, knots, fog badge, red on strong crosswind),
+  a fog layer over the map, the windsock streams with the wind, a turning radar beside the tower,
+  toasts (runway change, fog in/out, crosswind, go-around, diversion request), and the flight
+  card says why a cleared plane is still circling (fog, crosswind, runway change, wake, runway).
+- ESLint set up (`npm run lint`, Expo config). The React Compiler is not enabled, so its
+  compiler-only rules are off (the game loop keeps state in refs on purpose).
+- Test switch `wx=fog|cross|west|calm`: fixed weather for screenshots.
+- Fairness: fog is never thicker than the best ILS the tier can buy (tier 2: ILS 1 is enough;
+  tier 3: ILS 2; from tier 4: ILS 3), so fog is a problem the player can solve. A diversion in
+  fog, crosswind or during a runway change counts as a delay (not a failure) with the airline;
+  slots of parked planes move with a runway change; patience drains half as fast during one.
+  Diversions from elsewhere only come in when there are two free stands and a quiet sky.
+- Balance (bot, 4 h, seeds 1/7/13): tier 3 at 55–58 min, tier 4 at 144–155 min (as in M8);
+  0.6–4% diverted, ~1.5% go-arounds, 9–14 guest (diverted-in) flights landed; on time 87/68/87%.
+  Seed 7 is harder than in M8 (more lateness at tier 3), the other two are as good or better.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1&wx=fog|cross|west|calm`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

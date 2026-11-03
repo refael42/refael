@@ -151,6 +151,23 @@ function buildFlow(g: Graph, exits: number[], holdShort: number): Flow {
   return { exits, standExit, holdShort, safe };
 }
 
+/**
+ * Last route index of a run that starts at `from` and must not end on the
+ * shared lane: through the shared edges to the next waiting spot, and on
+ * along waiting edges until the whole tail (`tail` long) fits there.
+ */
+export function safeRunEnd(g: Graph, flow: Flow, route: number[], from: number, tail: number): number {
+  const n = route.length;
+  let j = from;
+  while (j < n - 1 && !flow.safe[route[j]]) j++;
+  let room = flow.safe[route[j]] ? g.edges[route[j]].len : 0;
+  while (j < n - 1 && room < tail && flow.safe[route[j + 1]]) {
+    j++;
+    room += g.edges[route[j]].len;
+  }
+  return j;
+}
+
 /** Index of the first edge in a route where a plane may stop and wait (-1 none). */
 export function firstSafe(g: Pick<Graph, 'safe'> | Flow, route: number[]): number {
   for (let i = 0; i < route.length; i++) if (g.safe[route[i]]) return i;
@@ -314,8 +331,8 @@ export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number
     if (runs && !runs.safe[r.edges[k]] && runs.safe[r.edges[k - 1]]) {
       // leaving a waiting spot into a shared stretch: take all of it up to the next spot at once,
       // so a departure never stops where arrivals have to pass
-      let j = k;
-      while (j < n - 1 && !runs.safe[r.edges[j]]) j++;
+      // (and far enough in that the tail is off the shared lane too)
+      const j = safeRunEnd(graphOf(s.tier), runs, r.edges, k, tailClear);
       ok = tryReserveRun(s, f, r.edges.slice(k), j - k);
     } else ok = tryReserve(s, f, r.edges[k]);
     if (!ok) {

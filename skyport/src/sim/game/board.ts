@@ -50,6 +50,7 @@ export function arrivalsBoard(s: GameState): BoardRow[] {
         status = 'approach';
         break;
       case 'holding':
+      case 'goAround':
         status = 'holding';
         break;
       case 'final':

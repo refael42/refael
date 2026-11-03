@@ -13,7 +13,7 @@ export * from './game/economy';
 export * from './game/bot';
 export * from './game/path';
 export { layoutOf, doorPoint } from './game/layout';
-export { onRunway, isGround, ARRIVAL_GAP, wantsAction } from './game/flights';
+export { onRunway, isGround, ARRIVAL_GAP, wantsAction, approachBlocker } from './game/flights';
 export { fuelProgress, serviceSeconds } from './game/vehicles';
 export { findRoute, graphOf, routeGeometry } from './game/graph';
 export * from './game/staff';

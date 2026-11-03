@@ -93,6 +93,8 @@ const report = {
   incomePerMinute: Math.round(incomeRate(s) * 60),
   served: st.served,
   diverted: st.diverted,
+  goArounds: st.goArounds,
+  guestsServed: st.guests,
   onTimePct: Math.round((st.onTime / Math.max(1, st.onTime + st.late)) * 100),
   rating: Math.round(s.rating * 100) / 100,
   airlines: s.contracts.map((c) => `${AIRLINES[c.al].id} ${c.perDay}/day rep ${Math.round(s.rep[c.al])}`),

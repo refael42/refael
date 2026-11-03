@@ -7,13 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AIRLINES } from '../../data/airlines';
 import { useDir, useLang, useT, type TKey } from '../../i18n';
 import { makeCamera, updateCamera, useCameraResponder, viewToWorld, type DragHandler } from '../../render/camera';
-import { screenToWorld } from '../../render/iso';
 import { tierDef } from '../../data/tiers';
-import { useSettings as useSettingsStore } from '../../settings/store';
 import { TierPanel } from './TierPanel';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
-import { isoX, isoY, Z_PX } from '../../render/iso';
+import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
 import { makeRenderRes, SnapWriter, type RenderRes } from '../../render/scene';
 import { SceneCanvas } from '../../render/SceneCanvas';
 import { buildSprites, type SpriteSet } from '../../render/sprites';
@@ -37,6 +35,7 @@ import {
   decorPos,
   decorSpotOk,
   botAirlines,
+  approachBlocker,
   botBuys,
   canExpand,
   repOf,
@@ -44,7 +43,9 @@ import {
   botHires,
   clockText,
   formatBig,
+  foggedIn,
   gameClock,
+  weather,
   layoutOf,
   MAX_PER_ROLE,
   REJECT,
@@ -69,7 +70,7 @@ import { BottomBar, type BarItem } from './BottomBar';
 import { sideWidth } from './Sheet';
 import { AirlinesPanel } from './AirlinesPanel';
 import { FlightBoard } from './FlightBoard';
-import { Hud, type HudData } from './Hud';
+import { Hud, sameHud, type HudData } from './Hud';
 import { personName, StaffPanel, type StaffView } from './StaffPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { TOAST_MS, Toasts, type Toast } from './Toasts';
@@ -79,7 +80,24 @@ const debug = readDebugParams();
 function hudOf(c: GameController): HudData {
   const s = c.state;
   const clock = gameClock(s.time);
-  return { money: formatBig(s.money), diamonds: String(s.diamonds), rating: Math.round(s.rating * 10) / 10, day: clock.day, time: clockText(s.time) };
+  const w = weather(s);
+  // the wind vector on the iso screen (x right, y down), as a rotation from "up"
+  const sx = Math.cos(w.windTo) - Math.sin(w.windTo);
+  const sy = (Math.cos(w.windTo) + Math.sin(w.windTo)) / 2;
+  const windDeg = (Math.atan2(sy, sx) * 180) / Math.PI + 90;
+  const fog = foggedIn(s) ? 2 : w.vis < 0.6 ? 1 : 0;
+  return {
+    money: formatBig(s.money),
+    diamonds: String(s.diamonds),
+    rating: Math.round(s.rating * 10) / 10,
+    day: clock.day,
+    time: clockText(s.time),
+    windDeg,
+    windKt: Math.round(w.speed),
+    fog,
+    cross: s.wxCross,
+    haze: Math.round(Math.max(0, 1 - w.vis) * 20) / 20,
+  };
 }
 
 export interface Boot {
@@ -117,6 +135,13 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     }
     if (debug.money > 0) c.state.money = c.state.money.add(debug.money);
     if (debug.full) fullAirport(c.state);
+    const WX: Record<string, { windTo: number; speed: number; vis: number }> = {
+      fog: { windTo: Math.PI, speed: 6, vis: 0.08 },
+      cross: { windTo: Math.PI / 2 + 0.2, speed: 22, vis: 1 },
+      west: { windTo: 0.15, speed: 14, vis: 1 },
+      calm: { windTo: Math.PI, speed: 5, vis: 1 },
+    };
+    if (debug.wx && WX[debug.wx]) c.state.wxForce = WX[debug.wx];
     if (debug.crew) {
       c.state.money = c.state.money.add(5000);
       for (const a of c.state.applicants.slice()) c.send({ type: 'hire', applicantId: a.id });
@@ -187,8 +212,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [upgCat, setUpgCat] = useState<'all' | 'terminal'>('all');
   const buildMode = panel === 'build';
   const dragRef = useRef<{ id: string; x: number; y: number; ok: boolean } | null>(null);
-  const tutorial = useSettingsStore((x) => x.tutorial);
-  const setTutorial = useSettingsStore((x) => x.setTutorial);
+  const tutorial = useSettings((x) => x.tutorial);
+  const setTutorial = useSettings((x) => x.setTutorial);
   const tutorialRef = useRef(tutorial);
   tutorialRef.current = tutorial;
   const [hand, setHand] = useState<{ x: number; y: number; text: TKey } | null>(null);
@@ -312,6 +337,24 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             break;
           case 'diverted':
             toast('warn', t('toast.diverted', { code: codeOf(e.c) }), 'warn');
+            break;
+          case 'runwayFlip':
+            toast('wind', t('toast.runwayFlip'), 'info', 'flip');
+            break;
+          case 'fogIn':
+            toast('fog', t('toast.fogIn'), 'warn', 'fog');
+            break;
+          case 'fogOut':
+            toast('sun', t('toast.fogOut'), 'good', 'fog');
+            break;
+          case 'crosswind':
+            toast('wind', t('toast.crosswind', { n: e.a }), 'warn', 'cross');
+            break;
+          case 'goAround':
+            toast('takeoff', t('toast.goAround', { code: codeOf(e.a) }), 'warn');
+            break;
+          case 'diversionRequest':
+            toast('fuel', t('toast.diversionRequest', { code: codeOf(e.a) }), 'good');
             break;
           case 'cmdRejected':
             if (e.a === REJECT.noStand) toast('warn', t('toast.noStand'), 'warn', 'noStand');
@@ -454,10 +497,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   useEffect(() => {
     const id = setInterval(() => {
       const h = hudOf(ctrl);
-      setHud((old) => (old.money === h.money && old.diamonds === h.diamonds && old.rating === h.rating && old.day === h.day && old.time === h.time ? old : h));
+      setHud((old) => (sameHud(old, h) ? old : h));
       const sel = selectedRef.current;
       const f = sel ? ctrl.state.flights.find((x) => x.id === sel) : undefined;
-      const v = f ? viewOf(f, repOf(ctrl.state, f.airline)) : null;
+      const hold = f && f.landCleared && (f.phase === 'holding' || f.phase === 'inbound') ? (approachBlocker(ctrl.state, f) ?? '') : '';
+      const v = f ? viewOf(f, repOf(ctrl.state, f.airline), hold) : null;
       if (sel && !f) setSelected(0);
       setCard((old) => (sameView(old, v) ? old : v));
       setNow(performance.now());
@@ -742,6 +786,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     <View style={styles.root}>
       <View style={styles.fill} onLayout={onLayout} {...responder.panHandlers}>
         {size.w > 0 ? <SceneCanvas snap={snap} res={res} width={size.w} height={size.h} /> : null}
+        {hud.haze > 0 ? <View style={[StyleSheet.absoluteFill, { backgroundColor: `rgba(226,232,240,${(hud.haze * 0.62).toFixed(2)})` }]} pointerEvents="none" testID="fog" /> : null}
       </View>
       <View style={[styles.top, { paddingTop: insets.top + 6 }]} pointerEvents="box-none">
         <View
@@ -901,6 +946,10 @@ function fullAirport(s: GameState): void {
   const L = layoutOf(s.tier);
   for (const st of L.stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
   if (s.tier >= 4) s.upg.lounge = 1;
+  // air traffic control about as far as a player would have it by now
+  s.upg.tower = Math.max(s.upg.tower ?? 0, s.tier - 1);
+  s.upg.radar = Math.max(s.upg.radar ?? 0, Math.min(3, s.tier - 1));
+  s.upg.ils = Math.max(s.upg.ils ?? 0, Math.min(3, s.tier - 2));
   s.upg.truck2 = Math.max(s.upg.truck2 ?? 0, Math.min(5, s.tier));
   s.upg.cart2 = Math.max(s.upg.cart2 ?? 0, Math.min(5, s.tier));
   s.upgRev++;

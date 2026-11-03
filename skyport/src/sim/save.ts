@@ -315,6 +315,8 @@ export function cleanGame(raw: unknown): GameState | null {
     sales: big(st.sales),
     queueSecs: num(st.queueSecs, 0, 0),
     queued: int(st.queued, 0, 0),
+    goArounds: int(st.goArounds, 0, 0),
+    guests: int(st.guests, 0, 0),
   };
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
@@ -337,6 +339,7 @@ export function cleanGame(raw: unknown): GameState | null {
   });
   s.schedule = [];
   s.departed = [];
+  s.nextGuestAt = s.time + 600;
   // ids must stay unique: never go below what is already used
   let maxId = 2 + s.vehicles.length;
   for (const m of s.staff) maxId = Math.max(maxId, m.id);

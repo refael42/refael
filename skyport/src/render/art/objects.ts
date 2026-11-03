@@ -352,6 +352,47 @@ export function drawTower(p: IsoPen): void {
   p.circle(0, 0, 2.76, 2, '#ef4444', false);
 }
 
+/** Frames of the turning radar antenna (half a turn: the antenna is symmetric). */
+export const RADAR_FRAMES = 8;
+
+/** A surveillance radar: lattice mast with a turning antenna on top. */
+export function drawRadar(p: IsoPen, frame: number): void {
+  p.shadow(0.1, 0.1, 18, 7, 0.2);
+  p.box(-0.22, -0.22, 0.22, 0.22, 0, 0.18, '#94a3b8');
+  // four legs leaning in, cross braces
+  const legs: [number, number][] = [
+    [-0.16, -0.16],
+    [0.16, -0.16],
+    [0.16, 0.16],
+    [-0.16, 0.16],
+  ];
+  for (const [x, y] of legs) p.line(x, y, 0.18, x * 0.35, y * 0.35, 1.4, '#64748b', 1.6);
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay] = legs[i];
+    const [bx, by] = legs[(i + 1) % 4];
+    p.line(ax * 0.8, ay * 0.8, 0.5, bx * 0.55, by * 0.55, 0.95, '#94a3b8', 1);
+  }
+  p.box(-0.09, -0.09, 0.09, 0.09, 1.4, 1.5, '#475569');
+  // the antenna: a long, slightly curved reflector, tilted up
+  const a = (frame / RADAR_FRAMES) * Math.PI;
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const nx = -uy * 0.09;
+  const ny = ux * 0.09;
+  const half = 0.42;
+  const pts = (side: number) => [
+    -ux * half + nx * side, -uy * half + ny * side, 1.54,
+    ux * half + nx * side, uy * half + ny * side, 1.54,
+    ux * half * 0.9 + nx * side * 2.2, uy * half * 0.9 + ny * side * 2.2, 1.82,
+    -ux * half * 0.9 + nx * side * 2.2, -uy * half * 0.9 + ny * side * 2.2, 1.82,
+  ];
+  // back face first, then the bright front of the dish
+  const front = ny + nx > 0 ? 1 : -1;
+  p.poly(pts(-front), '#64748b', true, 1.2);
+  p.poly(pts(front), '#e2e8f0', true, 1.2);
+  p.circle(0, 0, 1.56, 2.2, '#ef4444', false);
+}
+
 /** Build mode tile highlight (iso diamond). */
 export function drawTile(p: IsoPen, color: string): void {
   p.poly([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], color, false);

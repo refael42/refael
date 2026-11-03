@@ -2,10 +2,10 @@
  * Airport tiers and their layouts. World units are tiles. The runway runs
  * along +x (landing toward +x); screen up-left is west (-x).
  */
+import type { StandSize } from './aircraft';
+
 export type P2 = readonly [number, number];
 export type P3 = readonly [number, number, number];
-
-import type { StandSize } from './aircraft';
 
 export interface StandDef {
   id: string;
@@ -409,14 +409,15 @@ const REGIONAL: TierLayout = {
   buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }],
   rev: {
     approach: approachFromEast(44),
-    nodes: { ...WEST_LINK.nodes, HE: [43.0, 26.3] },
-    edges: [...WEST_LINK.edges, ['K2', 'HE']],
+    // a dog-leg to the hold so even the longest tail is clear of the K lane while waiting
+    nodes: { ...WEST_LINK.nodes, HX: [43.4, 25.0], HE: [43.4, 26.3] },
+    edges: [...WEST_LINK.edges, ['K2', 'HX'], ['HX', 'HE']],
     exit: 'E',
     holdShort: 'HE',
     lineUp: [
-      [43.6, RWY_Y - 0.7],
-      [43.3, RWY_Y - 0.05],
-      [42.6, RWY_Y],
+      [43.8, RWY_Y - 0.7],
+      [43.5, RWY_Y - 0.05],
+      [42.8, RWY_Y],
     ],
     takeoff: {
       liftoffX: 35,
@@ -478,14 +479,14 @@ const CITY: TierLayout = {
   ],
   rev: {
     approach: approachFromEast(55),
-    nodes: { ...WEST_LINK.nodes, ER: [38.8, RWY_Y], HE: [54.0, 26.3] },
-    edges: [...WEST_LINK.edges, ['ER', 'KR'], ['K3', 'HE']],
+    nodes: { ...WEST_LINK.nodes, ER: [38.8, RWY_Y], HX: [54.6, 25.0], HE: [54.6, 26.3] },
+    edges: [...WEST_LINK.edges, ['ER', 'KR'], ['K3', 'HX'], ['HX', 'HE']],
     exit: 'ER',
     holdShort: 'HE',
     lineUp: [
-      [54.6, RWY_Y - 0.7],
-      [54.3, RWY_Y - 0.05],
-      [53.6, RWY_Y],
+      [55.0, RWY_Y - 0.7],
+      [54.7, RWY_Y - 0.05],
+      [54.0, RWY_Y],
     ],
     takeoff: {
       liftoffX: 46,

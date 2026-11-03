@@ -88,6 +88,19 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
             </View>
           </Chip>
         ) : null}
+        {v.hold ? (
+          <Chip tone="bad">
+            <View style={[styles.chipRow, { flexDirection: dir.row }]}>
+              <Icon name={v.hold === 'fog' ? 'fog' : v.hold === 'crosswind' || v.hold === 'turn' ? 'wind' : 'hourglass'} size={13} />
+              <Text style={[styles.chipText, { color: C.red }]}>{t(`hold.${v.hold}` as TKey)}</Text>
+            </View>
+          </Chip>
+        ) : null}
+        {v.guest ? (
+          <Chip tone="good">
+            <Text style={[styles.chipText, { color: C.green }]}>{t('card.guest')}</Text>
+          </Chip>
+        ) : null}
         {v.onTime !== 0 ? (
           <Chip tone={v.onTime > 0 ? 'good' : 'bad'}>
             <Text style={[styles.chipText, { color: v.onTime > 0 ? C.green : C.red }]}>{v.onTime > 0 ? t('card.onTime') : t('card.late')}</Text>

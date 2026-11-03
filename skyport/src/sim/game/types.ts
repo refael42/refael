@@ -122,6 +122,7 @@ export type FlightPhase =
   | 'holdShort'
   | 'lineUp'
   | 'takeoff'
+  | 'goAround'
   | 'diverted';
 
 /** What the flight is waiting for the player (or staff) to do. */
@@ -219,6 +220,10 @@ export interface Flight {
   payMul: number;
   /** Runway direction its current approach or departure was planned for (1 or -1). */
   dir: number;
+  /** Diverted here from another airport (no contract, pays a bonus, low on fuel). */
+  guest: boolean;
+  /** Missed approaches so far. */
+  goArounds: number;
 }
 
 /** A signed airline contract. */
@@ -366,6 +371,9 @@ export interface Stats {
   /** Total seconds passengers stood in queues, and how many queued. */
   queueSecs: number;
   queued: number;
+  /** Missed approaches, and planes diverted here from other airports that landed. */
+  goArounds: number;
+  guests: number;
 }
 
 export interface Build {
@@ -458,8 +466,12 @@ export interface GameState {
   /** Last plane that used each runway (wake turbulence), transient. */
   wake: { cat: number; at: number }[];
   /** Runway direction in use: 1 = landing and taking off toward +x, -1 = the other way (transient). */
+  /** Runway change under way toward this direction (0 = none): arrivals hold, nobody new leaves a stand. */
+  turning: number;
   rwyDir: number;
   /** Tests only: pin the runway direction (0 = follow the wind). Never saved. */
+  /** Tests and screenshots only: fixed weather instead of the seed's (not saved). */
+  wxForce?: { windTo: number; speed: number; vis: number };
   forceDir?: number;
   /** Weather alerts already announced (transient). */
   wxFog: boolean;
@@ -483,6 +495,8 @@ export interface GameState {
   offers: AirlineOffer[];
   rep: number[];
   nextOfferAt: number;
+  /** When the next plane may ask to divert here (transient). */
+  nextGuestAt: number;
   /** Planned arrivals, earliest first (transient, rebuilt from the contracts). */
   schedule: Planned[];
   /** Latest departures for the board (transient). */

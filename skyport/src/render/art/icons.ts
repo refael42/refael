@@ -10,7 +10,7 @@ export const ICON_NAMES = [
   'coin', 'diamond', 'star', 'starEmpty', 'land', 'takeoff', 'fuel', 'pax', 'wrench', 'clock', 'sun', 'cloud',
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
-  'tail', 'board', 'handshake', 'up',
+  'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -354,6 +354,38 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       stroke([20, 27, 40, 27], '#a5b4fc', 4);
       circ(44, 46, 13, '#10b981');
       stroke([37, 46, 42, 51, 51, 41], '#ffffff', 4.5);
+      break;
+    }
+    case 'wind': {
+      // three gusts curling at the end
+      const gust = (y: number, len: number, w: number) => {
+        const b = Skia.PathBuilder.Make();
+        b.moveTo(8, y);
+        b.lineTo(8 + len, y);
+        b.cubicTo(8 + len + 9, y, 8 + len + 9, y - 13, 8 + len, y - 12);
+        s.setColor(Skia.Color('#38bdf8'));
+        s.setStrokeWidth(w);
+        canvas.drawPath(b.build(), s);
+      };
+      gust(26, 30, 5.5);
+      gust(40, 40, 5.5);
+      stroke([8, 52, 34, 52], '#7dd3fc', 5.5);
+      break;
+    }
+    case 'fog': {
+      const bars: [number, number, number, string][] = [
+        [14, 18, 50, '#94a3b8'],
+        [8, 30, 44, '#cbd5e1'],
+        [16, 42, 56, '#94a3b8'],
+        [10, 54, 40, '#cbd5e1'],
+      ];
+      for (const [x0, y, x1, c] of bars) stroke([x0, y, x1, y], c, 6);
+      break;
+    }
+    case 'arrow': {
+      // points up; rotated by the caller
+      f.setColor(Skia.Color(SLATE));
+      canvas.drawPath(path([32, 6, 50, 30, 38, 28, 38, 58, 26, 58, 26, 28, 14, 30]), f);
       break;
     }
     case 'up': {

@@ -23,6 +23,7 @@ import {
   type GameState,
 } from '../src/sim';
 import { freeStand, runwayOf, spawnFlight, WAKE_GAP, wakeClearAt } from '../src/sim/game/flights';
+import { flowOf } from '../src/sim/game/graph';
 
 const ac = (id: string) => AIRCRAFT.findIndex((a) => a.id === id);
 const al = (id: string) => AIRLINES.findIndex((a) => a.id === id);
@@ -54,6 +55,24 @@ function sign(s: GameState, id: string, perDay: number): void {
 }
 
 describe('layouts of the bigger airports', () => {
+  it('a plane waiting at the hold short point has its whole tail off every arrival lane', () => {
+    for (const t of TIERS) {
+      const L = layoutOf(t.id);
+      const g = graphOf(t.id);
+      const tail = Math.max(...L.stands.map((st) => Math.max(0, ...AIRCRAFT.map((a, i) => (standFits(st.size, a.stand) ? planeArt(i).length * 0.5 + 0.35 : 0)))));
+      for (const dir of L.rev ? [1, -1] : [1]) {
+        const flow = flowOf(g, dir);
+        for (const sn of g.standNode) {
+          if (sn < 0) continue;
+          const r = findRoute(g, sn, flow.holdShort)!;
+          let len = 0;
+          for (let i = r.length - 1; i >= 0 && flow.safe[r[i]]; i--) len += g.edges[r[i]].len;
+          expect(len, `tier ${t.id} dir ${dir}`).toBeGreaterThan(tail + 0.3);
+        }
+      }
+    }
+  });
+
   for (const t of TIERS.filter((x) => x.layout)) {
     it(`tier ${t.id}: in each runway direction every stand is reachable, arrivals and departures each flow one way`, () => {
       const g = graphOf(t.id);
@@ -367,6 +386,14 @@ describe('runway direction', () => {
       expect(r.served).toBeGreaterThan(570);
     }, 300000);
   }
+
+  it('tier 4: 600 flights with the wind turning every 3 minutes', () => {
+    const s = busy(4, 52);
+    const r = run(s, 600, 180);
+    expect(r.conflicts).toBe(0);
+    expect(r.minDist).toBeGreaterThan(0.95);
+    expect(r.served).toBeGreaterThan(570);
+  }, 300000);
 
   it('tier 5: 600 flights with the wind turning every 4 minutes', () => {
     const s = busy(5, 41);

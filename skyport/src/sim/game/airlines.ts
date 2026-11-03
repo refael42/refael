@@ -259,6 +259,11 @@ function unhappy(s: GameState, c: Contract): boolean {
 export function airlineFlightDone(s: GameState, f: Flight, result: 'onTime' | 'late' | 'diverted'): void {
   const k = kindOf(f.airline);
   const d = repDelta(result, f.mood, f.lostBags, k.loyalty);
+  if (f.guest) {
+    // a diverted guest only counts in your favour: taking it in is a good turn
+    if (result !== 'diverted') s.rep[f.airline] = Math.min(100, repOf(s, f.airline) + Math.max(0, d) * 0.5 + 1);
+    return;
+  }
   s.rep[f.airline] = Math.max(0, Math.min(100, repOf(s, f.airline) + d));
   const c = contractOf(s, f.airline);
   if (!c) return;
@@ -303,6 +308,40 @@ function leave(s: GameState, c: Contract): void {
   s.rep[c.al] = Math.max(0, repOf(s, c.al) - 10);
   dropContract(s, c);
   pushEvent(s, 'airlineLeft', 0, 0, c.al);
+}
+
+// ------------------------------------------------------------------ diversions from elsewhere
+
+/** A plane diverted here pays this much more (and arrives low on fuel). */
+export const GUEST_BONUS = 2;
+
+/**
+ * Now and then a plane from another airport asks to divert here: no contract,
+ * low on fuel, double pay if it gets in. Ignored, it goes elsewhere.
+ */
+export function updateGuests(s: GameState, spawn: (p: Planned) => Flight | null): void {
+  if (s.time < s.nextGuestAt) return;
+  s.nextGuestAt = s.time + 420 + gh(s, s.tick * 5 + 17) * 480;
+  if (s.tier < 2 || s.tierSwitch) return;
+  // the tower only takes a diversion in when there is room: two free stands and a quiet sky
+  let free = 0;
+  for (let i = 0; i < s.stands.length; i++) if (s.standOpen[i] && s.stands[i].occupant === 0 && s.stands[i].reserved === 0) free++;
+  let circling = 0;
+  for (const f of s.flights) if (f.phase === 'holding' || f.phase === 'inbound') circling++;
+  if (free < 2 || circling > 1) return;
+  const pool = AIRLINES.map((_, i) => i).filter((i) => !airlineBlocker(s, i) && fleetHere(s, i).length > 0);
+  if (pool.length === 0) return;
+  const al = pool[Math.floor(gh(s, s.tick * 5 + 19) * pool.length)];
+  const id = s.nextId++;
+  const cities = CITIES.map((x, i) => ({ x, i })).filter(({ x }) => x.range <= s.tier + 1);
+  const oi = Math.floor(gh(s, id * 13 + 5) * cities.length);
+  const di = (oi + 1 + Math.floor(gh(s, id * 13 + 6) * (cities.length - 1))) % cities.length;
+  const f = spawn({ id, at: s.time, al, num: plannedNum(s, al, id), origin: cities[oi].i, dest: cities[di].i });
+  if (!f) return;
+  f.guest = true;
+  f.payMul = GUEST_BONUS;
+  f.patience = 0.55;
+  pushEvent(s, 'diversionRequest', f.x, f.y, f.id, al, cities[oi].i);
 }
 
 // ------------------------------------------------------------------ offers

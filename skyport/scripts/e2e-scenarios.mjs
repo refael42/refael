@@ -278,5 +278,10 @@ export default [
   { name: 'm8-gates', viewport: { width: 844, height: 390 }, query: '/?seed=7&tier=4&full=1&crew=1&warp=320&auto=1&cam=46.5,19.5,1.5', wait: 3000, touch: true, langs: ['en'] },
   { name: 'm8-cargo-fbo', viewport: { width: 844, height: 390 }, query: '/?seed=8&tier=5&full=1&crew=1&warp=360&auto=1&cam=36,19.5,1.3', wait: 3000, touch: true, langs: ['en'] },
   { name: 'm8-runways', viewport: { width: 844, height: 390 }, query: '/?seed=9&tier=5&full=1&crew=1&warp=300&auto=1&cam=16,29,1.0', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm9-fog', viewport: { width: 844, height: 390 }, query: '/?seed=11&tier=3&full=1&crew=1&warp=200&auto=1&wx=fog&select=1', wait: 3000, touch: true },
+  { name: 'm9-west', viewport: { width: 844, height: 390 }, query: '/?seed=12&tier=4&full=1&crew=1&warp=320&auto=1&wx=west', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm9-west-close', viewport: { width: 844, height: 390 }, query: '/?seed=12&tier=4&full=1&crew=1&warp=320&auto=1&wx=west&cam=50,25,1.4', wait: 3000, touch: true, langs: ['he'] },
+  { name: 'm9-cross', viewport: { width: 844, height: 390 }, query: '/?seed=13&tier=2&stands=3&crew=1&warp=200&auto=1&wx=cross&select=1', wait: 3000, touch: true },
+  { name: 'm9-tower', viewport: { width: 844, height: 390 }, query: '/?seed=14&tier=3&full=1&crew=1&warp=120&auto=1&wx=cross&cam=17.6,15.9,2.2', wait: 3000, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

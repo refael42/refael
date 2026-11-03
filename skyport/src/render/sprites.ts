@@ -34,6 +34,8 @@ import {
   drawTree,
   drawTrolleys,
   drawWindsock,
+  drawRadar,
+  RADAR_FRAMES,
   IsoPen,
   type TreeKind,
 } from './art/objects';
@@ -92,6 +94,8 @@ export interface SpriteSet {
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
+  /** Turning radar antenna, frame 0..RADAR_FRAMES-1. */
+  radar: (frame: number) => number;
   tree: (kind: number, size: number) => number;
   rock: number;
   icon: (name: IconName) => number;
@@ -243,6 +247,8 @@ export function buildSprites(content: Content): SpriteSet {
       b.add(-26 * S, -52 * S, 26 * S, 10 * S, (c, ox, oy) => drawWindsock(new IsoPen(c, ox, oy, S), d, f));
     }
   }
+  const radarBase = b.size;
+  for (let f = 0; f < RADAR_FRAMES; f++) b.add(-24 * S, -66 * S, 24 * S, 10 * S, (c, ox, oy) => drawRadar(new IsoPen(c, ox, oy, S), f));
   const treeBase = b.size;
   for (const kind of TREE_KINDS) {
     for (const size of TREE_SIZES) {
@@ -374,6 +380,7 @@ export function buildSprites(content: Content): SpriteSet {
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,
+    radar: (f) => radarBase + (((f % RADAR_FRAMES) + RADAR_FRAMES) % RADAR_FRAMES),
     tree: (k, s) => treeBase + k * TREE_SIZES.length + s,
     rock,
     icon: (n) => iconBase + (iconIndex.get(n) ?? 0),

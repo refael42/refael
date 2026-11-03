@@ -11,6 +11,31 @@ export interface HudData {
   rating: number;
   day: number;
   time: string;
+  /** Where the wind blows toward, as a screen rotation in degrees (0 = up). */
+  windDeg: number;
+  windKt: number;
+  /** 0 clear, 1 haze, 2 fog the airport cannot land in. */
+  fog: number;
+  /** Crosswind strong enough to keep light planes waiting. */
+  cross: boolean;
+  /** How thick the fog on the map looks, 0..1 (steps of 0.05). */
+  haze: number;
+}
+
+/** HUD fields compared twice a second (a new object only when something shows differently). */
+export function sameHud(a: HudData, b: HudData): boolean {
+  return (
+    a.money === b.money &&
+    a.diamonds === b.diamonds &&
+    a.rating === b.rating &&
+    a.day === b.day &&
+    a.time === b.time &&
+    Math.abs(a.windDeg - b.windDeg) < 4 &&
+    a.windKt === b.windKt &&
+    a.fog === b.fog &&
+    a.cross === b.cross &&
+    a.haze === b.haze
+  );
 }
 
 export const Hud = memo(function Hud({
@@ -60,6 +85,31 @@ export const Hud = memo(function Hud({
             </Text>
           </View>
           <View style={styles.divider} />
+          <View
+            style={[styles.item, { flexDirection: dir.row }]}
+            accessibilityLabel={t('hud.wind', { n: data.windKt })}
+            testID="hud-weather"
+          >
+            <View style={[styles.windDial, data.cross && styles.windCross]}>
+              <View style={{ transform: [{ rotate: `${Math.round(data.windDeg)}deg` }] }}>
+                <Icon name="arrow" size={14} />
+              </View>
+            </View>
+            <View>
+              <Text style={[styles.time, data.cross && { color: C.red }]} numberOfLines={1}>
+                {data.windKt}
+              </Text>
+              <Text style={styles.day} numberOfLines={1}>
+                {t('hud.kt')}
+              </Text>
+            </View>
+            {data.fog > 0 && (
+              <View style={[styles.fogBadge, data.fog > 1 && styles.fogBad]}>
+                <Icon name="fog" size={18} />
+              </View>
+            )}
+          </View>
+          <View style={styles.divider} />
           <View style={[styles.item, { flexDirection: dir.row }]}>
             <Icon name="sun" size={20} />
             <View>
@@ -100,6 +150,17 @@ const styles = StyleSheet.create({
     ...SHADOW_SM,
   },
   item: { alignItems: 'center', gap: 6 },
+  windDial: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(56,189,248,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  windCross: { backgroundColor: 'rgba(239,68,68,0.2)' },
+  fogBadge: { borderRadius: 8, padding: 1 },
+  fogBad: { backgroundColor: 'rgba(239,68,68,0.22)' },
   divider: { width: 1, height: 22, backgroundColor: C.line, marginHorizontal: 10 },
   num: { color: C.text, fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'], minWidth: 14, letterSpacing: -0.2 },
   time: { color: C.text, fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 16 },

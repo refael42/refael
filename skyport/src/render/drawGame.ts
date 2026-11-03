@@ -5,6 +5,7 @@ import { layoutOf } from '../sim/game/layout';
 import { decorPos } from '../sim/game/tiers';
 import { layoutFor } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
+import { weather } from '../sim/game/weather';
 import type { IconName } from './art/icons';
 import { OUTFITS } from './art/people';
 import type { Camera } from './camera';
@@ -23,6 +24,9 @@ const WANT_ICON: Record<number, IconName> = {
   [WANT.clearTakeoff]: 'actTakeoff',
   [WANT.bags]: 'actBags',
 };
+
+/** Where the radar mast stands, beside the control tower. */
+const RADAR_POS: readonly [number, number] = [16.5, 15.3];
 
 const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
 
@@ -78,7 +82,16 @@ export function drawGame(
   // statics
   for (const st of world.statics) if (visible(st.x, st.y, st.r)) w.sprite(st.sprite, st.x, st.y, 1, st.depth);
   const ws = world.windsock;
-  w.sprite(sp.windsock(4, Math.floor(o.time * 3) % 2), isoX(ws.x, ws.y), isoY(ws.x, ws.y), 1, ws.x + ws.y);
+  const wx = weather(s);
+  // the sock streams toward where the wind blows; it flaps faster in a strong wind
+  const sock8 = (Math.round((wx.windTo / (Math.PI * 2)) * 8) + 8) % 8;
+  w.sprite(sp.windsock(sock8, Math.floor(o.time * (2 + wx.speed / 6)) % 2), isoX(ws.x, ws.y), isoY(ws.x, ws.y), 1, ws.x + ws.y);
+  if ((s.upg.radar ?? 0) > 0 && s.tier >= 2) {
+    const rx = RADAR_POS[0];
+    const ry = RADAR_POS[1];
+    // one turn every 4 s (the antenna repeats every half turn)
+    w.sprite(sp.radar(Math.floor(o.time * 4)), isoX(rx, ry), isoY(rx, ry), 1, rx + ry + 0.2);
+  }
 
   // things upgrades add, and construction sites
   const LL = layoutOf(s.tier);

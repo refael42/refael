@@ -48,7 +48,7 @@ export function startTierBuild(s: GameState): number {
 /** True while a plane is on the ground or about to be (approach, runway, taxiways, stands). */
 function groundBusy(s: GameState): boolean {
   for (const f of s.flights) {
-    if (f.phase === 'inbound' || f.phase === 'holding' || f.phase === 'diverted') continue;
+    if (f.phase === 'inbound' || f.phase === 'holding' || f.phase === 'diverted' || f.phase === 'goAround') continue;
     if (f.phase === 'takeoff' && f.z > 0.001) continue;
     return true;
   }
