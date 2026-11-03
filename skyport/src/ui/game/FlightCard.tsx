@@ -91,6 +91,7 @@ export const FlightCard = memo(function FlightCard({ v, onClose, onAction }: { v
       </View>
       <View style={styles.meters}>
         <Meter label={t('card.mood')} value={v.mood} color={moodColor} />
+        {v.checked >= 0 && v.checked < 1 ? <Meter label={t('card.checkedIn')} value={v.checked} color="#14b8a6" /> : null}
         {v.airborne ? <Meter label={t('card.patience')} value={v.patience} color={v.patience < 0.35 ? C.red : C.amber} /> : null}
         {v.phase === 'deboarding' ? <Meter label={t('card.deboarding')} value={v.deboard} color={C.blue} /> : null}
         {v.fuelActive ? <Meter label={t('card.fuel')} value={v.fuel} color={C.amber} /> : null}

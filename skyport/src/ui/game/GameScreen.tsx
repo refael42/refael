@@ -25,6 +25,8 @@ import { RARITIES, STAFF_ROLES } from '../../data/staff';
 import {
   applyOffline,
   applyStructural,
+  counterCount,
+  laneCount,
   switchTier,
   bestOffer,
   checkTier,
@@ -121,7 +123,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const [tier, setTier] = useState(ctrl.state.tier);
   const L = layoutOf(tier);
   const [standsBuilt, setStandsBuilt] = useState(ctrl.state.standsBuilt);
-  const world = useMemo(() => buildWorld(L, sprites, tier, standsBuilt), [L, sprites, tier, standsBuilt]);
+  const [stations, setStations] = useState(() => counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
+  const world = useMemo(() => buildWorld(L, sprites, tier, standsBuilt, Math.floor(stations / 10), stations % 10), [L, sprites, tier, standsBuilt, stations]);
   const cam = useMemo(() => {
     const c = makeCamera(isoX(L.camera.center[0], L.camera.center[1]), isoY(L.camera.center[0], L.camera.center[1]), L.camera.zoom);
     c.minZoom = 0.32;
@@ -136,6 +139,9 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   }, [cam, world]);
   const writer = useMemo(() => new SnapWriter(), []);
   const fx = useMemo(() => new Effects(), []);
+  useEffect(() => {
+    fx.belt = L.terminal.belt.map((p) => ({ x: isoX(p[0], p[1]), y: isoY(p[0], p[1], 0.12) }));
+  }, [fx, L]);
 
   const [hud, setHud] = useState<HudData>(() => hudOf(ctrl));
   const [selected, setSelected] = useState(0);
@@ -148,6 +154,7 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
   const [panel, setPanel] = useState<string | null>(debug.panel);
   const [staffView, setStaffView] = useState<StaffView | null>(null);
   const [rev, setRev] = useState(0);
+  const [upgCat, setUpgCat] = useState<'all' | 'terminal'>('all');
   const buildMode = panel === 'build';
   const dragRef = useRef<{ id: string; x: number; y: number; ok: boolean } | null>(null);
   const tutorial = useSettingsStore((x) => x.tutorial);
@@ -210,6 +217,11 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     if (size.w <= 0 || fitted.current) return;
     fitted.current = true;
     cam.zoom = Math.max(0.45, Math.min(1.1, Math.min(size.w / 600, size.h / 560)));
+    if (debug.cam) {
+      cam.x = isoX(debug.cam[0], debug.cam[1]);
+      cam.y = isoY(debug.cam[0], debug.cam[1]);
+      cam.zoom = debug.cam[2];
+    }
   }, [size, cam]);
 
   const toast = useCallback((icon: Toast['icon'], text: string, tone: Toast['tone'] = 'info', key?: string) => {
@@ -315,6 +327,15 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
           case 'trialEnded':
             toast('clock', t('toast.trialEnded'), 'info');
             break;
+          case 'checkedIn':
+            fx.bag();
+            break;
+          case 'sale':
+            fx.sale(isoX(e.x, e.y), isoY(e.x, e.y) - 14, e.a, e.b);
+            break;
+          case 'lostBag':
+            toast('bag', t('toast.lostBag'), 'warn', 'lostBag');
+            break;
           case 'oops':
             toast('bag', t('toast.oops'), 'warn', 'oops');
             break;
@@ -380,6 +401,8 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
       const st = ctrl.state;
       setStandsBuilt((old) => (old === st.standsBuilt ? old : st.standsBuilt));
       setTier((old) => (old === st.tier ? old : st.tier));
+      const sig = counterCount(st) * 10 + laneCount(st);
+      setStations((old) => (old === sig ? old : sig));
       updateTutorial();
       setRev((r) => r + 1);
       // copies, so the panel re-renders when people change (polled, not every frame)
@@ -461,6 +484,14 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
         }
       }
       const p = viewToWorld(cam, vx, vy);
+      const T = layoutOf(ctrl.state.tier).terminal;
+      for (const c of [...T.counters.slice(0, counterCount(ctrl.state)), ...T.lanes.slice(0, laneCount(ctrl.state))]) {
+        if (Math.hypot(p.x - isoX(c[0], c[1]), p.y - (isoY(c[0], c[1]) - 10)) * cam.zoom < 26) {
+          setUpgCat('terminal');
+          setPanel('upgrades');
+          return;
+        }
+      }
       const site = constructionSite(ctrl.state);
       if (site) {
         const sx = isoX(site.at[0], site.at[1]);
@@ -718,7 +749,16 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
         </View>
       ) : null}
       {panel === 'upgrades' ? (
-        <UpgradesPanel state={ctrl.state} rev={rev} onBuy={(id, count) => ctrl.send({ type: 'buyUpgrade', id, count })} onClose={() => setPanel(null)} />
+        <UpgradesPanel
+          state={ctrl.state}
+          rev={rev}
+          initialCat={upgCat}
+          onBuy={(id, count) => ctrl.send({ type: 'buyUpgrade', id, count })}
+          onClose={() => {
+            setPanel(null);
+            setUpgCat('all');
+          }}
+        />
       ) : null}
       {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
       {hand && !welcome && !settings ? (

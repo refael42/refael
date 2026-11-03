@@ -31,6 +31,14 @@ describe('translations', () => {
     for (const c of CITIES) expect(en[`city.${c.id}` as TKey], c.id).toBeTypeOf('string');
   });
 
+  it('keeps "from ← to" arrows right-to-left in Hebrew', () => {
+    const s = translate('he', 'eff.mult', { a: 1, b: 1.25 });
+    expect(s).toBe('\u200Fx1 \u200F\u2190\u200F x1.25');
+    const n = translate('he', 'eff.counters', { a: 1, b: 2 });
+    expect(n.startsWith('\u200F1 \u200F\u2190\u200F 2')).toBe(true);
+    expect(translate('en', 'eff.mult', { a: 1, b: 1.25 })).not.toContain('\u200F');
+  });
+
   it('substitutes parameters', () => {
     expect(translate('en', 'hud.day', { n: 3 })).toBe('Day 3');
     expect(translate('he', 'hud.day', { n: 3 })).toBe('יום 3');

@@ -28,7 +28,9 @@ export function flightRevenue(f: Flight, ac: AircraftDef, fx?: Effects, tierPay 
   const landing = ac.landingFee * (fx?.landingFee ?? 1) * mul;
   const parking = parked * PARK_RATE * mul;
   const pax = ac.paxFee * (fx?.paxFee ?? 1) * f.boarded * mul;
-  const kiosk = (fx?.kioskPerPax ?? 0) * f.boarded * mul;
+  // the kiosk now earns from real shoppers in the terminal (terminal.ts)
+  const kiosk = 0;
+  void fx?.kioskPerPax;
   const total = Math.max(1, Math.round(landing + parking + pax + kiosk));
   return { total: Big.fromNumber(total), parts: [landing, parking, pax, kiosk] };
 }

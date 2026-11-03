@@ -356,3 +356,24 @@ export function drawTower(p: IsoPen): void {
 export function drawTile(p: IsoPen, color: string): void {
   p.poly([-0.5, -0.5, 0, 0.5, -0.5, 0, 0.5, 0.5, 0, -0.5, 0.5, 0], color, false);
 }
+
+/** A check-in desk with a small screen sign. */
+export function drawDesk(p: IsoPen): void {
+  p.shadow(0.3, 0.15, 20, 7, 0.18);
+  p.box(0, 0, 0.6, 0.28, 0, 0.32, '#f8fafc');
+  p.box(-0.02, -0.02, 0.62, 0.3, 0.32, 0.36, '#6366f1');
+  p.line(0.3, 0.05, 0.36, 0.3, 0.05, 0.75, '#475569', 2);
+  p.box(0.12, 0.02, 0.48, 0.08, 0.66, 0.86, '#1e293b');
+  p.poly([0.14, 0.08, 0.69, 0.46, 0.08, 0.69, 0.46, 0.08, 0.83, 0.14, 0.08, 0.83], '#38bdf8', false);
+}
+
+/** Security: a walk-through scanner arch next to an x-ray box. */
+export function drawScanner(p: IsoPen): void {
+  p.shadow(0.2, 0.1, 22, 8, 0.18);
+  p.box(-0.3, -0.06, -0.22, 0.06, 0, 0.72, '#cbd5e1');
+  p.box(0.22, -0.06, 0.3, 0.06, 0, 0.72, '#cbd5e1');
+  p.box(-0.3, -0.06, 0.3, 0.06, 0.72, 0.8, '#94a3b8');
+  p.circle(0, 0, 0.8, 2.2, '#22c55e', false);
+  p.box(0.42, -0.2, 0.95, 0.2, 0, 0.36, '#64748b');
+  p.box(0.4, -0.22, 0.97, 0.22, 0.36, 0.42, '#334155');
+}

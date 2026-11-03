@@ -30,7 +30,21 @@ export function translate(lang: Lang, key: TKey, params?: TParams): string {
   if (params) {
     for (const k in params) s = s.split('{' + k + '}').join(String(params[k]));
   }
+  if (isRTL(lang) && s.includes(RTL_ARROW)) s = fixArrows(s);
   return s;
+}
+
+const RLM = '\u200F';
+const RTL_ARROW = '\u2190';
+
+/**
+ * "a ← b" in a right-to-left string: an arrow between two Latin or number
+ * runs would join them into one left-to-right run and point backwards. Right-
+ * to-left marks around the arrow and at the start keep the visual order
+ * "b ← a" (read right to left: a, then b).
+ */
+export function fixArrows(s: string): string {
+  return RLM + s.split(RTL_ARROW).join(RLM + RTL_ARROW + RLM);
 }
 
 /** Placeholder names used in a string, sorted, e.g. "{n} of {t}" -> ["n", "t"]. */

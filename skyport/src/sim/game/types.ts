@@ -43,7 +43,10 @@ export type GameEventKind =
   | 'tierBuildStart'
   | 'tierBuildDone'
   | 'tierUp'
-  | 'decorMoved';
+  | 'decorMoved'
+  | 'checkedIn'
+  | 'lostBag'
+  | 'sale';
 
 export interface GameEvent {
   id: number;
@@ -176,6 +179,9 @@ export interface Flight {
   bagState: number;
   /** 0..1 progress of unloading + loading. */
   bagWork: number;
+  /** Departing passengers whose bag went through check-in. */
+  bagsChecked: number;
+  lostBags: number;
   /** Ground route on the taxi graph (null in the air / on the runway). */
   groute: GroundRouteState | null;
   /** Index of the route edge the plane is on. */
@@ -188,8 +194,22 @@ export interface Flight {
   gWaiting: boolean;
 }
 
-/** Person states. */
-export const PST = { toHut: 0, toSpot: 1, waiting: 2, toPlane: 3, leaving: 4 } as const;
+/** Person states (arrivals: toHut=toClaim -> atClaim -> toExit; departures: toCheckin -> ... -> toPlane). */
+export const PST = {
+  toHut: 0,
+  toSpot: 1,
+  waiting: 2,
+  toPlane: 3,
+  leaving: 4,
+  atClaim: 5,
+  toExit: 6,
+  inCheckin: 8,
+  atCounter: 9,
+  inSecurity: 11,
+  atScanner: 12,
+  toShop: 13,
+  shopping: 14,
+} as const;
 
 export interface Person {
   id: number;
@@ -207,6 +227,12 @@ export interface Person {
   spot: number;
   /** Walking or not (for the animation). */
   moving: boolean;
+  /** Queue position, counter or lane index (-1 none). */
+  slot: number;
+  /** When the current service (check-in, scan, shopping, waiting for bags) ends. */
+  until: number;
+  /** Seconds spent standing in queues. */
+  waited: number;
 }
 
 export type VehicleState = 'idle' | 'toPlane' | 'fueling' | 'return';
@@ -244,6 +270,12 @@ export interface Stats {
   earned: Big;
   wages: Big;
   spent: Big;
+  lostBags: number;
+  /** Shop sales (coins). */
+  sales: Big;
+  /** Total seconds passengers stood in queues, and how many queued. */
+  queueSecs: number;
+  queued: number;
 }
 
 export interface Build {
@@ -348,6 +380,11 @@ export interface GameState {
   profile: { manager: string; airport: string };
   /** Moved decorations: id -> tile position (defaults come from the layout). */
   decor: Record<string, [number, number]>;
+  /** Terminal queues (person ids, head first) and who is at each counter / lane (0 = free). */
+  checkinQ: number[];
+  securityQ: number[];
+  counterBusy: number[];
+  laneBusy: number[];
   /** Upgrade levels by id. */
   upg: Record<string, number>;
   /** Bumped whenever a level changes (effects cache key). */

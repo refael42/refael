@@ -4,6 +4,7 @@ import type { TierLayout } from '../../data/tiers';
 import { hash01 } from '../hash';
 import { doorPoint, layoutOf } from './layout';
 import { makeSample, samplePath } from './path';
+import { claimSpot, joinCheckin, leaveStations } from './terminal';
 import { PST, type Flight, type GameState, type Person } from './types';
 
 const SAMPLE = makeSample();
@@ -26,6 +27,9 @@ function makePerson(s: GameState, f: Flight, x: number, y: number, state: number
     pathPos: 0,
     spot: -1,
     moving: true,
+    slot: -1,
+    until: 0,
+    waited: 0,
   };
 }
 
@@ -40,19 +44,20 @@ function walkTo(p: Person, points: number[]): void {
 export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number): void {
   const L = layoutOf(s.tier);
   const p = makePerson(s, f, x, y, PST.toHut);
-  // step away from the plane first, then to the hut door
-  const mid: [number, number] = [(x + L.hutDoor[0]) / 2 + 0.3, (y + L.hutDoor[1]) / 2 + 0.25];
-  walkTo(p, [mid[0], mid[1], L.hutDoor[0], L.hutDoor[1]]);
+  // step away from the plane, then to the baggage carousel
+  const c = claimSpot(s, p);
+  const mid: [number, number] = [(x + c[0]) / 2 + 0.3, (y + c[1]) / 2 + 0.3];
+  walkTo(p, [mid[0], mid[1], c[0], c[1]]);
   s.people.push(p);
+  void L;
 }
 
 export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout): void {
-  const p = makePerson(s, f, L.hutDoor[0], L.hutDoor[1], PST.toSpot);
-  const spot = s.spotCursor++ % L.waitSpots.length;
-  p.spot = spot;
-  const sp = L.waitSpots[spot];
-  walkTo(p, [sp[0], sp[1]]);
+  // they come from the parking lot and line up for check-in
+  const e = L.terminal.entry;
+  const p = makePerson(s, f, e[0] + (hash01(s.nextId * 3) - 0.5) * 0.6, e[1] + (hash01(s.nextId * 5) - 0.5) * 0.4, PST.inCheckin);
   s.people.push(p);
+  joinCheckin(s, p);
 }
 
 /** Sends the next waiting passenger of the flight to the door. */
@@ -70,15 +75,16 @@ export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayo
   }
 }
 
-/** The flight is gone: its waiting passengers walk back into the hut. */
+const DEPARTING: readonly number[] = [PST.toSpot, PST.waiting, PST.toPlane, PST.inCheckin, PST.atCounter, PST.inSecurity, PST.atScanner, PST.toShop, PST.shopping];
+
+/** The flight is gone: its passengers leave every queue and go home. */
 export function sendPaxHome(s: GameState, f: Flight): void {
   const L = layoutOf(s.tier);
   for (const p of s.people) {
-    if (p.flight !== f.id) continue;
-    if (p.state === PST.toSpot || p.state === PST.waiting || p.state === PST.toPlane) {
-      p.state = PST.leaving;
-      walkTo(p, [L.hutDoor[0], L.hutDoor[1]]);
-    }
+    if (p.flight !== f.id || !DEPARTING.includes(p.state)) continue;
+    leaveStations(s, p);
+    p.state = PST.leaving;
+    walkTo(p, [L.terminal.exit[0], L.terminal.exit[1]]);
   }
 }
 
@@ -104,6 +110,10 @@ export function updatePeople(s: GameState, dt: number): void {
         p.moving = false;
         switch (p.state) {
           case PST.toHut:
+            p.state = PST.atClaim;
+            p.until = 0;
+            break;
+          case PST.toExit:
           case PST.leaving:
             keep = false;
             break;

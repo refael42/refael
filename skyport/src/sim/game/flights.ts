@@ -134,6 +134,8 @@ export function spawnFlight(s: GameState): Flight | null {
     bagsOut: paxOut + Math.floor(paxOut / 4),
     bagState: FUEL.none,
     bagWork: 0,
+    bagsChecked: 0,
+    lostBags: 0,
     groute: null,
     gIdx: 0,
     gHeld: [],

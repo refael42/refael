@@ -25,7 +25,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M3 Economy & upgrades | done | see below |
 | M4 Full staff system | done | see below |
 | M5 Airport tiers | done | see below |
-| M6 Terminal & passengers | next | |
+| M6 Terminal & passengers | done | see below |
+| M7 Airlines | next | |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -147,9 +148,26 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Balance: tier 2 reached at minute ~11–16 (seeds 7, 13, 1); target was ~10.
 - Save version 4 (tier build, names, decorations) with migration.
 
+### M6 — terminal & passengers (done)
+- Departing passengers walk in from the parking lot and queue in serpentine lines (belt barriers,
+  rows 0.5 tile apart): check-in counters -> security scanners -> airside door -> hut/terminal.
+  More counters / scanner lanes come from upgrades; a check-in agent speeds up the counters.
+- Baggage: every check-in sends a bag along the conveyor. A passenger checked in after the
+  plane's bags were already loaded is a lost bag (mood hit, toast, counted in stats).
+  Arriving passengers wait at the claim carousel until their bags are unloaded (or 45 s).
+- Shops: passengers with time before boarding visit the kiosk and really buy (amount from the
+  passenger type, more when early, times the tier pay). Sales show as a floating coin.
+- New upgrades: more counters, scanner lanes, faster scanner, faster conveyor. Tapping a desk or
+  scanner opens the terminal upgrades.
+- Headless check (seed 5, 15 min): 1 counter -> 4 lost bags, 10 s average queue; with 3 counters
+  and 2 lanes -> 0 lost bags, 4.7 s queue; shop sales ~1K at kiosk level 5.
+- Hebrew fix: "a ← b" effect lines read backwards when both sides were Latin ("x1 ← x1.25");
+  `translate` now adds right-to-left marks around the arrow (tested).
+- Test switch `cam=x,y,zoom` for close-up screenshots.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

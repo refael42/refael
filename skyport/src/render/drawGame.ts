@@ -139,8 +139,13 @@ export function drawGame(
       const busy = s.vehicles.filter((v) => v.kind === kind && v.state !== 'idle').length;
       if (n < busy) continue;
     }
-    const x = spot[0] + n * 0.45;
-    const y = spot[1] + n * 0.2;
+    let x = spot[0] + n * 0.45;
+    let y = spot[1] + n * 0.2;
+    if (role.id === 'agent') {
+      const c = LL.terminal.counters[Math.min(n, LL.terminal.counters.length - 1)];
+      x = c[0];
+      y = c[1] - 0.55;
+    }
     w.sprite(sp.person(STAFF_OUTFIT[m.role], false, n % 2 === 1, 4), isoX(x, y), isoY(x, y), 1, x + y);
   }
 

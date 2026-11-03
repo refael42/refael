@@ -247,6 +247,10 @@ export function cleanGame(raw: unknown): GameState | null {
     earned: big(st.earned),
     wages: big(st.wages),
     spent: big(st.spent),
+    lostBags: int(st.lostBags, 0, 0),
+    sales: big(st.sales),
+    queueSecs: num(st.queueSecs, 0, 0),
+    queued: int(st.queued, 0, 0),
   };
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);

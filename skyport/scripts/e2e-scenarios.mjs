@@ -159,5 +159,8 @@ export default [
       await page.waitForTimeout(7000);
     },
   },
+  { name: 'm6-terminal-phone', viewport: { width: 390, height: 844 }, query: '/?seed=5&crew=1&warp=300&auto=1&cam=20.5,17.5,1.5', wait: 4500, touch: true },
+  { name: 'm6-terminal-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=8&crew=1&warp=420&auto=1&tier=2&stands=4', wait: 2500, touch: true },
+  { name: 'm6-upgrades-terminal', viewport: { width: 390, height: 844 }, query: '/?seed=5&money=2000&panel=upgrades', wait: 2000, touch: true, langs: ['he'] },
   { name: 'gallery-phone', viewport: { width: 390, height: 844 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

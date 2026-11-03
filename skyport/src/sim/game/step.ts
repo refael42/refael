@@ -3,6 +3,7 @@ import { DT } from './constants';
 import { pruneEvents } from './events';
 import { updateDepartingPax, updateFlights, updateSpawning } from './flights';
 import { updatePeople } from './people';
+import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
 import { payWages, updateApplicants, updateStaff, updateStaffLife } from './staff';
 import { updateTierBuild } from './tiers';
@@ -25,6 +26,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateDepartingPax(s);
   updateVehicles(s, dt);
   updatePeople(s, dt);
+  updateTerminal(s, dt);
   payWages(s);
   updateStaffLife(s, dt);
   updateApplicants(s);

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { CATEGORIES, UPGRADES, type UpgradeCategory, type UpgradeDef } from '../../data/upgrades';
+import { CATEGORIES, levelCap, UPGRADES, type UpgradeCategory, type UpgradeDef } from '../../data/upgrades';
 import { useDir, useT, type TKey } from '../../i18n';
 import {
   affordableCount,
@@ -58,6 +58,10 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.mood', { a: Math.round(Math.min(0.5, a) * 100), b: Math.round(Math.min(0.5, b) * 100) });
     case 'offlineCap':
       return t('eff.offline', { a: 2 + a, b: 2 + b });
+    case 'counters':
+      return t('eff.counters', { a: 1 + from, b: 1 + to });
+    case 'lanes':
+      return t('eff.lanes', { a: 1 + from, b: 1 + to });
     default:
       return t('eff.speed', { a: Math.round(a * 100), b: Math.round(b * 100) });
   }
@@ -71,11 +75,22 @@ interface Row {
   can: boolean;
 }
 
-export function UpgradesPanel({ state, onBuy, onClose }: { state: GameState; rev: number; onBuy: (id: string, count: number) => void; onClose: () => void }) {
+export function UpgradesPanel({
+  state,
+  onBuy,
+  onClose,
+  initialCat = 'all',
+}: {
+  state: GameState;
+  rev: number;
+  onBuy: (id: string, count: number) => void;
+  onClose: () => void;
+  initialCat?: UpgradeCategory | 'all';
+}) {
   const t = useT();
   const dir = useDir();
   const [amount, setAmount] = useState<number>(1);
-  const [cat, setCat] = useState<UpgradeCategory | 'all'>('all');
+  const [cat, setCat] = useState<UpgradeCategory | 'all'>(initialCat);
   const [onlyAfford, setOnlyAfford] = useState(false);
   const [query, setQuery] = useState('');
   const ta = { textAlign: dir.textAlign, writingDirection: dir.writingDirection } as const;
@@ -83,7 +98,7 @@ export function UpgradesPanel({ state, onBuy, onClose }: { state: GameState; rev
 
   const rows: Row[] = UPGRADES.filter((d) => d.unlockTier <= state.tier).map((def) => {
     const lvl = boughtLevel(state, def.id);
-    const room = def.maxLevel - lvl;
+    const room = levelCap(def, state.tier) - lvl;
     let n = amount < 0 ? Math.max(1, affordableCount(state, def)) : Math.min(amount, room);
     if (def.buildSeconds) n = 1;
     n = Math.max(0, Math.min(n, room));
@@ -100,7 +115,7 @@ export function UpgradesPanel({ state, onBuy, onClose }: { state: GameState; rev
   const bestRow = useMemo(() => (best ? rows.find((r) => r.def.id === best.id) : undefined), [best, rows]);
 
   const renderRow = (r: Row, highlight = false) => {
-    const max = r.lvl >= r.def.maxLevel;
+    const max = r.lvl >= levelCap(r.def, state.tier);
     const nextM = nextMilestone(r.def, r.lvl);
     const prevM = [0, ...(r.def.milestones ?? [])].filter((m) => m <= r.lvl).pop() ?? 0;
     const prog = nextM ? (r.lvl - prevM) / (nextM - prevM) : 1;

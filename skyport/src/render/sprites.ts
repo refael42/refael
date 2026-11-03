@@ -9,7 +9,7 @@ import { AIRLINES } from '../data/airlines';
 import { ATLAS_SCALE, AtlasBuilder, type Atlas } from './atlas';
 import { drawGlyph, GLYPH_CHARS } from './art/glyphs';
 import { drawIcon, ICON_NAMES, type IconName } from './art/icons';
-import { drawBench, drawBillboard, drawCrane, drawFuelPump, drawHut, drawKiosk, drawRock, drawTerminal, drawTile, drawTower, drawTree, drawWindsock, IsoPen, type TreeKind } from './art/objects';
+import { drawBench, drawBillboard, drawCrane, drawDesk, drawScanner, drawFuelPump, drawHut, drawKiosk, drawRock, drawTerminal, drawTile, drawTower, drawTree, drawWindsock, IsoPen, type TreeKind } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { buildPlane } from './art/plane';
 import { drawStack, measureStack, type StackPart } from './art/stack';
@@ -64,6 +64,8 @@ export interface SpriteSet {
   tower: number;
   tileOk: number;
   tileBad: number;
+  desk: number;
+  scanner: number;
 }
 
 function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: number, silhouette?: string, modelScale = 1): number {
@@ -151,6 +153,8 @@ export function buildSprites(content: Content): SpriteSet {
   const tower = b.add(-16 * S, -100 * S, 18 * S, 14 * S, (c, ox, oy) => drawTower(new IsoPen(c, ox, oy, S)));
   const tileOk = b.add(-34 * S, -18 * S, 34 * S, 18 * S, (c, ox, oy) => drawTile(new IsoPen(c, ox, oy, S), 'rgba(16,185,129,0.55)'));
   const tileBad = b.add(-34 * S, -18 * S, 34 * S, 18 * S, (c, ox, oy) => drawTile(new IsoPen(c, ox, oy, S), 'rgba(239,68,68,0.55)'));
+  const desk = b.add(-14 * S, -34 * S, 26 * S, 16 * S, (c, ox, oy) => drawDesk(new IsoPen(c, ox, oy, S)));
+  const scanner = b.add(-18 * S, -34 * S, 40 * S, 18 * S, (c, ox, oy) => drawScanner(new IsoPen(c, ox, oy, S)));
   const crane = b.add(-40 * S, -80 * S, 50 * S, 24 * S, (c, ox, oy) => drawCrane(new IsoPen(c, ox, oy, S)));
 
   // world icons, drawn centered on the anchor
@@ -264,6 +268,8 @@ export function buildSprites(content: Content): SpriteSet {
     tower,
     tileOk,
     tileBad,
+    desk,
+    scanner,
   };
 }
 

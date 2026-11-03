@@ -18,7 +18,11 @@ export type EffectKind =
   | 'cart'
   | 'comfort'
   | 'staffSpeed'
-  | 'offlineCap';
+  | 'offlineCap'
+  | 'counters'
+  | 'lanes'
+  | 'scanSpeed'
+  | 'checkinSpeed';
 
 export interface UpgradeDef {
   id: string;
@@ -37,7 +41,7 @@ export interface UpgradeDef {
   buildSeconds?: readonly number[];
   /** Airport tier needed for each level (1-based index = level). */
   levelTier?: readonly number[];
-  icon: 'coin' | 'pax' | 'land' | 'takeoff' | 'fuel' | 'bag' | 'star' | 'clock' | 'team' | 'plus' | 'wrench' | 'sun' | 'plane' | 'gear';
+  icon: 'coin' | 'pax' | 'land' | 'takeoff' | 'fuel' | 'bag' | 'star' | 'clock' | 'team' | 'plus' | 'wrench' | 'sun' | 'plane' | 'gear' | 'check';
 }
 
 export const MILESTONES = [10, 25, 50, 75, 100] as const;
@@ -56,6 +60,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'lights', category: 'runway', unlockTier: 1, maxLevel: 20, baseCost: 90, growth: 1.25, effect: 'runwayOps', per: 0.04, icon: 'takeoff' },
   { id: 'benches', category: 'comfort', unlockTier: 1, maxLevel: 25, baseCost: 40, growth: 1.2, effect: 'comfort', per: 0.02, icon: 'sun' },
   { id: 'coffee', category: 'comfort', unlockTier: 1, maxLevel: 20, baseCost: 120, growth: 1.3, effect: 'staffSpeed', per: 0.06, icon: 'team' },
+  { id: 'counters', category: 'terminal', unlockTier: 1, maxLevel: 3, baseCost: 120, growth: 3, effect: 'counters', per: 1, icon: 'pax' },
+  { id: 'lanes', category: 'terminal', unlockTier: 1, maxLevel: 2, baseCost: 220, growth: 3.5, effect: 'lanes', per: 1, icon: 'check' },
+  { id: 'scanner', category: 'terminal', unlockTier: 1, maxLevel: 20, baseCost: 70, growth: 1.22, effect: 'scanSpeed', per: 0.12, icon: 'clock' },
+  { id: 'conveyor', category: 'terminal', unlockTier: 1, maxLevel: 25, baseCost: 55, growth: 1.2, effect: 'checkinSpeed', per: 0.1, icon: 'bag' },
   { id: 'night', category: 'comfort', unlockTier: 1, maxLevel: 10, baseCost: 250, growth: 1.8, effect: 'offlineCap', per: 1, icon: 'clock' },
 ];
 

@@ -51,6 +51,8 @@ export interface FlightView {
   actions: string;
   bags: number;
   bagsActive: boolean;
+  /** Share of departing passengers through check-in (-1 = not relevant now). */
+  checked: number;
   waiting: boolean;
 }
 
@@ -77,7 +79,8 @@ export function viewOf(f: Flight): FlightView {
     onTime: f.onTime,
     want: f.want,
     actions: ORDER.filter((w) => (f.wants & (1 << w)) !== 0).join(','),
-    bags: Math.round(f.bagWork * 100) / 100,
+    bags: Math.round(Math.max(0, f.bagWork) * 100) / 100,
+    checked: f.paxOut > 0 && f.phase !== 'taxiOut' && f.phase !== 'holdShort' && f.phase !== 'lineUp' && f.phase !== 'takeoff' ? Math.round((f.bagsChecked / f.paxOut) * 100) / 100 : -1,
     bagsActive: f.bagState >= SVC.driving,
     waiting: f.gWaiting,
   };

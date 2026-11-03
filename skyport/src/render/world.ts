@@ -104,7 +104,7 @@ function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: num
   g.c.drawPath(b.build(), g.s);
 }
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBuilt = 1): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBuilt = 1, counters = 1, lanes = 1): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
@@ -190,6 +190,69 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     g.f.setMaskFilter(null);
     g.rect(P.x0, P.y0, P.x1, P.y1, '#a7b0bb');
     for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
+
+    // terminal plaza: paving under check-in and security, rope posts along the queues
+    const T = L.terminal;
+    const xs0 = Math.min(...T.counters.map((c) => c[0]), ...T.lanes.map((c) => c[0])) - 0.6;
+    const xs1 = Math.max(...T.checkinQueue.map((c) => c[0])) + 0.5;
+    const ys0 = Math.min(...T.checkinQueue.map((c) => c[1])) - 0.5;
+    const ys1 = Math.max(...T.lanes.map((c) => c[1])) + 0.2;
+    g.f.setMaskFilter(blur(4));
+    g.rect(xs0 - 0.1, ys0 - 0.1, xs1 + 0.1, ys1 + 0.1, 'rgba(60,80,90,0.25)');
+    g.f.setMaskFilter(null);
+    g.rect(xs0, ys0, xs1, ys1, '#e2e8f0');
+    for (let x = Math.ceil(xs0); x < xs1; x++) g.line(x, ys0, x, ys1, '#cbd5e1', 1);
+    for (let y = Math.ceil(ys0); y < ys1; y++) g.line(xs0, y, xs1, y, '#cbd5e1', 1);
+    const rope = Skia.PathBuilder.Make();
+    const postsP = Skia.PathBuilder.Make();
+    // belt barriers along the long legs of each serpentine (rows 0.5 apart share
+    // the divider); the ends stay open so the line can turn
+    for (const line of [T.checkinQueue, T.securityQueue]) {
+      for (let i = 1; i < line.length; i++) {
+        const [ax, ay] = line[i - 1];
+        const [bx, by] = line[i];
+        const len = Math.hypot(bx - ax, by - ay);
+        if (len < 1) continue;
+        const ux = (bx - ax) / len;
+        const uy = (by - ay) / len;
+        for (const side of [-0.25, 0.25]) {
+          const sx = ax - uy * side + ux * 0.3;
+          const sy = ay + ux * side + uy * 0.3;
+          const run = len - 0.6;
+          rope.moveTo(isoX(sx, sy), isoY(sx, sy, 0.18));
+          rope.lineTo(isoX(sx + ux * run, sy + uy * run), isoY(sx + ux * run, sy + uy * run, 0.18));
+          const n = Math.max(1, Math.round(run / 0.55));
+          for (let k = 0; k <= n; k++) {
+            const px = sx + (ux * run * k) / n;
+            const py = sy + (uy * run * k) / n;
+            postsP.moveTo(isoX(px, py), isoY(px, py));
+            postsP.lineTo(isoX(px, py), isoY(px, py, 0.22));
+          }
+        }
+      }
+    }
+    g.s.setColor(Skia.Color('#64748b'));
+    g.s.setStrokeWidth(2);
+    c.drawPath(postsP.build(), g.s);
+    g.s.setColor(Skia.Color('#3b82f6'));
+    g.s.setStrokeWidth(1.6);
+    c.drawPath(rope.build(), g.s);
+    // the bag conveyor
+    const belt: number[] = [];
+    for (const p of T.belt) belt.push(p[0], p[1], 0);
+    ribbon(g, belt, 0.34, '#334155');
+    ribbon(g, belt, 0.24, '#64748b');
+    // baggage carousel
+    g.ellipse(T.claim[0], T.claim[1], 0.62, 0.62, '#334155');
+    g.ellipse(T.claim[0], T.claim[1], 0.52, 0.52, '#64748b');
+    g.ellipse(T.claim[0], T.claim[1], 0.3, 0.3, '#cbd5e1');
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 6) * Math.PI * 2;
+      const bx = T.claim[0] + Math.cos(a) * 0.42;
+      const by = T.claim[1] + Math.sin(a) * 0.42;
+      g.f.setColor(Skia.Color(['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#0ea5e9', '#ec4899'][k]));
+      c.drawRect(Skia.XYWHRect(isoX(bx, by) - 3, isoY(bx, by) - 5, 6, 5), g.f);
+    }
 
     // apron: light gravel with a soft edge, under the hut front and every stand
     const xs = L.stands.map((st) => st.pos[0]);
@@ -317,6 +380,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
   });
 
   // static sprites with depth: buildings and trees
+  const T2 = L.terminal;
+  T2.counters.slice(0, counters).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
+  T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
   if (L.runway.surface === 'asphalt') {
     statics.push({ sprite: sprites.terminal, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1.3 + L.hut[1] + 0.75, r: 160 });
     statics.push({ sprite: sprites.tower, x: isoX(18.6, 16.6), y: isoY(18.6, 16.6), depth: 18.6 + 16.6 + 0.3, r: 120 });
@@ -325,7 +391,14 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
   }
   statics.push({ sprite: sprites.pump, x: isoX(L.pump[0], L.pump[1]), y: isoY(L.pump[0], L.pump[1]), depth: L.pump[0] + L.pump[1] + 0.9, r: 60 });
 
+  // keep trees off the terminal plaza, the bag belt and the claim area
+  const TT = L.terminal;
+  const px0 = Math.min(...TT.counters.map((c) => c[0]), ...TT.lanes.map((c) => c[0]), ...TT.belt.map((c) => c[0])) - 1.2;
+  const px1 = Math.max(...TT.checkinQueue.map((c) => c[0])) + 1.2;
+  const py0 = Math.min(...TT.checkinQueue.map((c) => c[1])) - 1.2;
+  const py1 = TT.claim[1] + 1;
   const treeAt = (x: number, y: number, seed: number) => {
+    if (x > px0 && x < px1 && y > py0 && y < py1) return;
     const kind = Math.floor(hash01(seed * 5 + 1) * TREE_KINDS.length);
     const size = Math.floor(hash01(seed * 5 + 2) * TREE_SIZES.length);
     statics.push({ sprite: sprites.tree(kind, size), x: isoX(x, y), y: isoY(x, y), depth: x + y, r: 110 });

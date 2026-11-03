@@ -59,6 +59,24 @@ export interface TierLayout {
   bags: ServiceHome;
   /** Where idle staff stand. */
   staffSpots: Readonly<Record<string, P2>>;
+  /** Passenger stations (landside north of the hut, airside south of it). */
+  terminal: {
+    /** Where departing passengers appear (walking from the parking lot). */
+    entry: P2;
+    /** Check-in: counter service points (more open with upgrades) and the queue line (head first). */
+    counters: readonly P2[];
+    checkinQueue: readonly P2[];
+    /** Security: scanner lanes and their queue line (head first). */
+    lanes: readonly P2[];
+    securityQueue: readonly P2[];
+    /** After security, the airside door they walk through. */
+    airside: P2;
+    /** Bag conveyor from the counters into the building. */
+    belt: readonly P2[];
+    /** Baggage claim carousel and the way out. */
+    claim: P2;
+    exit: P2;
+  };
   /** Spots for things upgrades add to the scene. */
   decor: { kiosk: P2; billboard: P2; benches: readonly P2[] };
   windsock: P2;
@@ -164,8 +182,8 @@ const DIRT_STRIP: TierLayout = {
   pump: [26.6, 18.9],
   fuel: { home: [26.6, 20.5], via: [26.4, 21.5] },
   bags: { home: [19.5, 20.2], via: [19.6, 21.1] },
-  staffSpots: { atc: [21.2, 19.5], fueler: [27.4, 19.9], porter: [19.1, 19.6], agent: [23.4, 19.45] },
-  decor: { kiosk: [23.6, 18.25], billboard: [23.2, 12.2], benches: [[20.2, 19.35], [24.7, 19.3]] },
+  staffSpots: { atc: [21.2, 19.5], fueler: [27.4, 19.9], porter: [18.4, 20.5], agent: [21.4, 16.0] },
+  decor: { kiosk: [23.6, 18.25], billboard: [23.2, 12.2], benches: [[25.3, 18.0], [24.7, 19.3]] },
   windsock: [20, 27.9],
   road: [
     [22.1, 17.8],
@@ -175,6 +193,41 @@ const DIRT_STRIP: TierLayout = {
     [22.2, 0],
   ],
   parking: { x0: 23.0, y0: 15.4, x1: 25.6, y1: 17.6 },
+  terminal: {
+    entry: [24.3, 16.6],
+    counters: [
+      [20.5, 15.25],
+      [19.8, 15.25],
+      [19.1, 15.25],
+      [18.4, 15.25],
+    ],
+    checkinQueue: [
+      [21.0, 15.3],
+      [21.0, 13.1],
+      [21.5, 13.1],
+      [21.5, 15.3],
+    ],
+    lanes: [
+      [20.7, 17.2],
+      [20.1, 17.2],
+      [19.5, 17.2],
+    ],
+    securityQueue: [
+      [20.7, 16.6],
+      [19.0, 16.6],
+      [19.0, 16.1],
+      [20.7, 16.1],
+    ],
+    airside: [20.4, 18.0],
+    belt: [
+      [18.1, 14.9],
+      [17.8, 15.2],
+      [17.8, 17.55],
+      [21.3, 17.7],
+    ],
+    claim: [19.5, 18.9],
+    exit: [24.3, 16.6],
+  },
   camera: { center: [20.8, 23.0], zoom: 0.72 },
 };
 
@@ -210,7 +263,7 @@ const SMALL_AIRFIELD: TierLayout = {
     { id: 'S5', pos: [16.8, 21.9], size: 'small', from: 'Lf', to: 'Lg' },
   ],
   takeoff: { liftoffX: 21, climb: DIRT_STRIP.takeoff.climb },
-  decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[20.2, 19.35], [24.9, 19.3]] },
+  decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
   camera: { center: [20.4, 23.0], zoom: 0.68 },
 };
 
