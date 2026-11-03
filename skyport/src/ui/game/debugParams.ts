@@ -27,13 +27,15 @@ export interface DebugParams {
   cam: [number, number, number] | null;
   /** Tab to open a panel on (airlines: 1 = offers; board: 1 = arrivals). */
   tab: number;
+  /** Camera keeps the oldest flight in view (screenshots of planes up close). */
+  follow: boolean;
 
   /** Any test switch in the URL (then no loading/saving by default). */
   isTest: boolean;
 }
 
 export function readDebugParams(): DebugParams {
-  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0 };
+  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0, follow: false };
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return out;
   const q = new URLSearchParams(window.location.search);
   const num = (k: string) => {
@@ -57,6 +59,7 @@ export function readDebugParams(): DebugParams {
   out.tier = Math.max(1, Math.min(8, num('tier') || 1));
   out.build = q.get('build') === '1';
   out.tab = Math.max(0, Math.min(1, Number(q.get('tab') ?? 0) || 0));
+  out.follow = q.get('follow') === '1';
   const cam = (q.get('cam') ?? '').split(',').map(Number);
   if (cam.length === 3 && cam.every((v) => Number.isFinite(v))) out.cam = [cam[0], cam[1], cam[2]];
   out.isTest = ['seed', 'warp', 'auto', 'stands', 'crew', 'money', 'panel', 'hook', 'select', 'speed', 'tier', 'build'].some((k) => q.has(k));

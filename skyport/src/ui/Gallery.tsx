@@ -6,6 +6,7 @@ import { useSharedValue } from 'react-native-reanimated';
 import { useDir, useLang, useT } from '../i18n';
 import { ICON_NAMES } from '../render/art/icons';
 import { OUTFITS } from '../render/art/people';
+import { CAR_VARIANTS } from '../render/art/vehicles';
 import { makeCamera, useCameraResponder } from '../render/camera';
 import { GroundPainter, recordPicture } from '../render/ground';
 import { depthOf, isoX, isoY } from '../render/iso';
@@ -17,6 +18,7 @@ import { recordFrame, useFrameLoop } from '../render/useFrameLoop';
 import { useSettings } from '../settings/store';
 import { createGame, DT, stepGame } from '../sim';
 import { FpsMeter } from './FpsMeter';
+import { readDebugParams } from './game/debugParams';
 import { Icon } from './Icon';
 import { C, SHADOW_SM } from './theme';
 
@@ -49,7 +51,10 @@ export function Gallery({ sprites, onBack }: Props) {
   const [size, setSize] = useState({ w: 0, h: 0 });
   const snap = useSharedValue<Float32Array>(new Float32Array(0));
   const res = useSharedValue<RenderRes | null>(null);
-  const cam = useMemo(() => makeCamera(isoX(8, 7), isoY(8, 7), 1), []);
+  const cam = useMemo(() => {
+    const dc = readDebugParams().cam;
+    return dc ? makeCamera(isoX(dc[0], dc[1]), isoY(dc[0], dc[1]), dc[2]) : makeCamera(isoX(8, 7), isoY(8, 7), 1);
+  }, []);
   const offset = useRef({ x: 0, y: 0 });
   const responder = useCameraResponder(cam, () => {}, offset);
   const writer = useMemo(() => new SnapWriter(), []);
@@ -120,6 +125,23 @@ export function Gallery({ sprites, onBack }: Props) {
     const td = dirIndex(heading);
     w.shadow(sprites.vehicleShadow(0, td), isoX(tx, ty) + 2, isoY(tx, ty) + 2, 1, 0.25);
     w.sprite(sprites.vehicle(0, td), isoX(tx, ty), isoY(tx, ty), 1, depthOf(tx, ty));
+
+    // baggage train on a smaller loop, every car variant turning in place, the small props
+    const ba = -time * 0.6 + 1.5;
+    const bx0 = 12.4 + Math.cos(ba) * 0.9;
+    const by0 = 2.8 + Math.sin(ba) * 0.6;
+    const bd = dirIndex(Math.atan2(-Math.cos(ba) * 0.6, Math.sin(ba) * 0.9));
+    w.shadow(sprites.vehicleShadow(1, bd), isoX(bx0, by0) + 2, isoY(bx0, by0) + 2, 1, 0.25);
+    w.sprite(sprites.vehicle(1, bd), isoX(bx0, by0), isoY(bx0, by0), 1, depthOf(bx0, by0));
+    CAR_VARIANTS.forEach((_, i) => {
+      const cx = 1.2 + (i % 6) * 1.25;
+      const cy = 17.4 + Math.floor(i / 6) * 1.2;
+      const cd = Math.floor(time * 1.2 + i * 2) % DIRS;
+      w.shadow(sprites.carShadow(i, cd), isoX(cx, cy) + 1.5, isoY(cx, cy) + 1.5, 1, 0.25);
+      w.sprite(sprites.car(i, cd), isoX(cx, cy), isoY(cx, cy), 1, depthOf(cx, cy));
+    });
+    const props = [sprites.lamp, sprites.cone, sprites.taxiSign, sprites.parkSign, sprites.trolleys, sprites.planter(0)];
+    props.forEach((p, i) => w.sprite(p, isoX(9.5 + i * 0.9, 17.2), isoY(9.5 + i * 0.9, 17.2), 1, depthOf(9.5 + i * 0.9, 17.2)));
 
     // static objects and trees
     w.sprite(sprites.hut, isoX(0.6, 0.4), isoY(0.6, 0.4), 1, depthOf(1.6, 1.1));

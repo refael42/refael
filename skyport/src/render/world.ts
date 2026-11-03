@@ -2,12 +2,13 @@
  * Static world for a tier: the ground picture (recorded once) plus the list
  * of static sprites (buildings, trees) that need depth sorting with movers.
  */
-import { BlurStyle, ClipOp, Skia, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
+import { BlurStyle, ClipOp, PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
 
 import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
 import { findRoute, graphOf, routeGeometry } from '../sim/game/graph';
 import { routeLineUp } from '../sim/game/layout';
+import { GLYPHS } from './art/glyphs';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
 import { HALF_H, HALF_W, isoX, isoY } from './iso';
 import { TREE_KINDS, TREE_SIZES, type SpriteSet } from './sprites';
@@ -50,6 +51,102 @@ function diamondPath(x0: number, y0: number, x1: number, y1: number) {
   b.lineTo(isoX(x0, y1), isoY(x0, y1));
   b.close();
   return b.build();
+}
+
+/** Polyline shifted sideways by d tiles. */
+function offsetLine(line: readonly (readonly [number, number])[], d: number): [number, number][] {
+  return line.map((p, i) => {
+    const a = line[Math.max(0, i - 1)];
+    const b = line[Math.min(line.length - 1, i + 1)];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    return [p[0] - (dy / len) * d, p[1] + (dx / len) * d];
+  });
+}
+
+/** Dashes along a polyline: `on` tiles of paint every `on + off`. */
+function dashes(g: GroundPainter, line: readonly (readonly [number, number])[], on: number, off: number, color: string, width: number): void {
+  let carry = 0;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    for (let t = carry; t < len; t += on + off) {
+      const t1 = Math.min(len, t + on);
+      g.line(ax + ((bx - ax) * t) / len, ay + ((by - ay) * t) / len, ax + ((bx - ax) * t1) / len, ay + ((by - ay) * t1) / len, color, width);
+      carry = t + on + off - len;
+    }
+  }
+}
+
+/** Point at distance d along a polyline, pushed sideways by side tiles. */
+function pointAlong(line: readonly (readonly [number, number])[], d: number, side: number): [number, number] | null {
+  let left = d;
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    const len = Math.hypot(bx - ax, by - ay);
+    if (left <= len) {
+      const ux = (bx - ax) / len;
+      const uy = (by - ay) / len;
+      return [ax + ux * left - uy * side, ay + uy * left + ux * side];
+    }
+    left -= len;
+  }
+  return null;
+}
+
+/** Where passengers cross the access road between the parking lot and check-in. */
+function crossingY(L: TierLayout): number {
+  const e = L.terminal.entry;
+  const q = L.terminal.checkinQueue[L.terminal.checkinQueue.length - 1];
+  const roadX = L.road[1][0];
+  const t = (e[0] - roadX) / Math.max(0.1, e[0] - q[0]);
+  return e[1] + (q[1] - e[1]) * Math.max(0, Math.min(1, t));
+}
+
+function roadPointAtY(line: readonly (readonly [number, number])[], y: number): [number, number] | null {
+  for (let i = 1; i < line.length; i++) {
+    const [ax, ay] = line[i - 1];
+    const [bx, by] = line[i];
+    if ((y - ay) * (y - by) <= 0 && ay !== by) {
+      const t = (y - ay) / (by - ay);
+      return [ax + (bx - ax) * t, y];
+    }
+  }
+  return null;
+}
+
+/** Text painted flat on the ground, reading left to right on screen (digits only). */
+function paintText(c: SkCanvas, text: string, x: number, y: number, color: string, unit: number): void {
+  const p = Skia.Paint();
+  p.setAntiAlias(true);
+  p.setStyle(PaintStyle.Stroke);
+  p.setStrokeCap(StrokeCap.Round);
+  p.setStrokeJoin(StrokeJoin.Round);
+  p.setColor(Skia.Color(color));
+  p.setStrokeWidth(1.5);
+  c.save();
+  c.translate(isoX(x, y), isoY(x, y));
+  // one glyph unit = `unit` tiles along the screen-right and screen-down ground directions
+  c.scale(HALF_W * 2 * unit, HALF_H * 2 * unit);
+  let ox = -(text.length * 7) / 2;
+  for (const ch of text) {
+    const polys = GLYPHS[ch];
+    if (polys) {
+      const b = Skia.PathBuilder.Make();
+      for (const poly of polys) {
+        for (let i = 0; i < poly.length; i += 2) {
+          if (i === 0) b.moveTo(ox + poly[i], poly[i + 1] - 5);
+          else b.lineTo(ox + poly[i], poly[i + 1] - 5);
+        }
+      }
+      c.drawPath(b.build(), p);
+    }
+    ox += 7;
+  }
+  c.restore();
 }
 
 /** A ribbon along a world polyline (flat [x, y, z...]) with constant world width. */
@@ -184,12 +281,35 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     ribbon(g, road, 1.25, 'rgba(40,70,50,0.25)');
     g.f.setMaskFilter(null);
     ribbon(g, road, 1.05, '#a7b0bb');
+    // road paint: solid edge lines, a dashed center line, a zebra crossing by the terminal
+    for (const side of [-0.43, 0.43]) {
+      const edgeLine = offsetLine(L.road, side);
+      for (let i = 1; i < edgeLine.length; i++) g.line(edgeLine[i - 1][0], edgeLine[i - 1][1], edgeLine[i][0], edgeLine[i][1], 'rgba(255,255,255,0.8)', 1.2);
+    }
+    dashes(g, L.road, 0.32, 0.36, '#f8fafc', 1.6);
+    const cross = roadPointAtY(L.road, crossingY(L));
+    if (cross) {
+      for (let k = -3; k <= 3; k++) {
+        const x = cross[0] + k * 0.13;
+        g.rect(x - 0.04, cross[1] - 0.22, x + 0.04, cross[1] + 0.22, '#f8fafc');
+      }
+    }
     const P = L.parking;
     g.f.setMaskFilter(blur(4));
     g.rect(P.x0 - 0.1, P.y0 - 0.1, P.x1 + 0.1, P.y1 + 0.1, 'rgba(40,70,50,0.25)');
     g.f.setMaskFilter(null);
     g.rect(P.x0, P.y0, P.x1, P.y1, '#a7b0bb');
-    for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
+    for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) {
+      g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
+      g.line(x, P.y1 - 0.9, x, P.y1 - 0.12, '#f1f5f9', 2);
+    }
+    // driving arrows down the middle aisle
+    for (let x = P.x0 + 0.5; x < P.x1 - 0.3; x += 0.9) {
+      const ym = (P.y0 + P.y1) / 2;
+      g.line(x, ym, x + 0.28, ym, '#e2e8f0', 1.6);
+      g.line(x + 0.28, ym, x + 0.18, ym - 0.07, '#e2e8f0', 1.6);
+      g.line(x + 0.28, ym, x + 0.18, ym + 0.07, '#e2e8f0', 1.6);
+    }
 
     // terminal plaza: paving under check-in and security, rope posts along the queues
     const T = L.terminal;
@@ -354,6 +474,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     ];
     const rails = Skia.PathBuilder.Make();
     const posts = Skia.PathBuilder.Make();
+    // along the landside the terminal, the road and the parking lot are the boundary: no fence there
+    const TL = L.terminal;
+    const landX0 = Math.min(...TL.counters.map((q) => q[0]), ...TL.lanes.map((q) => q[0]), ...TL.belt.map((q) => q[0])) - 0.9;
+    const landX1 = L.parking.x1 + 0.15;
     for (const [ax, ay, bx, by] of sides) {
       const n = Math.round(Math.hypot(bx - ax, by - ay));
       for (let i = 0; i < n; i++) {
@@ -361,7 +485,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
         const y0 = ay + ((by - ay) * i) / n;
         const x1 = ax + ((bx - ax) * (i + 1)) / n;
         const y1 = ay + ((by - ay) * (i + 1)) / n;
-        const gate = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01 && Math.min(x0, x1) < 22.6 && Math.max(x0, x1) > 21.6;
+        const gate = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01 && Math.min(x0, x1) < landX1 && Math.max(x0, x1) > landX0;
         if (gate) continue;
         for (const z of [0.24, 0.13]) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
@@ -377,7 +501,28 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, standsBu
     g.s.setColor(Skia.Color('#c8b08a'));
     g.s.setStrokeWidth(2.4);
     c.drawPath(posts.build(), g.s);
+    // stand numbers painted next to each built stand
+    L.stands.slice(0, standsBuilt).forEach((st, i) => paintText(c, String(i + 1), st.pos[0] + 0.95, st.pos[1] - 0.55, '#facc15', 0.028));
   });
+
+  // small props: lamps, signs, trolleys, planters, and cones around plots still to be built
+  const prop = (sprite: number, x: number, y: number, d = 0, r = 50) => statics.push({ sprite, x: isoX(x, y), y: isoY(x, y), depth: x + y + d, r });
+  const PK = L.parking;
+  for (const [x, y] of [[PK.x0 - 0.12, PK.y0 - 0.12], [PK.x1 + 0.12, PK.y0 - 0.12], [PK.x1 + 0.12, PK.y1 + 0.12]] as const) prop(sprites.lamp, x, y);
+  prop(sprites.parkSign, PK.x1 + 0.3, PK.y0 + 0.25);
+  for (const d of [3.5, 7.5, 11.5, 15.5]) {
+    const at = pointAlong(L.road, d, 0.75);
+    if (at) prop(sprites.lamp, at[0], at[1]);
+  }
+  prop(sprites.trolleys, PK.x0 + 0.95, PK.y0 - 0.32, 0.2);
+  prop(sprites.planter(0), 18.6, 12.25);
+  prop(sprites.planter(1), 20.4, 12.25);
+  const T0 = L.taxi.nodes;
+  if (T0.H) prop(sprites.taxiSign, T0.H[0] - 0.55, T0.H[1] - 0.75, 0.1);
+  if (T0.E) prop(sprites.taxiSign, T0.E[0] + 0.7, T0.E[1] - 1.2, 0.1);
+  for (const st of L.stands.slice(standsBuilt)) {
+    for (const [dx, dy] of [[-0.75, -0.5], [0.75, -0.5], [-0.75, 0.6], [0.75, 0.6]]) prop(sprites.cone, st.pos[0] + dx, st.pos[1] + dy, 0, 20);
+  }
 
   // static sprites with depth: buildings and trees
   const T2 = L.terminal;

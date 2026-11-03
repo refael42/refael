@@ -9,11 +9,34 @@ import { AIRLINES } from '../data/airlines';
 import { ATLAS_SCALE, AtlasBuilder, type Atlas } from './atlas';
 import { drawGlyph, GLYPH_CHARS } from './art/glyphs';
 import { drawIcon, ICON_NAMES, type IconName } from './art/icons';
-import { drawBench, drawBillboard, drawCrane, drawDesk, drawScanner, drawFuelPump, drawHut, drawKiosk, drawRock, drawTerminal, drawTile, drawTower, drawTree, drawWindsock, IsoPen, type TreeKind } from './art/objects';
+import {
+  drawBench,
+  drawBillboard,
+  drawCone,
+  drawCrane,
+  drawDesk,
+  drawFuelPump,
+  drawHut,
+  drawKiosk,
+  drawLamp,
+  drawParkSign,
+  drawPlanter,
+  drawRock,
+  drawScanner,
+  drawTaxiSign,
+  drawTerminal,
+  drawTile,
+  drawTower,
+  drawTree,
+  drawTrolleys,
+  drawWindsock,
+  IsoPen,
+  type TreeKind,
+} from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { buildPlane } from './art/plane';
 import { drawStack, measureStack, type StackPart } from './art/stack';
-import { buildVehicle, type VehicleKind } from './art/vehicles';
+import { buildCar, buildVehicle, CAR_VARIANTS, type CarKind, type VehicleKind } from './art/vehicles';
 
 export const DIRS = 16;
 export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'bush', 'birch'];
@@ -21,6 +44,10 @@ export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
 export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags'];
+/** Colors of the soft light glows (nav lights, beacons, lamps). */
+export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3 } as const;
+const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020'];
+const CAR_KINDS: readonly CarKind[] = [...new Set(CAR_VARIANTS.map((c) => c.kind))];
 
 /** Heading in radians -> sprite direction index. */
 export function dirIndex(heading: number): number {
@@ -44,6 +71,16 @@ export interface SpriteSet {
   person: (outfit: number, back: boolean, mirror: boolean, frame: number) => number;
   vehicle: (kind: number, dir: number) => number;
   vehicleShadow: (kind: number, dir: number) => number;
+  /** Private cars (CAR_VARIANTS index) and their shadows. */
+  car: (variant: number, dir: number) => number;
+  carShadow: (variant: number, dir: number) => number;
+  glow: (color: number) => number;
+  lamp: number;
+  cone: number;
+  taxiSign: number;
+  parkSign: number;
+  trolleys: number;
+  planter: (seed: number) => number;
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
@@ -128,6 +165,43 @@ export function buildSprites(content: Content): SpriteSet {
     vehicleShadowBase.push(b.size);
     for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildVehicle(kind), d, '#000000', VEHICLE_SCALE);
   }
+
+  // private cars: one sprite per variant and direction, shadows per body type
+  const carBase: number[] = [];
+  for (const v of CAR_VARIANTS) {
+    carBase.push(b.size);
+    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildCar(v.kind, v.color), d, undefined, VEHICLE_SCALE);
+  }
+  const carShadowBase = new Map<CarKind, number>();
+  for (const k of CAR_KINDS) {
+    carShadowBase.set(k, b.size);
+    for (let d = 0; d < DIRS; d++) stackSprite(b, () => buildCar(k, '#000000'), d, '#000000', VEHICLE_SCALE);
+  }
+  // soft round glows (drawn with transparency on top of everything)
+  const glowBase = b.size;
+  for (const hex of GLOW_HEX) {
+    b.add(-8 * S, -8 * S, 8 * S, 8 * S, (c, ox, oy) => {
+      const p = Skia.Paint();
+      p.setAntiAlias(true);
+      p.setColor(Skia.Color(hex));
+      p.setAlphaf(0.45);
+      p.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, 3 * S, true));
+      c.drawCircle(ox, oy, 4.5 * S, p);
+      p.setMaskFilter(null);
+      p.setAlphaf(1);
+      c.drawCircle(ox, oy, 1.7 * S, p);
+      p.setColor(Skia.Color('#ffffff'));
+      p.setAlphaf(0.8);
+      c.drawCircle(ox, oy, 0.8 * S, p);
+    });
+  }
+  const lamp = b.add(-8 * S, -46 * S, 14 * S, 6 * S, (c, ox, oy) => drawLamp(new IsoPen(c, ox, oy, S)));
+  const cone = b.add(-6 * S, -10 * S, 6 * S, 5 * S, (c, ox, oy) => drawCone(new IsoPen(c, ox, oy, S)));
+  const taxiSign = b.add(-8 * S, -16 * S, 20 * S, 12 * S, (c, ox, oy) => drawTaxiSign(new IsoPen(c, ox, oy, S)));
+  const parkSign = b.add(-8 * S, -34 * S, 8 * S, 5 * S, (c, ox, oy) => drawParkSign(new IsoPen(c, ox, oy, S)));
+  const trolleys = b.add(-6 * S, -14 * S, 26 * S, 12 * S, (c, ox, oy) => drawTrolleys(new IsoPen(c, ox, oy, S)));
+  const planterBase = b.size;
+  for (let k = 0; k < 3; k++) b.add(-10 * S, -14 * S, 26 * S, 16 * S, (c, ox, oy) => drawPlanter(new IsoPen(c, ox, oy, S), k * 2));
 
   // static objects (anchor = object origin on the ground)
   const hut = b.add(-1.9 * 32 * S, -1.6 * 32 * S, 2.2 * 32 * S, 2.0 * 32 * S, (c, ox, oy) => drawHut(new IsoPen(c, ox, oy, S)));
@@ -248,6 +322,15 @@ export function buildSprites(content: Content): SpriteSet {
     person: (o, back, mirror, frame) => personBase + ((o * 2 + (back ? 1 : 0)) * 2 + (mirror ? 1 : 0)) * PERSON_FRAMES + frame,
     vehicle: (k, d) => vehicleBase[k] + d,
     vehicleShadow: (k, d) => vehicleShadowBase[k] + d,
+    car: (v, d) => carBase[v] + d,
+    carShadow: (v, d) => (carShadowBase.get(CAR_VARIANTS[v]?.kind ?? 'sedan') ?? 0) + d,
+    glow: (c) => glowBase + c,
+    lamp,
+    cone,
+    taxiSign,
+    parkSign,
+    trolleys,
+    planter: (k) => planterBase + (k % 3),
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,

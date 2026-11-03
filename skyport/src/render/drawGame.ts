@@ -11,7 +11,9 @@ import type { Camera } from './camera';
 import type { Effects } from './effects';
 import { isoX, isoY, Z_PX } from './iso';
 import type { SnapWriter } from './scene';
-import { dirIndex, VEHICLE_KINDS, type SpriteSet } from './sprites';
+import { BEACON } from './art/vehicles';
+import { dirIndex, DIRS, GLOW_COLORS, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
+import { parkedCars, roadCars, type CarPose } from './traffic';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
@@ -113,7 +115,7 @@ export function drawGame(
     w.bar(isoX(head[0], head[1]), isoY(head[0], head[1], 2.3), 64, prog, 0x6366f1);
   }
 
-  // vehicles
+  // vehicles (an amber beacon blinks while they are out working)
   for (const v of s.vehicles) {
     const x = lerp(v.px, v.x, a);
     const y = lerp(v.py, v.y, a);
@@ -124,7 +126,16 @@ export function drawGame(
     const k = Math.max(0, VEHICLE_KINDS.indexOf(v.kind));
     w.shadow(sp.vehicleShadow(k, d), sx + 2, sy + 2, 1, 0.28);
     w.sprite(sp.vehicle(k, d), sx, sy, 1, x + y);
+    if (v.state !== 'idle' && Math.floor(o.time * 3 + v.id * 0.5) % 2 === 0) {
+      const b = BEACON[v.kind];
+      const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
+      w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 1, 0.95);
+    }
   }
+
+  // background traffic: parked cars and cars on the access road
+  drawCars(w, sp, parkedCars(LL, s.stats.served), visible, o.time, false);
+  drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true);
 
   // idle staff at their posts (fueler and porter ride their vehicles while working)
   const L = layoutOf(s.tier);
@@ -227,6 +238,7 @@ function drawFlight(
   if (o.selected === f.id) w.decal(sp.ring, isoX(x, y), isoY(x, y), 0.5 + planeArt(f.aircraft).length * 0.42, 0.95);
   const depth = z > 0.05 ? 1000 + x + y + z : x + y;
   w.sprite(sp.plane(combo, d), sx, sy, 1, depth);
+  planeLights(w, f, sp, x, y, z, d, o.time);
 
   const b = bubbleAnchor({ x, y, z, aircraft: f.aircraft }, 1 / inv);
   // action bubble
@@ -245,6 +257,79 @@ function drawFlight(
   if (f.gWaiting && f.want === WANT.none) w.over(sp.icon('wait'), b.x, b.y - 4 * inv, 0.9 * inv);
   if ((f.phase === 'holding' || f.phase === 'inbound') && !f.landCleared && f.patience < 0.999) {
     w.bar(b.x, barY, 44, f.patience, f.patience < 0.35 ? 0xff6b5e : 0xffd23f);
+  }
+}
+
+/** Screen point of a model-space point (u forward, v right, h up) on something at (x, y, z) facing direction d. */
+function modelPoint(x: number, y: number, z: number, d: number, u: number, v: number, h: number): { x: number; y: number } {
+  const hd = (d / DIRS) * Math.PI * 2;
+  const c = Math.cos(hd);
+  const sn = Math.sin(hd);
+  const wx = x + u * c - v * sn;
+  const wy = y + u * sn + v * c;
+  return { x: isoX(wx, wy), y: isoY(wx, wy, z + h) };
+}
+
+function drawCars(w: SnapWriter, sp: SpriteSet, cars: CarPose[], visible: (x: number, y: number, r: number) => boolean, time: number, moving: boolean): void {
+  for (const c of cars) {
+    const sx = isoX(c.x, c.y);
+    const sy = isoY(c.x, c.y);
+    if (!visible(sx, sy, 40)) continue;
+    const d = dirIndex(c.heading);
+    w.shadow(sp.carShadow(c.variant, d), sx + 1.5, sy + 1.5, 1, 0.25);
+    w.sprite(sp.car(c.variant, d), sx, sy, 1, c.x + c.y);
+    if (moving && c.stopped) {
+      // brake lights at the curb, hazard blink while dropping people off
+      const on = Math.floor(time * 2.5 + c.x) % 2 === 0;
+      for (const v of [-0.05, 0.05]) {
+        const p = modelPoint(c.x, c.y, 0, d, -0.2 * VEHICLE_SCALE, v * VEHICLE_SCALE, 0.07 * VEHICLE_SCALE);
+        w.fx(sp.glow(on ? GLOW_COLORS.amber : GLOW_COLORS.red), p.x, p.y, 0.7, 0.85);
+      }
+    }
+  }
+}
+
+/** Phases with engines running: the red anti-collision beacon flashes. */
+function enginesOn(f: Flight): boolean {
+  return f.phase !== 'deboarding' && f.phase !== 'turnaround' && f.phase !== 'boarding';
+}
+
+/**
+ * Aircraft lights: red (left) and green (right) wingtips and a white tail
+ * light always on; a red beacon flashing while engines run; white strobes
+ * and the landing light while flying or on the runway.
+ */
+function planeLights(w: SnapWriter, f: Flight, sp: SpriteSet, x: number, y: number, z: number, d: number, time: number): void {
+  const art = planeArt(f.aircraft);
+  if (art.engines === 'rotor' || art.chord <= 0) return;
+  const L = art.length;
+  const uw = art.wing === 'high' ? -L / 2 + L * 0.6 : -L / 2 + L * 0.52;
+  const tipChord = art.chord * (art.sweep > 0.1 ? 0.4 : 0.75);
+  const tipU = uw + art.chord / 2 - art.sweep - tipChord * 0.5;
+  const rv = art.radius * art.tall;
+  const hc = art.gear + rv;
+  const hWing = (art.wing === 'high' ? hc + rv * 0.86 : art.gear + rv * 0.5) + Math.max(0.028, art.chord * 0.12);
+  const half = art.span / 2 + 0.01;
+  const k = 0.75;
+  const left = modelPoint(x, y, z, d, tipU, -half, hWing);
+  const right = modelPoint(x, y, z, d, tipU, half, hWing);
+  const tail = modelPoint(x, y, z, d, -L / 2 - 0.02, 0, hc);
+  w.fx(sp.glow(GLOW_COLORS.red), left.x, left.y, k, 0.9);
+  w.fx(sp.glow(GLOW_COLORS.green), right.x, right.y, k, 0.9);
+  w.fx(sp.glow(GLOW_COLORS.white), tail.x, tail.y, k * 0.8, 0.7);
+  const ph = time + f.id * 0.37;
+  if (enginesOn(f) && ph % 1.2 < 0.14) {
+    const top = modelPoint(x, y, z, d, 0, 0, hc + rv + 0.01);
+    w.fx(sp.glow(GLOW_COLORS.red), top.x, top.y, 1.1, 1);
+  }
+  const lit = f.phase === 'final' || f.phase === 'landing' || f.phase === 'takeoff' || f.phase === 'lineUp' || f.phase === 'holding' || f.phase === 'inbound' || f.phase === 'diverted';
+  if (lit && (ph + 0.5) % 1.5 < 0.08) {
+    w.fx(sp.glow(GLOW_COLORS.white), left.x, left.y, 1.4, 1);
+    w.fx(sp.glow(GLOW_COLORS.white), right.x, right.y, 1.4, 1);
+  }
+  if (f.phase === 'final' || f.phase === 'landing' || f.phase === 'takeoff' || f.phase === 'lineUp') {
+    const nose = modelPoint(x, y, z, d, L / 2 + 0.02, 0, hc - rv * 0.4);
+    w.fx(sp.glow(GLOW_COLORS.white), nose.x, nose.y, 1.6, 0.95);
   }
 }
 

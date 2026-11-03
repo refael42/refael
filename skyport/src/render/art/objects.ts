@@ -377,3 +377,83 @@ export function drawScanner(p: IsoPen): void {
   p.box(0.42, -0.2, 0.95, 0.2, 0, 0.36, '#64748b');
   p.box(0.4, -0.22, 0.97, 0.22, 0.36, 0.42, '#334155');
 }
+
+// ------------------------------------------------------------------ small props
+
+/** Street lamp: a slim pole, an arm and a lamp head with a warm lens. */
+export function drawLamp(p: IsoPen): void {
+  p.shadow(0, 0, 6, 3, 0.18);
+  p.box(-0.03, -0.03, 0.03, 0.03, 0, 0.04, '#475569');
+  p.line(0, 0, 0.04, 0, 0, 1.25, '#64748b', 2.6);
+  p.line(0, 0, 1.25, 0.18, 0, 1.3, '#64748b', 2);
+  p.box(0.13, -0.04, 0.27, 0.04, 1.24, 1.3, '#334155');
+  p.poly([0.14, -0.035, 1.235, 0.26, -0.035, 1.235, 0.26, 0.035, 1.235, 0.14, 0.035, 1.235], '#fde68a', false);
+}
+
+/** Orange traffic cone with a white band. */
+export function drawCone(p: IsoPen): void {
+  p.shadow(0, 0, 5, 2.5, 0.2);
+  p.box(-0.06, -0.06, 0.06, 0.06, 0, 0.015, '#ea580c');
+  // the visible half of the cone as two flat faces, plus a white band
+  const tip = 0.24;
+  p.poly([-0.045, 0.045, 0.015, 0.045, 0.045, 0.015, 0, 0, tip], '#f97316');
+  p.poly([0.045, -0.045, 0.015, 0.045, 0.045, 0.015, 0, 0, tip], '#c2410c');
+  p.poly([-0.03, 0.03, 0.1, 0.03, 0.03, 0.1, 0.022, 0.022, 0.15, -0.022, 0.022, 0.15], '#ffffff', false);
+  p.poly([0.03, -0.03, 0.1, 0.03, 0.03, 0.1, 0.022, 0.022, 0.15, 0.022, -0.022, 0.15], '#e2e8f0', false);
+}
+
+/** Taxiway sign: a dark board with a yellow face on two legs. */
+export function drawTaxiSign(p: IsoPen): void {
+  p.shadow(0.2, 0, 14, 4, 0.18);
+  p.line(0.05, 0, 0, 0.05, 0, 0.12, '#475569', 1.6);
+  p.line(0.35, 0, 0, 0.35, 0, 0.12, '#475569', 1.6);
+  p.box(-0.02, -0.04, 0.42, 0.0, 0.1, 0.32, '#111827');
+  p.poly([0.02, 0.001, 0.13, 0.2, 0.001, 0.13, 0.2, 0.001, 0.29, 0.02, 0.001, 0.29], '#facc15', false);
+  p.poly([0.23, 0.001, 0.13, 0.38, 0.001, 0.13, 0.38, 0.001, 0.29, 0.23, 0.001, 0.29], '#111827', false);
+  // arrow on the yellow half, a letter-ish bar on the dark half
+  p.line(0.05, 0.002, 0.21, 0.17, 0.002, 0.21, '#111827', 1.6);
+  p.line(0.13, 0.002, 0.25, 0.17, 0.002, 0.21, '#111827', 1.6);
+  p.line(0.13, 0.002, 0.17, 0.17, 0.002, 0.21, '#111827', 1.6);
+  p.line(0.3, 0.002, 0.16, 0.3, 0.002, 0.26, '#facc15', 1.8);
+}
+
+/** Blue parking sign with a white P. */
+export function drawParkSign(p: IsoPen): void {
+  p.shadow(0, 0, 5, 2.5, 0.18);
+  p.line(0, 0, 0, 0, 0, 0.7, '#94a3b8', 2.2);
+  p.box(-0.13, -0.02, 0.13, 0.0, 0.62, 0.9, '#2563eb');
+  // the letter P
+  p.line(-0.04, 0.002, 0.66, -0.04, 0.002, 0.86, '#ffffff', 2.2);
+  p.line(-0.04, 0.002, 0.86, 0.04, 0.002, 0.86, '#ffffff', 2.2);
+  p.line(0.04, 0.002, 0.86, 0.06, 0.002, 0.8, '#ffffff', 2.2);
+  p.line(0.06, 0.002, 0.8, 0.04, 0.002, 0.75, '#ffffff', 2.2);
+  p.line(0.04, 0.002, 0.75, -0.04, 0.002, 0.75, '#ffffff', 2.2);
+}
+
+/** A row of nested luggage trolleys. */
+export function drawTrolleys(p: IsoPen): void {
+  p.shadow(0.25, 0.08, 18, 6, 0.18);
+  for (let i = 0; i < 4; i++) {
+    const x = i * 0.09;
+    p.line(x, 0, 0.04, x + 0.16, 0, 0.04, '#64748b', 1.2);
+    p.line(x, 0.14, 0.04, x + 0.16, 0.14, 0.04, '#64748b', 1.2);
+    p.poly([x + 0.02, 0, 0.05, x + 0.16, 0, 0.05, x + 0.16, 0.14, 0.05, x + 0.02, 0.14, 0.05], '#cbd5e1', false, 1, 0.9);
+    p.line(x + 0.16, 0, 0.05, x + 0.18, 0, 0.26, '#94a3b8', 1.4);
+    p.line(x + 0.16, 0.14, 0.05, x + 0.18, 0.14, 0.26, '#94a3b8', 1.4);
+    p.line(x + 0.18, 0, 0.26, x + 0.18, 0.14, 0.26, '#ef4444', 2);
+  }
+}
+
+/** Planter box with flowers. */
+export function drawPlanter(p: IsoPen, seed: number): void {
+  p.shadow(0.3, 0.1, 20, 6, 0.18);
+  p.box(0, 0, 0.6, 0.2, 0, 0.12, '#a8a29e');
+  p.poly([0.02, 0.02, 0.121, 0.58, 0.02, 0.121, 0.58, 0.18, 0.121, 0.02, 0.18, 0.121], '#6b4f3a', false);
+  const colors = ['#f43f5e', '#f59e0b', '#a855f7', '#ffffff', '#ec4899', '#facc15'];
+  for (let i = 0; i < 9; i++) {
+    const x = 0.06 + (i % 5) * 0.12 + (i > 4 ? 0.06 : 0);
+    const y = i > 4 ? 0.13 : 0.06;
+    p.circle(x, y, 0.16 + (i % 2) * 0.02, 0.05, '#4d9a3c', false);
+    p.circle(x, y, 0.2 + (i % 2) * 0.02, 0.03, colors[(i + seed) % colors.length], false);
+  }
+}

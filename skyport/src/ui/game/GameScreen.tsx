@@ -473,6 +473,10 @@ export function GameScreen({ sprites, boot, onGallery }: { sprites: SpriteSet; b
     }
     cam.viewW = size.w;
     cam.viewH = size.h;
+    if (debug.follow) {
+      const f = ctrl.state.flights[0];
+      if (f) cam.target = { x: isoX(f.x, f.y), y: isoY(f.x, f.y, f.z) };
+    }
     updateCamera(cam, dtMs / 1000);
     fx.update(dtMs / 1000, cam);
     writer.begin(cam.x, cam.y, cam.zoom);

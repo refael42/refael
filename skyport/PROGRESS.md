@@ -203,10 +203,28 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Every browser scenario now runs in landscape (844x390, 667x375, 568x320, tablet 1180x820),
   plus one upright phone that must show the rotate screen.
 
+### Art detail pass (owner request, after M7)
+- Fuel truck rebuilt: cab with wraparound windows, mirrors, grille and headlights, three axles
+  with hubcaps, striped side skirts, a strapped tank with a red band, walkway and hatches, hose
+  cabinet and tail lights. Baggage train: a tug with a seated driver under a canopy, carts with
+  rails and suitcases with handles. Both blink an amber roof beacon while working.
+- Private cars (sedan, hatchback, SUV, van, taxi, pickup, shuttle bus) in 12 paint jobs, drawn in
+  16 directions. Background traffic (render only, a pure function of the sim clock): cars drive
+  down the access road, stop at the curb with hazards blinking, U-turn and drive away; the parking
+  lot fills up as more flights are served.
+- Aircraft lights: red and green wingtips, a white tail light, a flashing red beacon while engines
+  run, white strobes in the air and on the runway, a landing light on final and takeoff.
+- Ground: road edge lines, dashed center line, a zebra crossing where passengers cross, a second
+  row of parking bays with aisle arrows, stand numbers painted on the apron. Props: street lamps,
+  a parking sign, taxiway signs, luggage trolleys, planters, cones around plots still to build.
+  The field fence stops where the terminal, road and parking lot form the boundary.
+- Gallery shows every car and vehicle; `cam=` works there too, and `follow=1` keeps the camera on
+  a plane for close-up screenshots.
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

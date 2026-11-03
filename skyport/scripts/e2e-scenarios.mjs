@@ -234,5 +234,41 @@ export default [
       if ((await page.getByTestId('rotate-hint').count()) > 0) throw new Error('rotate hint still there in landscape');
     },
   },
+  // close-ups of the world art (vehicles, cars, props)
+  { name: 'art-parking', viewport: { width: 844, height: 390 }, query: '/?seed=5&crew=1&warp=620&auto=1&cam=23.4,14.8,2.1', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'art-apron', viewport: { width: 844, height: 390 }, query: '/?seed=5&crew=1&warp=300&auto=1&stands=3&cam=23.8,21.2,2.3', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'art-runway', viewport: { width: 844, height: 390 }, query: '/?seed=6&tier=2&stands=5&crew=1&warp=500&auto=1&cam=19,24.5,1.5', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'art-gallery-cars', viewport: { width: 844, height: 390 }, query: '/?screen=gallery&cam=5,17.8,2.4', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'art-gallery-vehicles', viewport: { width: 844, height: 390 }, query: '/?screen=gallery&cam=12.4,2.8,2.6', wait: 2500, touch: true, langs: ['en'] },
+  {
+    // a few moments of a busy apron: planes being served by the truck and the bag train
+    name: 'art-service',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=9&crew=1&stands=3&warp=180&auto=1&cam=23.4,21.6,2.2&follow=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      for (let k = 0; k < 4; k++) {
+        await page.waitForTimeout(2200);
+        await page.screenshot({ path: `artifacts/screens/art-service-${k}.png` });
+      }
+    },
+  },
+  {
+    // planes in the air: wingtip lights, beacon and strobes
+    name: 'art-lights',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=4&crew=1&stands=3&warp=150&cam=15,21,2.6&follow=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      for (let k = 0; k < 3; k++) {
+        await page.waitForTimeout(700);
+        await page.screenshot({ path: `artifacts/screens/art-lights-${k}.png` });
+      }
+    },
+  },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];
