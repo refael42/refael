@@ -5,7 +5,7 @@
 import { STAFF_ROLES } from '../../data/staff';
 import { MAX_PER_ROLE, staffCount } from './staff';
 import { checkTier } from './tiers';
-import { airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
+import { addedPerDay, airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
 import { bestOffer } from './upgrades';
 import { WANT, type Command, type GameState } from './types';
 
@@ -88,9 +88,11 @@ export function botAirlines(s: GameState): Command[] {
     const rate = c.last.length ? c.last.reduce((a, b) => a + b, 0) / c.last.length : 0;
     if (canExpand(s, c) && rate >= 0.9 && room > 4) out.push({ type: 'expandContract', airline: c.al });
   }
-  if (s.offers.length > 0 && s.contracts.length < contractSlots(s) && room > 0) {
-    const best = s.offers.slice().sort((a, b) => b.perDay * b.pay - a.perDay * a.pay)[0];
-    out.push({ type: 'signOffer', offerId: best.id });
+  if (s.offers.length > 0 && s.contracts.length < contractSlots(s)) {
+    // only offers the airport can actually take
+    const fits = s.offers.filter((o) => addedPerDay(s, o.perDay) <= room + 2);
+    const best = fits.sort((a, b) => b.perDay * b.pay - a.perDay * a.pay)[0];
+    if (best) out.push({ type: 'signOffer', offerId: best.id });
   }
   return out;
 }

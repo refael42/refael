@@ -366,7 +366,7 @@ const REGIONAL: TierLayout = {
   ],
   buildings: [{ kind: 'fbo', pos: [37.4, 17.8], size: [2.2, 1.3] }],
   windsock: [20, 30.4],
-  groundCapacity: 36,
+  groundCapacity: 46,
   camera: { center: [28, 23.5], zoom: 0.5 },
 };
 
@@ -403,7 +403,7 @@ const CITY: TierLayout = {
     { kind: 'pier', pos: [42.2, 15.8], size: [8.6, 1.5] },
     { kind: 'cargo', pos: [53.2, 16.4], size: [3.2, 2.0] },
   ],
-  groundCapacity: 36,
+  groundCapacity: 50,
   camera: { center: [33, 23.5], zoom: 0.42 },
 };
 
@@ -442,7 +442,7 @@ const INTERNATIONAL: TierLayout = {
   stands: [...CITY.stands, { id: 'P1', pos: [32.0, 17.4], size: 'heli', line: 'helipad', level: 1 }],
   buildings: [...(CITY.buildings ?? []), { kind: 'helipad', pos: [31.2, 16.6], size: [1.6, 1.6] }],
   windsock: [20, 30.6],
-  groundCapacity: 46,
+  groundCapacity: 64,
   camera: { center: [33, 25.5], zoom: 0.4 },
 };
 

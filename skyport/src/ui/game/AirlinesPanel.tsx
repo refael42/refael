@@ -6,6 +6,7 @@ import { AIRLINE_KINDS, AIRLINES } from '../../data/airlines';
 import { TIERS } from '../../data/tiers';
 import { useDir, useT, type TKey } from '../../i18n';
 import {
+  addedPerDay,
   airlineBlocker,
   airportCapacity,
   askChance,
@@ -216,6 +217,14 @@ function OfferCard({ state, o, send, full }: { state: GameState; o: AirlineOffer
         {t('air.fleet', { list: fleetText(state, o.al) })}
         {o.days > 0 ? ` · ${t('air.season', { d: o.days })}` : ''}
       </Text>
+      {flightsPerDay(state) + addedPerDay(state, o.perDay) > airportCapacity(state) ? (
+        <View style={[styles.warn, { flexDirection: dir.row }]}>
+          <Icon name="warn" size={16} />
+          <Text style={[styles.warnText, ta]}>
+            {t('air.tooMuch', { n: Math.round(flightsPerDay(state) + addedPerDay(state, o.perDay)), max: airportCapacity(state) })}
+          </Text>
+        </View>
+      ) : null}
       <Pressable
         style={[styles.btn, full ? styles.disabled : { backgroundColor: C.primary }]}
         disabled={full}

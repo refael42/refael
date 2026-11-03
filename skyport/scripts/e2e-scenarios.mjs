@@ -270,5 +270,13 @@ export default [
       }
     },
   },
+  // M8: the bigger airports with everything built and their fleets flying
+  { name: 'm8-tier3', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=3&full=1&crew=1&warp=260&auto=1', wait: 3000, touch: true },
+  { name: 'm8-tier4', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=4&full=1&crew=1&warp=300&auto=1', wait: 3000, touch: true },
+  { name: 'm8-tier5', viewport: { width: 844, height: 390 }, query: '/?seed=5&tier=5&full=1&crew=1&warp=340&auto=1', wait: 3000, touch: true },
+  { name: 'm8-tier5-tablet', viewport: { width: 1180, height: 820 }, query: '/?seed=6&tier=5&full=1&crew=1&warp=400&auto=1', wait: 3000, touch: true, scale: 1, langs: ['en'] },
+  { name: 'm8-gates', viewport: { width: 844, height: 390 }, query: '/?seed=7&tier=4&full=1&crew=1&warp=320&auto=1&cam=46.5,19.5,1.5', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm8-cargo-fbo', viewport: { width: 844, height: 390 }, query: '/?seed=8&tier=5&full=1&crew=1&warp=360&auto=1&cam=36,19.5,1.3', wait: 3000, touch: true, langs: ['en'] },
+  { name: 'm8-runways', viewport: { width: 844, height: 390 }, query: '/?seed=9&tier=5&full=1&crew=1&warp=300&auto=1&cam=16,29,1.0', wait: 3000, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

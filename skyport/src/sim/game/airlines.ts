@@ -132,6 +132,11 @@ export function availableAirlines(s: GameState): number[] {
 }
 
 /** Marketing brings each airline's planes more often (the tier grows the offers instead). */
+/** Flights a day an offer or contract adds once marketing is counted in. */
+export function addedPerDay(s: GameState, perDay: number): number {
+  return perDay * traffic(s);
+}
+
 function traffic(s: GameState): number {
   return Math.max(0.2, s.traffic * effects(s).traffic);
 }
@@ -303,7 +308,7 @@ function leave(s: GameState, c: Contract): void {
 // ------------------------------------------------------------------ offers
 
 /** Flights a day one stand takes by the size of plane (quick small turnarounds, slow wide-bodies). */
-const PER_STAND: Record<string, number> = { small: 14, fbo: 12, heli: 12, medium: 10, large: 7, cargo: 6, huge: 6, hugeX: 5 };
+const PER_STAND: Record<string, number> = { small: 12, fbo: 8, heli: 10, medium: 6, large: 4, cargo: 3, huge: 3, hugeX: 3 };
 
 /**
  * How many flights a day of this airline the built stands can take: the stands

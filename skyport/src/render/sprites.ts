@@ -12,14 +12,18 @@ import { drawIcon, ICON_NAMES, type IconName } from './art/icons';
 import {
   drawBench,
   drawBillboard,
+  drawCargoShed,
   drawCone,
   drawCrane,
   drawDesk,
+  drawFbo,
   drawFuelPump,
   drawHut,
+  drawJetBridge,
   drawKiosk,
   drawLamp,
   drawParkSign,
+  drawPierSegment,
   drawPlanter,
   drawRock,
   drawScanner,
@@ -81,6 +85,10 @@ export interface SpriteSet {
   parkSign: number;
   trolleys: number;
   planter: (seed: number) => number;
+  fbo: number;
+  pier: (end: boolean) => number;
+  jetBridge: number;
+  cargoShed: number;
   hut: number;
   pump: number;
   windsock: (dir8: number, frame: number) => number;
@@ -126,6 +134,9 @@ export function planeRes(aircraft: number): number {
   if (st === 'large' || st === 'cargo' || st === 'huge' || st === 'hugeX') return 0.62;
   return 1;
 }
+
+/** Length of a jet bridge sprite (tiles, along +y from the pier). */
+export const BRIDGE_LEN = 2.1;
 
 /** Vehicles are drawn a bit larger than life, like the planes. */
 export const VEHICLE_SCALE = 1.3;
@@ -214,6 +225,14 @@ export function buildSprites(content: Content): SpriteSet {
   const trolleys = b.add(-6 * S, -14 * S, 26 * S, 12 * S, (c, ox, oy) => drawTrolleys(new IsoPen(c, ox, oy, S)));
   const planterBase = b.size;
   for (let k = 0; k < 3; k++) b.add(-10 * S, -14 * S, 26 * S, 16 * S, (c, ox, oy) => drawPlanter(new IsoPen(c, ox, oy, S), k * 2));
+
+  // bigger airports (anchor = the footprint's low corner)
+  const T = 32 * S;
+  const fbo = b.add(-1.6 * T, -1.2 * T, 2.0 * T, 2.0 * T, (c, ox, oy) => drawFbo(new IsoPen(c, ox, oy, S)));
+  const pierBase = b.size;
+  for (const end of [false, true]) b.add(-1.7 * T, -1.6 * T, 2.4 * T, 2.0 * T, (c, ox, oy) => drawPierSegment(new IsoPen(c, ox, oy, S), end));
+  const jetBridge = b.add(-2.2 * T, -0.8 * T, 0.8 * T, 1.6 * T, (c, ox, oy) => drawJetBridge(new IsoPen(c, ox, oy, S), BRIDGE_LEN));
+  const cargoShed = b.add(-2.3 * T, -1.8 * T, 3.6 * T, 3.0 * T, (c, ox, oy) => drawCargoShed(new IsoPen(c, ox, oy, S)));
 
   // static objects (anchor = object origin on the ground)
   const hut = b.add(-1.9 * 32 * S, -1.6 * 32 * S, 2.2 * 32 * S, 2.0 * 32 * S, (c, ox, oy) => drawHut(new IsoPen(c, ox, oy, S)));
@@ -348,6 +367,10 @@ export function buildSprites(content: Content): SpriteSet {
     parkSign,
     trolleys,
     planter: (k) => planterBase + (k % 3),
+    fbo,
+    pier: (end) => pierBase + (end ? 1 : 0),
+    jetBridge,
+    cargoShed,
     hut,
     pump,
     windsock: (d, f) => sockBase + d * 2 + f,

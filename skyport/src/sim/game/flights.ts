@@ -620,7 +620,7 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       return true;
     }
     case 'taxiOut': {
-      const arrived = groundMove(s, f, dt, ac.taxiSpeed, tailClear(f));
+      const arrived = groundMove(s, f, dt, ac.taxiSpeed, tailClear(f), true);
       placeOnRoute(f);
       if (arrived) {
         if (f.takeoffCleared && canLineUp(s, f, L)) beginLineUp(f, L);

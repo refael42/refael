@@ -256,7 +256,7 @@ const STOP_GAP = 0.25;
  * Moves a flight along its ground route, reserving ahead and stopping before
  * edges it cannot get. Returns true when the end of the route is reached.
  */
-export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number, tailClear: number): boolean {
+export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number, tailClear: number, runs = false): boolean {
   const r = f.groute;
   if (!r) return true;
   const n = r.edges.length;
@@ -269,10 +269,20 @@ export function groundMove(s: GameState, f: Flight, dt: number, maxSpeed: number
   }
   let stopAt = total;
   f.gWaiting = false;
+  const g = graphOf(s.tier);
   for (let k = f.gIdx + 1; k < n; k++) {
     const start = r.nodeDist[k];
     if (start - f.pathPos > LOOKAHEAD) break;
-    if (!f.gHeld.includes(r.edges[k]) && !tryReserve(s, f, r.edges[k])) {
+    if (f.gHeld.includes(r.edges[k])) continue;
+    let ok: boolean;
+    if (runs && !g.safe[r.edges[k]] && g.safe[r.edges[k - 1]]) {
+      // leaving a waiting spot into a shared stretch: take all of it up to the next spot at once,
+      // so a departure never stops where arrivals have to pass
+      let j = k;
+      while (j < n - 1 && !g.safe[r.edges[j]]) j++;
+      ok = tryReserveRun(s, f, r.edges.slice(k), j - k);
+    } else ok = tryReserve(s, f, r.edges[k]);
+    if (!ok) {
       stopAt = Math.max(f.pathPos, start - STOP_GAP);
       f.gWaiting = true;
       break;

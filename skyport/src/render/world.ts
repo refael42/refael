@@ -6,12 +6,12 @@ import { BlurStyle, ClipOp, PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanv
 
 import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
-import { findRoute, graphOf, routeGeometry } from '../sim/game/graph';
+import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { routeLineUp } from '../sim/game/layout';
 import { GLYPHS } from './art/glyphs';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
 import { HALF_H, HALF_W, isoX, isoY } from './iso';
-import { TREE_KINDS, TREE_SIZES, type SpriteSet } from './sprites';
+import { BRIDGE_LEN, TREE_KINDS, TREE_SIZES, type SpriteSet } from './sprites';
 
 export interface StaticSprite {
   sprite: number;
@@ -51,6 +51,43 @@ function diamondPath(x0: number, y0: number, x1: number, y1: number) {
   b.lineTo(isoX(x0, y1), isoY(x0, y1));
   b.close();
   return b.build();
+}
+
+/**
+ * The taxiways as long chains of edges (stand lead-ins excluded), so each
+ * chain is drawn as one smooth ribbon.
+ */
+function taxiChains(gr: Graph): number[][] {
+  const stand = new Set(gr.standNode.filter((n) => n >= 0));
+  const lane = (e: number) => !stand.has(gr.edges[e].from) && !stand.has(gr.edges[e].to);
+  const inDeg = new Array(gr.ids.length).fill(0);
+  const outs: number[][] = gr.ids.map(() => []);
+  gr.edges.forEach((e, i) => {
+    if (!lane(i)) return;
+    inDeg[e.to]++;
+    outs[e.from].push(i);
+  });
+  const through = (n: number) => inDeg[n] === 1 && outs[n].length === 1;
+  const used = new Set<number>();
+  const chains: number[][] = [];
+  const walk = (start: number) => {
+    const chain = [start];
+    used.add(start);
+    let n = gr.edges[start].to;
+    while (through(n) && !used.has(outs[n][0])) {
+      chain.push(outs[n][0]);
+      used.add(outs[n][0]);
+      n = gr.edges[outs[n][0]].to;
+    }
+    chains.push(chain);
+  };
+  gr.edges.forEach((e, i) => {
+    if (lane(i) && !used.has(i) && !through(e.from)) walk(i);
+  });
+  gr.edges.forEach((_, i) => {
+    if (lane(i) && !used.has(i)) walk(i);
+  });
+  return chains;
 }
 
 /** Polyline shifted sideways by d tiles. */
@@ -388,12 +425,16 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     g.poly(apron, 'rgba(120,100,60,0.35)');
     g.f.setMaskFilter(null);
     g.poly(apron, GRAVEL);
+    // concrete in front of the bigger buildings, out to the stand lane
+    for (const bd of L.buildings ?? []) {
+      if (bd.kind === 'helipad') continue;
+      g.rect(bd.pos[0] - 0.6, bd.pos[1] + bd.size[1] - 0.3, bd.pos[0] + bd.size[0] + 0.6, ay1, GRAVEL);
+    }
 
     // taxi tracks and the runway: smooth dirt with a darker rim and a lighter worn center
     const gr = graphOf(tier);
-    const main = findRoute(gr, gr.exit, gr.holdShort);
     const tracks: number[][] = [routeLineUp(L)];
-    if (main) tracks.push(routeGeometry(gr, main).path);
+    for (const chain of taxiChains(gr)) tracks.push(routeGeometry(gr, chain).path);
     L.stands.forEach((st, i) => {
       if (!open[i] || !st.from) return;
       const sn = gr.standNode[i];
@@ -426,6 +467,18 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       for (let k = -3; k <= 3; k++) g.line(R.x0 + 0.3, R.y + k * 0.2, R.x0 + 1.3, R.y + k * 0.2, '#ffffff', 3.2);
       for (let k = -3; k <= 3; k++) g.line(R.x1 - 1.3, R.y + k * 0.2, R.x1 - 0.3, R.y + k * 0.2, '#ffffff', 3.2);
       for (let x = R.x0 + 2; x < R.x1 - 1.5; x += 1.2) g.line(x, R.y, x + 0.6, R.y, '#ffffff', 2.4);
+      // touchdown zone bars after the threshold
+      for (let k = 0; k < 3; k++) for (const side of [-1, 1]) g.rect(R.x0 + 3 + k * 1.1, R.y + side * hw * 0.45 - 0.07, R.x0 + 3.6 + k * 1.1, R.y + side * hw * 0.45 + 0.07, '#ffffff');
+      const D = L.depRunway;
+      if (D) {
+        const dh = D.width / 2;
+        g.rect(D.x0 - 0.3, D.y - dh - 0.12, D.x1 + 0.3, D.y + dh + 0.12, '#4b5563');
+        g.rect(D.x0 - 0.2, D.y - dh, D.x1 + 0.2, D.y + dh, '#5b6472');
+        g.line(D.x0, D.y - dh + 0.08, D.x1, D.y - dh + 0.08, '#e5e7eb', 1.6);
+        g.line(D.x0, D.y + dh - 0.08, D.x1, D.y + dh - 0.08, '#e5e7eb', 1.6);
+        for (let k = -3; k <= 3; k++) g.line(D.x0 + 0.3, D.y + k * 0.2, D.x0 + 1.3, D.y + k * 0.2, '#ffffff', 3.2);
+        for (let x = D.x0 + 2; x < D.x1 - 1.5; x += 1.2) g.line(x, D.y, x + 0.6, D.y, '#ffffff', 2.4);
+      }
     } else {
       for (const path of tracks) ribbon(g, path, 0.86, DIRT_EDGE);
       g.rect(R.x0 - 0.3, R.y - hw - 0.14, R.x1 + 0.3, R.y + hw + 0.14, DIRT_EDGE);
@@ -440,12 +493,16 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     // edge lights: small white dots with soft shadows
     const lightsShadow = Skia.PathBuilder.Make();
     const lights = Skia.PathBuilder.Make();
-    for (let x = R.x0; x <= R.x1 + 0.01; x += 1.5) {
-      for (const side of [-1, 1]) {
-        const sx = isoX(x, R.y + side * (hw + 0.08));
-        const sy = isoY(x, R.y + side * (hw + 0.08));
-        lightsShadow.addOval(Skia.XYWHRect(sx - 3.5, sy - 1, 8, 4));
-        lights.addCircle(sx, sy - 1.5, 2.6);
+    for (const RR of [R, L.depRunway]) {
+      if (!RR) continue;
+      const h2 = RR.width / 2;
+      for (let x = RR.x0; x <= RR.x1 + 0.01; x += 1.5) {
+        for (const side of [-1, 1]) {
+          const sx = isoX(x, RR.y + side * (h2 + 0.08));
+          const sy = isoY(x, RR.y + side * (h2 + 0.08));
+          lightsShadow.addOval(Skia.XYWHRect(sx - 3.5, sy - 1, 8, 4));
+          lights.addCircle(sx, sy - 1.5, 2.6);
+        }
       }
     }
     g.f.setColor(Skia.Color('rgba(60,40,20,0.3)'));
@@ -454,6 +511,17 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     c.drawPath(lights.build(), g.f);
 
     // stands: a painted ring with a lead-in line; future stands are dashed plots
+    for (const bd of L.buildings ?? []) {
+      if (bd.kind !== 'helipad') continue;
+      const cx = bd.pos[0] + bd.size[0] / 2;
+      const cy = bd.pos[1] + bd.size[1] / 2;
+      g.rect(bd.pos[0], bd.pos[1], bd.pos[0] + bd.size[0], bd.pos[1] + bd.size[1], '#94a3b8');
+      g.ellipse(cx, cy, 0.66, 0.66, '#f8fafc');
+      g.ellipse(cx, cy, 0.56, 0.56, '#64748b');
+      g.line(cx - 0.2, cy - 0.25, cx - 0.2, cy + 0.25, '#f8fafc', 3);
+      g.line(cx + 0.2, cy - 0.25, cx + 0.2, cy + 0.25, '#f8fafc', 3);
+      g.line(cx - 0.2, cy, cx + 0.2, cy, '#f8fafc', 3);
+    }
     L.stands.forEach((st, i) => {
       if (st.size === 'heli') return; // the helipad is a building
       const r = RING[st.size] ?? 0.78;
@@ -531,6 +599,25 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     if (open[i]) return;
     const r = RING[st.size] ?? 0.78;
     for (const [dx, dy] of [[-1, -0.65], [1, -0.65], [-1, 0.8], [1, 0.8]]) prop(sprites.cone, st.pos[0] + dx * r, st.pos[1] + dy * r, 0, 20);
+  });
+
+  // bigger airports: lounge, pier (in sections so planes in front sort right), cargo shed, jet bridges
+  for (const bd of L.buildings ?? []) {
+    const [bx, by] = bd.pos;
+    if (bd.kind === 'fbo') prop(sprites.fbo, bx, by, bd.size[0] + bd.size[1], 160);
+    if (bd.kind === 'cargo') prop(sprites.cargoShed, bx, by, bd.size[0] + bd.size[1], 200);
+    if (bd.kind === 'pier') {
+      const n = Math.round(bd.size[0] / 2.15);
+      for (let k = 0; k < n; k++) prop(sprites.pier(k === n - 1), bx + k * 2.15, by, 2.15 * 0.5 + bd.size[1], 140);
+    }
+  }
+  L.stands.forEach((st, i) => {
+    if (!open[i] || !st.bridge) return;
+    const pier = (L.buildings ?? []).find((b) => b.kind === 'pier');
+    if (!pier) return;
+    const gx = st.pos[0] - 0.3;
+    const gy = pier.pos[1] + pier.size[1] - 0.05;
+    prop(sprites.jetBridge, gx, gy, BRIDGE_LEN, 120);
   });
 
   // static sprites with depth: buildings and trees

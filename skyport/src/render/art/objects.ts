@@ -457,3 +457,69 @@ export function drawPlanter(p: IsoPen, seed: number): void {
     p.circle(x, y, 0.2 + (i % 2) * 0.02, 0.03, colors[(i + seed) % colors.length], false);
   }
 }
+
+// ------------------------------------------------------------------ bigger airports
+
+/** Private jet lounge (FBO): a low glass pavilion with a gold trim and a canopy. Footprint 2.2 x 1.3. */
+export function drawFbo(p: IsoPen): void {
+  p.shadow(1.1, 0.7, 70, 26, 0.2);
+  p.box(0, 0, 2.2, 1.3, 0, 0.55, '#f8fafc');
+  p.poly([0.1, 1.3, 0.08, 2.1, 1.3, 0.08, 2.1, 1.3, 0.47, 0.1, 1.3, 0.47], '#1e293b');
+  for (let x = 0.4; x < 2.1; x += 0.3) p.line(x, 1.3, 0.08, x, 1.3, 0.47, '#d4af7a', 1);
+  p.poly([2.2, 0.15, 0.1, 2.2, 1.15, 0.1, 2.2, 1.15, 0.47, 2.2, 0.15, 0.47], '#334155');
+  p.box(-0.08, -0.08, 2.28, 1.38, 0.55, 0.6, '#d4af7a');
+  p.box(0.0, 0.0, 2.2, 1.3, 0.6, 0.64, '#f8fafc');
+  // canopy over the door, on two slim posts
+  p.line(0.75, 1.75, 0, 0.75, 1.75, 0.45, '#94a3b8', 1.6);
+  p.line(1.45, 1.75, 0, 1.45, 1.75, 0.45, '#94a3b8', 1.6);
+  p.box(0.6, 1.3, 1.6, 1.85, 0.45, 0.5, '#d4af7a');
+  // a little potted palm by the door
+  p.box(1.75, 1.45, 1.9, 1.6, 0, 0.1, '#a8a29e');
+  p.circle(1.82, 1.52, 0.32, 0.12, '#16a34a', false);
+}
+
+/** One section of the gate pier (they are laid side by side). Footprint 2.15 x 1.5. */
+export function drawPierSegment(p: IsoPen, end: boolean): void {
+  p.shadow(1.1, 0.8, 72, 26, 0.18);
+  p.box(0, 0, 2.15, 1.5, 0, 0.85, '#e2e8f0');
+  // tall glass toward the apron (+y), with mullions and a darker band of gate signs
+  p.poly([0.05, 1.5, 0.1, 2.1, 1.5, 0.1, 2.1, 1.5, 0.72, 0.05, 1.5, 0.72], '#7dd3fc');
+  for (let x = 0.3; x < 2.1; x += 0.27) p.line(x, 1.5, 0.1, x, 1.5, 0.72, '#f1f5f9', 1);
+  p.poly([0.05, 1.5, 0.62, 2.1, 1.5, 0.62, 2.1, 1.5, 0.7, 0.05, 1.5, 0.7], '#0f172a', false);
+  if (end) p.poly([2.15, 0.15, 0.1, 2.15, 1.35, 0.1, 2.15, 1.35, 0.72, 2.15, 0.15, 0.72], '#bae6fd');
+  // roof: a white slab with a skylight and an air unit
+  p.box(-0.02, -0.02, 2.17, 1.52, 0.85, 0.92, '#cbd5e1');
+  p.poly([0.4, 0.45, 0.93, 1.7, 0.45, 0.93, 1.7, 1.0, 0.93, 0.4, 1.0, 0.93], '#93c5fd', false);
+  p.box(1.75, 0.2, 2.0, 0.5, 0.92, 1.05, '#94a3b8');
+}
+
+/** Jet bridge: a corridor on a wheeled leg reaching toward +y (length in tiles). */
+export function drawJetBridge(p: IsoPen, len: number): void {
+  p.shadow(0.2, len * 0.6, 22, 10, 0.16);
+  // rotunda by the pier
+  p.box(-0.22, -0.1, 0.22, 0.3, 0, 0.62, '#94a3b8');
+  // the tunnel (slightly lower toward the plane)
+  p.box(-0.14, 0.3, 0.14, len - 0.35, 0.38, 0.62, '#cbd5e1');
+  p.poly([0.14, 0.4, 0.42, 0.14, len - 0.45, 0.42, 0.14, len - 0.45, 0.56, 0.14, 0.4, 0.56], '#e2e8f0', false);
+  // wheeled leg and the cab at the plane door
+  p.line(0, len - 0.6, 0, 0, len - 0.6, 0.38, '#475569', 2.4);
+  p.box(-0.12, len - 0.72, 0.12, len - 0.5, 0, 0.06, '#1f2937');
+  p.box(-0.2, len - 0.35, 0.2, len, 0.34, 0.66, '#94a3b8');
+  p.poly([-0.2, len, 0.38, 0.2, len, 0.38, 0.2, len, 0.62, -0.2, len, 0.62], '#475569', false);
+}
+
+/** Cargo warehouse: a ribbed shed with a roller door and a red stripe. Footprint 3.2 x 2.0. */
+export function drawCargoShed(p: IsoPen): void {
+  p.shadow(1.6, 1.0, 100, 36, 0.2);
+  p.box(0, 0, 3.2, 2.0, 0, 1.0, '#cbd5e1');
+  for (let x = 0.2; x < 3.2; x += 0.2) p.line(x, 2.0, 0.02, x, 2.0, 0.98, '#94a3b8', 0.8);
+  p.poly([0, 2.0, 0.78, 3.2, 2.0, 0.78, 3.2, 2.0, 0.88, 0, 2.0, 0.88], '#dc2626', false);
+  p.poly([0.9, 2.0, 0, 2.2, 2.0, 0, 2.2, 2.0, 0.66, 0.9, 2.0, 0.66], '#64748b');
+  for (let z = 0.08; z < 0.66; z += 0.08) p.line(0.9, 2.0, z, 2.2, 2.0, z, '#475569', 0.8);
+  p.poly([3.2, 0.3, 0.3, 3.2, 1.7, 0.3, 3.2, 1.7, 0.6, 3.2, 0.3, 0.6], '#94a3b8');
+  // shallow gable roof
+  p.gableX(0, 0, 3.2, 2.0, 1.0, 0.3, '#64748b', 0.06);
+  // pallets stacked outside
+  p.box(2.5, 2.25, 2.95, 2.6, 0, 0.25, '#a16207');
+  p.box(2.55, 2.3, 2.9, 2.55, 0.25, 0.5, '#f59e0b');
+}

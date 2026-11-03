@@ -27,7 +27,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M5 Airport tiers | done | see below |
 | M6 Terminal & passengers | done | see below |
 | M7 Airlines | done | see below |
-| M8 Full fleet | next | 11 aircraft, stands by size, jet bridges, wake separation, second runway |
+| M8 Full fleet | done | see below |
+| M9 Advanced ATC | next | tower, radar, ILS, holding, go-around, diversions, wind and runway direction |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -221,10 +222,37 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Gallery shows every car and vehicle; `cam=` works there too, and `follow=1` keeps the camera on
   a plane for close-up screenshots.
 
+### M8 — full fleet (done)
+- Tiers 3–5 are playable. Regional: the runway moves south and gets a parallel taxiway (every
+  plane leaves at the first exit and taxis to its stand off the runway), two medium stands and a
+  private-jet stand by its lounge (FBO). City: a glass pier with jet bridges (one gate takes
+  wide-bodies) and a cargo apron. International: a second runway for departures only, reached by a
+  taxiway around the west end (no runway crossings), and a helipad.
+- 10 of the 11 aircraft fly (Condor waits for the mega-hub). Big jets are drawn less exaggerated so
+  they fit; airliners are stored smaller in the atlas, and the atlas holds only the current tier's
+  liveries (rebuilt on a tier upgrade).
+- Stands by size: a plane gets the smallest free stand it fits; special stands (FBO, cargo, pad)
+  take only their own kind. Stands are built through upgrade lines (medium stands, FBO, gates,
+  cargo apron, helipad); a VIP lounge line; more trucks and carts at the bigger tiers.
+- Airlines: national carriers need jet bridges and a lounge, cargo needs the apron, luxury needs
+  the FBO. Offers are capped by the stands that fit the airline's planes; the offer card warns
+  when signing would push traffic past capacity.
+- Wake turbulence: after a heavy, a light plane waits up to 10 s (super: 14 s) on that runway.
+  At tier 5 landings and takeoffs no longer wait for each other. Helicopters fly straight to the
+  pad. Freighters carry pallets (no passengers). Jet bridges: boarding from the gate, faster, and
+  a mood bonus. Passengers on airliners walk in groups (one figure = several passengers).
+- Fixed a ground deadlock that only big maps can show: a departure leaving a waiting spot now
+  reserves the whole shared stretch up to the next one (it never stops where arrivals pass).
+- Tests: every layout is a DAG with reachable stands and no overlapping parked planes; stand fit,
+  needs, wake, two runways, helicopter, freighter, jet bridge; 2000 mixed flights on the
+  international map with one plane per runway, no collisions and no jams.
+- Balance (bot, 4 h, seeds 1/7/13): tier 3 at ~56 min, tier 4 at ~146–151 min, 3–4% diverted.
+- Test switch `full=1`: everything of the tier built and its airlines signed (screenshots).
+
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner
   left the choice open; it stays here (no extra repo to set up).
-- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1`.
+- Web test switches (web only): `?seed=N&warp=S&auto=1&speed=K&select=1&hook=1&screen=gallery&stands=N&crew=1&money=N&panel=staff|upgrades&tier=N&build=1&cam=x,y,zoom&panel=airlines|board&tab=0|1&follow=1&full=1`.
   Any of them disables loading/saving unless `save=1` is added.
 - Planes are drawn 1.35× larger than "true" size (`ART_SCALE`) so they read on a phone.
 - Skia on web: `canvaskit.wasm` is copied to `public/` by `postinstall`; `Root.web.tsx` loads it

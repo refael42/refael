@@ -24,7 +24,11 @@ import { AIRCRAFT, planeArt } from '../../data/aircraft';
 import { RARITIES, STAFF_ROLES } from '../../data/staff';
 import {
   applyOffline,
+  airlineBlocker,
   applyStructural,
+  contractSlots,
+  makeOffer,
+  signOffer,
   counterCount,
   laneCount,
   switchTier,
@@ -112,6 +116,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       applyStructural(c.state);
     }
     if (debug.money > 0) c.state.money = c.state.money.add(debug.money);
+    if (debug.full) fullAirport(c.state);
     if (debug.crew) {
       c.state.money = c.state.money.add(5000);
       for (const a of c.state.applicants.slice()) c.send({ type: 'hire', applicantId: a.id });
@@ -891,6 +896,27 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
 }
 
 /** Airline/aircraft liveries the tier needs in the atlas. */
+/** Test switch: every stand, vehicle and the lounge of the tier built, its airlines signed and happy. */
+function fullAirport(s: GameState): void {
+  const L = layoutOf(s.tier);
+  for (const st of L.stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
+  if (s.tier >= 4) s.upg.lounge = 1;
+  s.upg.truck2 = Math.max(s.upg.truck2 ?? 0, Math.min(5, s.tier));
+  s.upg.cart2 = Math.max(s.upg.cart2 ?? 0, Math.min(5, s.tier));
+  s.upgRev++;
+  applyStructural(s);
+  s.stats.served = Math.max(s.stats.served, 400);
+  AIRLINES.forEach((_, i) => {
+    if (s.contracts.length >= contractSlots(s)) return;
+    if (airlineBlocker(s, i) || s.contracts.some((c) => c.al === i)) return;
+    s.rep[i] = 90;
+    const o = makeOffer(s, i);
+    o.perDay = Math.min(o.perDay, 4);
+    s.offers.push(o);
+    signOffer(s, o.id);
+  });
+}
+
 export function tierCombos(tier: number): (readonly [number, number])[] {
   const out: (readonly [number, number])[] = [];
   AIRLINES.forEach((al, i) => {

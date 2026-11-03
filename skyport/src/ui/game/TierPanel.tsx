@@ -48,6 +48,7 @@ export function TierPanel({ state, onBuild, onClose }: { state: GameState; rev: 
           <Text style={[styles.cardTitle, ta]}>{t('tierp.next', { tier: t(`tier.${next.key}` as TKey) })}</Text>
           <Text style={[styles.note, ta]}>{t('tierp.unlocks', { pay: next.pay / cur.pay })}</Text>
           <Text style={[styles.note, ta]}>{t('tierp.contracts', { n: next.contracts })}</Text>
+          {next.id >= 3 && next.id <= 5 ? <Text style={[styles.note, ta]}>{t(`tierp.feat${next.id}` as TKey)}</Text> : null}
           <Need ok={c.served} text={t('tierp.served', { a: state.stats.served, b: next.needs.served })} />
           <Need ok={c.rating} text={t('tierp.rating', { a: state.rating.toFixed(1), b: next.needs.rating.toFixed(1) })} />
           <Need ok={c.money} text={t('tierp.cost', { amount: formatBig(next.needs.cost) })} />
