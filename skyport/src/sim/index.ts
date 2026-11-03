@@ -25,3 +25,4 @@ export * from './game/terminal';
 export * from './game/airlines';
 export * from './game/board';
 export * from './game/weather';
+export * from './game/goals';

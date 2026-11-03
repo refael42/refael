@@ -56,6 +56,7 @@ export function createGame(seed: number): GameState {
     nextOfferAt: 0,
     nextGuestAt: 600,
     nextCheckAt: 240,
+    goal: 0,
     stores: { fuel: makeStore('fuel'), parts: makeStore('parts') },
     deliveries: [],
     schedule: [],

@@ -41,11 +41,13 @@ export function sameHud(a: HudData, b: HudData): boolean {
 export const Hud = memo(function Hud({
   data,
   onSettings,
+  onHelp,
   onCoinPos,
   bump,
 }: {
   data: HudData;
   onSettings: () => void;
+  onHelp: () => void;
   onCoinPos: (x: number, y: number) => void;
   bump: number;
 }) {
@@ -123,6 +125,16 @@ export const Hud = memo(function Hud({
           </View>
         </View>
         <Pressable
+          onPress={onHelp}
+          style={({ pressed }) => [styles.round, pressed && styles.pressed]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={t('help.title')}
+          testID="help-button"
+        >
+          <Text style={styles.helpMark}>?</Text>
+        </Pressable>
+        <Pressable
           onPress={onSettings}
           style={({ pressed }) => [styles.round, pressed && styles.pressed]}
           hitSlop={8}
@@ -177,4 +189,5 @@ const styles = StyleSheet.create({
     ...SHADOW_SM,
   },
   pressed: { transform: [{ scale: 0.94 }], opacity: 0.9 },
+  helpMark: { color: C.primary, fontSize: 22, fontWeight: '900', lineHeight: 26 },
 });

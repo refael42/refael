@@ -338,6 +338,13 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Zoom (owner request): the mouse wheel zooms toward the cursor (a trackpad pinch too); on a
   phone two fingers zoom, and the browser leaves map gestures to the game (no page zoom or
   scroll). Browser tests drive a real wheel and a real two-finger pinch.
+- Clearer how-to-play (owner request): 21 goals lead from the first landing to the helipad of the
+  international airport, one at a time: what to do, how, progress, a coin reward, and "show me"
+  (the hand points at the right button, or at a plane). A new goal opens in full for 15 s, then
+  folds into a chip. A "?" button opens "How to play": the five taps of a turnaround with the
+  same bubbles as over the planes, then money, staff, upgrades, airlines, growing the airport,
+  building, weather, supplies, maintenance and controls (later topics marked with the tier that
+  opens them). Old saves skip goals already done, without back pay.
 
 ## Notes / decisions
 - The game lives in `skyport/` inside the `refael` repo (the repo root is a different app). The owner

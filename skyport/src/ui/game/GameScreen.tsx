@@ -13,6 +13,8 @@ import { attachWebZoom, makeCamera, updateCamera, useCameraResponder, viewToWorl
 import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
+import { GoalCard, type GoalView } from './GoalCard';
+import { HelpPanel } from './HelpPanel';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
@@ -41,6 +43,10 @@ import {
   botAirlines,
   approachBlocker,
   Big,
+  currentGoal,
+  GOALS,
+  goalReward,
+  type GoalTarget,
   botBuys,
   canExpand,
   repOf,
@@ -239,6 +245,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const tutorialRef = useRef(tutorial);
   tutorialRef.current = tutorial;
   const [hand, setHand] = useState<{ x: number; y: number; text: TKey } | null>(null);
+  // the current goal (polled with the HUD) and the "show me" pointer for it
+  const [goal, setGoal] = useState<GoalView | null>(null);
+  const showMe = useRef<{ target: GoalTarget; until: number } | null>(null);
+  // a new goal opens in full for a while, then folds into a chip (tap to open again)
+  const goalOpen = useRef<{ id: string; until: number }>({ id: '', until: 0 });
   const barPos = useRef<Record<string, { x: number; y: number }>>({});
   const barOrigin = useRef({ x: 0, y: 0 });
   const barWrapY = useRef(0);
@@ -505,6 +516,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             fx.sparkle(isoX(NL.hut[0] + 1, NL.hut[1] + 0.7), isoY(NL.hut[0] + 1, NL.hut[1] + 0.7) - 40);
             break;
           }
+          case 'goalDone': {
+            const g = GOALS[e.a];
+            if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            setBump(1);
+            break;
+          }
           case 'milestone':
             toast('star', t('toast.milestone'), 'good');
             break;
@@ -548,6 +565,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     const id = setInterval(() => {
       const h = hudOf(ctrl);
       setHud((old) => (sameHud(old, h) ? old : h));
+      const g = currentGoal(ctrl.state);
+      const gp = g?.progress(ctrl.state);
+      const gv: GoalView | null = g && gp ? { id: g.id, index: ctrl.state.goal, total: GOALS.length, have: gp.have, need: gp.need, reward: formatBig(Big.fromNumber(goalReward(ctrl.state, g))) } : null;
+      setGoal((old) => (old && gv && old.id === gv.id && old.have === gv.have && old.reward === gv.reward ? old : gv));
+      if (gv && goalOpen.current.id !== gv.id) goalOpen.current = { id: gv.id, until: performance.now() + 15000 };
       const sel = selectedRef.current;
       const f = sel ? ctrl.state.flights.find((x) => x.id === sel) : undefined;
       const hold = f && f.landCleared && (f.phase === 'holding' || f.phase === 'inbound') ? (approachBlocker(ctrl.state, f) ?? '') : '';
@@ -796,7 +818,6 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   /** Where the pointing hand goes for the current tutorial step (polled). */
   function updateTutorial() {
     const step = tutorialRef.current;
-    if (step <= 0) return setHand(null);
     const flightWith = (w: number) => ctrl.state.flights.find((f) => (f.wants & (1 << w)) !== 0);
     const atBubble = (w: number, text: TKey) => {
       const f = flightWith(w);
@@ -810,6 +831,25 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const p = barPos.current[id];
       setHand(p ? { x: p.x, y: p.y - 14, text } : null);
     };
+    if (step <= 0) {
+      // "show me" from the goal card: point at the button (or a plane) for a few seconds
+      const sm = showMe.current;
+      if (!sm || performance.now() > sm.until) {
+        showMe.current = null;
+        return setHand(null);
+      }
+      if (sm.target === 'flight') {
+        const f = ctrl.state.flights.find((x) => x.want !== WANT.none);
+        if (f) return atBubble(f.want, 'goal.tapBubble');
+        // nothing to do right now: point at a plane and say when to tap
+        const any = ctrl.state.flights[0];
+        if (!any) return setHand(null);
+        const b = bubbleAnchor(any, cam.zoom);
+        return setHand({ x: (b.x - cam.x) * cam.zoom + cam.viewW / 2, y: (b.y - cam.y) * cam.zoom + cam.viewH / 2 - 10, text: 'goal.waitBubble' });
+      }
+      if (sm.target) return atBar(sm.target, 'goal.tapHere');
+      return setHand(null);
+    }
     if (step === 1) atBubble(WANT.clearLanding, 'tut.land');
     else if (step === 2) {
       const f = flightWith(WANT.bags) ?? flightWith(WANT.fuel);
@@ -857,7 +897,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             safe.current.top = insets.top + 6 + e.nativeEvent.layout.height;
           }}
         >
-          <Hud data={hud} onSettings={() => setSettings(true)} onCoinPos={onCoinPos} bump={bump} />
+          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
@@ -870,6 +910,25 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           </View>
         ) : null}
       </View>
+      {goal && !card && !panel && !welcome && !settings ? (
+        <View style={[styles.goal, { top: safe.current.top + 4 }, rtl ? { right: 10 + insets.right } : { left: 10 + insets.left }]} pointerEvents="box-none">
+          <GoalCard
+            goal={goal}
+            open={now < goalOpen.current.until}
+            onToggle={() => {
+              goalOpen.current.until = now < goalOpen.current.until ? 0 : Infinity;
+              setNow(performance.now());
+            }}
+            onHelp={() => setPanel('help')}
+            onShow={() => {
+              const g = currentGoal(ctrl.state);
+              showMe.current = { target: g?.target ?? null, until: performance.now() + 5000 };
+              updateTutorial();
+            }}
+          />
+        </View>
+      ) : null}
+      {panel === 'help' ? <HelpPanel tier={ctrl.state.tier} onClose={() => setPanel(null)} /> : null}
       {card ? (
         <View
           style={[styles.bottom, { paddingBottom: insets.bottom + 10 }, wide && styles.bottomWide, wide && (rtl ? { left: 10 } : { right: 10 })]}
@@ -1070,6 +1129,7 @@ const styles = StyleSheet.create({
   buildDone: { backgroundColor: C.green, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 },
   buildDoneText: { color: '#fff', fontWeight: '800' },
   hand: { position: 'absolute', alignItems: 'center', width: 220 },
+  goal: { position: 'absolute' },
   handBubble: { marginTop: 2, backgroundColor: C.text, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 220 },
   handText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
   skip: { position: 'absolute', right: 12, backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },

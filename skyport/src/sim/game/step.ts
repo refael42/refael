@@ -13,6 +13,7 @@ import { updateBuilds } from './upgrades';
 import type { GameState } from './types';
 import { updateVehicles } from './vehicles';
 import { updateSupplies } from './supplies';
+import { updateGoals } from './goals';
 
 /** Advances the game by one fixed step. dt must be DT (kept for clarity). */
 export function stepGame(s: GameState, dt: number = DT): void {
@@ -38,6 +39,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateAirlines(s);
   updateBuilds(s, dt);
   updateTierBuild(s, dt);
+  updateGoals(s);
   rollIncome(s);
   pruneEvents(s);
 }

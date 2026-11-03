@@ -350,5 +350,28 @@ export default [
       console.log(`     pinch zoom: ${z0.toFixed(2)} -> ${z1.toFixed(2)} -> ${z2.toFixed(2)}`);
     },
   },
+  { name: 'help-panel', viewport: { width: 844, height: 390 }, query: '/?seed=2&warp=60&panel=help', wait: 2000, touch: true },
+  { name: 'help-panel-tablet', viewport: { width: 1180, height: 820 }, query: '/?seed=2&tier=3&warp=60&panel=help', wait: 2000, touch: true, scale: 1, langs: ['he'] },
+  {
+    // the goal card: "show me" points the hand at the right button
+    name: 'goal-show',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=6&warp=200&auto=1&hook=1',
+    wait: 2000,
+    touch: true,
+    actions: async (page) => {
+      await page.getByTestId('goal-card').waitFor({ timeout: 5000 });
+      await page.getByTestId('goal-show').click();
+      await page.waitForTimeout(700);
+      await page.screenshot({ path: 'artifacts/screens/goal-show-hand-' + (await page.evaluate(() => document.documentElement.dir || 'ltr')) + '.png' });
+      // tapping the header folds the card into a chip; tapping the chip opens it again
+      await page.getByLabel(/Fold the goal|קיפול המשימה/).click();
+      await page.getByTestId('goal-chip').waitFor({ timeout: 3000 });
+      await page.getByTestId('goal-chip').click();
+      await page.getByTestId('goal-card').waitFor({ timeout: 3000 });
+      await page.getByLabel(/Fold the goal|קיפול המשימה/).click();
+      await page.getByTestId('goal-chip').waitFor({ timeout: 3000 });
+    },
+  },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

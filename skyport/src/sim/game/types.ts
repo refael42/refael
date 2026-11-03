@@ -78,7 +78,9 @@ export type GameEventKind =
   /** a: flight id, b: check (1 A, 2 B). */
   | 'checkRequest'
   /** a: flight id, b: fee, c: check. */
-  | 'checkDone';
+  | 'checkDone'
+  /** a: goal index, b: reward. */
+  | 'goalDone';
 
 export interface GameEvent {
   id: number;
@@ -571,6 +573,8 @@ export interface GameState {
   nextGuestAt: number;
   /** When the next airline may send a plane in for a check (transient). */
   nextCheckAt: number;
+  /** Index of the goal being worked on (GOALS in goals.ts). */
+  goal: number;
   /** Fuel farm and spare-parts store, and the deliveries on their way. */
   stores: { fuel: StoreState; parts: StoreState };
   deliveries: Delivery[];

@@ -26,6 +26,7 @@ import { DAY_SECONDS } from './game/clock';
 import { normalizeSeed } from './rng';
 import { STORES } from '../data/supplies';
 import { capacity, incoming, STORE_KINDS } from './game/supplies';
+import { GOALS, skipDoneGoals } from './game/goals';
 
 export const SAVE_KEY = 'skyport.save.v1';
 
@@ -64,6 +65,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     offers: s.offers.map((o) => ({ ...o, al: AIRLINES[o.al]?.id })),
     rep: Object.fromEntries(AIRLINES.map((a, i) => [a.id, s.rep[i] ?? REP_START])),
     nextOfferAt: s.nextOfferAt,
+    goal: s.goal,
     // what is still on its way was paid for: it is saved as if it had arrived
     stores: Object.fromEntries(STORE_KINDS.map((k) => [k, { stock: s.stores[k].stock + incoming(s, k), supplier: s.stores[k].supplier }])),
     upg: s.upg,
@@ -370,6 +372,9 @@ export function cleanGame(raw: unknown): GameState | null {
   // recomputed, not loaded
   s.upgRev = 1;
   applyStructural(s);
+  // goals: a save from before them skips what is already done (no back pay)
+  if (typeof raw.goal === 'number') s.goal = int(raw.goal, 0, 0, GOALS.length);
+  else skipDoneGoals(s);
   ensureHoldArrays(s);
   if (s.applicants.length === 0) refreshApplicants(s);
   s.nextArrival = s.time + 3;
