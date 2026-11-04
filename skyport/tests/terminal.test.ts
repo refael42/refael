@@ -227,7 +227,7 @@ describe('terminal save', () => {
 });
 
 describe('the terminal building', () => {
-  for (const tier of [2, 3, 4, 5]) {
+  for (const tier of [2, 3, 4, 5, 6]) {
     it(`tier ${tier}: nobody walks through a wall (in and out only by the doors)`, () => {
       const s = createGame(40 + tier);
       switchTier(s, tier);
@@ -237,6 +237,7 @@ describe('the terminal building', () => {
       s.upg.kiosk = 3;
       if (tier >= 3) s.upg.standMed = 2;
       if (tier >= 4) s.upg.gates = 2;
+      if (tier >= 6) s.upg.gatesD = 3;
       s.upgRev++;
       applyStructural(s);
       stockUp(s);
@@ -256,7 +257,7 @@ describe('the terminal building', () => {
       }
       const L = layoutOf(tier);
       expect(L.building).toBeDefined();
-      const walls = [...buildingWalls(L.building!), ...(L.t3 ? buildingWalls(L.t3.building) : [])];
+      const walls = [...buildingWalls(L.building!), ...(L.t3 ? buildingWalls(L.t3.building) : []), ...(L.sat ? buildingWalls(L.sat.building) : [])];
       let inT3 = 0;
       const seen = new Map<number, [number, number]>();
       let moves = 0;
@@ -267,7 +268,8 @@ describe('the terminal building', () => {
         for (const p of s.people) {
           const last = seen.get(p.id);
           if (last) {
-            const crossed = crossesWall(walls, last, [p.x, p.y]);
+            // (people-mover riders move with the train, through the openings its track runs through)
+            const crossed = p.state !== PST.inApm && p.state !== PST.inApmA && crossesWall(walls, last, [p.x, p.y]);
             if (crossed) throw new Error(`person ${p.id} (state ${p.state}) went through a wall from ${last} to ${p.x.toFixed(2)},${p.y.toFixed(2)}`);
             moves++;
           }

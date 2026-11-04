@@ -448,6 +448,24 @@ export default [
       await page.waitForFunction(() => window.__skyport && window.__skyport.buses().some((b) => b.state !== 'idle' && b.x > 23), null, { timeout: 60000 });
     },
   },
+  // the hub: the whole airport, Concourse D, the people mover between the terminals, the railway station
+  ...[
+    ['hub-overview', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=50,17,0.42', ['he', 'en'], () => window.__skyport.terminals().t3 >= 8],
+    ['hub-concourse-d', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=67.5,15.4,1.05', ['he', 'en'], () => window.__skyport.apm().inD >= 14],
+    ['hub-apm', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=57.6,15.6,1.7', ['en'], () => window.__skyport.apm().state === 'run' && window.__skyport.apm().load > 0 && Math.abs(window.__skyport.apm().x - 58) < 1.2],
+    ['hub-rail', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=49.5,3.4,1.25', ['en'], () => window.__skyport.rail() && window.__skyport.rail().dwell && window.__skyport.rail().dwellT > 7],
+  ].map(([name, query, langs, ready]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query,
+    wait: 1200,
+    touch: true,
+    langs,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.apm, null, { timeout: 40000 });
+      await page.waitForFunction(ready, null, { timeout: 90000, polling: 50 });
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

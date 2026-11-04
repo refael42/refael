@@ -56,6 +56,8 @@ export const GOALS: readonly GoalDef[] = [
   { id: 'cargo', reward: 600, target: 'upgrades', progress: (s) => one(upg(s, 'cargoApron') > 0) },
   { id: 'tier5', reward: 1000, target: 'airport', progress: (s) => one(s.tier >= 5) },
   { id: 'helipad', reward: 800, target: 'upgrades', progress: (s) => one(upg(s, 'helipad') > 0) },
+  { id: 'tier6', reward: 1500, target: 'airport', progress: (s) => one(s.tier >= 6) },
+  { id: 'gatesD', reward: 1200, target: 'upgrades', progress: (s) => one(upg(s, 'gatesD') > 0) },
 ];
 
 /** The goal to work on now (null when all are done). */

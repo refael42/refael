@@ -499,9 +499,58 @@ function limo(): StackPart[] {
   return parts;
 }
 
+/**
+ * People-mover car: a white capsule on a dark running gear, a band of tall
+ * windows all round, a sky-blue stripe, two pairs of sliding doors on each
+ * side, glass ends with lights at both (it runs both ways).
+ */
+function apmCar(): StackPart[] {
+  const body = '#f8fafc';
+  const parts: StackPart[] = [];
+  parts.push(boxPart(-0.28, -0.1, 0.28, 0.1, 0.0, 0.04, () => '#334155', { outline: false }));
+  parts.push(rbox(-0.327, -0.138, 0.327, 0.138, 0.04, 0.27, 0.07, (t) => paint(body, t), { dots: [...lights(0.329, 0.08, 0.075, '#fff7d6', 0.012), ...lights(-0.329, 0.08, 0.075, '#fff7d6', 0.012)] }));
+  for (const v of [-0.14, 0.138]) {
+    parts.push(boxPart(-0.28, v, 0.28, v + 0.002, 0.125, 0.235, () => GLASS, { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.3, v, 0.3, v + 0.002, 0.08, 0.105, () => '#0ea5e9', { outline: false, bias: 2 }));
+    for (const u0 of [-0.17, 0.07]) parts.push(boxPart(u0, v, u0 + 0.1, v + 0.002, 0.045, 0.24, () => '#cbd5e1', { outline: false, bias: 3 }));
+  }
+  for (const u of [0.3, -0.31]) parts.push(boxPart(u, -0.1, u + 0.01, 0.1, 0.125, 0.245, () => GLASS, { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.12, -0.07, 0.12, 0.07, 0.27, 0.295, () => '#e2e8f0', { outline: false, bias: 3 }));
+  return parts;
+}
+
+/**
+ * Double-deck commuter coach: white, two rows of windows, a red band, a blue
+ * skirt, two doors a side, a grey roof. The cab car has a sloped driver's
+ * end with a big windscreen and lights (the train runs east, cab first).
+ */
+function railCar(cab: boolean): StackPart[] {
+  const body = '#f1f5f9';
+  const parts: StackPart[] = [];
+  for (const u of [0.45, -0.45]) for (const v of [-0.12, 0.12]) parts.push(...wheel(u, v, 0.05, 0.03, '#475569'));
+  const u1 = cab ? 0.48 : 0.6;
+  parts.push(rbox(-0.6, -0.16, u1, 0.16, 0.05, 0.42, 0.03, (t) => paint(body, t)));
+  if (cab) {
+    parts.push(cabin(0.46, -0.16, 0.615, 0.16, 0.05, 0.4, 0.1, 0, (t) => paint(body, t), { dots: lights(0.62, 0.11, 0.1, '#fff7d6', 0.016) }));
+    parts.push(cabin(0.5, -0.13, 0.6, 0.13, 0.22, 0.37, 0.08, 0, glass, { outline: false, bias: 1 }));
+    parts.push(boxPart(0.47, -0.162, 0.6, 0.162, 0.215, 0.25, () => '#dc2626', { outline: false, bias: 2 }));
+    // the pantograph
+    parts.push(boxPart(0.1, -0.06, 0.3, 0.06, 0.42, 0.47, () => '#475569', { outline: false, bias: 4 }));
+  }
+  for (const v of [-0.162, 0.16]) {
+    parts.push(boxPart(-0.56, v, u1 - 0.04, v + 0.002, 0.13, 0.2, () => GLASS, { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.56, v, u1 - 0.04, v + 0.002, 0.27, 0.35, () => GLASS, { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.58, v, u1, v + 0.002, 0.215, 0.25, () => '#dc2626', { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.58, v, u1, v + 0.002, 0.055, 0.1, () => '#1d4ed8', { outline: false, bias: 2 }));
+    for (const u0 of [-0.42, 0.22]) parts.push(boxPart(u0, v, u0 + 0.11, v + 0.002, 0.07, 0.36, () => '#94a3b8', { outline: false, bias: 3 }));
+  }
+  parts.push(boxPart(-0.58, -0.13, u1 - 0.02, 0.13, 0.42, 0.44, () => '#cbd5e1', { outline: false, bias: 3 }));
+  return parts;
+}
+
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus' | 'apmCar' | 'railCar' | 'railCab';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -525,6 +574,12 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return limo();
     case 'apronBus':
       return apronBus();
+    case 'apmCar':
+      return apmCar();
+    case 'railCar':
+      return railCar(false);
+    case 'railCab':
+      return railCar(true);
   }
 }
 
@@ -540,4 +595,7 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   ambulance: { u: 0.083, v: 0, h: 0.285 },
   limo: { u: 0, v: 0, h: 0 },
   apronBus: { u: 0.3, v: 0, h: 0.32 },
+  apmCar: { u: 0, v: 0, h: 0 },
+  railCar: { u: 0, v: 0, h: 0 },
+  railCab: { u: 0, v: 0, h: 0 },
 };

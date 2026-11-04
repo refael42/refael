@@ -79,6 +79,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'fbo', category: 'apron', unlockTier: 3, maxLevel: 1, baseCost: 30000, growth: 1, effect: 'opens', per: 1, buildSeconds: [90], icon: 'star' },
   { id: 'standMed', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 20000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [90, 150], icon: 'plane' },
   { id: 'gates', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 300000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [150, 240], icon: 'plane' },
+  { id: 'gatesD', category: 'apron', unlockTier: 6, maxLevel: 3, baseCost: 2.5e7, growth: 2.2, effect: 'opens', per: 1, buildSeconds: [240, 300, 360], icon: 'plane' },
   { id: 'cargoApron', category: 'apron', unlockTier: 4, maxLevel: 1, baseCost: 500000, growth: 1, effect: 'opens', per: 1, buildSeconds: [180], icon: 'bag' },
   { id: 'helipad', category: 'apron', unlockTier: 5, maxLevel: 1, baseCost: 4e6, growth: 1, effect: 'opens', per: 1, buildSeconds: [120], icon: 'plane' },
   { id: 'hangar', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 40000, growth: 6, effect: 'opens', per: 1, buildSeconds: [150, 240], levelTier: [3, 4], icon: 'wrench' },

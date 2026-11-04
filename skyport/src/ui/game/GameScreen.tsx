@@ -75,6 +75,8 @@ import {
   type GameEvent,
   type GameState,
   type OfflineResult,
+  PST,
+  railTrain,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -927,6 +929,17 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       holiday: () => ({ holiday: ctrl.state.holiday, day: ctrl.state.holidayDay, today: ctrl.state.today }),
       terminals: () => ({ t1: ctrl.state.people.filter((p) => p.term === 0).length, t3: ctrl.state.people.filter((p) => p.term === 1).length }),
       buses: () => ctrl.state.buses.map((b) => ({ state: b.state, x: b.x, y: b.y, load: b.load.length })),
+      apm: () => {
+        const t = ctrl.state.apm;
+        const n = (st: number) => ctrl.state.people.filter((p) => p.state === st).length;
+        const b = layoutOf(ctrl.state.tier).sat?.building.box;
+        const inD = b ? ctrl.state.people.filter((p) => p.x > b[0] && p.x < b[2] && p.y > b[1] && p.y < b[3]).length : 0;
+        return { x: t?.x ?? 0, state: t?.state ?? 'none', at: t?.at ?? 0, load: t?.load.length ?? 0, waitT: n(PST.atApm), waitD: n(PST.atApmA), toD: n(PST.toApmA), inD };
+      },
+      rail: () => {
+        const r = layoutOf(ctrl.state.tier).rail;
+        return r ? { ...railTrain(r, ctrl.state.time), waiting: ctrl.state.people.filter((p) => p.state === PST.atRail).length } : null;
+      },
     };
     return () => {
       delete w.__skyport;

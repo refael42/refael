@@ -16,6 +16,7 @@ export { layoutOf, doorPoint } from './game/layout';
 export { onRunway, isGround, ARRIVAL_GAP, wantsAction, approachBlocker } from './game/flights';
 export { fuelProgress, serviceSeconds } from './game/vehicles';
 export { findRoute, graphOf, routeGeometry } from './game/graph';
+export { railTrain } from './game/rail';
 export * from './game/staff';
 export * from './game/upgrades';
 export { incomeRate, componentRates } from './game/income';

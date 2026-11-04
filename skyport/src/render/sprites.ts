@@ -52,6 +52,7 @@ import {
   type TreeKind,
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
+import { drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
 import {
   drawAtm,
@@ -68,12 +69,14 @@ import {
   drawGarage,
   drawGateDesk,
   drawInfoDesk,
+  drawKidsPlay,
   drawPottedPlant,
   drawRental,
   drawRestrooms,
   drawSeats,
   drawSelfCheckin,
   drawShelf,
+  drawSculpture,
   drawSign,
   drawSofa,
   drawTable,
@@ -93,7 +96,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus', 'apmCar', 'railCar', 'railCab'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3, blue: 4, pink: 5, purple: 6, gold: 7 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020', '#3b82f6', '#ec4899', '#a855f7', '#facc15'];
@@ -142,6 +145,9 @@ const PROP_KINDS: readonly FurnitureKind[] = [
   'signLounge',
   'signPassport',
   'signCustoms',
+  'signTrain',
+  'kidsPlay',
+  'sculpture',
 ];
 const SIGN_OF: Partial<Record<FurnitureKind, SignKind>> = {
   signCheckin: 'checkin',
@@ -155,7 +161,10 @@ const SIGN_OF: Partial<Record<FurnitureKind, SignKind>> = {
   signLounge: 'lounge',
   signPassport: 'passport',
   signCustoms: 'customs',
+  signTrain: 'train',
 };
+/** Pieces of the platform roof at the railway station are this long (tiles). */
+export const ROOF_SEG = 1.3;
 /** Furniture with looks (variant = Furniture.n). */
 export const SHELF_VARIANTS = 4;
 export const STALL_VARIANTS = 3;
@@ -179,7 +188,7 @@ export interface Content {
 }
 
 /** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
-const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3 };
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3, apmCar: 6, railCar: 6, railCab: 6 };
 
 export interface SpriteSet {
   atlas: Atlas;
@@ -229,6 +238,10 @@ export interface SpriteSet {
   foodStall: (variant: number) => number;
   garage: number;
   busStop: number;
+  /** The railway (hub): tunnel portals (west shows its arch), a piece of the platform roof (with or without a post), the entrance pavilion. */
+  tunnelPortal: (west: boolean) => number;
+  platformRoof: (post: boolean) => number;
+  stationHall: number;
   /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
   stretcher: number;
   rope: (alongY: boolean) => number;
@@ -474,6 +487,10 @@ export function buildSprites(content: Content): SpriteSet {
           return drawCustomsDesk(pen);
         case 'rental':
           return drawRental(pen);
+        case 'kidsPlay':
+          return drawKidsPlay(pen);
+        case 'sculpture':
+          return drawSculpture(pen);
       }
     });
   }
@@ -483,6 +500,9 @@ export function buildSprites(content: Content): SpriteSet {
   for (let k = 0; k < STALL_VARIANTS; k++) b.add(-0.3 * T, -1.0 * T, 1.1 * T, 0.8 * T, (c, ox, oy) => drawFoodStall(new IsoPen(c, ox, oy, S), k));
   const garage = b.add(-(GARAGE_SIZE[1] + 0.5) * T, -1.8 * T, (GARAGE_SIZE[0] + 0.5) * T, ((GARAGE_SIZE[0] + GARAGE_SIZE[1]) * 0.5 + 0.5) * T, (c, ox, oy) => drawGarage(new IsoPen(c, ox, oy, S), GARAGE_SIZE[0], GARAGE_SIZE[1]));
   const busStop = b.add(-0.4 * T, -0.8 * T, 1.2 * T, 0.8 * T, (c, ox, oy) => drawBusStop(new IsoPen(c, ox, oy, S)));
+  const portals = [true, false].map((west) => b.add(-2.0 * T, -1.6 * T, 2.0 * T, 1.6 * T, (c, ox, oy) => drawTunnelPortal(new IsoPen(c, ox, oy, S), west)));
+  const roofs = [true, false].map((post) => b.add(-0.6 * T, -1.2 * T, (ROOF_SEG + 0.6) * T, (ROOF_SEG * 0.5 + 0.8) * T, (c, ox, oy) => drawPlatformRoof(new IsoPen(c, ox, oy, S), ROOF_SEG, post)));
+  const stationHall = b.add(-1.0 * T, -1.3 * T, 1.8 * T, 1.4 * T, (c, ox, oy) => drawStationHall(new IsoPen(c, ox, oy, S)));
   const stretcher = b.add(-14 * S, -12 * S, 14 * S, 8 * S, (c, ox, oy) => drawStretcher(new IsoPen(c, ox, oy, S)));
   const ropeX = b.add(-0.2 * T, -0.5 * T, (ROPE_X + 0.2) * T, (ROPE_X * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_X, false));
   const ropeY = b.add(-(ROPE_Y + 0.2) * T, -0.5 * T, 0.2 * T, (ROPE_Y * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_Y, true));
@@ -674,6 +694,9 @@ export function buildSprites(content: Content): SpriteSet {
     foodStall: (v) => stallBase + (((v % STALL_VARIANTS) + STALL_VARIANTS) % STALL_VARIANTS),
     garage,
     busStop,
+    tunnelPortal: (west) => portals[west ? 0 : 1],
+    platformRoof: (post) => roofs[post ? 0 : 1],
+    stationHall,
     stretcher,
     rope: (alongY) => (alongY ? ropeY : ropeX),
     ticketBooth,

@@ -7,7 +7,7 @@
  */
 import type { P2 } from './tiers';
 
-export type ZoneKind = 'checkin' | 'security' | 'departures' | 'arrivals' | 'passport' | 'dutyFree' | 'food' | 'lounge' | 'gates' | 'customs';
+export type ZoneKind = 'checkin' | 'security' | 'departures' | 'arrivals' | 'passport' | 'dutyFree' | 'food' | 'lounge' | 'gates' | 'customs' | 'station';
 
 export type Box = readonly [number, number, number, number];
 
@@ -19,7 +19,8 @@ export interface WallLine {
   kind: 'back' | 'front' | 'glass';
 }
 
-export type DoorKind = 'entrance' | 'exit' | 'gate' | 'arrivals' | 'service';
+/** train: where the people-mover track runs through the wall (nobody walks there). */
+export type DoorKind = 'entrance' | 'exit' | 'gate' | 'arrivals' | 'service' | 'train';
 
 export interface DoorDef {
   kind: DoorKind;
@@ -60,7 +61,11 @@ export type FurnitureKind =
   | 'signFood'
   | 'signLounge'
   | 'signPassport'
-  | 'signCustoms';
+  | 'signCustoms'
+  // the hub
+  | 'signTrain'
+  | 'kidsPlay'
+  | 'sculpture';
 
 export interface Furniture {
   kind: FurnitureKind;
@@ -360,3 +365,140 @@ export const T3_CAROUSELS: readonly P2[] = [
   [50.3, 12.05],
   [52.0, 12.05],
 ];
+
+/** Terminal 3 grows east at the hub: a bigger arrivals side with a fourth carousel. */
+export const T3_HUB_CAROUSELS: readonly P2[] = [...T3_CAROUSELS, [53.8, 12.05]];
+
+/**
+ * Terminal 3 at the hub: three tiles wider to the east. The arrivals side gets
+ * a third exit, a fourth carousel and more passport booths; the end of the
+ * concourse becomes the station of the people mover to Concourse D.
+ */
+export const T3_HUB: TerminalBuilding = {
+  ...T3,
+  box: [39.5, 8.0, 56.0, 17.3],
+  zones: [
+    { kind: 'checkin', box: [39.5, 8.0, 47.5, 10.8] },
+    { kind: 'arrivals', box: [47.5, 8.0, 56.0, 10.8] },
+    { kind: 'security', box: [39.5, 10.8, 47.5, 13.2] },
+    { kind: 'customs', box: [47.5, 10.8, 56.0, 13.2] },
+    { kind: 'passport', box: [39.5, 13.2, 42.5, 15.8] },
+    { kind: 'dutyFree', box: [42.5, 13.2, 46.5, 15.8] },
+    { kind: 'food', box: [46.5, 13.2, 49.5, 15.8] },
+    { kind: 'passport', box: [49.5, 13.2, 56.0, 15.8] },
+    { kind: 'lounge', box: [39.5, 15.8, 41.6, 17.3] },
+    { kind: 'gates', box: [41.6, 15.8, 53.2, 17.3] },
+    { kind: 'station', box: [53.2, 15.8, 56.0, 17.3] },
+  ],
+  // (the walls that ended at the old east wall now run on to the new one)
+  partitions: T3.partitions.map((w) => (w.b[0] === 53.0 && w.a[1] === w.b[1] ? { ...w, b: [56.0, w.b[1]] as P2 } : w)),
+  doors: [...T3.doors, { kind: 'exit', at: [54.6, 8.0], width: 0.8 }, { kind: 'train', at: [56.0, 16.95], width: 0.6 }],
+  furniture: [
+    ...T3.furniture,
+    // the bigger arrivals hall
+    { kind: 'info', at: [53.3, 9.7] },
+    { kind: 'rental', at: [55.45, 8.3] },
+    { kind: 'sculpture', at: [54.6, 9.75] },
+    { kind: 'plant', at: [55.75, 10.55] },
+    { kind: 'bin', at: [53.75, 10.6] },
+    { kind: 'signExit', at: [54.6, 8.35] },
+    { kind: 'plant', at: [55.75, 12.95] },
+    // the people-mover station at the end of the concourse
+    { kind: 'signTrain', at: [54.6, 15.95] },
+    { kind: 'board', at: [53.6, 15.88] },
+    { kind: 'bin', at: [55.8, 16.05] },
+  ],
+};
+
+/**
+ * Concourse D (the hub): a satellite in the apron east of Terminal 3 with
+ * three big gates, reached by the people mover. Its own duty free, a food
+ * court, a business lounge and a play corner; the station at the west end.
+ */
+export const CONCOURSE_D: TerminalBuilding = {
+  box: [60.0, 13.4, 77.0, 17.6],
+  height: 0.62,
+  zones: [
+    { kind: 'dutyFree', box: [60.0, 13.4, 65.4, 15.7] },
+    { kind: 'food', box: [65.4, 13.4, 70.6, 15.7] },
+    { kind: 'lounge', box: [70.6, 13.4, 77.0, 15.7] },
+    { kind: 'station', box: [60.0, 15.7, 62.9, 17.6] },
+    { kind: 'gates', box: [62.9, 15.7, 77.0, 17.6] },
+  ],
+  partitions: [
+    // the lounge has its own door off the concourse; the shops and the food court are open to it
+    { a: [70.6, 13.4], b: [70.6, 15.7], kind: 'glass' },
+    { a: [70.6, 15.7], b: [72.6, 15.7], kind: 'glass' },
+    { a: [73.4, 15.7], b: [77.0, 15.7], kind: 'glass' },
+  ],
+  doors: [
+    { kind: 'train', at: [60.0, 16.95], width: 0.6 },
+    // the jet bridges (D1, D2, D3)
+    { kind: 'gate', at: [63.7, 17.6], width: 0.5 },
+    { kind: 'gate', at: [68.3, 17.6], width: 0.5 },
+    { kind: 'gate', at: [73.1, 17.6], width: 0.5 },
+    { kind: 'service', at: [77.0, 14.6], width: 0.5 },
+  ],
+  furniture: [
+    // duty free: shelves along the back wall and two islands, the till
+    { kind: 'shelf', at: [60.5, 13.55], n: 0 },
+    { kind: 'shelf', at: [61.4, 13.55], n: 1 },
+    { kind: 'shelf', at: [62.3, 13.55], n: 2 },
+    { kind: 'shelf', at: [63.2, 13.55], n: 3 },
+    { kind: 'shelf', at: [64.1, 13.55], n: 0 },
+    { kind: 'shelf', at: [61.3, 14.55], n: 2 },
+    { kind: 'shelf', at: [62.7, 14.55], n: 1 },
+    { kind: 'till', at: [64.6, 14.75] },
+    { kind: 'signDutyFree', at: [62.4, 15.55] },
+    // the food court
+    { kind: 'foodStall', at: [65.6, 13.45], n: 0 },
+    { kind: 'foodStall', at: [66.6, 13.45], n: 1 },
+    { kind: 'foodStall', at: [67.6, 13.45], n: 2 },
+    { kind: 'foodStall', at: [68.6, 13.45], n: 0 },
+    { kind: 'foodStall', at: [69.6, 13.45], n: 1 },
+    { kind: 'table', at: [66.0, 14.55] },
+    { kind: 'table', at: [67.0, 14.55] },
+    { kind: 'table', at: [68.0, 14.55] },
+    { kind: 'table', at: [69.0, 14.55] },
+    { kind: 'table', at: [66.5, 15.25] },
+    { kind: 'table', at: [68.5, 15.25] },
+    { kind: 'signFood', at: [68.0, 15.55] },
+    { kind: 'wc', at: [70.15, 15.2] },
+    // the business lounge
+    { kind: 'sofa', at: [71.0, 13.65] },
+    { kind: 'sofa', at: [71.85, 13.65] },
+    { kind: 'sofa', at: [72.7, 13.65] },
+    { kind: 'sofa', at: [74.6, 13.65] },
+    { kind: 'sofa', at: [75.45, 13.65] },
+    { kind: 'sofa', at: [71.0, 14.75] },
+    { kind: 'sofa', at: [75.45, 14.75] },
+    { kind: 'table', at: [73.6, 14.6] },
+    { kind: 'plant', at: [76.75, 13.65] },
+    { kind: 'plant', at: [70.85, 15.45] },
+    { kind: 'signLounge', at: [73.0, 15.55] },
+    // the station
+    { kind: 'signTrain', at: [61.5, 15.85] },
+    { kind: 'board', at: [62.6, 15.78] },
+    // the concourse: rows of seats by each gate, gate desks, signs, boards, a play corner
+    { kind: 'seats', at: [62.95, 16.65], n: 4 },
+    { kind: 'seats', at: [62.95, 17.15], n: 4 },
+    { kind: 'seats', at: [67.15, 16.65], n: 5 },
+    { kind: 'seats', at: [67.15, 17.15], n: 5 },
+    { kind: 'seats', at: [71.95, 16.65], n: 5 },
+    { kind: 'seats', at: [71.95, 17.15], n: 5 },
+    { kind: 'gateDesk', at: [63.1, 17.25] },
+    { kind: 'gateDesk', at: [67.7, 17.25] },
+    { kind: 'gateDesk', at: [72.5, 17.25] },
+    { kind: 'signGate', at: [63.7, 16.9] },
+    { kind: 'signGate', at: [68.3, 16.9] },
+    { kind: 'signGate', at: [73.1, 16.9] },
+    { kind: 'board', at: [66.0, 15.78] },
+    { kind: 'board', at: [70.9, 15.78] },
+    { kind: 'kidsPlay', at: [75.4, 16.3] },
+    { kind: 'water', at: [76.6, 17.2] },
+    { kind: 'plant', at: [65.6, 17.35] },
+    { kind: 'plant', at: [70.4, 17.35] },
+    { kind: 'bin', at: [65.2, 15.95] },
+    { kind: 'bin', at: [70.0, 15.95] },
+  ],
+};

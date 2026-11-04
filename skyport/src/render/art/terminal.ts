@@ -210,7 +210,7 @@ export function drawPottedPlant(p: IsoPen): void {
   for (const [x, y, z, r, c] of leaves) p.circle(x, y, z, r, c);
 }
 
-export type SignKind = 'checkin' | 'security' | 'gate' | 'arrivals' | 'exit' | 'baggage' | 'dutyFree' | 'food' | 'lounge' | 'passport' | 'customs';
+export type SignKind = 'checkin' | 'security' | 'gate' | 'arrivals' | 'exit' | 'baggage' | 'dutyFree' | 'food' | 'lounge' | 'passport' | 'customs' | 'train';
 
 /** A hanging sign: a dark board under the ceiling line with a yellow pictogram (green for the exit). */
 export function drawSign(p: IsoPen, kind: SignKind): void {
@@ -284,7 +284,40 @@ export function drawSign(p: IsoPen, kind: SignKind): void {
       L(0.1, 0, 0.05, 0.035, 1.8);
       L(0.1, 0, 0.05, -0.035, 1.8);
       break;
+    case 'train':
+      // the front of a train: the body, its windscreen, two lights, the rail
+      p.box(-0.05, y, 0.05, y + 0.001, z - 0.04, z + 0.05, c, false);
+      p.box(-0.035, y + 0.0015, 0.035, y + 0.002, z + 0.005, z + 0.035, '#1e293b', false);
+      L(-0.08, -0.055, 0.08, -0.055, 1.2);
+      break;
   }
+}
+
+/** A play corner: a soft mat, a little slide, a rocking animal and balls. */
+export function drawKidsPlay(p: IsoPen): void {
+  p.shadow(0.4, 0.3, 26, 12, 0.14);
+  p.box(-0.1, -0.05, 0.9, 0.6, 0, 0.03, '#86efac');
+  p.box(0.05, 0.05, 0.25, 0.25, 0.03, 0.3, '#f97316');
+  p.box(0.03, 0.03, 0.27, 0.27, 0.3, 0.33, '#facc15');
+  p.poly([0.25, 0.08, 0.3, 0.62, 0.08, 0.05, 0.62, 0.22, 0.05, 0.25, 0.22, 0.3], '#38bdf8');
+  p.box(0.55, 0.38, 0.75, 0.46, 0.05, 0.16, '#f472b6');
+  p.box(0.7, 0.38, 0.78, 0.46, 0.16, 0.24, '#f472b6');
+  const balls: [number, number, string][] = [
+    [0.2, 0.45, '#ef4444'],
+    [0.35, 0.52, '#3b82f6'],
+    [0.82, 0.12, '#facc15'],
+    [0.45, 0.36, '#22c55e'],
+  ];
+  for (const [x, by, col] of balls) p.circle(x, by, 0.06, 2.6, col);
+}
+
+/** An art piece in the arrivals hall: a big folded paper plane on a pole over a stone plinth. */
+export function drawSculpture(p: IsoPen): void {
+  p.shadow(0.2, 0.2, 18, 9, 0.16);
+  p.box(0, 0, 0.4, 0.4, 0, 0.12, '#e7e5e4');
+  p.line(0.2, 0.2, 0.12, 0.2, 0.2, 0.62, '#475569', 1.6);
+  p.poly([-0.1, 0.25, 0.66, 0.6, 0.05, 0.86, 0.35, 0.24, 0.66], '#f8fafc');
+  p.poly([-0.1, 0.25, 0.66, 0.6, 0.05, 0.86, 0.42, 0.44, 0.56], '#cbd5e1');
 }
 
 /** The baggage room behind the terminal: a shed with a roller door where the belt comes in. */

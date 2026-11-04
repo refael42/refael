@@ -2,7 +2,7 @@
  * Airport tiers and their layouts. World units are tiles. The runway runs
  * along +x (landing toward +x); screen up-left is west (-x).
  */
-import { T1, T1_DOORS, T3, T3_CAROUSELS, type TerminalBuilding, type TerminalDoors } from './terminals';
+import { CONCOURSE_D, T1, T1_DOORS, T3, T3_CAROUSELS, T3_HUB, T3_HUB_CAROUSELS, type TerminalBuilding, type TerminalDoors } from './terminals';
 import type { StandSize } from './aircraft';
 
 export type P2 = readonly [number, number];
@@ -108,6 +108,10 @@ export interface TierLayout {
   radar?: P2;
   /** Terminal 3 (from the city airport on): the big terminal for the big jets, with its own road and garage. */
   t3?: { st: Stations; building: TerminalBuilding; road: readonly P2[]; garage: readonly [number, number, number, number] };
+  /** The hub: a satellite concourse in the apron, reached from Terminal 3 by a people mover. */
+  sat?: Satellite;
+  /** The hub: a railway along the north edge with a station by Terminal 3. */
+  rail?: Rail;
   /** Spots for things upgrades add to the scene. */
   decor: { kiosk: P2; billboard: P2; benches: readonly P2[] };
   windsock: P2;
@@ -160,6 +164,31 @@ export interface Stations {
   customs?: readonly P2[];
   /** Where the apron buses stop in front of the terminal (for the remote stands). */
   busStop?: P2;
+}
+
+/** An area x0, y0, x1, y1 (tiles). */
+export type Area = readonly [number, number, number, number];
+
+export interface Satellite {
+  building: TerminalBuilding;
+  /** The people mover: its track (along x at y, from x0 to x1) and where the train stops at Terminal 3 and at the satellite. */
+  apm: { y: number; x0: number; x1: number; stopT: number; stopS: number };
+  /** Where people wait for the train on each platform. */
+  platformT: Area;
+  platformS: Area;
+}
+
+export interface Rail {
+  /** Track line (along x) and where the middle of the train stops. */
+  y: number;
+  stop: number;
+  /** The platform, and the footpath from it to the Terminal 3 curb. */
+  platform: Area;
+  path: readonly P2[];
+  /** Where the line comes out of its tunnels (west and east). */
+  portals: readonly [number, number];
+  /** The station's entrance pavilion (its corner). */
+  hall: P2;
 }
 
 export interface Depot {
@@ -860,13 +889,119 @@ const INTERNATIONAL: TierLayout = {
   camera: { center: [33, 25.5], zoom: 0.4 },
 };
 
+/** Terminal 3 at the hub: a fourth carousel, a third exit and five passport booths for arrivals. */
+const T3_HUB_ST: Stations = {
+  ...T3_INTL,
+  carousels: T3_HUB_CAROUSELS,
+  exits: [
+    [49.6, 8.0],
+    [52.0, 8.0],
+    [54.6, 8.0],
+  ],
+  arrPassport: {
+    booths: [
+      [50.3, 14.2],
+      [51.3, 14.2],
+      [52.3, 14.2],
+      [53.3, 14.2],
+      [54.3, 14.2],
+    ],
+    queue: [
+      [52.3, 14.95],
+      [55.3, 14.95],
+      [55.3, 15.35],
+      [50.0, 15.35],
+    ],
+  },
+};
+
+/** At the hub Terminal 3's road leaves to the east (the railway runs along the north edge). */
+const T3_ROAD_HUB: readonly P2[] = [
+  [39.4, 7.25],
+  [57.4, 7.25],
+  [58.6, 6.0],
+  [58.6, 4.3],
+  [59.8, 3.5],
+  [92, 3.5],
+];
+
+/** Concourse D and the people mover from the end of Terminal 3's concourse. */
+const HUB_SAT: Satellite = {
+  building: CONCOURSE_D,
+  apm: { y: 16.95, x0: 53.4, x1: 62.7, stopT: 54.55, stopS: 61.55 },
+  platformT: [53.5, 16.05, 55.8, 16.45],
+  platformS: [60.3, 16.0, 62.7, 16.45],
+};
+
+/** The railway along the north edge and its station by the Terminal 3 garage. */
+const HUB_RAIL: Rail = {
+  y: 1.3,
+  stop: 49.8,
+  platform: [45.9, 1.62, 53.7, 2.45],
+  path: [
+    [49.8, 2.7],
+    [48.6, 6.3],
+  ],
+  portals: [27.5, 84.5],
+  hall: [51.4, 2.7],
+};
+
+/**
+ * Tier 6, the hub: the taxiway runs on east past the cargo apron (moved to the
+ * far end) to a new lane in front of Concourse D, a satellite with three big
+ * gates. The planes for the gates by Terminal 3 turn off straight from the
+ * parallel taxiway; departures heading east turn off it before the new lane.
+ */
+const HUB_NODES = Object.fromEntries(Object.entries(INTERNATIONAL.taxi.nodes).filter(([id]) => id !== 'T6')) as Record<string, P2>;
+const HUB: TierLayout = {
+  ...INTERNATIONAL,
+  world: { w: 90, h: 52 },
+  field: { x0: 6, y0: 12.4, x1: 85, y1: 36.6 },
+  taxi: {
+    ...INTERNATIONAL.taxi,
+    nodes: { ...HUB_NODES, K4: [82.6, 25.6], T8: [82.0, 24.7], Ca: [81.0, 23.9], Da: [76.6, 23.9], Db: [71.4, 23.9], Dc: [66.6, 23.9], Dd: [62.0, 23.9] },
+    edges: [
+      ...INTERNATIONAL.taxi.edges.filter(([a, b]) => !(a === 'K3' && b === 'T6') && !(a === 'T6' && b === 'Na')),
+      ['K3', 'Na'],
+      ['K3', 'K4'],
+      ['K4', 'T8'],
+      ['T8', 'Ca'],
+      ['Ca', 'Da'],
+      ['Da', 'Db'],
+      ['Db', 'Dc'],
+      ['Dc', 'Dd'],
+      ['Dd', 'Na'],
+    ],
+  },
+  stands: [
+    ...INTERNATIONAL.stands.map((st) => (st.id === 'C1' ? { ...st, pos: [78.8, 21.0] as P2, from: 'Ca', to: 'Da' } : st)),
+    { id: 'D1', pos: [64.0, 20.5], size: 'large', from: 'Dc', to: 'Dd', line: 'gatesD', level: 1, bridge: true },
+    { id: 'D2', pos: [68.6, 20.2], size: 'huge', from: 'Db', to: 'Dc', line: 'gatesD', level: 2, bridge: true },
+    { id: 'D3', pos: [73.4, 20.2], size: 'huge', from: 'Da', to: 'Db', line: 'gatesD', level: 3, bridge: true },
+  ],
+  buildings: [
+    ...(INTERNATIONAL.buildings ?? []).map((b) => (b.kind === 'cargo' ? { ...b, pos: [77.4, 16.6] as P2 } : b)),
+    { kind: 'pier', pos: [60.0, 13.4], size: [17.0, 4.2] },
+  ],
+  rev: {
+    ...INTERNATIONAL.rev!,
+    // (east of the gates by Terminal 3 the parallel taxiway runs on, so departures turn off it more steeply)
+    nodes: { ...INTERNATIONAL.rev!.nodes, KE1: [57.4, 26.8] },
+  },
+  t3: { st: T3_HUB_ST, building: T3_HUB, road: T3_ROAD_HUB, garage: T3_GARAGE },
+  sat: HUB_SAT,
+  rail: HUB_RAIL,
+  groundCapacity: 72,
+  camera: { center: [44, 24.5], zoom: 0.36 },
+};
+
 export const TIERS: readonly TierDef[] = [
   { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1, contracts: 2 },
   { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3, contracts: 3 },
   { id: 3, key: 'regional', layout: REGIONAL, needs: { served: 150, rating: 4, cost: 25000 }, buildSeconds: 240, pay: 5, traffic: 1.6, contracts: 4 },
   { id: 4, key: 'city', layout: CITY, needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2, contracts: 5 },
   { id: 5, key: 'international', layout: INTERNATIONAL, needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
-  { id: 6, key: 'hub', needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
+  { id: 6, key: 'hub', layout: HUB, needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
   { id: 7, key: 'megaHub', needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
   { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },
 ];

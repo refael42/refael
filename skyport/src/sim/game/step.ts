@@ -5,6 +5,9 @@ import { spawnFlight, updateDepartingPax, updateFlights, updateSpawning } from '
 import { updateIncidents } from './incidents';
 import { updatePeople } from './people';
 import { updateBuses } from './buses';
+import { updateApm } from './apm';
+import { updateRail } from './rail';
+import { layoutOf } from './layout';
 import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
 import { payWages, updateApplicants, updateStaff, updateStaffLife } from './staff';
@@ -36,6 +39,8 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateSupplies(s, dt);
   updatePeople(s, dt);
   updateBuses(s, dt);
+  updateApm(s, dt);
+  updateRail(s, layoutOf(s.tier).rail);
   updateTerminal(s, dt);
   payWages(s);
   updateStaffLife(s, dt);

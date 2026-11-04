@@ -31,7 +31,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M9 Advanced ATC | done | see below |
 | M10 Maintenance & fuel | done | see below |
 | M11 Events | done | weather, birds, debris, emergencies, VIPs, air shows; medical cases, celebrities, historic planes, real-date holidays (the undercover inspector moves to M12 with the reviews) |
-| Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view |
+| Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view; apron buses |
+| The hub (tier 6) | done | Concourse D satellite with a people mover, Terminal 3 grows, a railway station |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -492,6 +493,48 @@ and takeoff."
 - E2E: `apron-bus`.
 - Balance (bot, 4 h, seeds 1/7/13): tier 4 at 152/152/166 min, 22/17/10 diverted, on time
   77/72/82%.
+
+#### The hub (tier 6)
+The last big stage is playable now (the mega hub and the skyport stay "coming soon").
+- Layout (`HUB` in `src/data/tiers.ts`): the world is 90 x 52 tiles.
+  - The parallel taxiway runs on east to a new stand lane in front of Concourse D.
+  - The cargo apron moves to the far east end.
+  - The gates by Terminal 3 are reached from the parallel taxiway in one turn.
+  - In the other runway direction, departures turn off the parallel taxiway before the new lane.
+- Terminal 3 grows 3 tiles east (`T3_HUB`): a third exit, a fourth carousel, five passport booths
+  for arrivals, an info desk, a sculpture, and the people-mover station at the end of the
+  concourse. Its road now leaves to the east.
+- Concourse D (`CONCOURSE_D`) is a satellite in the apron, open-roofed like the terminals. It has:
+  - three jet-bridge gates (D1 large, D2 and D3 huge; upgrade line `gatesD`);
+  - a duty free, a food court and a business lounge;
+  - gate lounges with seats and desks, and a play corner;
+  - its own people-mover station.
+- People mover (`src/sim/game/apm.ts`): a two-car train shuttles between the stations.
+  - It waits 6 s or more with its doors open, then accelerates and brakes into the next station.
+  - It carries up to 30 figures. People get off first, then on.
+  - Passengers for a D gate ride out and walk to their gate (some stroll past the shops first).
+  - Arrivals at D walk to the platform, ride in, and go on to passport control in Terminal 3.
+  - If a plane leaves without them, they ride back.
+- Railway (`src/sim/game/rail.ts`): a commuter train calls at the station by Terminal 3 every
+  80 s. Its timetable is a pure function of the clock. The line runs between two tunnel portals.
+  - While the train is in, some departing passengers get off it and walk down to the curb.
+  - Some arriving passengers walk up to the platform and leave on the next train.
+- Art:
+  - the people-mover car and its guideway;
+  - double-deck coaches with cab cars, the platform roof, the entrance pavilion, tunnel portals;
+  - a train pictogram sign, a kids' play corner and a sculpture;
+  - more farmland east.
+- Two new goals: grow into a hub, open Concourse D. New help topics: terminals, the hub.
+- Tests (`tests/hub.test.ts`):
+  - Concourse D's gates;
+  - the train timetable;
+  - the people mover carries people both ways, never more than 30;
+  - D gates serve flights;
+  - people come and go by train;
+  - nobody walks through a wall at the hub.
+
+  Tier 6 also joins the fleet tests (in each runway direction, 600 flights, the wind turning) and
+  the wall test.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

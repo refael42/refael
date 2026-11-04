@@ -443,7 +443,32 @@ export const PST = {
   toBusA: 25,
   atBusA: 26,
   inBusA: 27,
+  /** The people mover to the satellite (hub): departing (to the platform, on it, riding) and arriving (to the platform, on it, riding). */
+  toApm: 28,
+  atApm: 29,
+  inApm: 30,
+  toApmA: 31,
+  atApmA: 32,
+  inApmA: 33,
+  /** The railway (hub): an arriving passenger walking to the platform, waiting there for the train. */
+  toRail: 34,
+  atRail: 35,
 } as const;
+
+/** The people-mover train between Terminal 3 and the satellite (hub). */
+export interface PeopleMover {
+  x: number;
+  px: number;
+  /** Speed along the track (signed, + toward the satellite). */
+  v: number;
+  /** Which station it is at or heading for: 0 Terminal 3, 1 the satellite. */
+  at: number;
+  /** dwell (doors open at a station) or run. */
+  state: 'dwell' | 'run';
+  timer: number;
+  /** Person ids on board. */
+  load: number[];
+}
 
 /** An apron bus between Terminal 1 and the remote stands. */
 export interface ApronBus {
@@ -667,6 +692,8 @@ export interface GameState {
   vehicles: Vehicle[];
   /** Apron buses (transient). */
   buses: ApronBus[];
+  /** The people mover (hub; transient). */
+  apm: PeopleMover | null;
   stands: Stand[];
   /** Flight ids waiting for the fuel truck. */
   fuelQueue: number[];

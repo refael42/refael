@@ -1,6 +1,6 @@
 /** Routes and service points derived from the tier layout (pure, no state). */
 import { planeArt } from '../../data/aircraft';
-import { layoutFor, type P2, type TierLayout } from '../../data/tiers';
+import { layoutFor, type BuildingDef, type P2, type TierLayout } from '../../data/tiers';
 import { chaikin, type Path } from './path';
 
 export function layoutOf(tier: number): TierLayout {
@@ -77,13 +77,30 @@ export function routeDivert(x: number, y: number, z: number, heading: number): P
   return chaikin([x, y, z, x + Math.cos(heading) * 2, y + Math.sin(heading) * 2, z + 0.5, -14, y - 6, 8], 2);
 }
 
+/** The pier (or satellite) a jet-bridge stand sits in front of. */
+export function pierOf(L: TierLayout, stand: number): BuildingDef | undefined {
+  const st = L.stands[stand];
+  const piers = (L.buildings ?? []).filter((b) => b.kind === 'pier');
+  if (!st) return piers[0];
+  const x = st.pos[0] - 0.3;
+  return piers.find((b) => x >= b.pos[0] && x <= b.pos[0] + b.size[0]) ?? piers[0];
+}
+
 /** Where a stand's jet bridge meets the pier (null when the stand has none). */
 export function gatePoint(L: TierLayout, stand: number): P2 | null {
   const st = L.stands[stand];
   if (!st || !st.bridge) return null;
-  const pier = (L.buildings ?? []).find((b) => b.kind === 'pier');
+  const pier = pierOf(L, stand);
   if (!pier) return null;
   return [st.pos[0] - 0.3, pier.pos[1] + pier.size[1] + 0.1];
+}
+
+/** Is this stand a gate of the satellite (reached by the people mover)? */
+export function satGate(L: TierLayout, stand: number): boolean {
+  const g = gatePoint(L, stand);
+  if (!g || !L.sat) return false;
+  const b = L.sat.building.box;
+  return g[0] > b[0] && g[0] < b[2];
 }
 
 /** Waiting spots in front of a gate (passengers stand along the pier). */

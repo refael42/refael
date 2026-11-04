@@ -19,7 +19,9 @@ import { Big } from '../big';
 import { hash01 } from '../hash';
 import { pushEvent } from './events';
 import { recordIncome } from './income';
-import { gatePoint, gateSpot, layoutOf } from './layout';
+import { AT_FOOD, AT_GATE, loungeSeat, toApm } from './apm';
+import { gatePoint, gateSpot, layoutOf, satGate } from './layout';
+import { leavesByTrain, railSpot } from './rail';
 import { doorSides, exitRoute, gateRoute, pierWalk } from './routes';
 import { STAFF_ROLES } from '../../data/staff';
 import { decorPos } from './tiers';
@@ -35,8 +37,6 @@ const ARR_PASSPORT_SECONDS = 1.8;
 /** Duty free sells more than the kiosk. */
 const DUTY_FREE_SPEND = 1.6;
 /** Where a passenger of the big terminal waits (in Person.slot): the food court, or at the gate. */
-const AT_FOOD = -3;
-const AT_GATE = -4;
 
 /** One terminal: its stations, its building and its queues. */
 export interface Term {
@@ -204,23 +204,18 @@ function toGate1(s: GameState, p: Person, L: TierLayout): void {
   walkVia(p, [L.terminal.airside[0], L.terminal.airside[1], ...via, sp[0], sp[1]]);
 }
 
-/** A seat in the gate lounge of Terminal 3 by this stand's jet bridge. */
-export function gateSeat(L: TierLayout, stand: number, k: number): P2 {
-  const g = gatePoint(L, stand) ?? [48, 16.5];
-  const col = k % 6;
-  const row = Math.floor(k / 6) % 2;
-  return [g[0] - 1.15 + col * 0.42, 16.5 + row * 0.5];
-}
-
-/** Terminal 3: down to the gate if the plane is at its jet bridge, else to the food court to wait. */
+/** Terminal 3: down to the gate if the plane is at its jet bridge (by the people mover to the satellite), else to the food court to wait. */
 function toGate3(s: GameState, p: Person, T: Term, via: readonly number[]): void {
   const L = layoutOf(s.tier);
   const f = flightById(s, p.flight);
   p.state = PST.toSpot;
   const k = s.spotCursor++;
   p.spot = k;
-  if (f && f.stand >= 0 && gatePoint(L, f.stand)) {
-    const seat = gateSeat(L, f.stand, k);
+  if (f && f.stand >= 0 && satGate(L, f.stand)) {
+    p.slot = AT_GATE;
+    toApm(s, p, [...via, ...(T.st.concourse ?? []).flat()]);
+  } else if (f && f.stand >= 0 && gatePoint(L, f.stand)) {
+    const seat = loungeSeat(L, f.stand, k);
     p.slot = AT_GATE;
     walkVia(p, [...via, ...(T.st.concourse ?? []).flat(), seat[0], seat[1]]);
   } else {
@@ -399,11 +394,17 @@ export function updateTerminal(s: GameState, dt: number): void {
         break;
       }
       case PST.waiting: {
-        // Terminal 3: the plane is at its jet bridge now; down from the food court to the gate
+        // Terminal 3: the plane is at its jet bridge now; down from the food court to the gate (or the people mover)
         if (T.t !== 1 || p.slot !== AT_FOOD) break;
         const f = flightById(s, p.flight);
-        if (!f || f.stand < 0 || !gatePoint(L, f.stand) || f.phase === 'boarding') break;
-        const seat = gateSeat(L, f.stand, p.spot);
+        if (!f || f.stand < 0 || !gatePoint(L, f.stand)) break;
+        if (satGate(L, f.stand)) {
+          p.slot = AT_GATE;
+          toApm(s, p, (st.concourse ?? []).flat());
+          break;
+        }
+        if (f.phase === 'boarding') break;
+        const seat = loungeSeat(L, f.stand, p.spot);
         p.slot = AT_GATE;
         p.state = PST.toSpot;
         walkVia(p, [...(st.concourse ?? []).flat(), seat[0], seat[1]]);
@@ -430,7 +431,14 @@ function exitWay(L: TierLayout, T: Term, p: Person): number[] {
   if (T.t === 1 && T.b) {
     const ex = st.exits ?? [st.doors!.exit];
     const d = doorSides(T.b, ex[p.id % ex.length]);
-    return [...(st.customs ?? []).flat(), d.in[0], d.in[1], d.out[0], d.out[1], st.exit[0] + (hash01(p.id * 3) - 0.5) * 1.6, st.exit[1]];
+    const out = [...(st.customs ?? []).flat(), d.in[0], d.in[1], d.out[0], d.out[1]];
+    if (L.rail && leavesByTrain(p.id)) {
+      // to the station: across the road and up the footpath to the platform
+      p.state = PST.toRail;
+      const sp = railSpot(L.rail, p.id);
+      return [...out, ...L.rail.path.slice().reverse().flat(), sp[0], sp[1]];
+    }
+    return [...out, st.exit[0] + (hash01(p.id * 3) - 0.5) * 1.6, st.exit[1]];
   }
   if (L.building) return [...exitRoute(L), st.exit[0], st.exit[1]];
   return [22.1, L.field.y0 + 0.1, st.exit[0], st.exit[1]];

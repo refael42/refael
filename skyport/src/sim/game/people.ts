@@ -2,7 +2,9 @@
 import { PAX_TYPES, paxTypeFrom } from '../../data/paxTypes';
 import type { TierLayout } from '../../data/tiers';
 import { hash01 } from '../hash';
-import { doorPoint, gatePoint, layoutOf } from './layout';
+import { doorPoint, gatePoint, layoutOf, pierOf, satGate } from './layout';
+import { AT_GATE, platformSpot, toApmFromGate } from './apm';
+import { comesByTrain, railSpot } from './rail';
 import { arrivalsRoute, doorSides, entranceRoute, gateRoute, homeRoute, homeRoute3, pierWalk, zoneAt } from './routes';
 import { makeSample, samplePath } from './path';
 import { claimSpot, joinArrPassport, joinCheckin, leaveStations, terminalFor } from './terminal';
@@ -49,6 +51,12 @@ export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number, 
   const L = layoutOf(s.tier);
   const term = terminalFor(s, f);
   const p = makePerson(s, f, x, y, PST.toHut, n, term);
+  if (term === 1 && L.sat && satGate(L, f.stand)) {
+    // Concourse D: off the jet bridge, along the concourse to the people mover
+    s.people.push(p);
+    toApmFromGate(s, p);
+    return;
+  }
   if (term === 1 && L.t3) {
     // Terminal 3: off the jet bridge, along the concourse to the arrivals corridor (passport control at the international airport)
     p.state = PST.toArrPass;
@@ -87,7 +95,16 @@ export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout, n = 1)
     s.people.push(p);
     const ins = T.st.entrances ?? [T.st.doors!.entrance];
     const d = doorSides(T.building, ins[p.id % ins.length]);
-    walkTo(p, [d.out[0], d.out[1], d.in[0], d.in[1], ...(T.st.lobby ?? []).flat()]);
+    // (at the hub, some come by train: off it while it is in, and down the footpath)
+    const byTrain = L.rail && comesByTrain(L.rail, s.time, p.id) ? L.rail : null;
+    if (byTrain) {
+      const sp = railSpot(byTrain, p.id);
+      p.x = sp[0];
+      p.y = sp[1];
+      p.px = p.x;
+      p.py = p.y;
+    }
+    walkTo(p, [...(byTrain ? byTrain.path.flat() : []), d.out[0], d.out[1], d.in[0], d.in[1], ...(T.st.lobby ?? []).flat()]);
     return;
   }
   // they come from the parking lot and line up for check-in
@@ -106,8 +123,11 @@ export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayo
   f.paxTimer -= dt;
   if (f.paxTimer > 0) return;
   const gate = gatePoint(L, f.stand);
+  const sat = satGate(L, f.stand);
   for (const p of s.people) {
     if (p.flight === f.id && p.state === PST.waiting) {
+      // (a satellite gate: only from its lounge; the rest are on their way by the people mover)
+      if (sat && p.slot !== AT_GATE) continue;
       // through the jet bridge from the gate, or out of the gate door and across the apron to the door
       const to = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
       p.state = PST.toPlane;
@@ -144,6 +164,8 @@ const DEPARTING: readonly number[] = [
   PST.toBus,
   PST.atBusStop,
   PST.inBus,
+  PST.toApm,
+  PST.atApm,
 ];
 
 /** The flight is gone: its passengers leave every queue and go home. */
@@ -153,7 +175,15 @@ export function sendPaxHome(s: GameState, f: Flight): void {
     if (p.flight !== f.id || !DEPARTING.includes(p.state)) continue;
     leaveStations(s, p);
     p.state = PST.leaving;
-    if (p.term === 1 && L.t3) walkTo(p, [...homeRoute3(L, p.x, p.y), L.t3.st.entry[0], L.t3.st.entry[1]]);
+    // (just out of a jet-bridge door: back in first)
+    const pier = p.term === 1 && f.stand >= 0 && gatePoint(L, f.stand) ? pierOf(L, f.stand) : undefined;
+    const back = pier && p.y > pier.pos[1] + pier.size[1] - 0.05 ? [p.x, pier.pos[1] + pier.size[1] - 0.45] : [];
+    const at: [number, number] = back.length ? [back[0], back[1]] : [p.x, p.y];
+    if (L.sat && zoneAt(L.sat.building, at[0], at[1])) {
+      // in Concourse D: to the people mover, and back on it (out of sight)
+      const sp = platformSpot(L.sat.platformS, p.id);
+      walkTo(p, [...back, sp[0], sp[1]]);
+    } else if (p.term === 1 && L.t3) walkTo(p, [...back, ...homeRoute3(L, at[0], at[1]), L.t3.st.entry[0], L.t3.st.entry[1]]);
     else if (L.building && L.terminal.doors && !zoneAt(L.building, p.x, p.y) && p.y > L.building.box[3]) {
       // out on the apron (at the bus stop, off the bus, on the way to the stairs): back in through the gate door first
       const d = doorSides(L.building, L.terminal.doors.gate);
@@ -199,7 +229,15 @@ export function updatePeople(s: GameState, dt: number): void {
           case PST.toBusA:
             p.state = PST.atBusA;
             break;
-
+          case PST.toApm:
+            p.state = PST.atApm;
+            break;
+          case PST.toApmA:
+            p.state = PST.atApmA;
+            break;
+          case PST.toRail:
+            p.state = PST.atRail;
+            break;
           case PST.toExit:
           case PST.leaving:
             keep = false;

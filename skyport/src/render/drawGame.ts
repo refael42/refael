@@ -6,6 +6,8 @@ import { decorPos } from '../sim/game/tiers';
 import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
+import { APM_CAR } from '../sim/game/apm';
+import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
 import { GAUGE_STEPS } from './art/objects';
 import type { IconName } from './art/icons';
@@ -266,8 +268,43 @@ export function drawGame(
       w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 0.8, 0.9);
     }
   }
+  // the hub: the people mover (its riders are inside) and the train at the station
+  if (s.apm && LL.sat) {
+    const APM = VEHICLE_KINDS.indexOf('apmCar');
+    const x = lerp(s.apm.px, s.apm.x, a);
+    const y = LL.sat.apm.y;
+    for (const k of [-0.5, 0.5]) {
+      const cx = x + k * APM_CAR;
+      const sx = isoX(cx, y);
+      const sy = isoY(cx, y);
+      if (!visible(sx, sy, 60)) continue;
+      w.shadow(sp.vehicleShadow(APM, 0), sx + 2, sy + 2, 1, 0.22);
+      w.sprite(sp.vehicle(APM, 0), sx, sy, 1, cx + y);
+    }
+  }
+  if (LL.rail) {
+    const r = LL.rail;
+    const tr = railTrain(r, s.time + (a - 1) / 30);
+    if (tr.shown) {
+      const CAB = VEHICLE_KINDS.indexOf('railCab');
+      const CAR = VEHICLE_KINDS.indexOf('railCar');
+      const back = dirIndex(Math.PI);
+      for (let k = 0; k < RAIL_CARS; k++) {
+        const cx = tr.x + (k - (RAIL_CARS - 1) / 2) * RAIL_CAR;
+        // (into the tunnels at both ends: the banks cover the part inside)
+        if (cx < r.portals[0] - 0.5 || cx > r.portals[1] + 0.5) continue;
+        const sx = isoX(cx, r.y);
+        const sy = isoY(cx, r.y);
+        if (!visible(sx, sy, 90)) continue;
+        const kind = k === 0 || k === RAIL_CARS - 1 ? CAB : CAR;
+        const d = k === 0 ? back : 0;
+        w.shadow(sp.vehicleShadow(kind, d), sx + 2, sy + 2, 1, 0.22);
+        w.sprite(sp.vehicle(kind, d), sx, sy, 1, cx + r.y);
+      }
+    }
+  }
   for (const p of s.people) {
-    if (p.state === PST.inBus || p.state === PST.inBusA) continue;
+    if (p.state === PST.inBus || p.state === PST.inBusA || p.state === PST.inApm || p.state === PST.inApmA) continue;
     const x = lerp(p.px, p.x, a);
     const y = lerp(p.py, p.y, a);
     const sx = isoX(x, y);

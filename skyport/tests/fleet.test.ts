@@ -413,7 +413,7 @@ describe('runway direction', () => {
     return { served: s.stats.served - start, minDist, conflicts };
   }
 
-  for (const tier of [3, 4, 5]) {
+  for (const tier of [3, 4, 5, 6]) {
     it(`tier ${tier}: 600 flights landing and taking off the other way`, () => {
       const s = busy(tier, 30 + tier);
       s.forceDir = -1;
@@ -434,6 +434,14 @@ describe('runway direction', () => {
 
   it('tier 5: 600 flights with the wind turning every 4 minutes', () => {
     const s = busy(5, 41);
+    const r = run(s, 600, 240);
+    expect(r.conflicts).toBe(0);
+    expect(r.minDist).toBeGreaterThan(0.95);
+    expect(r.served).toBeGreaterThan(570);
+  }, 300000);
+
+  it('tier 6: 600 flights with the wind turning every 4 minutes', () => {
+    const s = busy(6, 43);
     const r = run(s, 600, 240);
     expect(r.conflicts).toBe(0);
     expect(r.minDist).toBeGreaterThan(0.95);
