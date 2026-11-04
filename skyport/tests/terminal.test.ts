@@ -1,20 +1,28 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildingWalls, crossesWall } from '../src/data/terminals';
+import { AIRLINES } from '../src/data/airlines';
 import { TIERS } from '../src/data/tiers';
+import { zoneAt } from '../src/sim/game/routes';
+import { stockUp } from './helpers';
 import {
   applyStructural,
+  Big,
   botCommands,
   counterCount,
   createGame,
   FUEL,
   laneCount,
   layoutOf,
+  makeOffer,
+  signOffer,
   parseSave,
   PST,
   QUEUE_GAP,
   queueCommand,
   serializeGame,
   stepGame,
+  switchTier,
   type GameState,
 } from '../src/sim';
 
@@ -215,5 +223,68 @@ describe('terminal save', () => {
     expect(r.state.stats.sales.toString()).toBe(s.stats.sales.toString());
     // and the game keeps running from there
     run(r.state, 120, checkTerminal);
+  });
+});
+
+describe('the terminal building', () => {
+  for (const tier of [2, 3, 4, 5]) {
+    it(`tier ${tier}: nobody walks through a wall (in and out only by the doors)`, () => {
+      const s = createGame(40 + tier);
+      switchTier(s, tier);
+      s.upg.stand = 4;
+      s.upg.counters = 3;
+      s.upg.lanes = 2;
+      s.upg.kiosk = 3;
+      if (tier >= 3) s.upg.standMed = 2;
+      if (tier >= 4) s.upg.gates = 2;
+      s.upgRev++;
+      applyStructural(s);
+      stockUp(s);
+      s.money = Big.fromNumber(1e9);
+      // (big-jet airlines under contract that trust you, so Terminal 3 gets flights)
+      if (tier >= 4) {
+        s.upg.lounge = 1;
+        s.upgRev++;
+        applyStructural(s);
+        s.rep = s.rep.map(() => 100);
+        s.contracts = [];
+        for (const id of ['coralina', 'aurelia', 'meadowlark']) {
+          const o = makeOffer(s, AIRLINES.findIndex((a) => a.id === id));
+          s.offers.push(o);
+          signOffer(s, o.id);
+        }
+      }
+      const L = layoutOf(tier);
+      expect(L.building).toBeDefined();
+      const walls = [...buildingWalls(L.building!), ...(L.t3 ? buildingWalls(L.t3.building) : [])];
+      let inT3 = 0;
+      const seen = new Map<number, [number, number]>();
+      let moves = 0;
+      let inside = 0;
+      for (let i = 0; i < 30 * 600; i++) {
+        if (i % 3 === 0) for (const c of botCommands(s, { reaction: 0.6 })) queueCommand(s, c);
+        stepGame(s);
+        for (const p of s.people) {
+          const last = seen.get(p.id);
+          if (last) {
+            const crossed = crossesWall(walls, last, [p.x, p.y]);
+            if (crossed) throw new Error(`person ${p.id} (state ${p.state}) went through a wall from ${last} to ${p.x.toFixed(2)},${p.y.toFixed(2)}`);
+            moves++;
+          }
+          if (zoneAt(L.building!, p.x, p.y)) inside++;
+          if (L.t3 && zoneAt(L.t3.building, p.x, p.y)) inT3++;
+          seen.set(p.id, [p.x, p.y]);
+        }
+      }
+      expect(moves).toBeGreaterThan(1000);
+      // and the buildings are really used (Terminal 3 from the city airport on)
+      expect(inside).toBeGreaterThan(1000);
+      if (L.t3) expect(inT3).toBeGreaterThan(1000);
+      expect(s.stats.served).toBeGreaterThan(5);
+    }, 120000);
+  }
+
+  it('the dirt strip has no building yet', () => {
+    expect(layoutOf(1).building).toBeUndefined();
   });
 });

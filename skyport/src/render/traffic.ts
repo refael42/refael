@@ -30,7 +30,7 @@ interface Route {
   length: number;
 }
 
-const routes = new WeakMap<TierLayout, Route>();
+const routes = new WeakMap<readonly P2[], Route>();
 
 /** Polyline offset sideways by d (positive = to the right of travel). */
 function offset(line: readonly P2[], d: number): [number, number][] {
@@ -51,12 +51,12 @@ function offset(line: readonly P2[], d: number): [number, number][] {
  * One loop: in along the right lane from the map edge to the curb, a U-turn,
  * and back out along the other lane.
  */
-function routeOf(L: TierLayout): Route {
-  const hit = routes.get(L);
+function routeOf(road: readonly P2[]): Route {
+  const hit = routes.get(road);
   if (hit) return hit;
-  const inbound = L.road.slice().reverse(); // edge -> curb
+  const inbound = road.slice().reverse(); // edge -> curb
   const lane1 = offset(inbound, LANE);
-  const lane2 = offset(L.road, LANE); // curb -> edge, its own right lane
+  const lane2 = offset(road, LANE); // curb -> edge, its own right lane
   const pts: number[] = [];
   for (const p of lane1) pts.push(p[0], p[1]);
   // U-turn around the curb end
@@ -80,7 +80,7 @@ function routeOf(L: TierLayout): Route {
   let stopAt = 0;
   for (let i = 1; i < lane1.length; i++) stopAt += Math.hypot(lane1[i][0] - lane1[i - 1][0], lane1[i][1] - lane1[i - 1][1]);
   const r: Route = { pts, cum, stopAt: Math.max(0, stopAt - 0.15), length: cum[cum.length - 1] };
-  routes.set(L, r);
+  routes.set(road, r);
   return r;
 }
 
@@ -96,16 +96,16 @@ function sample(r: Route, d: number): { x: number; y: number; heading: number } 
   return { x: x0 + (x1 - x0) * t, y: y0 + (y1 - y0) * t, heading: Math.atan2(y1 - y0, x1 - x0) };
 }
 
-/** Cars on the access road at sim time `time`. */
-export function roadCars(L: TierLayout, time: number): CarPose[] {
-  const r = routeOf(L);
+/** Cars on the access road (or another road, e.g. Terminal 3's) at sim time `time`. */
+export function roadCars(L: TierLayout, time: number, road: readonly P2[] = L.road, seed = 0): CarPose[] {
+  const r = routeOf(road);
   const trip = r.length / SPEED + STOP;
   const out: CarPose[] = [];
   const last = Math.floor(time / PERIOD);
   const first = Math.max(0, Math.floor((time - trip - 4) / PERIOD));
   for (let j = first; j <= last; j++) {
-    if (hash01(j * 31 + 7) < 0.2) continue; // gaps in the traffic
-    const start = j * PERIOD + hash01(j * 31 + 11) * 3;
+    if (hash01(j * 31 + 7 + seed) < 0.2) continue; // gaps in the traffic
+    const start = j * PERIOD + hash01(j * 31 + 11 + seed) * 3;
     const age = time - start;
     if (age < 0 || age > trip) continue;
     const toCurb = r.stopAt / SPEED;
@@ -119,8 +119,8 @@ export function roadCars(L: TierLayout, time: number): CarPose[] {
     // ease into and out of the stop
     if (!stopped && Math.abs(d - r.stopAt) < 0.5) stopped = d < r.stopAt;
     const p = sample(r, Math.min(r.length, d));
-    const u = hash01(j * 31 + 3);
-    const variant = BUS >= 0 && u < 0.08 ? BUS : Math.floor(hash01(j * 31 + 5) * CAR_VARIANTS.length) % CAR_VARIANTS.length;
+    const u = hash01(j * 31 + 3 + seed);
+    const variant = BUS >= 0 && u < 0.08 ? BUS : Math.floor(hash01(j * 31 + 5 + seed) * CAR_VARIANTS.length) % CAR_VARIANTS.length;
     out.push({ x: p.x, y: p.y, heading: p.heading, variant: variant === BUS && u >= 0.08 ? 0 : variant, stopped });
   }
   return out;

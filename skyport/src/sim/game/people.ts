@@ -3,13 +3,14 @@ import { PAX_TYPES, paxTypeFrom } from '../../data/paxTypes';
 import type { TierLayout } from '../../data/tiers';
 import { hash01 } from '../hash';
 import { doorPoint, gatePoint, layoutOf } from './layout';
+import { arrivalsRoute, doorSides, entranceRoute, gateRoute, homeRoute, homeRoute3, pierWalk, zoneAt } from './routes';
 import { makeSample, samplePath } from './path';
-import { claimSpot, joinCheckin, leaveStations } from './terminal';
+import { claimSpot, joinArrPassport, joinCheckin, leaveStations, terminalFor } from './terminal';
 import { PST, type Flight, type GameState, type Person } from './types';
 
 const SAMPLE = makeSample();
 
-function makePerson(s: GameState, f: Flight, x: number, y: number, state: number, n = 1): Person {
+function makePerson(s: GameState, f: Flight, x: number, y: number, state: number, n = 1, term = 0): Person {
   const id = s.nextId++;
   const outfit = paxTypeFrom(hash01(id * 7 + 3));
   return {
@@ -31,6 +32,7 @@ function makePerson(s: GameState, f: Flight, x: number, y: number, state: number
     until: 0,
     waited: 0,
     n,
+    term,
   };
 }
 
@@ -44,21 +46,52 @@ function walkTo(p: Person, points: number[]): void {
 
 export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number, n = 1): void {
   const L = layoutOf(s.tier);
-  const p = makePerson(s, f, x, y, PST.toHut, n);
-  // step away from the plane, then to the baggage carousel
+  const term = terminalFor(s, f);
+  const p = makePerson(s, f, x, y, PST.toHut, n, term);
+  if (term === 1 && L.t3) {
+    // Terminal 3: off the jet bridge, along the concourse to the arrivals corridor (passport control at the international airport)
+    p.state = PST.toArrPass;
+    walkTo(p, [x, L.t3.building.box[3] - 0.7, ...(L.t3.st.arrivalsWay ?? []).flat()]);
+    s.people.push(p);
+    return;
+  }
   const c = claimSpot(s, p);
-  const mid: [number, number] = [(x + c[0]) / 2 + 0.3, (y + c[1]) / 2 + 0.3];
-  walkTo(p, [mid[0], mid[1], c[0], c[1]]);
+  if (L.building) {
+    // into the terminal through the arrivals door (from a pier gate: along the apron first)
+    const gate = gatePoint(L, f.stand);
+    const walk = gate ? pierWalk(L, gate) : [];
+    const back = walk.length === 4 ? [walk[0], walk[1]] : [];
+    walkTo(p, [...back, ...arrivalsRoute(L), c[0], c[1]]);
+  } else {
+    // step away from the plane, then to the baggage carousel
+    const mid: [number, number] = [(x + c[0]) / 2 + 0.3, (y + c[1]) / 2 + 0.3];
+    walkTo(p, [mid[0], mid[1], c[0], c[1]]);
+  }
   s.people.push(p);
-  void L;
 }
 
 export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout, n = 1): void {
+  const term = terminalFor(s, f);
+  if (term === 1 && L.t3) {
+    // Terminal 3: from the garage and the curb, in through one of its doors, past the check-in islands
+    const T = L.t3;
+    const e = T.st.entry;
+    const p = makePerson(s, f, e[0] + (hash01(s.nextId * 3) - 0.5) * 2.4, e[1] + (hash01(s.nextId * 5) - 0.5) * 0.3, PST.toEntrance, n, 1);
+    s.people.push(p);
+    const ins = T.st.entrances ?? [T.st.doors!.entrance];
+    const d = doorSides(T.building, ins[p.id % ins.length]);
+    walkTo(p, [d.out[0], d.out[1], d.in[0], d.in[1], ...(T.st.lobby ?? []).flat()]);
+    return;
+  }
   // they come from the parking lot and line up for check-in
   const e = L.terminal.entry;
   const p = makePerson(s, f, e[0] + (hash01(s.nextId * 3) - 0.5) * 0.6, e[1] + (hash01(s.nextId * 5) - 0.5) * 0.4, PST.inCheckin, n);
   s.people.push(p);
-  joinCheckin(s, p);
+  if (L.building) {
+    // across the road and in through the entrance; the line starts inside
+    p.state = PST.toEntrance;
+    walkTo(p, entranceRoute(L));
+  } else joinCheckin(s, p);
 }
 
 /** Sends the next waiting passenger of the flight to the door. */
@@ -68,17 +101,24 @@ export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayo
   const gate = gatePoint(L, f.stand);
   for (const p of s.people) {
     if (p.flight === f.id && p.state === PST.waiting) {
-      // through the jet bridge from the gate, or across the apron to the door
+      // through the jet bridge from the gate, or out of the gate door and across the apron to the door
       const to = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
       p.state = PST.toPlane;
-      walkTo(p, [to[0], to[1]]);
+      if (p.term === 1 && L.t3 && gate) {
+        // Terminal 3: from the food court down the concourse if they never got to the gate, then into the jet bridge
+        const from = p.slot === -3 ? (L.t3.st.concourse ?? []).flat() : [];
+        walkTo(p, [...from, gate[0], gate[1] - 0.5, gate[0], gate[1]]);
+      } else if (gate && L.building && zoneAt(L.building, p.x, p.y)) {
+        // a smaller plane at a jet-bridge gate: out of Terminal 1's gate door and along the apron to it
+        walkTo(p, [...gateRoute(L), ...pierWalk(L, gate), to[0], to[1]]);
+      } else walkTo(p, [...(gate ? [] : gateRoute(L)), to[0], to[1]]);
       f.paxTimer = gate ? 0.25 : 0.45;
       return;
     }
   }
 }
 
-const DEPARTING: readonly number[] = [PST.toSpot, PST.waiting, PST.toPlane, PST.inCheckin, PST.atCounter, PST.inSecurity, PST.atScanner, PST.toShop, PST.shopping];
+const DEPARTING: readonly number[] = [PST.toSpot, PST.waiting, PST.toPlane, PST.inCheckin, PST.atCounter, PST.inSecurity, PST.atScanner, PST.toShop, PST.shopping, PST.toEntrance];
 
 /** The flight is gone: its passengers leave every queue and go home. */
 export function sendPaxHome(s: GameState, f: Flight): void {
@@ -87,7 +127,8 @@ export function sendPaxHome(s: GameState, f: Flight): void {
     if (p.flight !== f.id || !DEPARTING.includes(p.state)) continue;
     leaveStations(s, p);
     p.state = PST.leaving;
-    walkTo(p, [L.terminal.exit[0], L.terminal.exit[1]]);
+    if (p.term === 1 && L.t3) walkTo(p, [...homeRoute3(L, p.x, p.y), L.t3.st.entry[0], L.t3.st.entry[1]]);
+    else walkTo(p, [...homeRoute(L, p.x, p.y), L.terminal.exit[0], L.terminal.exit[1]]);
   }
 }
 
@@ -115,6 +156,12 @@ export function updatePeople(s: GameState, dt: number): void {
           case PST.toHut:
             p.state = PST.atClaim;
             p.until = 0;
+            break;
+          case PST.toEntrance:
+            joinCheckin(s, p);
+            break;
+          case PST.toArrPass:
+            joinArrPassport(s, p);
             break;
           case PST.toExit:
           case PST.leaving:

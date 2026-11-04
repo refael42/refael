@@ -426,6 +426,15 @@ export const PST = {
   atScanner: 12,
   toShop: 13,
   shopping: 14,
+  /** Walking from the parking lot to the terminal entrance (from the small airfield on). */
+  toEntrance: 15,
+  /** Passport control on the way out (international airport): in the line, at a booth. */
+  inPassport: 16,
+  atBooth: 17,
+  /** Passport control on the way in: walking to the line, in it, at a booth. */
+  toArrPass: 18,
+  inArrPass: 19,
+  atArrBooth: 20,
 } as const;
 
 export interface Person {
@@ -452,6 +461,20 @@ export interface Person {
   waited: number;
   /** Passengers this figure stands for (groups on big planes). */
   n: number;
+  /** Which terminal: 0 = Terminal 1, 1 = Terminal 3 (the big jets, from the city airport on). */
+  term: number;
+}
+
+/** Queues and busy service points of one terminal (people ids, head first; 0 = a free point). */
+export interface TermQueues {
+  checkinQ: number[];
+  securityQ: number[];
+  passportQ: number[];
+  arrPassQ: number[];
+  counterBusy: number[];
+  laneBusy: number[];
+  boothBusy: number[];
+  arrBoothBusy: number[];
 }
 
 export type VehicleState = 'idle' | 'toPlane' | 'fueling' | 'return';
@@ -695,6 +718,8 @@ export interface GameState {
   securityQ: number[];
   counterBusy: number[];
   laneBusy: number[];
+  /** Terminal 3's queues (Terminal 1's are the four above). */
+  t3q: TermQueues;
   /** Upgrade levels by id. */
   upg: Record<string, number>;
   /** Bumped whenever a level changes (effects cache key). */

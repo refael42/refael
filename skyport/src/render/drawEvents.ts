@@ -15,7 +15,7 @@ import { BONFIRE_AT, MENORAH_AXIS, MENORAH_FLAMES } from './art/events';
 import { OUTFITS, PAX_OUTFITS } from './art/people';
 import { isoX, isoY } from './iso';
 import type { SnapWriter } from './scene';
-import { BULB_COLORS, dirIndex, GLOW_COLORS, ROPE_X, ROPE_Y, VEHICLE_KINDS, type SpriteSet } from './sprites';
+import { BULB_COLORS, WALL_H, dirIndex, GLOW_COLORS, ROPE_X, ROPE_Y, VEHICLE_KINDS, type SpriteSet } from './sprites';
 
 const outfit = (id: string) => Math.max(0, OUTFITS.findIndex((o) => o.id === id));
 const MEDIC = outfit('medic');
@@ -26,7 +26,7 @@ const VISITORS = PAX_OUTFITS.map((id) => outfit(id));
 const LIMO = VEHICLE_KINDS.indexOf('limo');
 
 /** Where a bonfire burns (on the grass west of the terminal, well away from the fuel). */
-export const BONFIRE_SPOT: readonly [number, number] = [18.3, 19.3];
+export const BONFIRE_SPOT: readonly [number, number] = [15.2, 20.1];
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -173,10 +173,15 @@ function drawExhibit(w: SnapWriter, s: GameState, sp: SpriteSet, f: Flight, o: S
 // ------------------------------------------------------------------ holidays
 
 /** The terminal (or the dirt strip's hut): footprint and roof height, for the string lights. */
-function buildingBox(L: TierLayout): { x0: number; y0: number; x1: number; y1: number; z: number; depth: number } {
+function buildingBox(L: TierLayout): { x0: number; y0: number; x1: number; y1: number; z: number; depth: number; open: boolean } {
   const h = L.hut;
-  if (L.runway.surface === 'asphalt') return { x0: h[0] - 0.04, y0: h[1] - 0.04, x1: h[0] + 2.64, y1: h[1] + 1.54, z: 1.03, depth: h[0] + 1.3 + h[1] + 0.75 };
-  return { x0: h[0], y0: h[1], x1: h[0] + 2, y1: h[1] + 1.4, z: 0.86, depth: h[0] + 1 + h[1] + 0.7 };
+  if (L.building) {
+    // the open-roofed terminal: lights along the top of its tall back walls
+    const [x0, y0, x1, y1] = L.building.box;
+    return { x0, y0, x1, y1, z: WALL_H + 0.04, depth: x0 + y0 + 0.2, open: true };
+  }
+  if (L.runway.surface === 'asphalt') return { x0: h[0] - 0.04, y0: h[1] - 0.04, x1: h[0] + 2.64, y1: h[1] + 1.54, z: 1.03, depth: h[0] + 1.3 + h[1] + 0.75, open: false };
+  return { x0: h[0], y0: h[1], x1: h[0] + 2, y1: h[1] + 1.4, z: 0.86, depth: h[0] + 1 + h[1] + 0.7, open: false };
 }
 
 const BULB_INDEX = new Map(BULB_COLORS.map((c, i) => [c, i]));
@@ -189,23 +194,30 @@ export function drawHolidayDecor(w: SnapWriter, s: GameState, sp: SpriteSet, o: 
   const L = layoutOf(s.tier);
   const B = buildingBox(L);
   if (!o.visible(isoX(B.x0 + 1.3, B.y0 + 0.8), isoY(B.x0 + 1.3, B.y0 + 0.8), 260)) return drawFireworks(w, s, sp, o, B);
-  // string lights along the two roof edges you see; every few seconds they chase
+  // string lights along the roof edges you see (on the open terminal: the tops of its back walls); they chase
   const bulbs: [number, number][] = [];
-  for (let x = B.x0; x <= B.x1 + 1e-6; x += 0.14) bulbs.push([x, B.y1]);
-  for (let y = B.y1 - 0.14; y >= B.y0 - 1e-6; y -= 0.14) bulbs.push([B.x1, y]);
+  if (B.open) {
+    for (let y = B.y1; y >= B.y0 - 1e-6; y -= 0.14) bulbs.push([B.x0, y]);
+    for (let x = B.x0 + 0.14; x <= B.x1 + 1e-6; x += 0.14) bulbs.push([x, B.y0]);
+  } else {
+    for (let x = B.x0; x <= B.x1 + 1e-6; x += 0.14) bulbs.push([x, B.y1]);
+    for (let y = B.y1 - 0.14; y >= B.y0 - 1e-6; y -= 0.14) bulbs.push([B.x1, y]);
+  }
   const chase = Math.floor(o.time * 2.5);
   bulbs.forEach(([x, y], k) => {
     const c = def.colors[k % def.colors.length];
     const sx = isoX(x, y);
     const sy = isoY(x, y, B.z);
-    w.sprite(sp.bulb(BULB_INDEX.get(c) ?? 0), sx, sy, 1, B.depth + 0.6);
+    w.sprite(sp.bulb(BULB_INDEX.get(c) ?? 0), sx, sy, 1, B.open ? x + y + 0.02 : B.depth + 0.6);
     if ((k + chase) % 4 === 0) w.fx(sp.glow(c === '#ffffff' ? GLOW_COLORS.white : GLOW_COLORS.gold), sx, sy, 0.75, 0.55);
   });
   // bunting over the front (where the hut is smaller, a shorter run is enough: it hangs past the corner)
-  w.sprite(sp.bunting(s.holiday), isoX(B.x0, B.y1 + 0.02), isoY(B.x0, B.y1 + 0.02, B.z - 0.12), 1, B.depth + 0.7);
-  // the centerpiece: on the terminal's roof (a bonfire, and anything at the hut, on the ground)
-  const ground = def.id === 'lagBaomer' || L.runway.surface !== 'asphalt';
-  const [hx, hy] = def.id === 'lagBaomer' ? BONFIRE_SPOT : ground ? [B.x0 - 0.7, B.y1 + 0.2] : [B.x0 + 0.8, B.y0 + 0.95];
+  // (in the open terminal it hangs across the check-in hall, under the back wall)
+  if (B.open) w.sprite(sp.bunting(s.holiday), isoX(B.x0 + 0.3, B.y0 + 0.08), isoY(B.x0 + 0.3, B.y0 + 0.08, B.z - 0.06), 1, B.x0 + B.y0 + 1.5);
+  else w.sprite(sp.bunting(s.holiday), isoX(B.x0, B.y1 + 0.02), isoY(B.x0, B.y1 + 0.02, B.z - 0.12), 1, B.depth + 0.7);
+  // the centerpiece: on the terminal's roof, or on the lawn beside the open terminal (a bonfire, and anything at the hut, on the ground)
+  const ground = def.id === 'lagBaomer' || L.runway.surface !== 'asphalt' || B.open;
+  const [hx, hy] = def.id === 'lagBaomer' ? BONFIRE_SPOT : B.open ? [B.x0 - 0.75, B.y0 + 5.0] : ground ? [B.x0 - 0.7, B.y1 + 0.2] : [B.x0 + 0.8, B.y0 + 0.95];
   const hz = ground ? 0 : B.z;
   const pz = (x: number, y: number, z: number) => isoY(x, y, z + hz);
   w.sprite(sp.holidayPiece(s.holiday), isoX(hx, hy), pz(hx, hy, 0), 1, ground ? hx + hy + 0.3 : B.depth + 0.5);

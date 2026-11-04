@@ -925,6 +925,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       camera: () => ({ x: cam.x, y: cam.y, zoom: cam.zoom }),
       incidents: () => ctrl.state.incidents.map((i) => ({ kind: i.kind, state: i.state, choice: i.choice, result: i.result, amount: i.amount })),
       holiday: () => ({ holiday: ctrl.state.holiday, day: ctrl.state.holidayDay, today: ctrl.state.today }),
+      terminals: () => ({ t1: ctrl.state.people.filter((p) => p.term === 0).length, t3: ctrl.state.people.filter((p) => p.term === 1).length }),
     };
     return () => {
       delete w.__skyport;

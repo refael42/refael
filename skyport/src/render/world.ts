@@ -4,6 +4,7 @@
  */
 import { BlurStyle, ClipOp, PaintStyle, Skia, StrokeCap, StrokeJoin, type SkCanvas, type SkPicture } from '@shopify/react-native-skia';
 
+import { buildingWalls, type TerminalBuilding, type ZoneKind } from '../data/terminals';
 import type { TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
@@ -12,7 +13,8 @@ import { chaikin } from '../sim/game/path';
 import { GLYPHS } from './art/glyphs';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
 import { HALF_H, HALF_W, isoX, isoY } from './iso';
-import { BRIDGE_LEN, TREE_KINDS, TREE_SIZES, type SpriteSet } from './sprites';
+import { BRIDGE_LEN, TREE_KINDS, TREE_SIZES, WALL_KINDS, WALL_STEP, type SpriteSet } from './sprites';
+import { WALL_SEG } from './art/terminal';
 
 export interface StaticSprite {
   sprite: number;
@@ -239,6 +241,190 @@ function drawField(g: GroundPainter, x0: number, y0: number, x1: number, y1: num
   g.c.drawPath(b.build(), g.s);
 }
 
+// ------------------------------------------------------------------ the terminal building
+
+/**
+ * Belt barriers along the long legs of each serpentine (rows 0.5 apart share
+ * the divider); the ends stay open so the line can turn.
+ */
+function paintQueueRopes(g: GroundPainter, lines: readonly (readonly (readonly [number, number])[])[]): void {
+  const rope = Skia.PathBuilder.Make();
+  const postsP = Skia.PathBuilder.Make();
+  for (const line of lines) {
+    for (let i = 1; i < line.length; i++) {
+      const [ax, ay] = line[i - 1];
+      const [bx, by] = line[i];
+      const len = Math.hypot(bx - ax, by - ay);
+      if (len < 1) continue;
+      const ux = (bx - ax) / len;
+      const uy = (by - ay) / len;
+      for (const side of [-0.2, 0.2]) {
+        const sx = ax - uy * side + ux * 0.3;
+        const sy = ay + ux * side + uy * 0.3;
+        const run = len - 0.6;
+        rope.moveTo(isoX(sx, sy), isoY(sx, sy, 0.18));
+        rope.lineTo(isoX(sx + ux * run, sy + uy * run), isoY(sx + ux * run, sy + uy * run, 0.18));
+        const n = Math.max(1, Math.round(run / 0.55));
+        for (let k = 0; k <= n; k++) {
+          const px = sx + (ux * run * k) / n;
+          const py = sy + (uy * run * k) / n;
+          postsP.moveTo(isoX(px, py), isoY(px, py));
+          postsP.lineTo(isoX(px, py), isoY(px, py, 0.22));
+        }
+      }
+    }
+  }
+  g.s.setColor(Skia.Color('#64748b'));
+  g.s.setStrokeWidth(2);
+  g.c.drawPath(postsP.build(), g.s);
+  g.s.setColor(Skia.Color('#3b82f6'));
+  g.s.setStrokeWidth(1.6);
+  g.c.drawPath(rope.build(), g.s);
+}
+
+/** A baggage carousel: a dark ring with a moving belt and a few bags on it. */
+function paintCarousel(g: GroundPainter, at: readonly [number, number], seed: number): void {
+  g.ellipse(at[0], at[1], 0.62, 0.62, '#334155');
+  g.ellipse(at[0], at[1], 0.52, 0.52, '#64748b');
+  g.ellipse(at[0], at[1], 0.3, 0.3, '#cbd5e1');
+  const colors = ['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#0ea5e9', '#ec4899'];
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2 + seed;
+    const bx = at[0] + Math.cos(a) * 0.42;
+    const by = at[1] + Math.sin(a) * 0.42;
+    g.f.setColor(Skia.Color(colors[(k + seed) % colors.length]));
+    g.c.drawRect(Skia.XYWHRect(isoX(bx, by) - 3, isoY(bx, by) - 5, 6, 5), g.f);
+  }
+}
+
+/** Terminal 3 on the ground: the road with its curb and crossings, the floors, the belt, carousels and queue ropes. */
+function paintT3(g: GroundPainter, T3: NonNullable<TierLayout['t3']>, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
+  const [x0, y0, x1] = T3.building.box;
+  // the sidewalk along the front, the road with its markings, a taxi rank and a bus bay
+  g.rect(x0 - 0.3, y0 - 0.55, x1 + 0.6, y0, '#d6d3d1');
+  for (let x = x0 - 0.3; x < x1 + 0.6; x += 0.5) g.line(x, y0 - 0.55, x, y0, '#c7c2bd', 1);
+  const road: number[] = [];
+  for (const p of T3.road) road.push(p[0], p[1], 0);
+  g.f.setMaskFilter(blur(4));
+  ribbon(g, road, 1.25, 'rgba(40,70,50,0.25)');
+  g.f.setMaskFilter(null);
+  ribbon(g, road, 1.05, '#a7b0bb');
+  dashes(g, T3.road, 0.32, 0.36, '#f8fafc', 1.6);
+  for (const side of [-0.43, 0.43]) {
+    const e = offsetLine(T3.road, side);
+    for (let i = 1; i < e.length; i++) g.line(e[i - 1][0], e[i - 1][1], e[i][0], e[i][1], 'rgba(255,255,255,0.8)', 1.2);
+  }
+  // the curb lane: yellow taxi boxes by the arrivals, a bus bay by the departures
+  const cy = T3.road[0][1] + 0.3;
+  for (let x = 48.6; x < 52.6; x += 0.8) {
+    g.line(x, cy - 0.12, x + 0.6, cy - 0.12, '#facc15', 1.4);
+    g.line(x, cy - 0.12, x, cy + 0.12, '#facc15', 1.4);
+  }
+  g.rect(45.6, cy - 0.15, 47.2, cy + 0.15, 'rgba(22,163,74,0.35)');
+  // zebra crossings from the garage to the doors
+  for (const zx of [41.2, 44.8]) for (let k = -3; k <= 3; k++) g.rect(zx + k * 0.13 - 0.04, cy - 0.75, zx + k * 0.13 + 0.04, cy - 0.3, '#f8fafc');
+  // the garage's shadow on the ground
+  const G = T3.garage;
+  g.f.setMaskFilter(blur(6));
+  g.rect(G[0] - 0.1, G[1] - 0.1, G[2] + 0.3, G[3] + 0.3, 'rgba(40,60,70,0.3)');
+  g.f.setMaskFilter(null);
+  // inside
+  paintBuildingFloor(g, T3.building, blur);
+  const st = T3.st;
+  const belt: number[] = [];
+  for (const p of st.belt) belt.push(p[0], p[1], 0);
+  ribbon(g, belt, 0.34, '#334155');
+  ribbon(g, belt, 0.24, '#64748b');
+  (st.carousels ?? [st.claim]).forEach((c, i) => paintCarousel(g, c, i * 2));
+  const lines: (readonly (readonly [number, number])[])[] = [st.checkinQueue, st.securityQueue];
+  if (st.passport) lines.push(st.passport.queue);
+  if (st.arrPassport) lines.push(st.arrPassport.queue);
+  paintQueueRopes(g, lines);
+}
+
+const ZONE_FLOOR: Record<ZoneKind, [string, string]> = {
+  checkin: ['#e9eef4', '#d8e0ea'],
+  security: ['#e1e5ea', '#cfd5dd'],
+  departures: ['#ead9c0', '#dcc9ad'],
+  arrivals: ['#e4efe7', '#d2e2d7'],
+  passport: ['#e6e3ef', '#d4cfe2'],
+  dutyFree: ['#f3e8d2', '#e6d6b6'],
+  food: ['#f1e2d6', '#e3cfbf'],
+  lounge: ['#d9cfe6', '#c8bcd9'],
+  gates: ['#ead9c0', '#dcc9ad'],
+  customs: ['#e4efe7', '#d2e2d7'],
+};
+
+/** Floors by zone (tiles, a carpet in the lounges), a soft shadow under the walls, door mats. */
+function paintBuildingFloor(g: GroundPainter, b: TerminalBuilding, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
+  const [x0, y0, x1, y1] = b.box;
+  g.f.setMaskFilter(blur(5));
+  g.rect(x0 - 0.15, y0 - 0.1, x1 + 0.2, y1 + 0.2, 'rgba(40,60,70,0.3)');
+  g.f.setMaskFilter(null);
+  for (const z of b.zones) {
+    const [a, c, e, f] = z.box;
+    const [base, line] = ZONE_FLOOR[z.kind];
+    g.rect(a, c, e, f, base);
+    const step = z.kind === 'departures' || z.kind === 'gates' || z.kind === 'lounge' ? 0.25 : 0.5;
+    for (let x = Math.ceil(a / step) * step; x < e; x += step) g.line(x, c, x, f, line, step < 0.5 ? 0.6 : 1);
+    for (let y = Math.ceil(c / step) * step; y < f; y += step) g.line(a, y, e, y, line, step < 0.5 ? 0.6 : 1);
+  }
+  // a yellow-and-black line where security starts, door mats at every door
+  const sec = b.zones.find((z) => z.kind === 'security');
+  if (sec) for (let x = sec.box[0]; x < sec.box[2]; x += 0.2) g.line(x, sec.box[3] - 0.04, x + 0.1, sec.box[3] - 0.04, '#facc15', 1.6);
+  for (const d of b.doors) {
+    const alongX = Math.abs(d.at[1] - y0) < 1e-6 || Math.abs(d.at[1] - y1) < 1e-6;
+    const h = d.width / 2;
+    if (alongX) g.rect(d.at[0] - h, d.at[1] - 0.18, d.at[0] + h, d.at[1] + 0.18, '#475569');
+    else g.rect(d.at[0] - 0.18, d.at[1] - h, d.at[0] + 0.18, d.at[1] + h, '#475569');
+  }
+}
+
+/** Wall pieces (short, so people sort right against them), door frames, canopies and furniture. */
+function buildingStatics(b: TerminalBuilding, sprites: SpriteSet, statics: StaticSprite[], tier: number): void {
+  const push = (sprite: number, x: number, y: number, depth: number, r = 60) => statics.push({ sprite, x: isoX(x, y), y: isoY(x, y), depth, r });
+  for (const w of buildingWalls(b)) {
+    const alongX = w.a[1] === w.b[1];
+    const lo = alongX ? Math.min(w.a[0], w.b[0]) : Math.min(w.a[1], w.b[1]);
+    const hi = alongX ? Math.max(w.a[0], w.b[0]) : Math.max(w.a[1], w.b[1]);
+    const kind = WALL_KINDS.indexOf(w.kind);
+    const bias = w.kind === 'back' ? -0.05 : 0.08;
+    for (let a = lo; a < hi - 1e-6; a += WALL_SEG) {
+      const len = Math.min(WALL_SEG, hi - a);
+      if (len < WALL_STEP * 0.5) continue;
+      const [x, y] = alongX ? [a, w.a[1]] : [w.a[0], a];
+      const [mx, my] = alongX ? [a + len / 2, w.a[1]] : [w.a[0], a + len / 2];
+      push(sprites.wallPiece(kind, !alongX, len), x, y, mx + my + bias, 40);
+    }
+  }
+  const [bx0, by0, bx1, by1] = b.box;
+  for (const d of b.doors) {
+    const onY = Math.abs(d.at[0] - bx0) < 1e-6 || Math.abs(d.at[0] - bx1) < 1e-6;
+    const h = d.width / 2;
+    const tall = Math.abs(d.at[1] - by0) < 1e-6 || Math.abs(d.at[0] - bx0) < 1e-6;
+    const sx = onY ? d.at[0] : d.at[0] - h;
+    const sy = onY ? d.at[1] - h : d.at[1];
+    push(sprites.doorFrame(onY, d.width, tall), sx, sy, d.at[0] + d.at[1] + 0.1, 50);
+    // canopies over the doors people use, out over the curb or the apron
+    if ((d.kind === 'entrance' || d.kind === 'exit') && Math.abs(d.at[0] - bx1) < 1e-6) {
+      const cx = onY ? d.at[0] : d.at[0] - h - 0.15;
+      const cy = onY ? d.at[1] - h - 0.15 : d.at[1];
+      push(sprites.canopy(onY, d.width), cx, cy, d.at[0] + d.at[1] + 0.9, 70);
+    }
+  }
+  void by1;
+  for (const f of b.furniture) {
+    if ((f.tier ?? 0) > tier) continue;
+    const [x, y] = f.at;
+    if (f.kind === 'seats') push(sprites.seats(f.n ?? 3), x, y, x + (f.n ?? 3) * 0.2 + y + 0.1, 70);
+    else if (f.kind === 'shelf') push(sprites.shelf(f.n ?? 0), x, y, x + y + 0.45, 60);
+    else if (f.kind === 'foodStall') push(sprites.foodStall(f.n ?? 0), x, y, x + y + 0.4, 60);
+    else if (f.kind === 'baggageRoom') push(sprites.termProp(f.kind), x, y, x + y + 1.0, 90);
+    else if (f.kind.startsWith('sign')) push(sprites.termProp(f.kind), x, y, x + y + 0.6, 60);
+    else push(sprites.termProp(f.kind), x, y, x + y + 0.2, 60);
+  }
+}
+
 /** Painted ring radius of a stand by its size. */
 const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
 
@@ -285,7 +471,11 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       [3, 3, 9, 9],
       [12, 4, 18, 11],
     ];
-    fields.forEach((f, i) => drawField(g, f[0], f[1], f[2], f[3], i));
+    const clear = L.t3 ? [L.t3.building.box, [L.t3.garage[0] - 1, L.t3.garage[1] - 1, L.t3.garage[2] + 1, L.t3.garage[3] + 1] as const] : [];
+    fields.forEach((f, i) => {
+      if (clear.some((b) => f[0] < b[2] && f[2] > b[0] && f[1] < b[3] + 1.5 && f[3] > b[1] - 1.5)) return;
+      drawField(g, f[0], f[1], f[2], f[3], i);
+    });
     g.f.setMaskFilter(blur(6));
     g.ellipse(39.5, 31.6, 3.5, 2.5, 'rgba(60,120,80,0.35)');
     g.f.setMaskFilter(null);
@@ -359,51 +549,23 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     const xs1 = Math.max(...T.checkinQueue.map((c) => c[0])) + 0.5;
     const ys0 = Math.min(...T.checkinQueue.map((c) => c[1])) - 0.5;
     const ys1 = Math.max(...T.lanes.map((c) => c[1])) + 0.2;
-    g.f.setMaskFilter(blur(4));
-    g.rect(xs0 - 0.1, ys0 - 0.1, xs1 + 0.1, ys1 + 0.1, 'rgba(60,80,90,0.25)');
-    g.f.setMaskFilter(null);
-    g.rect(xs0, ys0, xs1, ys1, '#e2e8f0');
-    for (let x = Math.ceil(xs0); x < xs1; x++) g.line(x, ys0, x, ys1, '#cbd5e1', 1);
-    for (let y = Math.ceil(ys0); y < ys1; y++) g.line(xs0, y, xs1, y, '#cbd5e1', 1);
-    const rope = Skia.PathBuilder.Make();
-    const postsP = Skia.PathBuilder.Make();
-    // belt barriers along the long legs of each serpentine (rows 0.5 apart share
-    // the divider); the ends stay open so the line can turn
-    for (const line of [T.checkinQueue, T.securityQueue]) {
-      for (let i = 1; i < line.length; i++) {
-        const [ax, ay] = line[i - 1];
-        const [bx, by] = line[i];
-        const len = Math.hypot(bx - ax, by - ay);
-        if (len < 1) continue;
-        const ux = (bx - ax) / len;
-        const uy = (by - ay) / len;
-        for (const side of [-0.25, 0.25]) {
-          const sx = ax - uy * side + ux * 0.3;
-          const sy = ay + ux * side + uy * 0.3;
-          const run = len - 0.6;
-          rope.moveTo(isoX(sx, sy), isoY(sx, sy, 0.18));
-          rope.lineTo(isoX(sx + ux * run, sy + uy * run), isoY(sx + ux * run, sy + uy * run, 0.18));
-          const n = Math.max(1, Math.round(run / 0.55));
-          for (let k = 0; k <= n; k++) {
-            const px = sx + (ux * run * k) / n;
-            const py = sy + (uy * run * k) / n;
-            postsP.moveTo(isoX(px, py), isoY(px, py));
-            postsP.lineTo(isoX(px, py), isoY(px, py, 0.22));
-          }
-        }
-      }
+    if (L.building) paintBuildingFloor(g, L.building, blur);
+    else {
+      g.f.setMaskFilter(blur(4));
+      g.rect(xs0 - 0.1, ys0 - 0.1, xs1 + 0.1, ys1 + 0.1, 'rgba(60,80,90,0.25)');
+      g.f.setMaskFilter(null);
+      g.rect(xs0, ys0, xs1, ys1, '#e2e8f0');
+      for (let x = Math.ceil(xs0); x < xs1; x++) g.line(x, ys0, x, ys1, '#cbd5e1', 1);
+      for (let y = Math.ceil(ys0); y < ys1; y++) g.line(xs0, y, xs1, y, '#cbd5e1', 1);
     }
-    g.s.setColor(Skia.Color('#64748b'));
-    g.s.setStrokeWidth(2);
-    c.drawPath(postsP.build(), g.s);
-    g.s.setColor(Skia.Color('#3b82f6'));
-    g.s.setStrokeWidth(1.6);
-    c.drawPath(rope.build(), g.s);
+    paintQueueRopes(g, [T.checkinQueue, T.securityQueue]);
     // the bag conveyor
     const belt: number[] = [];
     for (const p of T.belt) belt.push(p[0], p[1], 0);
     ribbon(g, belt, 0.34, '#334155');
     ribbon(g, belt, 0.24, '#64748b');
+    // Terminal 3: its road and curb, the floors, the belt, three carousels and the queue lines
+    if (L.t3) paintT3(g, L.t3, blur);
     // baggage carousel
     g.ellipse(T.claim[0], T.claim[1], 0.62, 0.62, '#334155');
     g.ellipse(T.claim[0], T.claim[1], 0.52, 0.52, '#64748b');
@@ -420,7 +582,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     const xs = L.stands.map((st) => st.pos[0]);
     const ax0 = Math.min(L.hut[0] - 0.8, ...xs) - 1.2;
     const ax1 = Math.max(...xs) + 2.6;
-    const ay0 = L.hut[1] + 1.25;
+    const ay0 = L.building ? L.building.box[3] : L.hut[1] + 1.25;
     const ay1 = Math.max(...L.stands.map((st) => st.pos[1])) + 1.1;
     const apron = [ax0, ay0, ax1, ay0, ax1 + 0.3, ay1, ax0 + 0.2, ay1];
     g.f.setMaskFilter(blur(5));
@@ -602,7 +764,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         const onNorth = Math.abs(y0 - F.y0) < 0.01 && Math.abs(y1 - F.y0) < 0.01;
         const depotGate = !!L.depot && onNorth && Math.min(x0, x1) < L.depot.gate[0] + 0.45 && Math.max(x0, x1) > L.depot.gate[0] - 0.45;
         const gate = depotGate || (onNorth && Math.min(x0, x1) < landX1 && Math.max(x0, x1) > landX0);
-        if (gate) continue;
+        // (no fence through a terminal building)
+        const inBuilding = [L.building?.box, L.t3?.building.box].some((b) => !!b && (x0 + x1) / 2 > b[0] - 0.2 && (x0 + x1) / 2 < b[2] + 0.2 && (y0 + y1) / 2 > b[1] - 0.2 && (y0 + y1) / 2 < b[3] + 0.2);
+        if (gate || inBuilding) continue;
         for (const z of [0.24, 0.13]) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
           rails.lineTo(isoX(x1, y1), isoY(x1, y1, z));
@@ -649,7 +813,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     const [bx, by] = bd.pos;
     if (bd.kind === 'fbo') prop(sprites.fbo, bx, by, bd.size[0] + bd.size[1], 160);
     if (bd.kind === 'cargo') prop(sprites.cargoShed, bx, by, bd.size[0] + bd.size[1], 200);
-    if (bd.kind === 'pier') {
+    if (bd.kind === 'pier' && !L.t3) {
       const n = Math.round(bd.size[0] / 2.15);
       for (let k = 0; k < n; k++) prop(sprites.pier(k === n - 1), bx + k * 2.15, by, 2.15 * 0.5 + bd.size[1], 140);
     }
@@ -680,7 +844,23 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const T2 = L.terminal;
   T2.counters.slice(0, counters).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
   T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
-  if (L.runway.surface === 'asphalt') {
+  if (L.t3) {
+    const T3 = L.t3;
+    buildingStatics(T3.building, sprites, statics, tier);
+    const st = T3.st;
+    const n3 = Math.min(st.counters.length, counters * 2);
+    st.counters.slice(0, n3).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
+    st.lanes.slice(0, Math.min(st.lanes.length, lanes * 2)).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
+    for (const b of [...(st.passport?.booths ?? []), ...(st.arrPassport?.booths ?? [])]) statics.push({ sprite: sprites.termProp('booth'), x: isoX(b[0] - 0.22, b[1] - 0.15), y: isoY(b[0] - 0.22, b[1] - 0.15), depth: b[0] + b[1] + 0.1, r: 40 });
+    const G = T3.garage;
+    statics.push({ sprite: sprites.garage, x: isoX(G[0], G[1]), y: isoY(G[0], G[1]), depth: G[0] + G[1] + 3.6, r: 260 });
+    statics.push({ sprite: sprites.busStop, x: isoX(45.7, T3.road[0][1] - 0.85), y: isoY(45.7, T3.road[0][1] - 0.85), depth: 45.7 + T3.road[0][1] - 0.5, r: 60 });
+  }
+  if (L.building) {
+    buildingStatics(L.building, sprites, statics, tier);
+    const tw = L.tower ?? [18.6, 16.6];
+    statics.push({ sprite: sprites.tower, x: isoX(tw[0], tw[1]), y: isoY(tw[0], tw[1]), depth: tw[0] + tw[1] + 0.3, r: 120 });
+  } else if (L.runway.surface === 'asphalt') {
     statics.push({ sprite: sprites.terminal, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1.3 + L.hut[1] + 0.75, r: 160 });
     statics.push({ sprite: sprites.tower, x: isoX(18.6, 16.6), y: isoY(18.6, 16.6), depth: 18.6 + 16.6 + 0.3, r: 120 });
   } else {
@@ -690,12 +870,14 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
 
   // keep trees off the terminal plaza, the bag belt and the claim area
   const TT = L.terminal;
-  const px0 = Math.min(...TT.counters.map((c) => c[0]), ...TT.lanes.map((c) => c[0]), ...TT.belt.map((c) => c[0])) - 1.2;
-  const px1 = Math.max(...TT.checkinQueue.map((c) => c[0])) + 1.2;
-  const py0 = Math.min(...TT.checkinQueue.map((c) => c[1])) - 1.2;
-  const py1 = TT.claim[1] + 1;
+  const BB = L.building?.box;
+  const px0 = Math.min(...TT.counters.map((c) => c[0]), ...TT.lanes.map((c) => c[0]), ...TT.belt.map((c) => c[0]), BB ? BB[0] - 1.6 : 99) - 1.2;
+  const px1 = Math.max(...TT.checkinQueue.map((c) => c[0]), BB ? BB[2] : 0) + 1.2;
+  const py0 = Math.min(...TT.checkinQueue.map((c) => c[1]), BB ? BB[1] : 99) - 1.2;
+  const py1 = Math.max(TT.claim[1], BB ? BB[3] : 0) + 1;
   const treeAt = (x: number, y: number, seed: number) => {
     if (x > px0 && x < px1 && y > py0 && y < py1) return;
+    if (L.t3 && x > L.t3.building.box[0] - 2 && x < L.t3.building.box[2] + 3.2 && y > L.t3.garage[1] - 1.5 && y < L.t3.building.box[3] + 0.5) return;
     const kind = Math.floor(hash01(seed * 5 + 1) * TREE_KINDS.length);
     const size = Math.floor(hash01(seed * 5 + 2) * TREE_SIZES.length);
     statics.push({ sprite: sprites.tree(kind, size), x: isoX(x, y), y: isoY(x, y), depth: x + y, r: 110 });

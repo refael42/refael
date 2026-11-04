@@ -53,6 +53,36 @@ import {
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
+import {
+  drawAtm,
+  drawBaggageRoom,
+  drawBins,
+  drawBoard,
+  drawBooth,
+  drawBusStop,
+  drawCanopy,
+  drawCustomsDesk,
+  drawDoorFrame,
+  drawFoodStall,
+  drawFountain,
+  drawGarage,
+  drawGateDesk,
+  drawInfoDesk,
+  drawPottedPlant,
+  drawRental,
+  drawRestrooms,
+  drawSeats,
+  drawSelfCheckin,
+  drawShelf,
+  drawSign,
+  drawSofa,
+  drawTable,
+  drawTill,
+  drawWallPiece,
+  WALL_SEG,
+  type SignKind,
+} from './art/terminal';
+import type { FurnitureKind } from '../data/terminals';
 import { HOLIDAYS } from '../data/holidays';
 import { buildPlane } from './art/plane';
 import { drawStack, measureStack, type StackPart } from './art/stack';
@@ -75,6 +105,62 @@ export const ROPE_X = 2.0;
 export const ROPE_Y = 0.9;
 /** Bunting length (tiles, along x) over the terminal front. */
 export const BUNTING_LEN = 2.6;
+
+/** Terminal building pieces: wall kinds, piece lengths (quantized), door widths, seat rows. */
+export const WALL_KINDS = ['back', 'front', 'glass'] as const;
+export const WALL_STEP = 0.05;
+const WALL_LENS = Math.round(WALL_SEG / WALL_STEP);
+/** Height of the tall back walls. */
+export const WALL_H = 0.62;
+export const DOOR_WIDTHS = [0.5, 0.8, 1.0, 1.2] as const;
+export const SEAT_ROWS = [2, 3, 4, 5, 6] as const;
+const PROP_KINDS: readonly FurnitureKind[] = [
+  'board',
+  'info',
+  'wc',
+  'bin',
+  'atm',
+  'water',
+  'plant',
+  'baggageRoom',
+  'signCheckin',
+  'signSecurity',
+  'signGate',
+  'signArrivals',
+  'signExit',
+  'signBaggage',
+  'selfCheckin',
+  'booth',
+  'till',
+  'table',
+  'sofa',
+  'gateDesk',
+  'customsDesk',
+  'rental',
+  'signDutyFree',
+  'signFood',
+  'signLounge',
+  'signPassport',
+  'signCustoms',
+];
+const SIGN_OF: Partial<Record<FurnitureKind, SignKind>> = {
+  signCheckin: 'checkin',
+  signSecurity: 'security',
+  signGate: 'gate',
+  signArrivals: 'arrivals',
+  signExit: 'exit',
+  signBaggage: 'baggage',
+  signDutyFree: 'dutyFree',
+  signFood: 'food',
+  signLounge: 'lounge',
+  signPassport: 'passport',
+  signCustoms: 'customs',
+};
+/** Furniture with looks (variant = Furniture.n). */
+export const SHELF_VARIANTS = 4;
+export const STALL_VARIANTS = 3;
+/** The parking garage of Terminal 3 is drawn at this size (tiles). */
+export const GARAGE_SIZE: readonly [number, number] = [5.4, 3.4];
 const CAR_KINDS: readonly CarKind[] = [...new Set(CAR_VARIANTS.map((c) => c.kind))];
 
 /** Heading in radians -> sprite direction index. */
@@ -133,6 +219,16 @@ export interface SpriteSet {
   bird: (frame: number) => number;
   redCarpet: number;
   rain: number;
+  /** Terminal building: a wall piece (kind index into WALL_KINDS, length in tiles up to WALL_SEG), door frames, canopies, seat rows, furniture. */
+  wallPiece: (kind: number, alongY: boolean, len: number) => number;
+  doorFrame: (alongY: boolean, width: number, tall: boolean) => number;
+  canopy: (alongY: boolean, width: number) => number;
+  seats: (n: number) => number;
+  termProp: (kind: FurnitureKind) => number;
+  shelf: (variant: number) => number;
+  foodStall: (variant: number) => number;
+  garage: number;
+  busStop: number;
   /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
   stretcher: number;
   rope: (alongY: boolean) => number;
@@ -310,6 +406,83 @@ export function buildSprites(content: Content): SpriteSet {
   for (let f = 0; f < 2; f++) b.add(-7 * S, -6 * S, 7 * S, 5 * S, (c, ox, oy) => drawBird(new IsoPen(c, ox, oy, S), f));
   const redCarpet = b.add(-0.4 * T, -1.3 * T, 2.0 * T, 0.3 * T, (c, ox, oy) => drawRedCarpet(new IsoPen(c, ox, oy, S)));
   const rain = b.add(-3 * S, -18 * S, 5 * S, 4 * S, (c, ox, oy) => drawRain(new IsoPen(c, ox, oy, S)));
+  // the terminal building
+  const wallBase = b.size;
+  for (let k = 0; k < WALL_KINDS.length; k++) {
+    for (const alongY of [false, true]) {
+      for (let n = 1; n <= WALL_LENS; n++) {
+        const len = n * WALL_STEP;
+        if (alongY) b.add(-(len + 0.2) * T, -0.9 * T, 0.2 * T, (len * 0.5 + 0.3) * T, (c, ox, oy) => drawWallPiece(new IsoPen(c, ox, oy, S), WALL_KINDS[k], true, len, WALL_H));
+        else b.add(-0.2 * T, -0.9 * T, (len + 0.2) * T, (len * 0.5 + 0.3) * T, (c, ox, oy) => drawWallPiece(new IsoPen(c, ox, oy, S), WALL_KINDS[k], false, len, WALL_H));
+      }
+    }
+  }
+  const doorBase = b.size;
+  for (const alongY of [false, true]) {
+    for (const wd of DOOR_WIDTHS) {
+      for (const tall of [false, true]) {
+        if (alongY) b.add(-(wd + 0.2) * T, -0.9 * T, 0.2 * T, (wd * 0.5 + 0.3) * T, (c, ox, oy) => drawDoorFrame(new IsoPen(c, ox, oy, S), true, wd, tall));
+        else b.add(-0.2 * T, -0.9 * T, (wd + 0.2) * T, (wd * 0.5 + 0.3) * T, (c, ox, oy) => drawDoorFrame(new IsoPen(c, ox, oy, S), false, wd, tall));
+      }
+    }
+  }
+  const canopyBase = b.size;
+  for (const alongY of [false, true]) {
+    for (const wd of DOOR_WIDTHS) {
+      if (alongY) b.add(-(wd + 0.4) * T, -1.0 * T, 1.2 * T, (wd * 0.5 + 0.8) * T, (c, ox, oy) => drawCanopy(new IsoPen(c, ox, oy, S), true, wd + 0.3, 0.7, '#6366f1'));
+      else b.add(-0.6 * T, -1.0 * T, (wd + 1.0) * T, (wd * 0.5 + 0.8) * T, (c, ox, oy) => drawCanopy(new IsoPen(c, ox, oy, S), false, wd + 0.3, 0.7, '#6366f1'));
+    }
+  }
+  const seatBase = b.size;
+  for (const n of SEAT_ROWS) b.add(-0.3 * T, -0.6 * T, (n * 0.4 + 0.3) * T, (n * 0.2 + 0.5) * T, (c, ox, oy) => drawSeats(new IsoPen(c, ox, oy, S), n));
+  const propBase = b.size;
+  for (const kind of PROP_KINDS) {
+    b.add(-1.1 * T, -1.3 * T, 1.3 * T, 1.1 * T, (c, ox, oy) => {
+      const pen = new IsoPen(c, ox, oy, S);
+      const sign = SIGN_OF[kind];
+      if (sign) return drawSign(pen, sign);
+      switch (kind) {
+        case 'board':
+          return drawBoard(pen);
+        case 'info':
+          return drawInfoDesk(pen);
+        case 'wc':
+          return drawRestrooms(pen);
+        case 'bin':
+          return drawBins(pen);
+        case 'atm':
+          return drawAtm(pen);
+        case 'water':
+          return drawFountain(pen);
+        case 'plant':
+          return drawPottedPlant(pen);
+        case 'baggageRoom':
+          return drawBaggageRoom(pen);
+        case 'selfCheckin':
+          return drawSelfCheckin(pen);
+        case 'booth':
+          return drawBooth(pen);
+        case 'till':
+          return drawTill(pen);
+        case 'table':
+          return drawTable(pen);
+        case 'sofa':
+          return drawSofa(pen);
+        case 'gateDesk':
+          return drawGateDesk(pen);
+        case 'customsDesk':
+          return drawCustomsDesk(pen);
+        case 'rental':
+          return drawRental(pen);
+      }
+    });
+  }
+  const shelfBase = b.size;
+  for (let k = 0; k < SHELF_VARIANTS; k++) b.add(-0.3 * T, -0.8 * T, 1.0 * T, 0.7 * T, (c, ox, oy) => drawShelf(new IsoPen(c, ox, oy, S), k));
+  const stallBase = b.size;
+  for (let k = 0; k < STALL_VARIANTS; k++) b.add(-0.3 * T, -1.0 * T, 1.1 * T, 0.8 * T, (c, ox, oy) => drawFoodStall(new IsoPen(c, ox, oy, S), k));
+  const garage = b.add(-(GARAGE_SIZE[1] + 0.5) * T, -1.8 * T, (GARAGE_SIZE[0] + 0.5) * T, ((GARAGE_SIZE[0] + GARAGE_SIZE[1]) * 0.5 + 0.5) * T, (c, ox, oy) => drawGarage(new IsoPen(c, ox, oy, S), GARAGE_SIZE[0], GARAGE_SIZE[1]));
+  const busStop = b.add(-0.4 * T, -0.8 * T, 1.2 * T, 0.8 * T, (c, ox, oy) => drawBusStop(new IsoPen(c, ox, oy, S)));
   const stretcher = b.add(-14 * S, -12 * S, 14 * S, 8 * S, (c, ox, oy) => drawStretcher(new IsoPen(c, ox, oy, S)));
   const ropeX = b.add(-0.2 * T, -0.5 * T, (ROPE_X + 0.2) * T, (ROPE_X * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_X, false));
   const ropeY = b.add(-(ROPE_Y + 0.2) * T, -0.5 * T, 0.2 * T, (ROPE_Y * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_Y, true));
@@ -486,6 +659,21 @@ export function buildSprites(content: Content): SpriteSet {
     bird: (f) => birdBase + (f % 2),
     redCarpet,
     rain,
+    wallPiece: (kind, alongY, len) => wallBase + (kind * 2 + (alongY ? 1 : 0)) * WALL_LENS + Math.max(0, Math.min(WALL_LENS - 1, Math.round(len / WALL_STEP) - 1)),
+    doorFrame: (alongY, width, tall) => {
+      const w = DOOR_WIDTHS.reduce((best, d, i) => (Math.abs(d - width) < Math.abs(DOOR_WIDTHS[best] - width) ? i : best), 0);
+      return doorBase + ((alongY ? 1 : 0) * DOOR_WIDTHS.length + w) * 2 + (tall ? 1 : 0);
+    },
+    canopy: (alongY, width) => {
+      const w = DOOR_WIDTHS.reduce((best, d, i) => (Math.abs(d - width) < Math.abs(DOOR_WIDTHS[best] - width) ? i : best), 0);
+      return canopyBase + (alongY ? 1 : 0) * DOOR_WIDTHS.length + w;
+    },
+    seats: (n) => seatBase + Math.max(0, SEAT_ROWS.indexOf(n as (typeof SEAT_ROWS)[number])),
+    termProp: (kind) => propBase + Math.max(0, PROP_KINDS.indexOf(kind)),
+    shelf: (v) => shelfBase + (((v % SHELF_VARIANTS) + SHELF_VARIANTS) % SHELF_VARIANTS),
+    foodStall: (v) => stallBase + (((v % STALL_VARIANTS) + STALL_VARIANTS) % STALL_VARIANTS),
+    garage,
+    busStop,
     stretcher,
     rope: (alongY) => (alongY ? ropeY : ropeX),
     ticketBooth,

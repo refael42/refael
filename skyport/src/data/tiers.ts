@@ -2,6 +2,7 @@
  * Airport tiers and their layouts. World units are tiles. The runway runs
  * along +x (landing toward +x); screen up-left is west (-x).
  */
+import { T1, T1_DOORS, T3, T3_CAROUSELS, type TerminalBuilding, type TerminalDoors } from './terminals';
 import type { StandSize } from './aircraft';
 
 export type P2 = readonly [number, number];
@@ -99,23 +100,14 @@ export interface TierLayout {
   /** Where idle staff stand. */
   staffSpots: Readonly<Record<string, P2>>;
   /** Passenger stations (landside north of the hut, airside south of it). */
-  terminal: {
-    /** Where departing passengers appear (walking from the parking lot). */
-    entry: P2;
-    /** Check-in: counter service points (more open with upgrades) and the queue line (head first). */
-    counters: readonly P2[];
-    checkinQueue: readonly P2[];
-    /** Security: scanner lanes and their queue line (head first). */
-    lanes: readonly P2[];
-    securityQueue: readonly P2[];
-    /** After security, the airside door they walk through. */
-    airside: P2;
-    /** Bag conveyor from the counters into the building. */
-    belt: readonly P2[];
-    /** Baggage claim carousel and the way out. */
-    claim: P2;
-    exit: P2;
-  };
+  terminal: Stations;
+  /** The terminal as an open-roofed building (from the small airfield on). */
+  building?: TerminalBuilding;
+  /** Control tower and radar mast (from the small airfield on). */
+  tower?: P2;
+  radar?: P2;
+  /** Terminal 3 (from the city airport on): the big terminal for the big jets, with its own road and garage. */
+  t3?: { st: Stations; building: TerminalBuilding; road: readonly P2[]; garage: readonly [number, number, number, number] };
   /** Spots for things upgrades add to the scene. */
   decor: { kiosk: P2; billboard: P2; benches: readonly P2[] };
   windsock: P2;
@@ -126,6 +118,46 @@ export interface TierLayout {
   depot?: Depot;
   /** Flights a game day the taxiways can carry on time (single shared lane = a hard limit). */
   groundCapacity: number;
+}
+
+/** Where passengers go in a terminal, in the order they meet things. */
+export interface Stations {
+  /** Where departing passengers appear (walking from the parking lot). */
+  entry: P2;
+  /** Check-in: counter service points (more open with upgrades) and the queue line (head first). */
+  counters: readonly P2[];
+  checkinQueue: readonly P2[];
+  /** Security: scanner lanes and their queue line (head first). */
+  lanes: readonly P2[];
+  securityQueue: readonly P2[];
+  /** After security, the airside door they walk through. */
+  airside: P2;
+  /** Bag conveyor from the counters into the building. */
+  belt: readonly P2[];
+  /** Baggage claim carousel and the way out. */
+  claim: P2;
+  exit: P2;
+  /** Doors of the terminal building (from the small airfield on): people only go in and out here. */
+  doors?: TerminalDoors;
+  /** The big terminal: more doors in and out, and the way past the check-in islands. */
+  entrances?: readonly P2[];
+  exits?: readonly P2[];
+  lobby?: readonly P2[];
+  /** Passport control out and in (international airport): booths and their queue lines. */
+  passport?: { booths: readonly P2[]; queue: readonly P2[] };
+  arrPassport?: { booths: readonly P2[]; queue: readonly P2[] };
+  /** Several carousels (the claim is the first). */
+  carousels?: readonly P2[];
+  /** The way through the duty free (and where shoppers stop). */
+  dutyFree?: readonly P2[];
+  /** Where passengers wait while their gate is not known yet (the food court). */
+  waitSpots?: readonly P2[];
+  /** From the food court down to the gates. */
+  concourse?: readonly P2[];
+  /** From the jet bridges along the concourse to the baggage hall. */
+  arrivalsWay?: readonly P2[];
+  /** From the baggage hall through customs into the arrivals hall. */
+  customs?: readonly P2[];
 }
 
 export interface Depot {
@@ -367,7 +399,65 @@ const SMALL_AIRFIELD: TierLayout = {
     { id: 'S5', pos: [16.8, 21.9], size: 'small', from: 'Lf', to: 'Lg', line: 'stand', level: 4 },
   ],
   takeoff: { liftoffX: 21, climb: DIRT_STRIP.takeoff.climb },
-  decor: { kiosk: [24.0, 18.2], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
+  // the terminal becomes a building: check-in, security, a departures lounge and arrivals inside
+  building: T1,
+  hutDoor: [20.3, 19.5],
+  tower: [15.6, 14.1],
+  radar: [14.2, 14.9],
+  terminal: {
+    entry: [24.3, 16.6],
+    counters: [
+      [19.75, 13.5],
+      [19.05, 13.5],
+      [18.35, 13.5],
+      [17.65, 13.5],
+    ],
+    checkinQueue: [
+      [20.4, 14.1],
+      [20.4, 12.95],
+      [20.9, 12.95],
+      [20.9, 14.85],
+      [21.4, 14.85],
+      [21.4, 12.95],
+    ],
+    lanes: [
+      [19.5, 16.65],
+      [18.8, 16.65],
+      [18.1, 16.65],
+    ],
+    securityQueue: [
+      [19.85, 16.0],
+      [17.55, 16.0],
+      [17.55, 15.55],
+      [20.6, 15.55],
+    ],
+    airside: [18.4, 17.35],
+    belt: [
+      [20.1, 13.12],
+      [17.2, 13.12],
+      [17.2, 15.4],
+      [16.3, 15.4],
+    ],
+    claim: [20.45, 18.2],
+    exit: [24.3, 16.6],
+    doors: T1_DOORS,
+  },
+  waitSpots: [
+    [17.25, 18.08],
+    [17.65, 18.08],
+    [18.05, 18.08],
+    [17.25, 18.58],
+    [17.65, 18.58],
+    [18.05, 18.58],
+    [17.25, 19.08],
+    [17.65, 19.08],
+    [18.05, 19.08],
+    [18.6, 18.15],
+    [18.65, 18.65],
+    [18.45, 17.75],
+  ],
+  staffSpots: { atc: [16.1, 14.6], fueler: [27.4, 19.9], porter: [18.4, 20.5], agent: [19.0, 12.95] },
+  decor: { kiosk: [17.0, 17.1], billboard: [23.2, 12.2], benches: [[25.4, 17.9], [24.9, 19.3]] },
   camera: { center: [20.4, 23.0], zoom: 0.68 },
   depot: depotAt(15.6),
   groundCapacity: 42,
@@ -505,6 +595,136 @@ const REGIONAL: TierLayout = {
  * Tier 4: a pier with jet bridges for the airliners (one gate big enough for
  * wide-bodies) and a cargo apron at the far end of the parallel taxiway.
  */
+/** Terminal 3 stations (city airport); the international airport adds passport control. */
+const T3_STATIONS: Stations = {
+  entry: [44.0, 6.55],
+  counters: [
+    [42.5, 9.5],
+    [44.0, 9.5],
+    [41.8, 9.5],
+    [44.7, 9.5],
+    [41.1, 9.5],
+    [45.4, 9.5],
+    [40.4, 9.5],
+    [46.1, 9.5],
+  ],
+  checkinQueue: [
+    [43.25, 10.15],
+    [46.7, 10.15],
+    [46.7, 10.5],
+    [40.0, 10.5],
+    [40.0, 10.15],
+  ],
+  lanes: [
+    [45.6, 12.35],
+    [44.7, 12.35],
+    [43.8, 12.35],
+    [42.9, 12.35],
+    [42.0, 12.35],
+    [41.1, 12.35],
+  ],
+  securityQueue: [
+    [46.0, 11.55],
+    [40.3, 11.55],
+    [40.3, 11.15],
+    [46.9, 11.15],
+    [46.9, 10.9],
+  ],
+  airside: [41.6, 12.9],
+  belt: [
+    [46.4, 8.9],
+    [39.9, 8.9],
+    [39.9, 9.0],
+    [39.0, 9.0],
+  ],
+  claim: T3_CAROUSELS[0],
+  carousels: T3_CAROUSELS,
+  exit: [50.8, 6.85],
+  doors: { entrance: [41.2, 8.0], exit: [49.6, 8.0], gate: [44.0, 17.3], arrivals: [48.4, 17.3] },
+  entrances: [
+    [41.2, 8.0],
+    [44.8, 8.0],
+  ],
+  exits: [
+    [49.6, 8.0],
+    [52.0, 8.0],
+  ],
+  lobby: [[43.25, 8.6]],
+  dutyFree: [
+    [42.2, 14.9],
+    [42.9, 14.95],
+    [43.9, 14.95],
+    [44.9, 14.7],
+    [45.4, 14.05],
+    [46.9, 14.1],
+  ],
+  waitSpots: [
+    [46.72, 14.6],
+    [47.22, 14.6],
+    [47.52, 14.6],
+    [48.02, 14.6],
+    [48.32, 14.6],
+    [48.82, 14.6],
+    [46.72, 15.4],
+    [47.22, 15.4],
+    [48.32, 15.4],
+    [48.82, 15.4],
+    [47.75, 15.0],
+    [47.75, 14.0],
+  ],
+  concourse: [
+    [48.0, 15.45],
+    [48.0, 16.2],
+  ],
+  arrivalsWay: [
+    [51.6, 16.6],
+    [51.6, 15.4],
+  ],
+  customs: [
+    [50.25, 11.15],
+    [50.25, 10.45],
+  ],
+};
+
+const T3_INTL: Stations = {
+  ...T3_STATIONS,
+  passport: {
+    booths: [
+      [40.3, 14.55],
+      [41.0, 14.55],
+      [41.7, 14.55],
+    ],
+    queue: [
+      [41.0, 13.85],
+      [39.9, 13.85],
+      [39.9, 13.5],
+      [42.2, 13.5],
+    ],
+  },
+  arrPassport: {
+    booths: [
+      [50.3, 14.2],
+      [51.3, 14.2],
+      [52.3, 14.2],
+    ],
+    queue: [
+      [51.3, 14.95],
+      [52.6, 14.95],
+      [52.6, 15.35],
+      [50.0, 15.35],
+    ],
+  },
+};
+
+/** The road to Terminal 3 (curb end first) and its parking garage. */
+const T3_ROAD: readonly P2[] = [
+  [39.4, 7.25],
+  [54.4, 7.25],
+  [55.6, 6.0],
+  [55.6, 0],
+];
+const T3_GARAGE = [40.2, 2.6, 45.6, 6.0] as const;
+
 const CITY: TierLayout = {
   ...REGIONAL,
   field: { x0: 8, y0: 12.4, x1: 58, y1: 33.2 },
@@ -567,6 +787,7 @@ const CITY: TierLayout = {
     },
   },
   depot: depotAt(12.4),
+  t3: { st: T3_STATIONS, building: T3, road: T3_ROAD, garage: T3_GARAGE },
   // (one runway for landings and takeoffs, with wake gaps behind the jets: more than this and planes queue)
   groundCapacity: 42,
   camera: { center: [33, 23.5], zoom: 0.42 },
@@ -629,6 +850,7 @@ const INTERNATIONAL: TierLayout = {
   },
   windsock: [20, 30.6],
   depot: depotAt(12.4),
+  t3: { st: T3_INTL, building: T3, road: T3_ROAD, garage: T3_GARAGE },
   groundCapacity: 64,
   camera: { center: [33, 25.5], zoom: 0.4 },
 };

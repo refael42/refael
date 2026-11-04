@@ -31,6 +31,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M9 Advanced ATC | done | see below |
 | M10 Maintenance & fuel | done | see below |
 | M11 Events | done | weather, birds, debris, emergencies, VIPs, air shows; medical cases, celebrities, historic planes, real-date holidays (the undercover inspector moves to M12 with the reviews) |
+| Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -419,6 +420,60 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 - Tests: the fault-rate test now measures over three games (a few hundred arrivals) instead of one
   hundred: new incident flights shifted which arrivals the hash picks, and one game was too few
   to say "about 3%".
+
+### Big terminals (owner request, after M11)
+"Make the airport really big, like Ben Gurion with several terminals; the terminal a building
+without a roof so you see everything inside, every step from arriving at the airport to boarding
+and takeoff."
+
+- Terminal 1 (`src/data/terminals.ts`, from the small airfield on) replaces the closed box and
+  the plaza. It is an open-roofed building:
+  - tall back walls with windows, low glass front walls, glass partitions, sliding doors;
+  - glass canopies over the curb doors;
+  - floors by zone: check-in, security (yellow line), a carpeted departures lounge, arrivals.
+  Inside:
+  - check-in counters with the belt to a baggage room outside;
+  - the security queue and scanners;
+  - a lounge with rows of seats, a café, a board, a fountain and bins;
+  - arrivals with the carousel, restrooms and an ATM;
+  - hanging pictogram signs.
+
+  The tower and radar moved west to make room.
+- Terminal 3 (from the city airport on), north of the gates, takes the big jets (large stands and
+  up); Terminal 1 keeps the small and medium planes.
+  - Landside: its own road from the north with a curb, taxi boxes, a bus bay and a stop, zebra
+    crossings, and a three-deck garage with cars on top.
+  - Departures: two entrances, a check-in hall with two islands of counters and self check-in
+    kiosks, six security lanes, passport control with booths and officers (international
+    airport), a walk-through duty free (shelves of perfume, chocolate, drinks; a till), and a food
+    court (stalls, tables).
+  - The concourse: gate lounges with seats and gate desks by the jet bridges, and a business
+    lounge with sofas.
+  - Arrivals: along the concourse into a corridor, passport control (international), the
+    baggage hall with three carousels, customs, the arrivals hall (car rental, ATM) and out to
+    the curb.
+- Sim:
+  - Passengers belong to a terminal.
+  - Queues and service points are one generic station line, used for check-in, security, and
+    passport control out and in.
+  - Terminal 3 has two counters and lanes for each one of Terminal 1.
+  - Duty free sells 1.6x the kiosk.
+  - Waiting passengers move from the food court to their gate once the plane is at its jet
+    bridge.
+  - A long queue bunches up at its end instead of spilling past it.
+- Tests:
+  - On every tier, nobody walks through a wall: each step of every person is checked against
+    every wall, so people only cross walls at doors.
+  - Terminal 3 is busy at the city and international airports.
+  - Two real bugs found by these tests were fixed:
+    - a smaller plane at a jet-bridge gate: its passengers went straight through walls to it;
+    - the passport queue was too close to a partition.
+- E2E:
+  - `terminal-t2`, `terminal-t3`, `terminal-t3-intl` and `terminal-t3-wide` (these wait until
+    Terminal 3 has passengers);
+  - the hook adds `terminals()`.
+- Balance (bot, 4 h, seeds 1/7/13): tier 4 at 157/163/153 min, 15/25/17 diverted (M11: 49/19/27),
+  on time 73/77/81%.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

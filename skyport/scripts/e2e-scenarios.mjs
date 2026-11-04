@@ -417,6 +417,26 @@ export default [
   { name: 'm11-halloween', viewport: { width: 844, height: 390 }, query: '/?seed=58&tier=1&warp=120&auto=1&hol=halloween&cam=20.6,18.9,1.9', wait: 2500, touch: true, langs: ['en'] },
   // (art review of every holiday's decorations; not part of the regular run)
   ...['roshHashana', 'tuBishvat', 'purim', 'passover', 'lagBaomer', 'shavuot', 'newYear'].map((h) => ({ name: 'review-' + h, review: true, viewport: { width: 844, height: 390 }, query: `/?seed=59&tier=2&stands=4&warp=60&hol=${h}&holday=1&cam=${h === 'lagBaomer' ? '19.6,19.4' : '21.6,18.6'},1.9`, wait: 2000, touch: true, langs: ['en'] })),
+  // the open-roofed terminal: everything inside in view
+  { name: 'terminal-t2', viewport: { width: 844, height: 390 }, query: '/?seed=61&tier=2&stands=4&crew=1&warp=240&auto=1&cam=19.6,16.2,1.55', wait: 2500, touch: true },
+  { name: 'terminal-t2-wide', viewport: { width: 844, height: 390 }, query: '/?seed=61&tier=2&stands=4&crew=1&warp=240&auto=1', wait: 2500, touch: true, langs: ['en'] },
+  { name: 'terminal-t4', viewport: { width: 844, height: 390 }, query: '/?seed=62&tier=4&full=1&crew=1&warp=240&auto=1&cam=19.6,16.2,1.3', wait: 2500, touch: true, langs: ['en'] },
+  // Terminal 3: wait until its halls are busy (the big jets' passengers are inside)
+  ...[
+    ['terminal-t3', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=46.2,12.4,1.05', ['he', 'en']],
+    ['terminal-t3-intl', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&cam=46.2,12.4,1.05', ['en']],
+    ['terminal-t3-wide', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&cam=38,16,0.55', ['en']],
+  ].map(([name, query, langs]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query,
+    wait: 1500,
+    touch: true,
+    langs,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.terminals().t3 >= 8, null, { timeout: 40000 });
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

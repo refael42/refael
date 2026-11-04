@@ -92,9 +92,10 @@ export function drawGame(
   // the sock streams toward where the wind blows; it flaps faster in a strong wind
   const sock8 = (Math.round((wx.windTo / (Math.PI * 2)) * 8) + 8) % 8;
   w.sprite(sp.windsock(sock8, Math.floor(o.time * (2 + wx.speed / 6)) % 2), isoX(ws.x, ws.y), isoY(ws.x, ws.y), 1, ws.x + ws.y);
+  const LLr = layoutOf(s.tier);
   if ((s.upg.radar ?? 0) > 0 && s.tier >= 2) {
-    const rx = RADAR_POS[0];
-    const ry = RADAR_POS[1];
+    const rx = (LLr.radar ?? RADAR_POS)[0];
+    const ry = (LLr.radar ?? RADAR_POS)[1];
     // one turn every 4 s (the antenna repeats every half turn)
     w.sprite(sp.radar(Math.floor(o.time * 4)), isoX(rx, ry), isoY(rx, ry), 1, rx + ry + 0.2);
   }
@@ -220,6 +221,8 @@ export function drawGame(
   // background traffic: parked cars and cars on the access road
   drawCars(w, sp, parkedCars(LL, s.stats.served), visible, o.time, false);
   drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true);
+  // Terminal 3's road: cars, taxis and buses to its curb
+  if (LL.t3) drawCars(w, sp, roadCars(LL, s.time * 1.3 + 3, LL.t3.road, 7), visible, o.time, true);
 
   // idle staff at their posts (fueler and porter ride their vehicles while working)
   const L = layoutOf(s.tier);
