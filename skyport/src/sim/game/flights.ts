@@ -7,6 +7,7 @@ import { tierDef, type TierLayout } from '../../data/tiers';
 import { rand, randInt, randRange, randWeighted } from '../rng';
 import { hash01, hashU32 } from '../hash';
 import { storeActive } from './supplies';
+import { bussed } from './buses';
 import { hangarFaultFactor, startCheck, updateChecks } from './maintenance';
 import { airportDisrupted, airportPaused, birdCheck, boostPax, runwayBlocked, stormActive, vipTip } from './incidents';
 import { airlineFlightDone, contractOf, dueArrival, fleetForRep, fleetHere, kindOf, refillSchedule, updateGuests } from './airlines';
@@ -822,8 +823,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       waitingDrain(s, f, dt);
       f.paxTimer -= dt;
       if (f.deboarded < f.paxIn && f.paxTimer <= 0) {
-        // off through the jet bridge into the pier, or down the stairs onto the apron
-        const gate = gatePoint(L, f.stand);
+        // off through the jet bridge into the pier, or down the stairs onto the apron (always the stairs when a bus comes)
+        const gate = bussed(s, f) ? null : gatePoint(L, f.stand);
         const out = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
         const n = Math.min(paxGroupOf(base), f.paxIn - f.deboarded);
         spawnArrivingPax(s, f, out[0], out[1], n);

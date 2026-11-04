@@ -437,6 +437,17 @@ export default [
       await page.waitForFunction(() => window.__skyport && window.__skyport.terminals().t3 >= 8, null, { timeout: 40000 });
     },
   })),
+  // apron buses to the remote stands (wait until one is out on the apron)
+  {
+    name: 'apron-bus',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=65&tier=3&full=1&warp=380&auto=1&hook=1&cam=27.5,20.6,1.25',
+    wait: 1500,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.buses().some((b) => b.state !== 'idle' && b.x > 23), null, { timeout: 60000 });
+    },
+  },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

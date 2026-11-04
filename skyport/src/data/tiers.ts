@@ -158,6 +158,8 @@ export interface Stations {
   arrivalsWay?: readonly P2[];
   /** From the baggage hall through customs into the arrivals hall. */
   customs?: readonly P2[];
+  /** Where the apron buses stop in front of the terminal (for the remote stands). */
+  busStop?: P2;
 }
 
 export interface Depot {
@@ -441,7 +443,10 @@ const SMALL_AIRFIELD: TierLayout = {
     claim: [20.45, 18.2],
     exit: [24.3, 16.6],
     doors: T1_DOORS,
+    busStop: [20.05, 20.32],
   },
+  // (the baggage carts park west of the terminal front, clear of the bus stop)
+  bags: { home: [16.3, 20.35], via: [16.5, 21.1] },
   waitSpots: [
     [17.25, 18.08],
     [17.65, 18.08],

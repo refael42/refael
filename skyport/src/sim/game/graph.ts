@@ -156,13 +156,17 @@ function buildFlow(g: Graph, exits: number[], holdShort: number): Flow {
  * shared lane: through the shared edges to the next waiting spot, and on
  * along waiting edges until the whole tail (`tail` long) fits there.
  */
+/** How much shorter than its straight length an edge can be to drive, once the corners are rounded. */
+const CORNER_SLACK = 0.5;
+
 export function safeRunEnd(g: Graph, flow: Flow, route: number[], from: number, tail: number): number {
   const n = route.length;
   let j = from;
   while (j < n - 1 && !flow.safe[route[j]]) j++;
-  // (a plane stops a little short of an edge it can't enter: count that gap too)
+  // (a plane stops a little short of an edge it can't enter: count that gap too; and the route
+  // rounds the corners, so an edge is a little shorter to drive than its straight length)
   let room = flow.safe[route[j]] ? g.edges[route[j]].len : 0;
-  while (j < n - 1 && room < tail + STOP_GAP + 0.1 && flow.safe[route[j + 1]]) {
+  while (j < n - 1 && room < tail + STOP_GAP + CORNER_SLACK && flow.safe[route[j + 1]]) {
     j++;
     room += g.edges[route[j]].len;
   }

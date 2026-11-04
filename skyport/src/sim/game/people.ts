@@ -6,6 +6,7 @@ import { doorPoint, gatePoint, layoutOf } from './layout';
 import { arrivalsRoute, doorSides, entranceRoute, gateRoute, homeRoute, homeRoute3, pierWalk, zoneAt } from './routes';
 import { makeSample, samplePath } from './path';
 import { claimSpot, joinArrPassport, joinCheckin, leaveStations, terminalFor } from './terminal';
+import { bussed, sendToBus, waitForBus } from './buses';
 import { PST, type Flight, type GameState, type Person } from './types';
 
 const SAMPLE = makeSample();
@@ -53,6 +54,12 @@ export function spawnArrivingPax(s: GameState, f: Flight, x: number, y: number, 
     p.state = PST.toArrPass;
     walkTo(p, [x, L.t3.building.box[3] - 0.7, ...(L.t3.st.arrivalsWay ?? []).flat()]);
     s.people.push(p);
+    return;
+  }
+  if (bussed(s, f)) {
+    // a remote stand: wait by the plane for the apron bus
+    s.people.push(p);
+    waitForBus(p);
     return;
   }
   const c = claimSpot(s, p);
@@ -104,7 +111,10 @@ export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayo
       // through the jet bridge from the gate, or out of the gate door and across the apron to the door
       const to = gate ?? doorPoint(L, f.aircraft, f.x, f.y, f.heading);
       p.state = PST.toPlane;
-      if (p.term === 1 && L.t3 && gate) {
+      if (bussed(s, f)) {
+        // a remote stand: out of the gate door to the apron bus
+        sendToBus(s, p, gateRoute(L));
+      } else if (p.term === 1 && L.t3 && gate) {
         // Terminal 3: from the food court down the concourse if they never got to the gate, then into the jet bridge
         const from = p.slot === -3 ? (L.t3.st.concourse ?? []).flat() : [];
         walkTo(p, [...from, gate[0], gate[1] - 0.5, gate[0], gate[1]]);
@@ -118,7 +128,23 @@ export function releaseBoarding(s: GameState, f: Flight, dt: number, L: TierLayo
   }
 }
 
-const DEPARTING: readonly number[] = [PST.toSpot, PST.waiting, PST.toPlane, PST.inCheckin, PST.atCounter, PST.inSecurity, PST.atScanner, PST.toShop, PST.shopping, PST.toEntrance];
+const DEPARTING: readonly number[] = [
+  PST.toSpot,
+  PST.waiting,
+  PST.toPlane,
+  PST.inCheckin,
+  PST.atCounter,
+  PST.inSecurity,
+  PST.atScanner,
+  PST.toShop,
+  PST.shopping,
+  PST.toEntrance,
+  PST.inPassport,
+  PST.atBooth,
+  PST.toBus,
+  PST.atBusStop,
+  PST.inBus,
+];
 
 /** The flight is gone: its passengers leave every queue and go home. */
 export function sendPaxHome(s: GameState, f: Flight): void {
@@ -128,7 +154,11 @@ export function sendPaxHome(s: GameState, f: Flight): void {
     leaveStations(s, p);
     p.state = PST.leaving;
     if (p.term === 1 && L.t3) walkTo(p, [...homeRoute3(L, p.x, p.y), L.t3.st.entry[0], L.t3.st.entry[1]]);
-    else walkTo(p, [...homeRoute(L, p.x, p.y), L.terminal.exit[0], L.terminal.exit[1]]);
+    else if (L.building && L.terminal.doors && !zoneAt(L.building, p.x, p.y) && p.y > L.building.box[3]) {
+      // out on the apron (at the bus stop, off the bus, on the way to the stairs): back in through the gate door first
+      const d = doorSides(L.building, L.terminal.doors.gate);
+      walkTo(p, [d.out[0], d.out[1], d.in[0], d.in[1], ...homeRoute(L, d.in[0], d.in[1]), L.terminal.exit[0], L.terminal.exit[1]]);
+    } else walkTo(p, [...homeRoute(L, p.x, p.y), L.terminal.exit[0], L.terminal.exit[1]]);
   }
 }
 
@@ -163,6 +193,13 @@ export function updatePeople(s: GameState, dt: number): void {
           case PST.toArrPass:
             joinArrPassport(s, p);
             break;
+          case PST.toBus:
+            p.state = PST.atBusStop;
+            break;
+          case PST.toBusA:
+            p.state = PST.atBusA;
+            break;
+
           case PST.toExit:
           case PST.leaving:
             keep = false;

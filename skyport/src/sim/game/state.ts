@@ -25,6 +25,7 @@ export function createGame(seed: number): GameState {
     rating: 3,
     flights: [],
     people: [],
+    buses: [],
     vehicles: [makeVehicle(1, 'fuel', L), makeVehicle(2, 'bags', L)],
     stands: L.stands.map(() => ({ occupant: 0, reserved: 0 })),
     fuelQueue: [],

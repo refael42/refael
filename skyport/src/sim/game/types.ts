@@ -435,7 +435,35 @@ export const PST = {
   toArrPass: 18,
   inArrPass: 19,
   atArrBooth: 20,
+  /** Apron buses: departing (to the stop, waiting at it, riding) and arriving (waiting at the plane, to the bus, at it, riding). */
+  toBus: 21,
+  atBusStop: 22,
+  inBus: 23,
+  waitBus: 24,
+  toBusA: 25,
+  atBusA: 26,
+  inBusA: 27,
 } as const;
+
+/** An apron bus between Terminal 1 and the remote stands. */
+export interface ApronBus {
+  id: number;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  heading: number;
+  path: number[];
+  pathPos: number;
+  /** idle at the stop; load (departures at the stop); go (to the plane); drop (departures off); pick (arrivals on at the plane); back; unload (arrivals off at the stop). */
+  state: 'idle' | 'load' | 'go' | 'drop' | 'pick' | 'back' | 'unload';
+  flight: number;
+  /** 0 taking departures out, 1 bringing arrivals in. */
+  mode: number;
+  /** Person ids on board. */
+  load: number[];
+  timer: number;
+}
 
 export interface Person {
   id: number;
@@ -637,6 +665,8 @@ export interface GameState {
   flights: Flight[];
   people: Person[];
   vehicles: Vehicle[];
+  /** Apron buses (transient). */
+  buses: ApronBus[];
   stands: Stand[];
   /** Flight ids waiting for the fuel truck. */
   fuelQueue: number[];

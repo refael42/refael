@@ -249,7 +249,25 @@ export function drawGame(
   }
 
   // people
+  // apron buses (their riders are inside)
+  const BUS = VEHICLE_KINDS.indexOf('apronBus');
+  for (const b of s.buses) {
+    const x = lerp(b.px, b.x, a);
+    const y = lerp(b.py, b.y, a);
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    if (!visible(sx, sy, 60)) continue;
+    const d = dirIndex(b.heading);
+    w.shadow(sp.vehicleShadow(BUS, d), sx + 2, sy + 2, 1, 0.28);
+    w.sprite(sp.vehicle(BUS, d), sx, sy, 1, x + y);
+    if (b.state !== 'idle' && Math.floor(o.time * 3 + b.id) % 2 === 0) {
+      const bc = BEACON.apronBus;
+      const p = modelPoint(x, y, 0, d, bc.u * VEHICLE_SCALE, bc.v * VEHICLE_SCALE, bc.h * VEHICLE_SCALE);
+      w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 0.8, 0.9);
+    }
+  }
   for (const p of s.people) {
+    if (p.state === PST.inBus || p.state === PST.inBusA) continue;
     const x = lerp(p.px, p.x, a);
     const y = lerp(p.py, p.y, a);
     const sx = isoX(x, y);

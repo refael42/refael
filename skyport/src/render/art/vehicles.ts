@@ -466,6 +466,28 @@ function ambulance(): StackPart[] {
   return parts;
 }
 
+/**
+ * Apron bus: long and low, white with a blue band, a glass band of windows
+ * all along, two double doors on the curb side, air conditioning on the roof.
+ */
+function apronBus(): StackPart[] {
+  const body = '#f8fafc';
+  const parts: StackPart[] = [];
+  for (const u of [0.36, -0.36]) for (const v of [-0.12, 0.12]) parts.push(...wheel(u, v, 0.045, 0.03));
+  parts.push(rbox(-0.5, -0.135, 0.5, 0.135, 0.035, 0.29, 0.04, (t) => paint(body, t), { dots: [...lights(0.502, 0.1, 0.07, '#fff7d6', 0.012), ...lights(-0.502, 0.1, 0.07, '#ef4444', 0.011)] }));
+  for (const v of [-0.137, 0.135]) {
+    // the window band, the blue stripe under it, the doors
+    parts.push(boxPart(-0.46, v, 0.46, v + 0.002, 0.15, 0.26, () => GLASS, { outline: false, bias: 2 }));
+    parts.push(boxPart(-0.48, v, 0.48, v + 0.002, 0.1, 0.13, () => '#2563eb', { outline: false, bias: 2 }));
+    for (const u0 of [-0.22, 0.18]) parts.push(boxPart(u0, v, u0 + 0.12, v + 0.002, 0.04, 0.26, () => '#cbd5e1', { outline: false, bias: 3 }));
+  }
+  // front and back glass, roof units
+  parts.push(boxPart(0.495, -0.11, 0.505, 0.11, 0.14, 0.27, () => GLASS, { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.2, -0.08, 0.1, 0.08, 0.29, 0.33, () => '#cbd5e1', { outline: false, bias: 3 }));
+  parts.push(boxPart(0.25, -0.05, 0.35, 0.05, 0.29, 0.31, () => '#facc15', { outline: false, bias: 4 }));
+  return parts;
+}
+
 /** A long black limousine for the celebrity: chrome trim and dark glass all round. */
 function limo(): StackPart[] {
   const body = '#111827';
@@ -479,7 +501,7 @@ function limo(): StackPart[] {
 
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -501,6 +523,8 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return ambulance();
     case 'limo':
       return limo();
+    case 'apronBus':
+      return apronBus();
   }
 }
 
@@ -515,4 +539,5 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   opsCar: { u: 0.055, v: 0, h: 0.215 },
   ambulance: { u: 0.083, v: 0, h: 0.285 },
   limo: { u: 0, v: 0, h: 0 },
+  apronBus: { u: 0.3, v: 0, h: 0.32 },
 };

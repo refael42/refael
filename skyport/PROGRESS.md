@@ -475,6 +475,24 @@ and takeoff."
 - Balance (bot, 4 h, seeds 1/7/13): tier 4 at 157/163/153 min, 15/25/17 diverted (M11: 49/19/27),
   on time 73/77/81%.
 
+#### Apron buses
+- From the regional airport on, Terminal 1 flights at a remote stand (more than 5 tiles from the
+  building) or at a jet-bridge gate are served by bus (`src/sim/game/buses.ts`). There are two
+  buses, 18 riders each.
+  - Departing passengers walk from the lounge out of the gate door to the bus stop. The bus fills
+    up, drives along the apron lane, parks beside the plane, and they climb the stairs.
+  - Arriving passengers come down the stairs and wait. A bus picks them up, brings them back to
+    the stop, and they walk in through the arrivals door to the carousel.
+- Fix: a gridlock on the taxiways (tier 4, wind turning). A plane reserved the next edges by their
+  straight length, but the drawn route cuts the corners and is shorter, so the plane could stop
+  past its reservation. Reservations now keep 0.5 tiles of slack (`CORNER_SLACK`).
+- Tests:
+  - remote and near stands;
+  - buses carry passengers both ways, never more than 18 at once.
+- E2E: `apron-bus`.
+- Balance (bot, 4 h, seeds 1/7/13): tier 4 at 152/152/166 min, 22/17/10 diverted, on time
+  77/72/82%.
+
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a
   fragment for hosts that wrap the page) that runs from any sub-path. Published as a private
