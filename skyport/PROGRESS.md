@@ -34,6 +34,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view; apron buses |
 | The hub (tier 6) | done | Concourse D satellite with a people mover, Terminal 3 grows, a railway station |
 | The mega hub (tier 7) | done | Terminal 4 for the jumbos (3 jumbo gates), Globetrail, a second cargo stand |
+| The skyport (tier 8) | done | vertiport with electric air taxis (Hoverly), the airport hotel |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -561,6 +562,20 @@ Playable now (the skyport, tier 8, stays "coming soon").
 
   With the jumbos' wake the landing runway is busier, so the tier 7 wind test flies as many
   flights a day as the tier 6 one.
+
+#### The skyport (tier 8)
+The last stage is playable now; every tier has a map.
+- Vertiport: three pads for electric air taxis beside the old helipad (upgrade line `vertiport`).
+  They are dark, with a ring of cyan lights and a V.
+  - The Skytaxi is a new aircraft: a small capsule with four rotors on arms, 2-4 passengers.
+  - It lands straight down on a pad (no runway, no taxiway), like the helicopters.
+  - A new airline, Hoverly, flies them.
+- The airport hotel stands west of Terminal 3: a glass tower on a stone base with rows of rooms
+  (some lit), a star sign on the roof, a canopy over the door, and a forecourt with a fountain.
+  Terminal 3's road runs on to its door. Some departing passengers spent the night there and
+  walk over to the terminal.
+- Goals: become a skyport, open the vertiport. A help topic: the skyport.
+- Tests: the air taxis use the new pads; hotel guests walk to Terminal 3.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

@@ -456,6 +456,9 @@ export default [
     ['hub-rail', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=49.5,3.4,1.25', ['en'], () => window.__skyport.rail() && window.__skyport.rail().dwell && window.__skyport.rail().dwellT > 7],
     // the mega hub: Terminal 4 for the jumbos, east of Concourse D
     ['mega-overview', '/?seed=67&tier=7&full=1&crew=1&warp=420&auto=1&hook=1&cam=74,17,0.4', ['he', 'en'], () => window.__skyport.terminals().t4 >= 6],
+    // the skyport: air taxis on the vertiport, the hotel
+    ['skyport-vertiport', '/?seed=68&tier=8&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=34.6,16.9,2.1', ['he', 'en'], () => window.__skyport.skytaxis().some((f) => (f.phase === 'turnaround' || f.phase === 'deboarding' || f.phase === 'boarding') && f.x > 33.5 && f.x < 36.5)],
+    ['skyport-hotel', '/?seed=68&tier=8&full=1&crew=1&warp=420&auto=1&hook=1&cam=37.5,6.2,1.15', ['en'], () => window.__skyport.terminals().t3 >= 8],
     ['mega-t4', '/?seed=67&tier=7&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=87.5,12.6,1.0', ['he', 'en'], () => window.__skyport.terminals().t4 >= 12],
   ].map(([name, query, langs, ready]) => ({
     name,

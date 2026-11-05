@@ -227,7 +227,7 @@ describe('terminal save', () => {
 });
 
 describe('the terminal building', () => {
-  for (const tier of [2, 3, 4, 5, 6, 7]) {
+  for (const tier of [2, 3, 4, 5, 6, 7, 8]) {
     it(`tier ${tier}: nobody walks through a wall (in and out only by the doors)`, () => {
       const s = createGame(40 + tier);
       switchTier(s, tier);

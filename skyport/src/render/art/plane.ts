@@ -28,8 +28,11 @@ function bodyOf(a: AircraftArt): Body {
   const rv = r * a.tall;
   const hc = a.gear + rv;
   const propNose = a.engines === 'nose';
-  const heli = a.engines === 'rotor';
+  const quad = a.engines === 'quad';
+  const heli = a.engines === 'rotor' || quad;
   const profile = (s: number) => {
+    // an air taxi: a short rounded capsule
+    if (quad) return Math.max(0.15, Math.sqrt(Math.max(0, 1 - Math.pow((s - 0.5) / 0.5, 4))));
     if (heli) {
       if (s < 0.5) return 0.22 + 0.1 * smooth(s / 0.5);
       if (s < 0.62) return 0.32 + 0.68 * smooth((s - 0.5) / 0.12);
@@ -44,6 +47,7 @@ function bodyOf(a: AircraftArt): Body {
     return propNose ? 0.55 + 0.45 * round : Math.max(0.12, round);
   };
   const lift = (s: number) => {
+    if (quad) return 0;
     if (heli) return s < 0.5 ? (0.5 - s) * rv * 0.6 : 0;
     return s < 0.32 ? ((0.32 - s) / 0.32) * rv * 0.55 : 0;
   };
@@ -81,7 +85,8 @@ export function buildPlane(a: AircraftArt, liv: Livery, heading: number): StackP
   const b = bodyOf(a);
   const L = a.length;
   const parts: StackPart[] = [];
-  const heli = a.engines === 'rotor';
+  const quad = a.engines === 'quad';
+  const heli = a.engines === 'rotor' || quad;
 
   // Which side faces the viewer (world direction +x+y)?
   const nearSide = Math.cos(heading) - Math.sin(heading) >= 0 ? 1 : -1;
@@ -102,8 +107,8 @@ export function buildPlane(a: AircraftArt, liv: Livery, heading: number): StackP
   for (let row = 0; row < rows; row++) {
     const hw = b.hc + b.rv * (rows === 2 ? (row === 0 ? -0.05 : 0.5) : 0.18);
     const n = a.windows;
-    const sA = heli ? 0.66 : a.engines === 'nose' ? 0.52 : 0.3;
-    const sB = heli ? 0.86 : a.engines === 'nose' ? 0.72 : 0.78;
+    const sA = quad ? 0.32 : heli ? 0.66 : a.engines === 'nose' ? 0.52 : 0.3;
+    const sB = quad ? 0.72 : heli ? 0.86 : a.engines === 'nose' ? 0.72 : 0.78;
     for (let i = 0; i < n; i++) {
       const s = n === 1 ? (sA + sB) / 2 : sA + ((sB - sA) * i) / (n - 1);
       const w = halfWidth(b, s, hw);
@@ -261,8 +266,41 @@ export function buildPlane(a: AircraftArt, liv: Livery, heading: number): StackP
     parts.push(discPart(b.u1 + 0.012, 0, b.hc + b.rv * 0.05, b.rv * 1.25, '#5b6170', 0.4));
   }
 
+  // --- four rotors on arms (air taxi): light discs over the corners
+  if (quad) {
+    const rh = b.hc + b.rv * 1.6;
+    const R = a.span * 0.17;
+    for (const su of [-1, 1])
+      for (const sv of [-1, 1]) {
+        const cu = su * L * 0.44;
+        const cv = sv * a.span * 0.33;
+        // the arm from the cabin roof out to the motor
+        parts.push(prismPart([0, -0.012, cu, cv - 0.012, cu, cv + 0.012, 0, 0.012], rh - 0.03, rh - 0.01, () => '#334155', { cu: cu / 2, cv: cv / 2, outline: false, bias: 8 }));
+        parts.push(prismPart([cu - 0.03, cv - 0.03, cu + 0.03, cv - 0.03, cu + 0.03, cv + 0.03, cu - 0.03, cv + 0.03], rh - 0.04, rh, () => liv.accent, { cu, cv, outline: false, bias: 8 }));
+        parts.push({
+          cu,
+          cv,
+          ch: rh + 0.01,
+          h0: rh + 0.005,
+          h1: rh + 0.012,
+          alpha: 0.5,
+          outline: false,
+          bias: 9,
+          section: () => {
+            const out: number[] = [];
+            for (let i = 0; i < 18; i++) {
+              const ang = (i / 18) * Math.PI * 2;
+              out.push(cu + Math.cos(ang) * R, cv + Math.sin(ang) * R);
+            }
+            return out;
+          },
+          color: () => '#94a3b8',
+        });
+      }
+  }
+
   // --- rotor (helicopter)
-  if (heli) {
+  if (heli && !quad) {
     const rh = b.hc + b.rv + 0.05;
     const R = a.span / 2;
     parts.push({

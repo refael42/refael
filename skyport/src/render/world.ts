@@ -527,6 +527,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         [72, 40, 80, 47],
       );
     const clear = [L.t3, L.t4].flatMap((T) => (T ? [T.building.box, [T.garage[0] - 1, T.garage[1] - 1, T.garage[2] + 1, T.garage[3] + 1] as const] : []));
+    if (L.hotel) clear.push([L.hotel.box[0] - 1.5, L.hotel.box[1] - 1, L.hotel.box[2] + 1, L.hotel.box[3] + 1.5]);
     fields.forEach((f, i) => {
       if (clear.some((b) => f[0] < b[2] && f[2] > b[0] && f[1] < b[3] + 1.5 && f[3] > b[1] - 1.5)) return;
       drawField(g, f[0], f[1], f[2], f[3], i);
@@ -647,7 +648,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     g.poly(apron, GRAVEL);
     // concrete in front of the bigger buildings, out to the stand lane
     for (const bd of L.buildings ?? []) {
-      if (bd.kind === 'helipad' || (bd.kind === 'hangar' && hangarBays === 0)) continue;
+      if (bd.kind === 'helipad' || bd.kind === 'vertipad' || (bd.kind === 'hangar' && hangarBays === 0)) continue;
       g.rect(bd.pos[0] - 0.6, bd.pos[1] + bd.size[1] - 0.3, bd.pos[0] + bd.size[0] + 0.6, ay1, GRAVEL);
     }
     // the hangar apron: concrete slabs with yellow lead-in lines into each open door
@@ -696,6 +697,18 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       paintApm(g, L.sat, blur);
     }
     if (L.rail) paintRail(g, L.rail, blur);
+    // the hotel's forecourt: paving, a fountain pool, flower beds
+    if (L.hotel) {
+      const H = L.hotel.box;
+      g.f.setMaskFilter(blur(5));
+      g.rect(H[0] - 0.2, H[1] - 0.2, H[2] + 0.3, H[3] + 0.3, 'rgba(40,60,70,0.3)');
+      g.f.setMaskFilter(null);
+      g.rect(H[0] - 0.3, H[3], H[2] + 0.3, H[3] + 0.7, '#e7e5e4');
+      for (let x = H[0] - 0.3; x < H[2] + 0.3; x += 0.5) g.line(x, H[3], x, H[3] + 0.7, '#d6d3d1', 1);
+      g.ellipse(H[0] + 1.2, H[3] + 0.35, 0.42, 0.24, '#7dd3fc');
+      g.ellipse(H[0] + 1.2, H[3] + 0.35, 0.2, 0.11, '#e0f2fe');
+      for (const fx of [H[0] + 2.4, H[0] + 3.2]) g.ellipse(fx, H[3] + 0.35, 0.28, 0.16, '#f472b6');
+    }
 
     // taxi tracks and the runway: smooth dirt with a darker rim and a lighter worn center
     const gr = graphOf(tier);
@@ -787,6 +800,21 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       g.line(cx - 0.2, cy - 0.25, cx - 0.2, cy + 0.25, '#f8fafc', 3);
       g.line(cx + 0.2, cy - 0.25, cx + 0.2, cy + 0.25, '#f8fafc', 3);
       g.line(cx - 0.2, cy, cx + 0.2, cy, '#f8fafc', 3);
+    }
+    // the vertiport: dark pads with a cyan ring of lights and a V, a walkway to the old helipad
+    for (const bd of L.buildings ?? []) {
+      if (bd.kind !== 'vertipad') continue;
+      const cx = bd.pos[0] + bd.size[0] / 2;
+      const cy = bd.pos[1] + bd.size[1] / 2;
+      g.rect(bd.pos[0], bd.pos[1], bd.pos[0] + bd.size[0], bd.pos[1] + bd.size[1], '#475569');
+      g.ellipse(cx, cy, 0.66, 0.66, '#22d3ee');
+      g.ellipse(cx, cy, 0.6, 0.6, '#334155');
+      for (let k = 0; k < 10; k++) {
+        const a = (k / 10) * Math.PI * 2;
+        g.ellipse(cx + Math.cos(a) * 0.63, cy + Math.sin(a) * 0.63, 0.04, 0.04, '#ecfeff');
+      }
+      g.line(cx - 0.22, cy - 0.25, cx, cy + 0.25, '#f8fafc', 3);
+      g.line(cx + 0.22, cy - 0.25, cx, cy + 0.25, '#f8fafc', 3);
     }
     L.stands.forEach((st, i) => {
       if (st.size === 'heli') return; // the helipad is a building
@@ -922,6 +950,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     statics.push({ sprite: sprites.busStop, x: isoX(bx, by), y: isoY(bx, by), depth: bx + by + 0.35, r: 60 });
   }
   if (L.sat) buildingStatics(L.sat.building, sprites, statics, tier);
+  if (L.hotel) {
+    const H = L.hotel.box;
+    statics.push({ sprite: sprites.hotel, x: isoX(H[0], H[1]), y: isoY(H[0], H[1]), depth: H[0] + H[1] + 5.4, r: 320 });
+  }
   if (L.rail) {
     const r = L.rail;
     const at = (sprite: number, x: number, y: number, depth: number, rr = 120) => statics.push({ sprite, x: isoX(x, y), y: isoY(x, y), depth, r: rr });
@@ -957,6 +989,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     for (const T of [L.t3, L.t4]) if (T && x > Math.min(T.building.box[0], T.garage[0]) - 2 && x < Math.max(T.building.box[2], T.garage[2]) + 3.2 && y > T.garage[1] - 1.5 && y < T.building.box[3] + 0.5) return;
     if (L.rail && y < L.rail.y + 1.6 && y > L.rail.y - 1.4 && x > L.rail.portals[0] - 2 && x < L.rail.portals[1] + 2) return;
     if (L.rail && x > L.rail.platform[0] - 1 && x < L.rail.platform[2] + 1 && y < 7.6) return;
+    if (L.hotel && x > L.hotel.box[0] - 1.2 && x < L.hotel.box[2] + 1.2 && y > L.hotel.box[1] - 1.2 && y < L.hotel.box[3] + 1.4) return;
     for (const T of [L.t3, L.t4]) if (T && T.road.some((p, i) => i > 0 && segDist(x, y, T.road[i - 1], p) < 1.1)) return;
     const kind = Math.floor(hash01(seed * 5 + 1) * TREE_KINDS.length);
     const size = Math.floor(hash01(seed * 5 + 2) * TREE_SIZES.length);

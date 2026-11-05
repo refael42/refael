@@ -31,6 +31,7 @@ const TOPICS: { icon: IconName; key: string; tier: number }[] = [
   { icon: 'party', key: 'holidays', tier: 1 },
   { icon: 'plane', key: 'terminals', tier: 2 },
   { icon: 'tail', key: 'hub', tier: 6 },
+  { icon: 'star', key: 'skyport', tier: 8 },
 ];
 
 export function HelpPanel({ tier, onClose }: { tier: number; onClose: () => void }) {

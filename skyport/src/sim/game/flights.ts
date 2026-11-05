@@ -286,11 +286,14 @@ const SIZE_RANK: Record<string, number> = { small: 0, fbo: 0, heli: 0, medium: 1
 export function freeStand(s: GameState, aircraft = 0): number {
   const L = layoutOf(s.tier);
   const need = AIRCRAFT[aircraft]?.stand ?? 'small';
+  const taxi = AIRCRAFT[aircraft]?.category === 'evtol';
   let best = -1;
   for (let i = 0; i < Math.min(L.stands.length, s.stands.length); i++) {
     if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0 || L.stands[i].hangar) continue;
     if (!standFits(L.stands[i].size, need) || (L.stands[i].exact && L.stands[i].size !== need)) continue;
-    if (best < 0 || SIZE_RANK[L.stands[i].size] < SIZE_RANK[L.stands[best].size]) best = i;
+    // (air taxis go to the vertiport pads first, helicopters to the helipad)
+    const pref = (k: number) => SIZE_RANK[L.stands[k].size] * 2 + ((L.stands[k].line === 'vertiport') === taxi ? 0 : 1);
+    if (best < 0 || pref(i) < pref(best)) best = i;
   }
   return best;
 }

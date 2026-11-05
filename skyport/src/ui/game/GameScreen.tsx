@@ -936,6 +936,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         const inD = b ? ctrl.state.people.filter((p) => p.x > b[0] && p.x < b[2] && p.y > b[1] && p.y < b[3]).length : 0;
         return { x: t?.x ?? 0, state: t?.state ?? 'none', at: t?.at ?? 0, load: t?.load.length ?? 0, waitT: n(PST.atApm), waitD: n(PST.atApmA), toD: n(PST.toApmA), inD };
       },
+      skytaxis: () => ctrl.state.flights.filter((f) => AIRCRAFT[f.aircraft]?.id === 'skytaxi').map((f) => ({ phase: f.phase, z: f.z, x: f.x, y: f.y })),
       rail: () => {
         const r = layoutOf(ctrl.state.tier).rail;
         return r ? { ...railTrain(r, ctrl.state.time), waiting: ctrl.state.people.filter((p) => p.state === PST.atRail).length } : null;

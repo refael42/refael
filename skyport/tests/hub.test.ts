@@ -143,3 +143,48 @@ describe('the mega hub', () => {
       }
   });
 });
+
+describe('the skyport', () => {
+  it('air taxis land on the vertiport pads and passengers come from the hotel', () => {
+    const L = layoutFor(8);
+    expect(L.hotel).toBeDefined();
+    const pads = L.stands.map((st, i) => (st.id.startsWith('V') ? i : -1)).filter((i) => i >= 0);
+    expect(pads.length).toBe(3);
+    const s = createGame(8);
+    switchTier(s, 8);
+    for (const st of L.stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
+    s.upg.lounge = 1;
+    s.upg.ils = 3;
+    s.upgRev++;
+    applyStructural(s);
+    stockUp(s);
+    s.money = Big.fromNumber(1e14);
+    s.nextIncidentAt = 1e12;
+    s.stats.served = 30000;
+    s.rep = s.rep.map(() => 100);
+    s.contracts = [];
+    for (const id of ['hoverly', 'aurelia', 'meadowlark']) {
+      const o = makeOffer(s, AIRLINES.findIndex((a) => a.id === id));
+      s.offers.push(o);
+      signOffer(s, o.id);
+    }
+    const taxi = AIRCRAFT.findIndex((a) => a.id === 'skytaxi');
+    const parkedOn = new Set<number>();
+    let hotelGuests = 0;
+    const seen = new Set<number>();
+    const H = L.hotel!.door;
+    for (let i = 0; i < 30 * 1200; i++) {
+      if (i % 3 === 0) for (const c of botCommands(s, { reaction: 0.4 })) queueCommand(s, c);
+      stepGame(s);
+      for (const f of s.flights) if (f.aircraft === taxi && f.stand >= 0 && f.phase === 'turnaround') parkedOn.add(f.stand);
+      for (const p of s.people) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        if (Math.hypot(p.x - H[0], p.y - H[1]) < 0.5) hotelGuests++;
+      }
+    }
+    // the taxis use the new pads (the old helipad is for the helicopters too)
+    expect([...parkedOn].some((i) => pads.includes(i))).toBe(true);
+    expect(hotelGuests).toBeGreaterThan(5);
+  }, 300000);
+});

@@ -26,7 +26,7 @@ export interface StandDef {
   exact?: boolean;
 }
 
-export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad' | 'hangar';
+export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad' | 'hangar' | 'vertipad';
 
 export interface BuildingDef {
   kind: BuildingKind;
@@ -116,6 +116,8 @@ export interface TierLayout {
   sat?: Satellite;
   /** The hub: a railway along the north edge with a station by Terminal 3. */
   rail?: Rail;
+  /** The skyport: the airport hotel by Terminal 3 (its footprint and the door guests use). */
+  hotel?: { box: Area; door: P2 };
   /** Spots for things upgrades add to the scene. */
   decor: { kiosk: P2; billboard: P2; benches: readonly P2[] };
   windsock: P2;
@@ -1096,6 +1098,30 @@ const MEGA: TierLayout = {
   camera: { center: [55, 24.5], zoom: 0.32 },
 };
 
+/**
+ * Tier 8, the skyport: a vertiport for electric air taxis beside the old
+ * helipad (their passengers use Terminal 1, like the helicopters'), and the
+ * airport hotel west of Terminal 3, reached by a short drive off its road.
+ */
+const SKYPORT: TierLayout = {
+  ...MEGA,
+  stands: [
+    ...MEGA.stands,
+    { id: 'V1', pos: [34.1, 17.3], size: 'heli', line: 'vertiport', level: 1 },
+    { id: 'V2', pos: [35.9, 17.3], size: 'heli', line: 'vertiport', level: 2 },
+    { id: 'V3', pos: [29.9, 17.4], size: 'heli', line: 'vertiport', level: 3 },
+  ],
+  buildings: [
+    ...(MEGA.buildings ?? []),
+    { kind: 'vertipad', pos: [33.3, 16.5], size: [1.6, 1.6] },
+    { kind: 'vertipad', pos: [35.1, 16.5], size: [1.6, 1.6] },
+    { kind: 'vertipad', pos: [29.1, 16.6], size: [1.6, 1.6] },
+  ],
+  t3: { ...MEGA.t3!, road: [[33.6, 7.25], ...MEGA.t3!.road] },
+  hotel: { box: [32.4, 3.0, 37.4, 6.4], door: [36.4, 6.6] },
+  groundCapacity: 78,
+};
+
 export const TIERS: readonly TierDef[] = [
   { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1, contracts: 2 },
   { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3, contracts: 3 },
@@ -1104,7 +1130,7 @@ export const TIERS: readonly TierDef[] = [
   { id: 5, key: 'international', layout: INTERNATIONAL, needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
   { id: 6, key: 'hub', layout: HUB, needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
   { id: 7, key: 'megaHub', layout: MEGA, needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
-  { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },
+  { id: 8, key: 'skyport', layout: SKYPORT, needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },
 ];
 
 export function tierDef(id: number): TierDef {

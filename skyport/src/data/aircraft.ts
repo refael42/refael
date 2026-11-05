@@ -17,6 +17,7 @@ export type AircraftCategory =
   | 'cargo'
   | 'bizjet'
   | 'heli'
+  | 'evtol'
   | 'vintage';
 
 export type StandSize = 'small' | 'medium' | 'large' | 'huge' | 'hugeX' | 'cargo' | 'fbo' | 'heli';
@@ -34,7 +35,7 @@ export interface AircraftArt {
   /** Wing sweep: how far back the tip sits, in tiles. */
   sweep: number;
   wing: 'high' | 'low';
-  engines: 'nose' | 'wingProps' | 'wingJets2' | 'wingJets4' | 'tailJets' | 'rotor';
+  engines: 'nose' | 'wingProps' | 'wingJets2' | 'wingJets4' | 'tailJets' | 'rotor' | 'quad';
   engineSize: number;
   tail: 'normal' | 'T';
   /** Window rows: 0 = none (cargo), 1, or 2 for the double deck. */
@@ -152,6 +153,14 @@ export const AIRCRAFT: readonly AircraftDef[] = [
     landingFee: 50, paxFee: 30,
     art: { length: 1.2, radius: 0.13, tall: 1.1, span: 1.5, chord: 0.0, sweep: 0, wing: 'high', engines: 'rotor',
       engineSize: 0.05, tail: 'normal', windowRows: 1, windows: 2, gear: 0.06 },
+  },
+  {
+    // an electric air taxi with four rotors (skyport): straight down onto a vertiport pad
+    id: 'skytaxi', model: 'Skytaxi', category: 'evtol', paxMin: 2, paxMax: 4, stand: 'heli', wake: 'light',
+    unlockTier: 8, unlockServed: 0, approachSpeed: 1.5, taxiSpeed: 0.8, runwayLength: 0, fuelLoad: 200, baseTurnaround: 35, noise: 55,
+    landingFee: 70, paxFee: 55,
+    art: { length: 1.0, radius: 0.17, tall: 0.85, span: 1.45, chord: 0.0, sweep: 0, wing: 'high', engines: 'quad',
+      engineSize: 0.04, tail: 'normal', windowRows: 1, windows: 3, gear: 0.07 },
   },
   {
     // a polished-metal propliner from the golden age: it only comes on a visit (M11), never in a fleet

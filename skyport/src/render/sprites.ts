@@ -52,7 +52,7 @@ import {
   type TreeKind,
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
-import { drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
+import { drawHotel, drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
 import {
   drawAtm,
@@ -163,6 +163,8 @@ const SIGN_OF: Partial<Record<FurnitureKind, SignKind>> = {
   signCustoms: 'customs',
   signTrain: 'train',
 };
+/** The airport hotel is drawn at this size (tiles). */
+export const HOTEL_SIZE: readonly [number, number] = [5.0, 3.4];
 /** Pieces of the platform roof at the railway station are this long (tiles). */
 export const ROOF_SEG = 1.3;
 /** Furniture with looks (variant = Furniture.n). */
@@ -242,6 +244,8 @@ export interface SpriteSet {
   tunnelPortal: (west: boolean) => number;
   platformRoof: (post: boolean) => number;
   stationHall: number;
+  /** The airport hotel (skyport), drawn at HOTEL_SIZE. */
+  hotel: number;
   /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
   stretcher: number;
   rope: (alongY: boolean) => number;
@@ -503,6 +507,10 @@ export function buildSprites(content: Content): SpriteSet {
   const portals = [true, false].map((west) => b.add(-2.0 * T, -1.6 * T, 2.0 * T, 1.6 * T, (c, ox, oy) => drawTunnelPortal(new IsoPen(c, ox, oy, S), west)));
   const roofs = [true, false].map((post) => b.add(-0.6 * T, -1.2 * T, (ROOF_SEG + 0.6) * T, (ROOF_SEG * 0.5 + 0.8) * T, (c, ox, oy) => drawPlatformRoof(new IsoPen(c, ox, oy, S), ROOF_SEG, post)));
   const stationHall = b.add(-1.0 * T, -1.3 * T, 1.8 * T, 1.4 * T, (c, ox, oy) => drawStationHall(new IsoPen(c, ox, oy, S)));
+  const hotel =
+    tier >= 8
+      ? b.add(-(HOTEL_SIZE[1] + 0.6) * T, -3.4 * T, (HOTEL_SIZE[0] + 0.6) * T, ((HOTEL_SIZE[0] + HOTEL_SIZE[1]) * 0.5 + 0.8) * T, (c, ox, oy) => drawHotel(new IsoPen(c, ox, oy, S), HOTEL_SIZE[0], HOTEL_SIZE[1]))
+      : stationHall;
   const stretcher = b.add(-14 * S, -12 * S, 14 * S, 8 * S, (c, ox, oy) => drawStretcher(new IsoPen(c, ox, oy, S)));
   const ropeX = b.add(-0.2 * T, -0.5 * T, (ROPE_X + 0.2) * T, (ROPE_X * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_X, false));
   const ropeY = b.add(-(ROPE_Y + 0.2) * T, -0.5 * T, 0.2 * T, (ROPE_Y * 0.5 + 0.3) * T, (c, ox, oy) => drawRope(new IsoPen(c, ox, oy, S), ROPE_Y, true));
@@ -697,6 +705,7 @@ export function buildSprites(content: Content): SpriteSet {
     tunnelPortal: (west) => portals[west ? 0 : 1],
     platformRoof: (post) => roofs[post ? 0 : 1],
     stationHall,
+    hotel,
     stretcher,
     rope: (alongY) => (alongY ? ropeY : ropeX),
     ticketBooth,

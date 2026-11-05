@@ -104,6 +104,12 @@ export function spawnDepartingPax(s: GameState, f: Flight, L: TierLayout, n = 1)
       p.y = sp[1];
       p.px = p.x;
       p.py = p.y;
+    } else if (L.hotel && term === 1 && hash01(p.id * 53 + 7) < 0.15) {
+      // (at the skyport, some stayed the night at the hotel: out of its door and along the curb)
+      p.x = L.hotel.door[0] + (hash01(p.id * 59) - 0.5) * 0.4;
+      p.y = L.hotel.door[1];
+      p.px = p.x;
+      p.py = p.y;
     }
     walkTo(p, [...(byTrain ? byTrain.path.flat() : []), d.out[0], d.out[1], d.in[0], d.in[1], ...(T.st.lobby ?? []).flat()]);
     return;

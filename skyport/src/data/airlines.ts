@@ -103,7 +103,11 @@ export const AIRLINES: readonly AirlineDef[] = [
   },  {
     id: 'globetrail', code: 'GTR', name: 'Globetrail', kind: 'flag', unlockTier: 7, fleet: ['albatross', 'condor'], weight: 2,
     livery: { body: '#f8fafc', belly: '#0f766e', tail: '#0f766e', stripe: '#14b8a6', accent: '#f59e0b', wing: '#e2e8f0', engine: '#0f766e' },
+  },  {
+    id: 'hoverly', code: 'HVR', name: 'Hoverly', kind: 'private', unlockTier: 8, fleet: ['skytaxi'], weight: 2,
+    livery: { body: '#ffffff', belly: '#e0e7ff', tail: '#6366f1', stripe: '#22d3ee', accent: '#22d3ee', wing: '#e2e8f0', engine: '#6366f1' },
   },
+
 
 ];
 

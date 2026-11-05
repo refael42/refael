@@ -81,6 +81,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'gates', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 300000, growth: 2.5, effect: 'opens', per: 1, buildSeconds: [150, 240], icon: 'plane' },
   { id: 'gatesD', category: 'apron', unlockTier: 6, maxLevel: 3, baseCost: 2.5e7, growth: 2.2, effect: 'opens', per: 1, buildSeconds: [240, 300, 360], icon: 'plane' },
   { id: 'gatesE', category: 'apron', unlockTier: 7, maxLevel: 3, baseCost: 6e8, growth: 2.2, effect: 'opens', per: 1, buildSeconds: [300, 420, 480], icon: 'plane' },
+  { id: 'vertiport', category: 'apron', unlockTier: 8, maxLevel: 3, baseCost: 2e10, growth: 1.8, effect: 'opens', per: 1, buildSeconds: [180, 240, 300], icon: 'plane' },
   { id: 'cargoApron', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 500000, growth: 2000, effect: 'opens', per: 1, buildSeconds: [180, 300], levelTier: [4, 7], icon: 'bag' },
   { id: 'helipad', category: 'apron', unlockTier: 5, maxLevel: 1, baseCost: 4e6, growth: 1, effect: 'opens', per: 1, buildSeconds: [120], icon: 'plane' },
   { id: 'hangar', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 40000, growth: 6, effect: 'opens', per: 1, buildSeconds: [150, 240], levelTier: [3, 4], icon: 'wrench' },
