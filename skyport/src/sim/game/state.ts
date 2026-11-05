@@ -78,6 +78,7 @@ export function createGame(seed: number): GameState {
     counterBusy: [],
     laneBusy: [],
     t3q: { checkinQ: [], securityQ: [], passportQ: [], arrPassQ: [], counterBusy: [], laneBusy: [], boothBusy: [], arrBoothBusy: [] },
+    t4q: { checkinQ: [], securityQ: [], passportQ: [], arrPassQ: [], counterBusy: [], laneBusy: [], boothBusy: [], arrBoothBusy: [] },
     upg: {},
     upgRev: 0,
     builds: [],

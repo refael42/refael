@@ -1,6 +1,6 @@
 /** Routes and service points derived from the tier layout (pure, no state). */
 import { planeArt } from '../../data/aircraft';
-import { layoutFor, type BuildingDef, type P2, type TierLayout } from '../../data/tiers';
+import { layoutFor, type BigTerminal, type BuildingDef, type P2, type TierLayout } from '../../data/tiers';
 import { chaikin, type Path } from './path';
 
 export function layoutOf(tier: number): TierLayout {
@@ -75,6 +75,11 @@ export function routeFinal(L: TierLayout, x: number, y: number, z: number, headi
 
 export function routeDivert(x: number, y: number, z: number, heading: number): Path {
   return chaikin([x, y, z, x + Math.cos(heading) * 2, y + Math.sin(heading) * 2, z + 0.5, -14, y - 6, 8], 2);
+}
+
+/** A big terminal by its index (1 Terminal 3, 2 Terminal 4). */
+export function bigTerminal(L: TierLayout, t: number): BigTerminal | undefined {
+  return t === 1 ? L.t3 : t === 2 ? L.t4 : undefined;
 }
 
 /** The pier (or satellite) a jet-bridge stand sits in front of. */

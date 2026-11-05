@@ -33,6 +33,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M11 Events | done | weather, birds, debris, emergencies, VIPs, air shows; medical cases, celebrities, historic planes, real-date holidays (the undercover inspector moves to M12 with the reviews) |
 | Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view; apron buses |
 | The hub (tier 6) | done | Concourse D satellite with a people mover, Terminal 3 grows, a railway station |
+| The mega hub (tier 7) | done | Terminal 4 for the jumbos (3 jumbo gates), Globetrail, a second cargo stand |
 
 ### M0 — infrastructure (done)
 - `src/sim`: pure TypeScript. Seeded RNG (`rand`, state in the save), `hash01` for new features,
@@ -535,6 +536,31 @@ The last big stage is playable now (the mega hub and the skyport stay "coming so
 
   Tier 6 also joins the fleet tests (in each runway direction, 600 flights, the wind turning) and
   the wall test.
+
+#### The mega hub (tier 7)
+Playable now (the skyport, tier 8, stays "coming soon").
+- Terminal 4 (`T4_BUILDING`) is the long-haul terminal for the jumbos, built on Terminal 3's
+  plan (`shiftBuilding`, `shiftStations`) east of Concourse D. It has:
+  - its own loop road off the eastbound road, a garage, a curb with taxis and a bus stop;
+  - check-in, security, passport control, a duty free and a food court;
+  - three jumbo gates (E1-E3, upgrade line `gatesE`) instead of two;
+  - arrivals with carousels and customs; a sculpture and a play corner.
+- Only the jumbos (the Condor) park at its gates (`exact` stands), and their passengers use
+  Terminal 4 from the curb to the plane (`terminalFor` = 2). The terminal code works for any
+  big terminal now (`bigTerminal`, the `toClaim` way into the baggage hall, `homeRoute3`).
+- A new long-haul airline, Globetrail (wide-bodies and jumbos), from the mega hub.
+- The cargo apron moves to the far east end again and gets a second stand and shed
+  (`cargoApron` level 2, from the mega hub).
+- The world is 112 tiles wide; the railway's east tunnel moves out with it.
+- Fixes found by the new tests:
+  - the stroll through Concourse D's shops could walk through the lounge's glass wall;
+  - the lounge seats of a gate at the end of a pier could land outside the wall.
+- Goals: grow into a mega hub, open a jumbo gate.
+- Tests: the jumbos and Terminal 4; tier 7 in the fleet tests (each runway direction, the wind
+  turning, with jumbos) and in the wall test.
+
+  With the jumbos' wake the landing runway is busier, so the tier 7 wind test flies as many
+  flights a day as the tier 6 one.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

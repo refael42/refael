@@ -314,15 +314,16 @@ function paintT3(g: GroundPainter, T3: NonNullable<TierLayout['t3']>, blur: (r: 
     const e = offsetLine(T3.road, side);
     for (let i = 1; i < e.length; i++) g.line(e[i - 1][0], e[i - 1][1], e[i][0], e[i][1], 'rgba(255,255,255,0.8)', 1.2);
   }
-  // the curb lane: yellow taxi boxes by the arrivals, a bus bay by the departures
-  const cy = T3.road[0][1] + 0.3;
-  for (let x = 48.6; x < 52.6; x += 0.8) {
+  // the curb lane: yellow taxi boxes by the arrivals, a bus bay by the departures (Terminal 4 is on the same plan, further east)
+  const cy = y0 - 0.45;
+  const dx = x0 - 39.5;
+  for (let x = 48.6 + dx; x < 52.6 + dx; x += 0.8) {
     g.line(x, cy - 0.12, x + 0.6, cy - 0.12, '#facc15', 1.4);
     g.line(x, cy - 0.12, x, cy + 0.12, '#facc15', 1.4);
   }
-  g.rect(45.6, cy - 0.15, 47.2, cy + 0.15, 'rgba(22,163,74,0.35)');
+  g.rect(45.6 + dx, cy - 0.15, 47.2 + dx, cy + 0.15, 'rgba(22,163,74,0.35)');
   // zebra crossings from the garage to the doors
-  for (const zx of [41.2, 44.8]) for (let k = -3; k <= 3; k++) g.rect(zx + k * 0.13 - 0.04, cy - 0.75, zx + k * 0.13 + 0.04, cy - 0.3, '#f8fafc');
+  for (const zx of (T3.st.entrances ?? []).map((e) => e[0])) for (let k = -3; k <= 3; k++) g.rect(zx + k * 0.13 - 0.04, cy - 0.75, zx + k * 0.13 + 0.04, cy - 0.3, '#f8fafc');
   // the garage's shadow on the ground
   const G = T3.garage;
   g.f.setMaskFilter(blur(6));
@@ -525,7 +526,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         [62, 40, 70, 46],
         [72, 40, 80, 47],
       );
-    const clear = L.t3 ? [L.t3.building.box, [L.t3.garage[0] - 1, L.t3.garage[1] - 1, L.t3.garage[2] + 1, L.t3.garage[3] + 1] as const] : [];
+    const clear = [L.t3, L.t4].flatMap((T) => (T ? [T.building.box, [T.garage[0] - 1, T.garage[1] - 1, T.garage[2] + 1, T.garage[3] + 1] as const] : []));
     fields.forEach((f, i) => {
       if (clear.some((b) => f[0] < b[2] && f[2] > b[0] && f[1] < b[3] + 1.5 && f[3] > b[1] - 1.5)) return;
       drawField(g, f[0], f[1], f[2], f[3], i);
@@ -620,6 +621,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     ribbon(g, belt, 0.24, '#64748b');
     // Terminal 3: its road and curb, the floors, the belt, three carousels and the queue lines
     if (L.t3) paintT3(g, L.t3, blur);
+    if (L.t4) paintT3(g, L.t4, blur);
     // baggage carousel
     g.ellipse(T.claim[0], T.claim[1], 0.62, 0.62, '#334155');
     g.ellipse(T.claim[0], T.claim[1], 0.52, 0.52, '#64748b');
@@ -826,7 +828,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         const depotGate = !!L.depot && onNorth && Math.min(x0, x1) < L.depot.gate[0] + 0.45 && Math.max(x0, x1) > L.depot.gate[0] - 0.45;
         const gate = depotGate || (onNorth && Math.min(x0, x1) < landX1 && Math.max(x0, x1) > landX0);
         // (no fence through a terminal building)
-        const inBuilding = [L.building?.box, L.t3?.building.box].some((b) => !!b && (x0 + x1) / 2 > b[0] - 0.2 && (x0 + x1) / 2 < b[2] + 0.2 && (y0 + y1) / 2 > b[1] - 0.2 && (y0 + y1) / 2 < b[3] + 0.2);
+        const inBuilding = [L.building?.box, L.t3?.building.box, L.t4?.building.box].some((b) => !!b && (x0 + x1) / 2 > b[0] - 0.2 && (x0 + x1) / 2 < b[2] + 0.2 && (y0 + y1) / 2 > b[1] - 0.2 && (y0 + y1) / 2 < b[3] + 0.2);
         if (gate || inBuilding) continue;
         for (const z of [0.24, 0.13]) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
@@ -905,8 +907,8 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const T2 = L.terminal;
   T2.counters.slice(0, counters).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
   T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
-  if (L.t3) {
-    const T3 = L.t3;
+  for (const T3 of [L.t3, L.t4]) {
+    if (!T3) continue;
     buildingStatics(T3.building, sprites, statics, tier);
     const st = T3.st;
     const n3 = Math.min(st.counters.length, counters * 2);
@@ -915,7 +917,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     for (const b of [...(st.passport?.booths ?? []), ...(st.arrPassport?.booths ?? [])]) statics.push({ sprite: sprites.termProp('booth'), x: isoX(b[0] - 0.22, b[1] - 0.15), y: isoY(b[0] - 0.22, b[1] - 0.15), depth: b[0] + b[1] + 0.1, r: 40 });
     const G = T3.garage;
     statics.push({ sprite: sprites.garage, x: isoX(G[0], G[1]), y: isoY(G[0], G[1]), depth: G[0] + G[1] + 3.6, r: 260 });
-    statics.push({ sprite: sprites.busStop, x: isoX(45.7, T3.road[0][1] - 0.85), y: isoY(45.7, T3.road[0][1] - 0.85), depth: 45.7 + T3.road[0][1] - 0.5, r: 60 });
+    const bx = T3.building.box[0] + 6.2;
+    const by = T3.building.box[1] - 1.6;
+    statics.push({ sprite: sprites.busStop, x: isoX(bx, by), y: isoY(bx, by), depth: bx + by + 0.35, r: 60 });
   }
   if (L.sat) buildingStatics(L.sat.building, sprites, statics, tier);
   if (L.rail) {
@@ -950,10 +954,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const py1 = Math.max(TT.claim[1], BB ? BB[3] : 0) + 1;
   const treeAt = (x: number, y: number, seed: number) => {
     if (x > px0 && x < px1 && y > py0 && y < py1) return;
-    if (L.t3 && x > L.t3.building.box[0] - 2 && x < L.t3.building.box[2] + 3.2 && y > L.t3.garage[1] - 1.5 && y < L.t3.building.box[3] + 0.5) return;
+    for (const T of [L.t3, L.t4]) if (T && x > Math.min(T.building.box[0], T.garage[0]) - 2 && x < Math.max(T.building.box[2], T.garage[2]) + 3.2 && y > T.garage[1] - 1.5 && y < T.building.box[3] + 0.5) return;
     if (L.rail && y < L.rail.y + 1.6 && y > L.rail.y - 1.4 && x > L.rail.portals[0] - 2 && x < L.rail.portals[1] + 2) return;
     if (L.rail && x > L.rail.platform[0] - 1 && x < L.rail.platform[2] + 1 && y < 7.6) return;
-    if (L.t3 && L.t3.road.some((p, i) => i > 0 && segDist(x, y, L.t3!.road[i - 1], p) < 1.1)) return;
+    for (const T of [L.t3, L.t4]) if (T && T.road.some((p, i) => i > 0 && segDist(x, y, T.road[i - 1], p) < 1.1)) return;
     const kind = Math.floor(hash01(seed * 5 + 1) * TREE_KINDS.length);
     const size = Math.floor(hash01(seed * 5 + 2) * TREE_SIZES.length);
     statics.push({ sprite: sprites.tree(kind, size), x: isoX(x, y), y: isoY(x, y), depth: x + y, r: 110 });

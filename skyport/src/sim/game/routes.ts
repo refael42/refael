@@ -5,7 +5,7 @@
  * a straight line, as it always was.
  */
 import type { TerminalBuilding, ZoneKind } from '../../data/terminals';
-import type { P2, TierLayout } from '../../data/tiers';
+import type { BigTerminal, P2, TierLayout } from '../../data/tiers';
 
 /** The two sides of a door: a step outside it and a step inside it. */
 export function doorSides(b: TerminalBuilding, d: P2, outStep = 0.45, inStep = 0.35): { out: P2; in: P2 } {
@@ -91,13 +91,12 @@ export function homeRoute(L: TierLayout, x: number, y: number): number[] {
   return pts;
 }
 
-/** Terminal 3: back out from wherever a departing passenger is (their plane left without them). */
-export function homeRoute3(L: TierLayout, x: number, y: number): number[] {
-  const T = L.t3;
+/** A big terminal (3 or 4): back out from wherever a departing passenger is (their plane left without them). */
+export function homeRoute3(T: BigTerminal | undefined, x: number, y: number): number[] {
   if (!T) return [];
   const zone = zoneAt(T.building, x, y);
   if (!zone) return [];
-  const rank: Partial<Record<ZoneKind, number>> = { gates: 5, lounge: 5, food: 4, dutyFree: 3, passport: 2, security: 1, checkin: 0 };
+  const rank: Partial<Record<ZoneKind, number>> = { gates: 5, lounge: 5, station: 5, food: 4, dutyFree: 3, passport: 2, security: 1, checkin: 0 };
   const r = rank[zone] ?? 0;
   const st = T.st;
   const pts: number[] = [];

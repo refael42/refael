@@ -454,6 +454,9 @@ export default [
     ['hub-concourse-d', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=67.5,15.4,1.05', ['he', 'en'], () => window.__skyport.apm().inD >= 14],
     ['hub-apm', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=57.6,15.6,1.7', ['en'], () => window.__skyport.apm().state === 'run' && window.__skyport.apm().load > 0 && Math.abs(window.__skyport.apm().x - 58) < 1.2],
     ['hub-rail', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=49.5,3.4,1.25', ['en'], () => window.__skyport.rail() && window.__skyport.rail().dwell && window.__skyport.rail().dwellT > 7],
+    // the mega hub: Terminal 4 for the jumbos, east of Concourse D
+    ['mega-overview', '/?seed=67&tier=7&full=1&crew=1&warp=420&auto=1&hook=1&cam=74,17,0.4', ['he', 'en'], () => window.__skyport.terminals().t4 >= 6],
+    ['mega-t4', '/?seed=67&tier=7&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=87.5,12.6,1.0', ['he', 'en'], () => window.__skyport.terminals().t4 >= 12],
   ].map(([name, query, langs, ready]) => ({
     name,
     viewport: { width: 844, height: 390 },

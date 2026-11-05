@@ -227,7 +227,7 @@ describe('terminal save', () => {
 });
 
 describe('the terminal building', () => {
-  for (const tier of [2, 3, 4, 5, 6]) {
+  for (const tier of [2, 3, 4, 5, 6, 7]) {
     it(`tier ${tier}: nobody walks through a wall (in and out only by the doors)`, () => {
       const s = createGame(40 + tier);
       switchTier(s, tier);
@@ -238,6 +238,7 @@ describe('the terminal building', () => {
       if (tier >= 3) s.upg.standMed = 2;
       if (tier >= 4) s.upg.gates = 2;
       if (tier >= 6) s.upg.gatesD = 3;
+      if (tier >= 7) s.upg.gatesE = 3;
       s.upgRev++;
       applyStructural(s);
       stockUp(s);
@@ -249,7 +250,7 @@ describe('the terminal building', () => {
         applyStructural(s);
         s.rep = s.rep.map(() => 100);
         s.contracts = [];
-        for (const id of ['coralina', 'aurelia', 'meadowlark']) {
+        for (const id of tier >= 7 ? ['coralina', 'aurelia', 'meadowlark', 'globetrail'] : ['coralina', 'aurelia', 'meadowlark']) {
           const o = makeOffer(s, AIRLINES.findIndex((a) => a.id === id));
           s.offers.push(o);
           signOffer(s, o.id);
@@ -257,8 +258,9 @@ describe('the terminal building', () => {
       }
       const L = layoutOf(tier);
       expect(L.building).toBeDefined();
-      const walls = [...buildingWalls(L.building!), ...(L.t3 ? buildingWalls(L.t3.building) : []), ...(L.sat ? buildingWalls(L.sat.building) : [])];
+      const walls = [...buildingWalls(L.building!), ...(L.t3 ? buildingWalls(L.t3.building) : []), ...(L.sat ? buildingWalls(L.sat.building) : []), ...(L.t4 ? buildingWalls(L.t4.building) : [])];
       let inT3 = 0;
+      let inT4 = 0;
       const seen = new Map<number, [number, number]>();
       let moves = 0;
       let inside = 0;
@@ -275,6 +277,7 @@ describe('the terminal building', () => {
           }
           if (zoneAt(L.building!, p.x, p.y)) inside++;
           if (L.t3 && zoneAt(L.t3.building, p.x, p.y)) inT3++;
+          if (L.t4 && zoneAt(L.t4.building, p.x, p.y)) inT4++;
           seen.set(p.id, [p.x, p.y]);
         }
       }
@@ -282,6 +285,7 @@ describe('the terminal building', () => {
       // and the buildings are really used (Terminal 3 from the city airport on)
       expect(inside).toBeGreaterThan(1000);
       if (L.t3) expect(inT3).toBeGreaterThan(1000);
+      if (L.t4) expect(inT4).toBeGreaterThan(1000);
       expect(s.stats.served).toBeGreaterThan(5);
     }, 120000);
   }

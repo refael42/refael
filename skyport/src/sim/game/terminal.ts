@@ -63,6 +63,7 @@ export function terms(s: GameState): Term[] {
   const L = layoutOf(s.tier);
   const out: Term[] = [{ t: 0, st: L.terminal, b: L.building, q: t1Queues(s) }];
   if (L.t3) out.push({ t: 1, st: L.t3.st, b: L.t3.building, q: s.t3q });
+  if (L.t3 && L.t4) out.push({ t: 2, st: L.t4.st, b: L.t4.building, q: s.t4q });
   return out;
 }
 
@@ -71,11 +72,12 @@ export function termOf(s: GameState, t: number): Term {
   return all[t] ?? all[0];
 }
 
-/** Which terminal a flight's passengers use: the big jets go to Terminal 3 where there is one. */
+/** Which terminal a flight's passengers use: the big jets go to Terminal 3 where there is one, the jumbos to Terminal 4. */
 export function terminalFor(s: GameState, f: Flight): number {
   const L = layoutOf(s.tier);
   if (!L.t3) return 0;
   const need = AIRCRAFT[f.aircraft]?.stand;
+  if (L.t4 && need === 'hugeX') return 2;
   return need === 'large' || need === 'huge' || need === 'hugeX' ? 1 : 0;
 }
 
@@ -83,13 +85,13 @@ export function counterCount(s: GameState, t = 0): number {
   const base = 1 + Math.round(effectValue(s, 'counters'));
   const T = termOf(s, t);
   // the big terminal opens two counters (and lanes) for every one of the old terminal
-  return Math.min(T.st.counters.length, T.t === 1 ? base * 2 : base);
+  return Math.min(T.st.counters.length, T.t >= 1 ? base * 2 : base);
 }
 
 export function laneCount(s: GameState, t = 0): number {
   const base = 1 + Math.round(effectValue(s, 'lanes'));
   const T = termOf(s, t);
-  return Math.min(T.st.lanes.length, T.t === 1 ? base * 2 : base);
+  return Math.min(T.st.lanes.length, T.t >= 1 ? base * 2 : base);
 }
 
 function agentOnDuty(s: GameState): boolean {
@@ -254,8 +256,8 @@ function toAirside(s: GameState, p: Person, T: Term, L: TierLayout, kiosk: boole
 function toCarousel(s: GameState, p: Person, T: Term): void {
   p.state = PST.toHut;
   const c = claimSpot(s, p);
-  // (Terminal 3: into the baggage hall through the opening from the arrivals corridor)
-  const door = T.t === 1 ? [51.3, 13.6, 51.3, 12.85] : [];
+  // (the big terminals: into the baggage hall through the opening from the arrivals corridor)
+  const door = (T.st.toClaim ?? []).flat();
   walkVia(p, [...door, c[0], c[1]]);
 }
 
@@ -373,7 +375,7 @@ export function updateTerminal(s: GameState, dt: number): void {
         const f = flightById(s, p.flight);
         if (s.time < p.until && !(f && f.phase === 'boarding')) break;
         const fx = effects(s);
-        const mul = T.t === 1 ? DUTY_FREE_SPEND : 1;
+        const mul = T.t >= 1 ? DUTY_FREE_SPEND : 1;
         const amount = Math.round(fx.kioskPerPax * PAX_TYPES[p.outfit].spend * (p.slot === 1 ? 1.6 : 1) * mul * tierDef(s.tier).pay * p.n * 10) / 10;
         if (amount > 0) {
           const big = Big.fromNumber(amount);
@@ -395,7 +397,7 @@ export function updateTerminal(s: GameState, dt: number): void {
       }
       case PST.waiting: {
         // Terminal 3: the plane is at its jet bridge now; down from the food court to the gate (or the people mover)
-        if (T.t !== 1 || p.slot !== AT_FOOD) break;
+        if (T.t < 1 || p.slot !== AT_FOOD) break;
         const f = flightById(s, p.flight);
         if (!f || f.stand < 0 || !gatePoint(L, f.stand)) break;
         if (satGate(L, f.stand)) {
@@ -428,11 +430,11 @@ export function updateTerminal(s: GameState, dt: number): void {
 /** From the carousel to the curb: out of the exit (Terminal 3: through customs first). */
 function exitWay(L: TierLayout, T: Term, p: Person): number[] {
   const st = T.st;
-  if (T.t === 1 && T.b) {
+  if (T.t >= 1 && T.b) {
     const ex = st.exits ?? [st.doors!.exit];
     const d = doorSides(T.b, ex[p.id % ex.length]);
     const out = [...(st.customs ?? []).flat(), d.in[0], d.in[1], d.out[0], d.out[1]];
-    if (L.rail && leavesByTrain(p.id)) {
+    if (L.rail && T.t === 1 && leavesByTrain(p.id)) {
       // to the station: across the road and up the footpath to the platform
       p.state = PST.toRail;
       const sp = railSpot(L.rail, p.id);

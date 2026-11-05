@@ -413,7 +413,7 @@ describe('runway direction', () => {
     return { served: s.stats.served - start, minDist, conflicts };
   }
 
-  for (const tier of [3, 4, 5, 6]) {
+  for (const tier of [3, 4, 5, 6, 7]) {
     it(`tier ${tier}: 600 flights landing and taking off the other way`, () => {
       const s = busy(tier, 30 + tier);
       s.forceDir = -1;
@@ -442,6 +442,21 @@ describe('runway direction', () => {
 
   it('tier 6: 600 flights with the wind turning every 4 minutes', () => {
     const s = busy(6, 43);
+    const r = run(s, 600, 240);
+    expect(r.conflicts).toBe(0);
+    expect(r.minDist).toBeGreaterThan(0.95);
+    expect(r.served).toBeGreaterThan(570);
+  }, 300000);
+
+  it('tier 7: 600 flights with the wind turning every 4 minutes, jumbos at Terminal 4', () => {
+    // (as many flights a day as the tier 6 test: the mega hub has more traffic and the jumbos'
+    // wake keeps the landing runway busier, so a fuller mix is a runway test, not a taxi one)
+    const s = busy(7, 44);
+    s.contracts = s.contracts.filter((c) => c.al !== al('sunhop'));
+    for (const [id, n] of [['sunhop', 2], ['globetrail', 2]] as const) {
+      s.rep[al(id)] = 100;
+      sign(s, id, n);
+    }
     const r = run(s, 600, 240);
     expect(r.conflicts).toBe(0);
     expect(r.minDist).toBeGreaterThan(0.95);

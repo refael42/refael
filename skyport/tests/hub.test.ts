@@ -5,7 +5,10 @@ import { stockUp } from './helpers';
 import { AIRLINES } from '../src/data/airlines';
 import { buildingWalls, crossesWall } from '../src/data/terminals';
 import { applyStructural, Big, botCommands, createGame, layoutOf, makeOffer, PST, queueCommand, signOffer, stepGame, switchTier, type GameState } from '../src/sim';
-import { APM_CAP } from '../src/sim/game/apm';
+import { AIRCRAFT } from '../src/data/aircraft';
+import { APM_CAP, loungeSeat } from '../src/sim/game/apm';
+import { freeStand } from '../src/sim/game/flights';
+import { terminalFor } from '../src/sim/game/terminal';
 import { layoutOf as layoutFor, satGate } from '../src/sim/game/layout';
 import { railTrain, RAIL_PERIOD } from '../src/sim/game/rail';
 
@@ -110,4 +113,33 @@ describe('the hub', () => {
     expect(byTrain).toBeGreaterThan(5);
     expect(toTrain).toBeGreaterThan(5);
   }, 300000);
+});
+
+describe('the mega hub', () => {
+  it('Terminal 4 takes the jumbos: only they park at its gates, and their passengers use it', () => {
+    const L = layoutFor(7);
+    expect(L.t4).toBeDefined();
+    const condor = AIRCRAFT.findIndex((a) => a.id === 'condor');
+    const albatross = AIRCRAFT.findIndex((a) => a.id === 'albatross');
+    const s = createGame(3);
+    switchTier(s, 7);
+    for (const st of L.stands) if (st.line) s.upg[st.line] = Math.max(s.upg[st.line] ?? 0, st.level ?? 1);
+    s.upgRev++;
+    applyStructural(s);
+    const e = L.stands.map((st, i) => (st.id.startsWith('E') ? i : -1)).filter((i) => i >= 0);
+    expect(e.length).toBe(3);
+    // a jumbo gets an E gate; a wide-body never does (even with every other stand taken)
+    expect(e).toContain(freeStand(s, condor));
+    for (let i = 0; i < L.stands.length; i++) if (!e.includes(i)) s.stands[i].occupant = 999;
+    expect(freeStand(s, albatross)).toBe(-1);
+    expect(terminalFor(s, { aircraft: condor } as Parameters<typeof terminalFor>[1])).toBe(2);
+    expect(terminalFor(s, { aircraft: albatross } as Parameters<typeof terminalFor>[1])).toBe(1);
+    // every lounge seat by a jumbo gate is inside the terminal
+    const b = L.t4!.building.box;
+    for (const i of e)
+      for (let k = 0; k < 12; k++) {
+        const [x, y] = loungeSeat(L, i, k);
+        expect(x > b[0] && x < b[2] && y > b[1] && y < b[3], `${L.stands[i].id} seat ${k}`).toBe(true);
+      }
+  });
 });

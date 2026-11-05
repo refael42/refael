@@ -2,7 +2,7 @@
  * Airport tiers and their layouts. World units are tiles. The runway runs
  * along +x (landing toward +x); screen up-left is west (-x).
  */
-import { CONCOURSE_D, T1, T1_DOORS, T3, T3_CAROUSELS, T3_HUB, T3_HUB_CAROUSELS, type TerminalBuilding, type TerminalDoors } from './terminals';
+import { CONCOURSE_D, shiftBuilding, T1, T1_DOORS, T3, T3_CAROUSELS, T3_HUB, T3_HUB_CAROUSELS, type TerminalBuilding, type TerminalDoors } from './terminals';
 import type { StandSize } from './aircraft';
 
 export type P2 = readonly [number, number];
@@ -22,6 +22,8 @@ export interface StandDef {
   level?: number;
   /** A jet bridge from the pier: passengers board straight from the gate. */
   bridge?: boolean;
+  /** Only planes that need exactly this size (Terminal 4's jumbo gates). */
+  exact?: boolean;
 }
 
 export type BuildingKind = 'fbo' | 'pier' | 'cargo' | 'helipad' | 'hangar';
@@ -107,7 +109,9 @@ export interface TierLayout {
   tower?: P2;
   radar?: P2;
   /** Terminal 3 (from the city airport on): the big terminal for the big jets, with its own road and garage. */
-  t3?: { st: Stations; building: TerminalBuilding; road: readonly P2[]; garage: readonly [number, number, number, number] };
+  t3?: BigTerminal;
+  /** Terminal 4 (mega hub on): the long-haul terminal for the jumbos, on the same plan as Terminal 3. */
+  t4?: BigTerminal;
   /** The hub: a satellite concourse in the apron, reached from Terminal 3 by a people mover. */
   sat?: Satellite;
   /** The hub: a railway along the north edge with a station by Terminal 3. */
@@ -164,6 +168,29 @@ export interface Stations {
   customs?: readonly P2[];
   /** Where the apron buses stop in front of the terminal (for the remote stands). */
   busStop?: P2;
+  /** From the passport hall into the baggage hall (the big terminals). */
+  toClaim?: readonly P2[];
+}
+
+/** A big terminal (Terminal 3, Terminal 4): stations, the building, its road and parking garage. */
+export interface BigTerminal {
+  st: Stations;
+  building: TerminalBuilding;
+  road: readonly P2[];
+  garage: readonly [number, number, number, number];
+}
+
+/** Every point of a station plan moved east by dx (Terminal 4 is built on Terminal 3's plan). */
+export function shiftStations(st: Stations, dx: number): Stations {
+  const shift = (v: unknown): unknown => {
+    if (Array.isArray(v)) {
+      if (v.length === 2 && typeof v[0] === 'number' && typeof v[1] === 'number') return [v[0] + dx, v[1]];
+      return v.map(shift);
+    }
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, shift(x)]));
+    return v;
+  };
+  return shift(st) as Stations;
 }
 
 /** An area x0, y0, x1, y1 (tiles). */
@@ -718,6 +745,10 @@ const T3_STATIONS: Stations = {
     [50.25, 11.15],
     [50.25, 10.45],
   ],
+  toClaim: [
+    [51.3, 13.6],
+    [51.3, 12.85],
+  ],
 };
 
 const T3_INTL: Stations = {
@@ -995,6 +1026,76 @@ const HUB: TierLayout = {
   camera: { center: [44, 24.5], zoom: 0.36 },
 };
 
+/** Terminal 4 is built on Terminal 3's plan, this far east. */
+const T4_DX = 41;
+/** Terminal 4's three jumbo gates (jet-bridge doors in its south wall). */
+const T4_GATES = [84.3, 88.7, 93.1];
+const T4_BUILDING: TerminalBuilding = (() => {
+  const b = shiftBuilding(T3, T4_DX);
+  return {
+    ...b,
+    // three gates for the jumbos instead of Terminal 3's two
+    doors: [...b.doors.filter((d) => d.kind !== 'gate'), ...T4_GATES.map((x) => ({ kind: 'gate' as const, at: [x, 17.3] as P2, width: 0.5 }))],
+    furniture: [
+      ...b.furniture.filter((f) => f.kind !== 'gateDesk' && f.kind !== 'signGate' && !(f.kind === 'plant' && f.at[1] > 16.5)),
+      ...T4_GATES.flatMap((x) => [
+        { kind: 'gateDesk' as const, at: [x - 0.6, 16.95] as P2 },
+        { kind: 'signGate' as const, at: [x, 16.6] as P2 },
+      ]),
+      // its own touches: a sculpture in the arrivals hall, a play corner in the concourse
+      { kind: 'sculpture', at: [91.6, 9.6] },
+      { kind: 'kidsPlay', at: [91.0, 16.05] },
+    ],
+  };
+})();
+
+/**
+ * Tier 7, the mega hub: Terminal 4, the long-haul terminal on Terminal 3's
+ * plan, east of Concourse D, with two jumbo gates (only the jumbos park
+ * there, and their passengers use Terminal 4 from the curb to the plane).
+ * The cargo apron moves to the far east end again.
+ */
+const MEGA: TierLayout = {
+  ...HUB,
+  world: { w: 112, h: 52 },
+  field: { x0: 6, y0: 12.4, x1: 108.5, y1: 36.6 },
+  taxi: {
+    ...HUB.taxi,
+    nodes: { ...HUB.taxi.nodes, K4: [107.0, 25.6], T8: [106.4, 24.7], Ca: [105.4, 23.9], Ea: [100.8, 23.9], Ee: [96.8, 23.9], Eb: [91.4, 23.9], Ec: [87.0, 23.9], Ed: [82.6, 23.9] },
+    edges: [...HUB.taxi.edges.filter(([a, b]) => !(a === 'Ca' && b === 'Da')), ['Ca', 'Ea'], ['Ea', 'Ee'], ['Ee', 'Eb'], ['Eb', 'Ec'], ['Ec', 'Ed'], ['Ed', 'Da']],
+  },
+  stands: [
+    ...HUB.stands.map((st) => (st.id === 'C1' ? { ...st, pos: [103.2, 21.0] as P2, from: 'Ca', to: 'Ea' } : st)),
+    { id: 'E1', pos: [89.0, 20.3], size: 'hugeX', from: 'Eb', to: 'Ec', line: 'gatesE', level: 1, bridge: true, exact: true },
+    { id: 'E2', pos: [84.6, 20.0], size: 'hugeX', from: 'Ec', to: 'Ed', line: 'gatesE', level: 2, bridge: true, exact: true },
+    { id: 'E3', pos: [93.4, 20.2], size: 'hugeX', from: 'Ee', to: 'Eb', line: 'gatesE', level: 3, bridge: true, exact: true },
+    // a second cargo stand (the cargo apron is a long taxi away now)
+    { id: 'C2', pos: [99.0, 21.0], size: 'cargo', from: 'Ea', to: 'Ee', line: 'cargoApron', level: 2 },
+  ],
+  buildings: [
+    ...(HUB.buildings ?? []).map((b) => (b.kind === 'cargo' ? { ...b, pos: [101.8, 16.6] as P2 } : b)),
+    { kind: 'cargo', pos: [97.4, 16.6], size: [3.2, 2.0] },
+    { kind: 'pier', pos: [83.2, 15.8], size: [10.6, 1.5] },
+  ],
+  t3: { ...HUB.t3!, road: [...T3_ROAD_HUB.slice(0, -1), [114, 3.5]] },
+  t4: {
+    st: shiftStations(T3_INTL, T4_DX),
+    building: T4_BUILDING,
+    road: [
+      [79.2, 3.5],
+      [79.2, 6.0],
+      [80.4, 7.25],
+      [95.4, 7.25],
+      [96.6, 6.0],
+      [96.6, 3.5],
+    ],
+    garage: [97.8, 4.3, 103.2, 7.7],
+  },
+  rail: { ...HUB_RAIL, portals: [27.5, 106] },
+  groundCapacity: 76,
+  camera: { center: [55, 24.5], zoom: 0.32 },
+};
+
 export const TIERS: readonly TierDef[] = [
   { id: 1, key: 'dirtStrip', layout: DIRT_STRIP, needs: { served: 0, rating: 0, cost: 0 }, buildSeconds: 0, pay: 1, traffic: 1, contracts: 2 },
   { id: 2, key: 'smallAirfield', layout: SMALL_AIRFIELD, needs: { served: 10, rating: 3.5, cost: 250 }, buildSeconds: 90, pay: 2, traffic: 1.3, contracts: 3 },
@@ -1002,7 +1103,7 @@ export const TIERS: readonly TierDef[] = [
   { id: 4, key: 'city', layout: CITY, needs: { served: 500, rating: 4.2, cost: 400000 }, buildSeconds: 480, pay: 12, traffic: 2, contracts: 5 },
   { id: 5, key: 'international', layout: INTERNATIONAL, needs: { served: 1500, rating: 4.4, cost: 8e6 }, buildSeconds: 900, pay: 30, traffic: 2.5, contracts: 6 },
   { id: 6, key: 'hub', layout: HUB, needs: { served: 4000, rating: 4.5, cost: 2e8 }, buildSeconds: 1500, pay: 80, traffic: 3, contracts: 7 },
-  { id: 7, key: 'megaHub', needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
+  { id: 7, key: 'megaHub', layout: MEGA, needs: { served: 10000, rating: 4.6, cost: 6e9 }, buildSeconds: 2400, pay: 220, traffic: 3.5, contracts: 8 },
   { id: 8, key: 'skyport', needs: { served: 25000, rating: 4.8, cost: 2e11 }, buildSeconds: 3600, pay: 600, traffic: 4, contracts: 9 },
 ];
 

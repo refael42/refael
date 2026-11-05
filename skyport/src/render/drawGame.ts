@@ -225,6 +225,7 @@ export function drawGame(
   drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true);
   // Terminal 3's road: cars, taxis and buses to its curb
   if (LL.t3) drawCars(w, sp, roadCars(LL, s.time * 1.3 + 3, LL.t3.road, 7), visible, o.time, true);
+  if (LL.t4) drawCars(w, sp, roadCars(LL, s.time * 1.2 + 11, LL.t4.road, 13), visible, o.time, true);
 
   // idle staff at their posts (fueler and porter ride their vehicles while working)
   const L = layoutOf(s.tier);

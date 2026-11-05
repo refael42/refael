@@ -8,7 +8,7 @@
  */
 import type { Area, TierLayout } from '../../data/tiers';
 import { hash01 } from '../hash';
-import { gatePoint, layoutOf } from './layout';
+import { gatePoint, layoutOf, pierOf } from './layout';
 import { PST, type Flight, type GameState, type Person } from './types';
 
 /** Passenger figures the train carries. */
@@ -66,7 +66,11 @@ export function loungeSeat(L: TierLayout, stand: number, k: number): [number, nu
   const g = gatePoint(L, stand) ?? [48, 17.4];
   const col = k % 6;
   const row = Math.floor(k / 6) % 2;
-  return [g[0] - 1.15 + col * 0.42, g[1] - 0.9 + row * 0.5];
+  // (a gate near the end of its pier: the seats move in so they stay inside)
+  const pier = pierOf(L, stand);
+  const end = pier ? pier.pos[0] + pier.size[0] - 0.3 : Infinity;
+  const shift = Math.max(0, g[0] + 0.95 - end);
+  return [g[0] - 1.15 - shift + col * 0.42, g[1] - 0.9 + row * 0.5];
 }
 
 function newTrain(L: TierLayout): GameState['apm'] {
@@ -100,7 +104,9 @@ function getOff(s: GameState, L: TierLayout, p: Person, x: number): void {
   p.slot = AT_GATE;
   // some stroll past the shops and the food court first, when there is time
   const b = sat.building.box;
-  const stroll = f.phase !== 'boarding' && hash01(p.id * 23 + 7) < 0.4 ? [b[0] + 2.4 + hash01(p.id * 29) * 8.5, b[1] + 1.25 + hash01(p.id * 31) * 0.6] : [];
+  // (through the duty free and the food court, not into the lounge, and back out to the concourse)
+  const sx = b[0] + 0.8 + hash01(p.id * 29) * 8.8;
+  const stroll = f.phase !== 'boarding' && hash01(p.id * 23 + 7) < 0.4 ? [sx, b[1] + 1.25 + hash01(p.id * 31) * 0.6, sx, b[3] - 1.4] : [];
   walk(p, [sp[0], sp[1], ...stroll, seat[0], seat[1]]);
 }
 

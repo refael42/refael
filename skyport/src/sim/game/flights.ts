@@ -289,7 +289,7 @@ export function freeStand(s: GameState, aircraft = 0): number {
   let best = -1;
   for (let i = 0; i < Math.min(L.stands.length, s.stands.length); i++) {
     if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0 || L.stands[i].hangar) continue;
-    if (!standFits(L.stands[i].size, need)) continue;
+    if (!standFits(L.stands[i].size, need) || (L.stands[i].exact && L.stands[i].size !== need)) continue;
     if (best < 0 || SIZE_RANK[L.stands[i].size] < SIZE_RANK[L.stands[best].size]) best = i;
   }
   return best;

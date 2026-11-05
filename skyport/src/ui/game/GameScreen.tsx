@@ -927,7 +927,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       camera: () => ({ x: cam.x, y: cam.y, zoom: cam.zoom }),
       incidents: () => ctrl.state.incidents.map((i) => ({ kind: i.kind, state: i.state, choice: i.choice, result: i.result, amount: i.amount })),
       holiday: () => ({ holiday: ctrl.state.holiday, day: ctrl.state.holidayDay, today: ctrl.state.today }),
-      terminals: () => ({ t1: ctrl.state.people.filter((p) => p.term === 0).length, t3: ctrl.state.people.filter((p) => p.term === 1).length }),
+      terminals: () => ({ t1: ctrl.state.people.filter((p) => p.term === 0).length, t3: ctrl.state.people.filter((p) => p.term === 1).length, t4: ctrl.state.people.filter((p) => p.term === 2).length }),
       buses: () => ctrl.state.buses.map((b) => ({ state: b.state, x: b.x, y: b.y, load: b.load.length })),
       apm: () => {
         const t = ctrl.state.apm;
@@ -1252,7 +1252,10 @@ function fullAirport(s: GameState): void {
   applyStructural(s);
   for (const k of STORE_KINDS) if (storeActive(s, k)) s.stores[k].stock = capacity(s, k);
   s.stats.served = Math.max(s.stats.served, 400);
-  AIRLINES.forEach((_, i) => {
+  // (from the mega hub on, the airlines that came with it first, so the screenshots show them)
+  const order = AIRLINES.map((_, i) => i);
+  if (s.tier >= 7) order.sort((a, b) => Number(AIRLINES[b].unlockTier >= 7) - Number(AIRLINES[a].unlockTier >= 7));
+  order.forEach((i) => {
     if (s.contracts.length >= contractSlots(s)) return;
     if (airlineBlocker(s, i) || s.contracts.some((c) => c.al === i)) return;
     s.rep[i] = 90;

@@ -777,6 +777,8 @@ export interface GameState {
   laneBusy: number[];
   /** Terminal 3's queues (Terminal 1's are the four above). */
   t3q: TermQueues;
+  /** Terminal 4's lines (mega hub). */
+  t4q: TermQueues;
   /** Upgrade levels by id. */
   upg: Record<string, number>;
   /** Bumped whenever a level changes (effects cache key). */

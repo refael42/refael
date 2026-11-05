@@ -366,6 +366,20 @@ export const T3_CAROUSELS: readonly P2[] = [
   [52.0, 12.05],
 ];
 
+/** A building moved east by dx (Terminal 4 is built on Terminal 3's plan). */
+export function shiftBuilding(b: TerminalBuilding, dx: number): TerminalBuilding {
+  const p = (q: P2): P2 => [q[0] + dx, q[1]];
+  const box = (x: Box): Box => [x[0] + dx, x[1], x[2] + dx, x[3]];
+  return {
+    ...b,
+    box: box(b.box),
+    zones: b.zones.map((z) => ({ ...z, box: box(z.box) })),
+    partitions: b.partitions.map((w) => ({ ...w, a: p(w.a), b: p(w.b) })),
+    doors: b.doors.map((d) => ({ ...d, at: p(d.at) })),
+    furniture: b.furniture.map((f) => ({ ...f, at: p(f.at) })),
+  };
+}
+
 /** Terminal 3 grows east at the hub: a bigger arrivals side with a fourth carousel. */
 export const T3_HUB_CAROUSELS: readonly P2[] = [...T3_CAROUSELS, [53.8, 12.05]];
 

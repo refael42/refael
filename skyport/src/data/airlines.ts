@@ -100,7 +100,11 @@ export const AIRLINES: readonly AirlineDef[] = [
   {
     id: 'paperkite', code: 'PKT', name: 'Paperkite', kind: 'charter', unlockTier: 2, fleet: ['finch'], weight: 2,
     livery: { body: '#fffdf5', belly: '#eee9d6', tail: '#14a3a3', stripe: '#ffb627', accent: '#ff6b35', wing: '#efebdd', engine: '#14a3a3' },
+  },  {
+    id: 'globetrail', code: 'GTR', name: 'Globetrail', kind: 'flag', unlockTier: 7, fleet: ['albatross', 'condor'], weight: 2,
+    livery: { body: '#f8fafc', belly: '#0f766e', tail: '#0f766e', stripe: '#14b8a6', accent: '#f59e0b', wing: '#e2e8f0', engine: '#0f766e' },
   },
+
 ];
 
 export function airlineIndex(id: string): number {
