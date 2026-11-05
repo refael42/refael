@@ -55,6 +55,7 @@ export const Hud = memo(function Hud({
   onSettings,
   onHelp,
   onEvents,
+  onRating,
   onCoinPos,
   bump,
 }: {
@@ -62,6 +63,7 @@ export const Hud = memo(function Hud({
   onSettings: () => void;
   onHelp: () => void;
   onEvents: () => void;
+  onRating?: () => void;
   onCoinPos: (x: number, y: number) => void;
   bump: number;
 }) {
@@ -94,12 +96,12 @@ export const Hud = memo(function Hud({
       </View>
       <View style={[styles.right, { flexDirection: dir.row }]} pointerEvents="box-none">
         <View style={[styles.capsule, { flexDirection: dir.row }]}>
-          <View style={[styles.item, { flexDirection: dir.row }]}>
+          <Pressable style={[styles.item, { flexDirection: dir.row }]} onPress={onRating} accessibilityRole="button" testID="hud-rating">
             <Icon name="star" size={20} />
             <Text style={styles.num} numberOfLines={1} accessibilityLabel={t('hud.rating')}>
               {data.rating.toFixed(1)}
             </Text>
-          </View>
+          </Pressable>
           <View style={styles.divider} />
           <View
             style={[styles.item, { flexDirection: dir.row }]}

@@ -16,6 +16,11 @@ import { requestService } from './vehicles';
 
 /** Most workers of one role. */
 export const MAX_PER_ROLE = 2;
+
+/** How many of a role can be hired (cleaners: one for each busy hall). */
+export function maxPerRole(role: number): number {
+  return STAFF_ROLES[role]?.max ?? MAX_PER_ROLE;
+}
 export const MAX_APPLICANTS = 5;
 export const APPLICANT_LIFETIME = 600;
 export const TRIAL_SECONDS = 120;
@@ -162,7 +167,7 @@ function takeApplicant(s: GameState, applicantId: number): Applicant | number {
   const i = s.applicants.findIndex((a) => a.id === applicantId);
   if (i < 0) return REJECT.unknownFlight;
   const a = s.applicants[i];
-  if (staffCount(s, a.role) >= MAX_PER_ROLE) return REJECT.limit;
+  if (staffCount(s, a.role) >= maxPerRole(a.role)) return REJECT.limit;
   return a;
 }
 
@@ -236,7 +241,7 @@ export function transfer(s: GameState, staffId: number, role: number): number {
   const m = s.staff.find((x) => x.id === staffId);
   if (!m || role < 0 || role >= STAFF_ROLES.length || STAFF_ROLES[role].unlockTier > s.tier) return REJECT.unknownFlight;
   if (m.role === role) return 0;
-  if (staffCount(s, role) >= MAX_PER_ROLE) return REJECT.limit;
+  if (staffCount(s, role) >= maxPerRole(role)) return REJECT.limit;
   m.role = role;
   m.mood = Math.max(0, m.mood - 0.05);
   m.busyUntil = s.time + 5;

@@ -123,7 +123,8 @@ describe('technical faults (AOG)', () => {
           if (e.id <= last) continue;
           last = e.id;
           if (e.kind === 'docked') dockedAll++;
-          if (e.kind === 'aog') seen.add(e.a);
+          // (walk-around faults only: a bird strike grounds the plane too, but that is the birds)
+          if (e.kind === 'aog' && !s.flights.find((f) => f.id === e.a)?.birdHit) seen.add(e.a);
           if (e.kind === 'repairDone') fixed.add(e.a);
         }
       }

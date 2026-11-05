@@ -20,6 +20,7 @@ import { hash01 } from '../hash';
 import { pushEvent } from './events';
 import { recordIncome } from './income';
 import { AT_FOOD, AT_GATE, loungeSeat, toApm } from './apm';
+import { bussed } from './buses';
 import { gatePoint, gateSpot, layoutOf, satGate } from './layout';
 import { leavesByTrain, railSpot } from './rail';
 import { doorSides, exitRoute, gateRoute, pierWalk } from './routes';
@@ -200,7 +201,8 @@ function toGate1(s: GameState, p: Person, L: TierLayout): void {
   p.spot = spot;
   p.state = PST.toSpot;
   const f = flightById(s, p.flight);
-  const atPier = !!f && f.stand >= 0 && !!gatePoint(L, f.stand);
+  // (a smaller plane at a jet-bridge gate is reached by the apron bus: wait in the lounge for it)
+  const atPier = !!f && f.stand >= 0 && !!gatePoint(L, f.stand) && !bussed(s, f);
   const sp = atPier ? gateSpot(L, f.stand, spot) : L.waitSpots[spot];
   const via = atPier && L.building ? [...gateRoute(L), ...pierWalk(L, sp)] : [];
   walkVia(p, [L.terminal.airside[0], L.terminal.airside[1], ...via, sp[0], sp[1]]);

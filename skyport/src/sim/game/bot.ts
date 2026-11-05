@@ -4,6 +4,8 @@
  */
 import { storeActive, storeIndex, STORE_KINDS } from './supplies';
 import { STAFF_ROLES } from '../../data/staff';
+import { cleanAreas } from './cleaning';
+import { layoutOf } from './layout';
 import { MAX_PER_ROLE, staffCount } from './staff';
 import { checkTier } from './tiers';
 import { addedPerDay, airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
@@ -67,6 +69,11 @@ export function botHires(s: GameState, keep = 1.3): Command[] {
   const order = ['porter', 'agent', 'fueler', 'atc'];
   const wants = order.map((id) => STAFF_ROLES.findIndex((r) => r.id === id));
   if (s.standsBuilt >= 2) wants.push(STAFF_ROLES.findIndex((r) => r.id === 'atc'));
+  // a cleaner for every busy area (one from the small airfield on, more as the terminals grow)
+  if (s.tier >= 2) {
+    const n = Math.min(8, Math.ceil(cleanAreas(layoutOf(s.tier)).length / 2));
+    for (let k = 0; k < n; k++) wants.push(STAFF_ROLES.findIndex((r) => r.id === 'cleaner'));
+  }
   const counted = new Map<number, number>();
   for (const role of wants) {
     if (role < 0) continue;

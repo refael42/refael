@@ -87,6 +87,8 @@ export interface TerminalBuilding {
   furniture: readonly Furniture[];
   /** Height of the tall back walls (tiles of height). */
   height: number;
+  /** Busy floors that get litter, one cleaner each (rectangles inside a single zone, so nobody crosses a wall). */
+  cleanAreas?: readonly Box[];
 }
 
 /** Doors of a building that people walk through (stations of the passenger flow). */
@@ -109,6 +111,11 @@ export interface TerminalDoors {
 export const T1: TerminalBuilding = {
   box: [16.9, 12.6, 21.9, 19.5],
   height: 0.62,
+  cleanAreas: [
+    [17.15, 17.3, 18.95, 19.25],
+    [19.45, 17.3, 21.65, 19.25],
+    [17.2, 12.85, 21.6, 14.95],
+  ],
   zones: [
     { kind: 'checkin', box: [16.9, 12.6, 21.9, 15.2] },
     { kind: 'security', box: [16.9, 15.2, 21.9, 17.0] },
@@ -242,6 +249,15 @@ export function crossesWall(walls: readonly WallLine[], p: P2, q: P2): boolean {
 export const T3: TerminalBuilding = {
   box: [39.5, 8.0, 53.0, 17.3],
   height: 0.62,
+  cleanAreas: [
+    [46.75, 13.45, 49.25, 15.55],
+    [41.85, 16.0, 47.2, 17.1],
+    [47.2, 16.0, 52.8, 17.1],
+    [39.8, 8.3, 47.2, 10.55],
+    [47.75, 11.05, 52.75, 12.95],
+    [42.75, 13.45, 46.25, 15.55],
+    [47.75, 8.25, 52.75, 10.55],
+  ],
   zones: [
     { kind: 'checkin', box: [39.5, 8.0, 47.5, 10.8] },
     { kind: 'arrivals', box: [47.5, 8.0, 53.0, 10.8] },
@@ -377,6 +393,7 @@ export function shiftBuilding(b: TerminalBuilding, dx: number): TerminalBuilding
     partitions: b.partitions.map((w) => ({ ...w, a: p(w.a), b: p(w.b) })),
     doors: b.doors.map((d) => ({ ...d, at: p(d.at) })),
     furniture: b.furniture.map((f) => ({ ...f, at: p(f.at) })),
+    cleanAreas: b.cleanAreas?.map(box),
   };
 }
 
@@ -432,6 +449,12 @@ export const T3_HUB: TerminalBuilding = {
 export const CONCOURSE_D: TerminalBuilding = {
   box: [60.0, 13.4, 77.0, 17.6],
   height: 0.62,
+  cleanAreas: [
+    [65.6, 13.6, 70.4, 15.5],
+    [63.1, 15.9, 69.8, 17.4],
+    [69.8, 15.9, 76.8, 17.4],
+    [60.25, 13.6, 65.2, 15.5],
+  ],
   zones: [
     { kind: 'dutyFree', box: [60.0, 13.4, 65.4, 15.7] },
     { kind: 'food', box: [65.4, 13.4, 70.6, 15.7] },

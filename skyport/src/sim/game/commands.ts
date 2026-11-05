@@ -1,4 +1,5 @@
 import { clearLanding, clearTakeoff, startBoarding } from './flights';
+import { Big } from '../big';
 import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
@@ -108,6 +109,19 @@ export function applyCommand(s: GameState, cmd: Command): void {
     case 'setToday':
       setToday(s, Number(cmd.day));
       return;
+    case 'claimReviews': {
+      // the good reviews' bonus, all at once
+      const n = Math.floor(s.reviewBonus);
+      if (n <= 0) {
+        pushEvent(s, 'cmdRejected', 0, 0, REJECT.notReady, 0, 0);
+        return;
+      }
+      s.reviewBonus = 0;
+      s.money = s.money.add(Big.fromNumber(n));
+      s.stats.earned = s.stats.earned.add(Big.fromNumber(n));
+      pushEvent(s, 'reviewBonus', 0, 0, n);
+      return;
+    }
     case 'setProfile': {
       s.profile = { manager: cleanName(cmd.manager), airport: cleanName(cmd.airport) };
       return;

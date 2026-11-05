@@ -115,7 +115,10 @@ export type GameEventKind =
   /** a: flight id. The press saw a bad visit. */
   | 'badPress'
   /** a: flight id. A historic plane opened for visitors. */
-  | 'exhibitOpen';
+  | 'exhibitOpen'
+  /** M12: a passenger wrote a review (a = stars, b = line); the bonus for good ones was collected (a = coins). */
+  | 'review'
+  | 'reviewBonus';
 
 export interface GameEvent {
   id: number;
@@ -166,6 +169,7 @@ export type Command =
   | { type: 'urgentOrder'; store: number }
   /** A celebrity visit: let the press in (false) or keep it private (true). */
   | { type: 'celebPrivacy'; incident: number; private: boolean }
+  | { type: 'claimReviews' }
   /** The real date (epoch day), for the holidays. */
   | { type: 'setToday'; day: number };
 
@@ -490,6 +494,46 @@ export interface ApronBus {
   timer: number;
 }
 
+/** A passenger review (M12): a line of REVIEWS by a passenger of a flight that left. */
+export interface Review {
+  id: number;
+  /** Index into REVIEWS. */
+  line: number;
+  stars: number;
+  /** Writer: a first name (FIRST_NAMES index) and a passenger type (PAX_TYPES index). */
+  name: number;
+  pax: number;
+  /** Flight code (airline code and number) and when. */
+  flight: string;
+  at: number;
+}
+
+/** A piece of litter on a terminal floor (in one of the clean areas). */
+export interface Litter {
+  id: number;
+  x: number;
+  y: number;
+  /** Index into the clean areas of the airport (cleaning.ts). */
+  area: number;
+}
+
+/** A cleaner at work: walks the area they look after, picks litter up. */
+export interface Sweeper {
+  /** The staff member (StaffMember.id). */
+  staffId: number;
+  area: number;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  heading: number;
+  /** Litter being walked to (0 none), or how far along the round of the area. */
+  target: number;
+  round: number;
+  /** Bending down to pick something up until this time. */
+  until: number;
+}
+
 export interface Person {
   id: number;
   flight: number;
@@ -692,6 +736,12 @@ export interface GameState {
   vehicles: Vehicle[];
   /** Apron buses (transient). */
   buses: ApronBus[];
+  /** Litter on the terminal floors and the cleaners at work (transient). */
+  litter: Litter[];
+  sweepers: Sweeper[];
+  /** Passenger reviews (newest first) and the bonus earned by the good ones, not collected yet. */
+  reviews: Review[];
+  reviewBonus: number;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];

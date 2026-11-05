@@ -505,3 +505,26 @@ export function drawBusStop(p: IsoPen): void {
   p.box(0.15, 0.05, 0.65, 0.15, 0.12, 0.16, '#78350f');
   p.box(0.68, 0.0, 0.76, 0.03, 0.15, 0.42, '#f8fafc');
 }
+
+/** A piece of litter on the floor: a paper cup, a crumpled wrapper or a can (a bit big, so you see it). */
+export function drawLitter(p: IsoPen, kind: number): void {
+  if (kind === 0) {
+    p.box(-0.05, -0.05, 0.05, 0.05, 0, 0.12, '#f8fafc');
+    p.box(-0.052, -0.052, 0.052, 0.052, 0.05, 0.075, '#ef4444', false);
+  } else if (kind === 1) {
+    p.poly([-0.1, -0.03, 0.005, 0.08, -0.07, 0.005, 0.1, 0.05, 0.005, -0.05, 0.08, 0.005], '#facc15');
+    p.poly([-0.03, -0.02, 0.015, 0.05, 0.0, 0.015, 0.0, 0.05, 0.015], '#f59e0b', false);
+  } else {
+    p.box(-0.09, -0.035, 0.09, 0.035, 0, 0.07, '#22c55e');
+    p.box(0.09, -0.035, 0.105, 0.035, 0.008, 0.062, '#cbd5e1', false);
+  }
+}
+
+/** The cleaner's trolley: a grey cart with a bin bag and a mop. */
+export function drawCleanCart(p: IsoPen): void {
+  p.shadow(0, 0, 9, 5, 0.18);
+  p.box(-0.12, -0.08, 0.12, 0.08, 0.03, 0.2, '#94a3b8');
+  p.box(-0.1, -0.06, 0.02, 0.06, 0.2, 0.3, '#1f2937');
+  p.box(0.04, -0.05, 0.11, 0.05, 0.2, 0.24, '#facc15');
+  p.line(0.08, 0.0, 0.24, 0.12, 0.0, 0.5, '#a16207', 1.4);
+}

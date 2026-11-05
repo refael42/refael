@@ -18,6 +18,7 @@ import { SupplyPanel } from './SupplyPanel';
 import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
 import { IncidentsPanel } from './IncidentsPanel';
+import { RatingPanel } from './RatingPanel';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
@@ -67,7 +68,7 @@ import {
   gameClock,
   weather,
   layoutOf,
-  MAX_PER_ROLE,
+  maxPerRole,
   REJECT,
   staffCount,
   wagesPerDay,
@@ -77,6 +78,7 @@ import {
   type OfflineResult,
   PST,
   railTrain,
+  cleanliness,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -654,6 +656,10 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'exhibitOpen':
             toast('ticket', t('toast.exhibitOpen'), 'good');
             break;
+          case 'reviewBonus':
+            toast('coin', t('toast.reviewBonus', { n: formatBig(Big.fromNumber(e.a)) }), 'good');
+            setBump(1);
+            break;
           case 'goalDone': {
             const g = GOALS[e.a];
             if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good');
@@ -936,6 +942,20 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         const inD = b ? ctrl.state.people.filter((p) => p.x > b[0] && p.x < b[2] && p.y > b[1] && p.y < b[3]).length : 0;
         return { x: t?.x ?? 0, state: t?.state ?? 'none', at: t?.at ?? 0, load: t?.load.length ?? 0, waitT: n(PST.atApm), waitD: n(PST.atApmA), toD: n(PST.toApmA), inD };
       },
+      clean: () => ({
+        litter: ctrl.state.litter.length,
+        sweepers: ctrl.state.sweepers.length,
+        cleanliness: cleanliness(ctrl.state),
+        at: ctrl.state.sweepers.map((w) => ({ x: w.x, y: w.y, near: ctrl.state.litter.filter((l) => l.area === w.area).length })),
+        pieces: ctrl.state.litter.map((l) => ({ x: l.x, y: l.y, area: l.area })),
+      }),
+      // (tests: look at a spot)
+      lookAt: (x: number, y: number, zoom: number) => {
+        cam.target = null;
+        cam.x = isoX(x, y);
+        cam.y = isoY(x, y);
+        cam.zoom = zoom;
+      },
       skytaxis: () => ctrl.state.flights.filter((f) => AIRCRAFT[f.aircraft]?.id === 'skytaxi').map((f) => ({ phase: f.phase, z: f.z, x: f.x, y: f.y })),
       rail: () => {
         const r = layoutOf(ctrl.state.tier).rail;
@@ -950,7 +970,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const canHire =
     !!staffView &&
     (staffView.staff.some((m) => m.raise > 0 || m.trialUntil === 1 || m.points > 0) ||
-      staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < MAX_PER_ROLE && staffCount(ctrl.state, a.role) === 0));
+      staffView.applicants.some((a) => staffView.money >= a.cost && staffCount(ctrl.state, a.role) < maxPerRole(a.role) && staffCount(ctrl.state, a.role) === 0));
   const offer = rev >= 0 ? bestOffer(ctrl.state, true) : null;
   const tierOk = rev >= 0 && checkTier(ctrl.state).ok;
   const airlineNews = rev >= 0 && (ctrl.state.offers.length > 0 || ctrl.state.contracts.some((c) => c.warned || canExpand(ctrl.state, c)));
@@ -1052,7 +1072,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             safe.current.top = insets.top + 6 + e.nativeEvent.layout.height;
           }}
         >
-          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onCoinPos={onCoinPos} bump={bump} />
+          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onRating={() => setPanel('rating')} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
@@ -1170,6 +1190,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }}
         />
       ) : null}
+      {panel === 'rating' || panel === 'reviews' ? <RatingPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'reviews' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (

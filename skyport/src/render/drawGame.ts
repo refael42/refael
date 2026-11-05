@@ -36,6 +36,7 @@ const RADAR_POS: readonly [number, number] = [16.5, 15.3];
 
 const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
 const MECH_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'mechanic'));
+const CLEANER_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'cleaner'));
 const PAX_OUTFIT_IDX = PAX_OUTFITS.map((id) => Math.max(0, OUTFITS.findIndex((o) => o.id === id)));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
@@ -269,6 +270,30 @@ export function drawGame(
       w.fx(sp.glow(GLOW_COLORS.amber), p.x, p.y, 0.8, 0.9);
     }
   }
+  // litter on the terminal floors, and the cleaners with their trolleys
+  for (const l of s.litter) {
+    const sx = isoX(l.x, l.y);
+    const sy = isoY(l.x, l.y);
+    if (!visible(sx, sy, 10)) continue;
+    w.sprite(sp.litter(l.id), sx, sy, 1, l.x + l.y - 0.15);
+  }
+  for (const sw of s.sweepers) {
+    const x = lerp(sw.px, sw.x, a);
+    const y = lerp(sw.py, sw.y, a);
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    if (!visible(sx, sy, 30)) continue;
+    const moving = Math.hypot(sw.x - sw.px, sw.y - sw.py) > 1e-4;
+    const svx = Math.cos(sw.heading) - Math.sin(sw.heading);
+    const svy = Math.cos(sw.heading) + Math.sin(sw.heading);
+    // (the trolley goes in front of them)
+    const cx = x + Math.cos(sw.heading) * 0.25;
+    const cy = y + Math.sin(sw.heading) * 0.25;
+    w.sprite(sp.cleanCart, isoX(cx, cy), isoY(cx, cy), 1, cx + cy);
+    const frame = moving ? Math.floor(o.time * 7 + sw.staffId * 0.37) % 4 : 4;
+    w.sprite(sp.person(CLEANER_OUTFIT, svy < 0, svx < 0, frame), sx, sy, 1, x + y);
+  }
+
   // the hub: the people mover (its riders are inside) and the train at the station
   if (s.apm && LL.sat) {
     const APM = VEHICLE_KINDS.indexOf('apmCar');

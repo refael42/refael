@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FIRST_NAMES, LAST_NAMES, RARITIES, STAFF_ROLES, TALENT_MAX, TALENTS, TRAITS } from '../../data/staff';
 import { useDir, useLang, useT, type Lang, type TKey } from '../../i18n';
-import { formatBig, formatDuration, MAX_PER_ROLE, xpForLevel, type Applicant, type Command, type StaffMember } from '../../sim';
+import { formatBig, formatDuration, maxPerRole, xpForLevel, type Applicant, type Command, type StaffMember } from '../../sim';
 import { Icon } from '../Icon';
 import { C } from '../theme';
 import { Sheet } from './Sheet';
@@ -146,7 +146,7 @@ export function StaffPanel({ view, send, onClose }: { view: StaffView; send: (c:
               <Text style={styles.small}>{t('staff.transfer')}</Text>
               {STAFF_ROLES.map((r, i) =>
                 i === m.role || r.unlockTier > view.tier ? null : (
-                  <Pressable key={r.id} disabled={count(i) >= MAX_PER_ROLE} onPress={() => send({ type: 'transfer', staffId: m.id, role: i })} style={[styles.chip, count(i) >= MAX_PER_ROLE && { opacity: 0.4 }]}>
+                  <Pressable key={r.id} disabled={count(i) >= maxPerRole(i)} onPress={() => send({ type: 'transfer', staffId: m.id, role: i })} style={[styles.chip, count(i) >= maxPerRole(i) && { opacity: 0.4 }]}>
                     <Text style={styles.chipText}>{roleName(i)}</Text>
                   </Pressable>
                 ),
@@ -163,7 +163,7 @@ export function StaffPanel({ view, send, onClose }: { view: StaffView; send: (c:
 
   const applicant = (a: Applicant) => {
     const R = RARITIES[a.rarity] ?? RARITIES[0];
-    const full = count(a.role) >= MAX_PER_ROLE;
+    const full = count(a.role) >= maxPerRole(a.role);
     const afford = view.money >= a.cost;
     const trialBusy = view.staff.some((m) => m.trialUntil > 0);
     return (

@@ -34,6 +34,8 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | Big terminals | done | owner request: open-roofed Terminal 1 (small airfield on) and a big Terminal 3 (city airport on), every step from the curb to the plane in view; apron buses |
 | The hub (tier 6) | done | Concourse D satellite with a people mover, Terminal 3 grows, a railway station |
 | The mega hub (tier 7) | done | Terminal 4 for the jumbos (3 jumbo gates), Globetrail, a second cargo stand |
+| M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
+| M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
 | The skyport (tier 8) | done | vertiport with electric air taxis (Hoverly), the airport hotel |
 
 ### M0 — infrastructure (done)
@@ -576,6 +578,60 @@ The last stage is playable now; every tier has a map.
   walk over to the terminal.
 - Goals: become a skyport, open the vertiport. A help topic: the skyport.
 - Tests: the air taxis use the new pads; hotel guests walk to Terminal 3.
+
+### M12a — cleanliness and the rating breakdown (done)
+- Litter: passengers waiting on the busy floors drop cups, wrappers and cans.
+  - The busy floors are the clean areas: rectangles inside one zone, so no wall runs through them.
+    They are the lounges, food courts, gate lounges and halls of every terminal and of
+    Concourse D.
+  - About 1 in 300 per passenger-second. More bins (new upgrade) cut it by up to 75%.
+  - At most 8 pieces per area.
+- Cleaners: a new staff role from the small airfield on, up to 10 (the other roles stay at 2).
+  - Each one looks after an area: walks to the nearest piece, bends down and picks it up, or makes
+    rounds of the area.
+  - If their area stays clean, they move on to the dirtiest area nobody looks after.
+  - They wear teal with a light vest and push a trolley.
+- A dirty airport costs mood when the doors close (up to 0.14), and so rating.
+- Rating breakdown (`src/sim/game/rating.ts`): tap the star in the top bar for the rating panel.
+  - Five bars: on time, short queues, clean terminals, bags arrive, happy passengers.
+  - A tip for the weakest part.
+- The bot hires a cleaner for every two areas.
+- Tests (`tests/cleaning.test.ts`):
+  - the areas are inside one building with no wall through them;
+  - litter piles up without cleaners, and cleaners clean it up;
+  - more than two cleaners can be hired;
+  - a clean airport rates higher.
+- E2E: `m12-cleaners`, `m12-litter` (close-ups via a new `lookAt` hook), `m12-rating`.
+
+### M12b — passenger reviews (done)
+- 244 lines (`src/data/reviews.ts`) in English and Hebrew across 27 topics:
+  - things going wrong: long lines, lost bags, delays, dirty halls, passport control;
+  - the airport's features: jet bridges, the apron bus, the train, the people mover, the hotel,
+    air taxis, jumbos, the food court and the duty free, the dirt strip, a big airport;
+  - who writes: families, business travellers, students, older travellers, VIPs;
+  - the weather, holidays and on-time flights.
+- About half of the flights that leave get a review (`src/sim/game/reviews.ts`).
+  - The topic comes from what the flight lived through, worst first: a lost bag, being late,
+    dirty halls, the average wait in line.
+  - Then what the airport has: a jet bridge, the bus, the people mover, Terminal 4, the train,
+    the hotel, a holiday.
+  - Sometimes it is about who wrote it. The line is picked by hash.
+- Good reviews (4 and 5 stars) earn a bonus (12 and 25 coins times the tier's pay) to collect in
+  the new Reviews tab of the rating panel. That tab shows the average, the latest 40 reviews (name,
+  flight, stars, line, when) and the collect button.
+- Reviews and the bonus are saved.
+- Tests (`tests/reviews.test.ts`):
+  - more than 200 lines, both languages;
+  - bad topics rate low and good ones high;
+  - flights leave reviews;
+  - a lost bag comes first;
+  - the bonus is collected and survives a save.
+- Fixes found by the new runs:
+  - a smaller plane at a jet-bridge gate is served by the apron bus, so its Terminal 1 passengers
+    wait in the lounge (they used to walk out to the pier and back through a wall);
+  - the fault-rate test counts walk-around faults only, not bird strikes;
+  - jet-bridge gates are for airliners only: a small plane used to take one when the small
+    stands were full, and the big jets (Concourse D, Terminal 3) then had nowhere to park.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

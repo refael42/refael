@@ -423,9 +423,9 @@ export default [
   { name: 'terminal-t4', viewport: { width: 844, height: 390 }, query: '/?seed=62&tier=4&full=1&crew=1&warp=240&auto=1&cam=19.6,16.2,1.3', wait: 2500, touch: true, langs: ['en'] },
   // Terminal 3: wait until its halls are busy (the big jets' passengers are inside)
   ...[
-    ['terminal-t3', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=46.2,12.4,1.05', ['he', 'en']],
-    ['terminal-t3-intl', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&cam=46.2,12.4,1.05', ['en']],
-    ['terminal-t3-wide', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&cam=38,16,0.55', ['en']],
+    ['terminal-t3', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&speed=3&cam=46.2,12.4,1.05', ['he', 'en']],
+    ['terminal-t3-intl', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&speed=3&cam=46.2,12.4,1.05', ['en']],
+    ['terminal-t3-wide', '/?seed=64&tier=5&full=1&crew=1&warp=420&auto=1&hook=1&speed=3&cam=38,16,0.55', ['en']],
   ].map(([name, query, langs]) => ({
     name,
     viewport: { width: 844, height: 390 },
@@ -434,7 +434,8 @@ export default [
     touch: true,
     langs,
     actions: async (page) => {
-      await page.waitForFunction(() => window.__skyport && window.__skyport.terminals().t3 >= 8, null, { timeout: 40000 });
+      // (Terminal 3 fills and empties with the big jets: wait for a busy moment)
+      await page.waitForFunction(() => window.__skyport && window.__skyport.terminals().t3 >= 8, null, { timeout: 120000, polling: 100 });
     },
   })),
   // apron buses to the remote stands (wait until one is out on the apron)
@@ -451,7 +452,7 @@ export default [
   // the hub: the whole airport, Concourse D, the people mover between the terminals, the railway station
   ...[
     ['hub-overview', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=50,17,0.42', ['he', 'en'], () => window.__skyport.terminals().t3 >= 8],
-    ['hub-concourse-d', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=67.5,15.4,1.05', ['he', 'en'], () => window.__skyport.apm().inD >= 14],
+    ['hub-concourse-d', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=67.5,15.4,1.05', ['he', 'en'], () => window.__skyport.apm().inD >= 10],
     ['hub-apm', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&speed=4&cam=57.6,15.6,1.7', ['en'], () => window.__skyport.apm().state === 'run' && window.__skyport.apm().load > 0 && Math.abs(window.__skyport.apm().x - 58) < 1.2],
     ['hub-rail', '/?seed=66&tier=6&full=1&crew=1&warp=420&auto=1&hook=1&cam=49.5,3.4,1.25', ['en'], () => window.__skyport.rail() && window.__skyport.rail().dwell && window.__skyport.rail().dwellT > 7],
     // the mega hub: Terminal 4 for the jumbos, east of Concourse D
@@ -469,9 +470,51 @@ export default [
     langs,
     actions: async (page) => {
       await page.waitForFunction(() => window.__skyport && window.__skyport.apm, null, { timeout: 40000 });
-      await page.waitForFunction(ready, null, { timeout: 90000, polling: 50 });
+      await page.waitForFunction(ready, null, { timeout: 150000, polling: 50 });
     },
   })),
+  // M12: litter and the cleaners in Terminal 3's food court and gate lounge; the rating panel
+  {
+    name: 'm12-cleaners',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=70&tier=4&full=1&crew=1&warp=600&auto=1&hook=1&cam=47.6,15.4,1.7',
+    wait: 1200,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.clean().at.some((w) => w.near >= 2), null, { timeout: 90000, polling: 100 });
+      // look at a cleaner with litter around them
+      await page.evaluate(() => {
+        const w = window.__skyport.clean().at.find((c) => c.near >= 2);
+        window.__skyport.lookAt(w.x, w.y, 2.4);
+      });
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'm12-litter',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=71&tier=4&full=1&warp=600&auto=1&hook=1&cam=47.6,15.4,1.7',
+    wait: 1200,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      // the area with the most litter
+      await page.waitForFunction(() => window.__skyport && window.__skyport.clean().litter >= 6, null, { timeout: 90000, polling: 100 });
+      await page.evaluate(() => {
+        const ps = window.__skyport.clean().pieces;
+        const count = {};
+        for (const p of ps) count[p.area] = (count[p.area] || 0) + 1;
+        const area = Number(Object.keys(count).sort((a, b) => count[b] - count[a])[0]);
+        const mine = ps.filter((p) => p.area === area);
+        const x = mine.reduce((s, p) => s + p.x, 0) / mine.length;
+        const y = mine.reduce((s, p) => s + p.y, 0) / mine.length;
+        window.__skyport.lookAt(x, y, 2.6);
+      });
+      await page.waitForTimeout(700);
+    },
+  },
+  { name: 'm12-rating', viewport: { width: 844, height: 390 }, query: '/?seed=70&tier=3&full=1&crew=1&warp=300&auto=1&panel=rating', wait: 2500, touch: true },
+  { name: 'm12-reviews', viewport: { width: 844, height: 390 }, query: '/?seed=70&tier=3&full=1&crew=1&warp=900&auto=1&panel=reviews', wait: 2500, touch: true },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

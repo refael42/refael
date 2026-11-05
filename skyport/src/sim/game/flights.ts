@@ -20,7 +20,12 @@ import { canEnter, findRoute, flowOf, safeRunEnd, graphOf, groundMove, releaseAl
 import { doorPoint, gatePoint, layoutOf, opsOf, routeDivert, routeFinal, routeLanding, routeLineUp, routeRollout, routeTakeoff } from './layout';
 import { angleDiff, chaikin, makeSample, pathLength, samplePath, type Path } from './path';
 import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
+import { cleanliness } from './cleaning';
+import { maybeReview } from './reviews';
 import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Planned, type Want } from './types';
+
+/** How much a passenger's mood drops for a terminal that is a mess (at 0 cleanliness). */
+const DIRT_MOOD = 0.14;
 
 const SAMPLE = makeSample();
 
@@ -291,6 +296,8 @@ export function freeStand(s: GameState, aircraft = 0): number {
   for (let i = 0; i < Math.min(L.stands.length, s.stands.length); i++) {
     if (!s.standOpen[i] || s.stands[i].occupant !== 0 || s.stands[i].reserved !== 0 || L.stands[i].hangar) continue;
     if (!standFits(L.stands[i].size, need) || (L.stands[i].exact && L.stands[i].size !== need)) continue;
+    // (jet-bridge gates are for the airliners: a small plane waits for a stand of its size rather than block one)
+    if (L.stands[i].bridge && SIZE_RANK[need] < SIZE_RANK.large) continue;
     // (air taxis go to the vertiport pads first, helicopters to the helipad)
     const pref = (k: number) => SIZE_RANK[L.stands[k].size] * 2 + ((L.stands[k].line === 'vertiport') === taxi ? 0 : 1);
     if (best < 0 || pref(i) < pref(best)) best = i;
@@ -636,6 +643,7 @@ function pay(s: GameState, f: Flight): void {
   pushEvent(s, 'paid', f.x, f.y, amount.m, amount.e, f.id);
   airlineFlightDone(s, f, f.onTime > 0 ? 'onTime' : 'late');
   logDeparture(s, f, 0);
+  maybeReview(s, f, `${AIRLINES[f.airline]?.code ?? ''}${f.num}`);
 }
 
 /** Keeps the latest departures (and cancellations) for the board. */
@@ -846,6 +854,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       releaseBoarding(s, f, dt, L);
       if (f.boarded >= f.paxSpawned && f.paxSpawned >= f.paxOut && f.bagState === FUEL.done) {
         setPhase(f, 'doorsClosed');
+        // (dirty floors on the way through the terminal put them in a worse mood)
+        if (f.paxOut > 0) f.mood = Math.max(0, f.mood - (1 - cleanliness(s)) * DIRT_MOOD);
         pushEvent(s, 'boardingDone', f.x, f.y, f.id);
       }
       return true;

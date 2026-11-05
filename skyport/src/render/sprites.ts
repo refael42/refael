@@ -62,6 +62,7 @@ import {
   drawBooth,
   drawBusStop,
   drawCanopy,
+  drawCleanCart,
   drawCustomsDesk,
   drawDoorFrame,
   drawFoodStall,
@@ -70,6 +71,7 @@ import {
   drawGateDesk,
   drawInfoDesk,
   drawKidsPlay,
+  drawLitter,
   drawPottedPlant,
   drawRental,
   drawRestrooms,
@@ -163,6 +165,8 @@ const SIGN_OF: Partial<Record<FurnitureKind, SignKind>> = {
   signCustoms: 'customs',
   signTrain: 'train',
 };
+/** Looks of litter on the floor. */
+export const LITTER_KINDS = 3;
 /** The airport hotel is drawn at this size (tiles). */
 export const HOTEL_SIZE: readonly [number, number] = [5.0, 3.4];
 /** Pieces of the platform roof at the railway station are this long (tiles). */
@@ -246,6 +250,9 @@ export interface SpriteSet {
   stationHall: number;
   /** The airport hotel (skyport), drawn at HOTEL_SIZE. */
   hotel: number;
+  /** Litter on a terminal floor (LITTER_KINDS looks) and the cleaner's trolley. */
+  litter: (kind: number) => number;
+  cleanCart: number;
   /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
   stretcher: number;
   rope: (alongY: boolean) => number;
@@ -506,6 +513,9 @@ export function buildSprites(content: Content): SpriteSet {
   const busStop = b.add(-0.4 * T, -0.8 * T, 1.2 * T, 0.8 * T, (c, ox, oy) => drawBusStop(new IsoPen(c, ox, oy, S)));
   const portals = [true, false].map((west) => b.add(-2.0 * T, -1.6 * T, 2.0 * T, 1.6 * T, (c, ox, oy) => drawTunnelPortal(new IsoPen(c, ox, oy, S), west)));
   const roofs = [true, false].map((post) => b.add(-0.6 * T, -1.2 * T, (ROOF_SEG + 0.6) * T, (ROOF_SEG * 0.5 + 0.8) * T, (c, ox, oy) => drawPlatformRoof(new IsoPen(c, ox, oy, S), ROOF_SEG, post)));
+  const litterBase = b.size;
+  for (let k = 0; k < LITTER_KINDS; k++) b.add(-0.18 * T, -0.22 * T, 0.18 * T, 0.14 * T, (c, ox, oy) => drawLitter(new IsoPen(c, ox, oy, S), k));
+  const cleanCart = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.25 * T, (c, ox, oy) => drawCleanCart(new IsoPen(c, ox, oy, S)));
   const stationHall = b.add(-1.0 * T, -1.3 * T, 1.8 * T, 1.4 * T, (c, ox, oy) => drawStationHall(new IsoPen(c, ox, oy, S)));
   const hotel =
     tier >= 8
@@ -706,6 +716,8 @@ export function buildSprites(content: Content): SpriteSet {
     platformRoof: (post) => roofs[post ? 0 : 1],
     stationHall,
     hotel,
+    litter: (k) => litterBase + (k % LITTER_KINDS),
+    cleanCart,
     stretcher,
     rope: (alongY) => (alongY ? ropeY : ropeX),
     ticketBooth,

@@ -32,7 +32,9 @@ export type EffectKind =
   /** Capacity of a supply store (fuel farm, parts store), by level. */
   | 'storage'
   /** Bird control (falconer, scare cannons): fewer flocks over the runway. */
-  | 'birds';
+  | 'birds'
+  /** More bins in the terminals: less litter on the floors. */
+  | 'litter';
 
 export interface UpgradeDef {
   id: string;
@@ -71,6 +73,7 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'lights', category: 'runway', unlockTier: 1, maxLevel: 20, baseCost: 90, growth: 1.25, effect: 'runwayOps', per: 0.04, icon: 'takeoff' },
   { id: 'benches', category: 'comfort', unlockTier: 1, maxLevel: 25, baseCost: 40, growth: 1.2, effect: 'comfort', per: 0.02, icon: 'sun' },
   { id: 'coffee', category: 'comfort', unlockTier: 1, maxLevel: 20, baseCost: 120, growth: 1.3, effect: 'staffSpeed', per: 0.06, icon: 'team' },
+  { id: 'bins', category: 'terminal', unlockTier: 2, maxLevel: 5, baseCost: 400, growth: 4, effect: 'litter', per: 0.15, icon: 'check' },
   { id: 'counters', category: 'terminal', unlockTier: 1, maxLevel: 3, baseCost: 120, growth: 3, effect: 'counters', per: 1, icon: 'pax' },
   { id: 'lanes', category: 'terminal', unlockTier: 1, maxLevel: 2, baseCost: 220, growth: 3.5, effect: 'lanes', per: 1, icon: 'check' },
   { id: 'scanner', category: 'terminal', unlockTier: 1, maxLevel: 20, baseCost: 70, growth: 1.22, effect: 'scanSpeed', per: 0.12, icon: 'clock' },

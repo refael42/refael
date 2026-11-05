@@ -16,7 +16,7 @@ import { ensureHoldArrays } from './game/graph';
 import { BUCKETS, makeIncome, type IncomeState } from './game/income';
 import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
-import { APPLICANT_LIFETIME, MAX_LEVEL, MAX_PER_ROLE, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
+import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
 import type { AirlineOffer, Applicant, Build, Contract, GameState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
@@ -27,6 +27,10 @@ import { normalizeSeed } from './rng';
 import { STORES } from '../data/supplies';
 import { capacity, incoming, STORE_KINDS } from './game/supplies';
 import { GOALS, skipDoneGoals } from './game/goals';
+
+import { REVIEWS } from '../data/reviews';
+import { PAX_TYPES } from '../data/paxTypes';
+import { MAX_REVIEWS } from './game/reviews';
 
 export const SAVE_KEY = 'skyport.save.v1';
 
@@ -70,6 +74,8 @@ export function serializeGame(s: GameState, savedAt: number): string {
     stores: Object.fromEntries(STORE_KINDS.map((k) => [k, { stock: s.stores[k].stock + incoming(s, k), supplier: s.stores[k].supplier }])),
     upg: s.upg,
     builds: s.builds,
+    reviews: s.reviews,
+    reviewBonus: s.reviewBonus,
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -167,7 +173,7 @@ export function cleanStaff(raw: unknown, time: number): StaffMember[] {
     if (!isObj(m)) continue;
     const role = int(m.role, -1);
     const id = int(m.id, -1, 1);
-    if (role < 0 || role >= STAFF_ROLES.length || id < 1 || ids.has(id) || perRole[role] >= MAX_PER_ROLE) continue;
+    if (role < 0 || role >= STAFF_ROLES.length || id < 1 || ids.has(id) || perRole[role] >= maxPerRole(role)) continue;
     ids.add(id);
     perRole[role]++;
     const p = cleanPerson(m, role, id);
@@ -303,6 +309,26 @@ export function cleanGame(raw: unknown): GameState | null {
   s.priceMul = num(raw.priceMul, 1, 0.01, 10);
   s.upg = cleanUpgrades(raw.upg, s.tier);
   s.builds = cleanBuilds(raw.builds, s.upg, s.tier);
+  // passenger reviews: only lines that exist, the newest MAX_REVIEWS
+  s.reviews = Array.isArray(raw.reviews)
+    ? raw.reviews
+        .filter(isObj)
+        .map((r) => {
+          const line = int(r.line, -1, -1, REVIEWS.length - 1);
+          return {
+            id: int(r.id, 0, 0),
+            line,
+            stars: REVIEWS[line]?.stars ?? 3,
+            name: int(r.name, 0, 0, FIRST_NAMES.length - 1),
+            pax: int(r.pax, 0, 0, PAX_TYPES.length - 1),
+            flight: typeof r.flight === 'string' ? r.flight.slice(0, 12) : '',
+            at: num(r.at, 0, 0),
+          };
+        })
+        .filter((r) => r.line >= 0)
+        .slice(0, MAX_REVIEWS)
+    : [];
+  s.reviewBonus = num(raw.reviewBonus, 0, 0, 1e15);
   s.staff = cleanStaff(raw.staff, s.time);
   s.applicants = cleanApplicants(raw.applicants, s.time);
   s.nextApplicantAt = num(raw.nextApplicantAt, s.time + 60, s.time, s.time + 300);

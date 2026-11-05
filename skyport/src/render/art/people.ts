@@ -44,6 +44,8 @@ export const OUTFITS: readonly Outfit[] = [
   { id: 'press', skin: '#f2c7a5', hair: '#6b4226', hairStyle: 'short', shirt: '#64748b', pants: '#a8a29e', shoes: '#44403c', hat: { kind: 'cap', color: '#111827' }, bag: { kind: 'backpack', color: '#1f2937' }, size: 1 },
   { id: 'guard', skin: '#a8714f', hair: '#1f1a17', hairStyle: 'bald', shirt: '#111827', pants: '#111827', shoes: '#0b0b0b', hat: { kind: 'headset', color: '#0b0b0b' }, size: 1.05 },
   { id: 'star', skin: '#f0c9a8', hair: '#fde68a', hairStyle: 'long', shirt: '#f0abfc', pants: '#f8fafc', shoes: '#c026d3', bag: { kind: 'briefcase', color: '#facc15' }, size: 1 },
+  // M12: the cleaner, in teal with a light vest
+  { id: 'cleaner', skin: '#c58c63', hair: '#2b2b2b', hairStyle: 'bun', shirt: '#0f766e', pants: '#115e59', shoes: '#1d1d22', vest: '#99f6e4', hat: { kind: 'cap', color: '#0f766e' }, size: 1 },
 ];
 
 export const PAX_OUTFITS = ['tourist', 'business', 'businessW', 'family', 'kid', 'student', 'vip', 'elder'] as const;
