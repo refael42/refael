@@ -359,6 +359,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const frameNo = useRef(0);
   const safe = useRef({ top: 90, bottom: 0 });
   const lastToastKey = useRef<Record<string, number>>({});
+  const lastNews = useRef(-1e9);
 
   useEffect(() => {
     // (close in, the sprites and the ground switch to their vectors before their pixels would show)
@@ -406,14 +407,24 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     }
   }, [size, cam, ctrl]);
 
-  const toast = useCallback((icon: Toast['icon'], text: string, tone: Toast['tone'] = 'info', key?: string) => {
+  /**
+   * Short messages, kept few so the screen stays calm. 'tap' answers what the
+   * player just did (always shown); a warning needs attention (shown, never
+   * twice in a row); good news and info show at most one every NEWS_GAP ms and
+   * are dropped otherwise (what they say is on the map or a button's dot).
+   * Two at a time at most.
+   */
+  const toast = useCallback((icon: Toast['icon'], text: string, tone: Toast['tone'] = 'info', key?: string, tap = false) => {
     const tnow = performance.now();
-    if (key) {
-      const last = lastToastKey.current[key] ?? -1e9;
-      if (tnow - last < 2500) return;
-      lastToastKey.current[key] = tnow;
+    const k = key ?? text;
+    const last = lastToastKey.current[k] ?? -1e9;
+    if (tnow - last < (tap ? 1500 : SAME_GAP)) return;
+    if (!tap && tone !== 'warn') {
+      if (tnow - lastNews.current < NEWS_GAP) return;
+      lastNews.current = tnow;
     }
-    setToasts((old) => [...old.filter((x) => tnow - x.at < TOAST_MS), { id: toastId.current++, icon, text, at: tnow, tone }].slice(-3));
+    lastToastKey.current[k] = tnow;
+    setToasts((old) => [...old.filter((x) => tnow - x.at < TOAST_MS), { id: toastId.current++, icon, text, at: tnow, tone }].slice(-MAX_TOASTS));
   }, []);
 
   useEffect(() => {
@@ -444,8 +455,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'bagsQueued': {
             const f = s.flights.find((x) => x.id === e.a);
             if (tutorialRef.current === 2 && f && f.fuelState > 0 && f.bagState > 0) setTutorial(3);
-            if (e.kind === 'fuelQueued') toast('fuel', t('toast.truckBusy'), 'info', 'truck');
-            if (e.kind === 'bagsQueued') toast('bag', t('toast.bagsBusy'), 'info', 'cart');
+            // (no message: the plane's bubble shows it is waiting for the truck)
             break;
           }
           case 'boardingStart':
@@ -457,14 +467,15 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'upgraded':
             if (tutorialRef.current === 6) setTutorial(7);
             break;
+          // (the plane's bubble and the edge markers say it; a message only for the first few flights)
           case 'landingRequest':
-            toast('land', t('toast.landingRequest', { code: codeOf(e.a) }), 'info', 'land');
+            if (s.stats.served < 3) toast('land', t('toast.landingRequest', { code: codeOf(e.a) }), 'info', 'land');
             break;
           case 'takeoffRequest':
-            toast('takeoff', t('toast.takeoffRequest', { code: codeOf(e.a) }), 'info', 'takeoff');
+            if (s.stats.served < 3) toast('takeoff', t('toast.takeoffRequest', { code: codeOf(e.a) }), 'info', 'takeoff');
             break;
           case 'diverted':
-            toast('warn', t('toast.diverted', { code: codeOf(e.c) }), 'warn');
+            toast('warn', t('toast.diverted', { code: codeOf(e.c) }), 'warn', 'diverted');
             break;
           case 'runwayFlip':
             toast('wind', t('toast.runwayFlip'), 'info', 'flip');
@@ -472,21 +483,17 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'fogIn':
             toast('fog', t('toast.fogIn'), 'warn', 'fog');
             break;
-          case 'fogOut':
-            toast('sun', t('toast.fogOut'), 'good', 'fog');
-            break;
+          // (the fog lifting is plain to see)
           case 'crosswind':
             toast('wind', t('toast.crosswind', { n: e.a }), 'warn', 'cross');
             break;
           case 'goAround':
-            toast('takeoff', t('toast.goAround', { code: codeOf(e.a) }), 'warn');
+            toast('takeoff', t('toast.goAround', { code: codeOf(e.a) }), 'warn', 'goAround');
             break;
           case 'diversionRequest':
             toast('fuel', t('toast.diversionRequest', { code: codeOf(e.a) }), 'good');
             break;
-          case 'supplyArrived':
-            toast(e.a === 0 ? 'fuel' : 'wrench', t('toast.supplyArrived', { what: t(e.a === 0 ? 'sup.fuel' : 'sup.parts'), n: formatBig(Big.fromNumber(Math.round(e.b))) + (e.a === 0 ? ' ' + t('sup.liters') : '') }), 'good', 'supply' + e.a);
-            break;
+          // (a delivery: the tanker unloads on the map and the gauges fill)
           case 'supplyOut':
             toast('warn', t(e.a === 0 ? 'toast.fuelOut' : 'toast.partsOut'), 'warn', 'out' + e.a);
             break;
@@ -494,14 +501,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('coin', t('toast.supplyLow', { what: t(e.a === 0 ? 'sup.fuel' : 'sup.parts') }), 'warn', 'low' + e.a);
             break;
           case 'supplyOrdered':
-            if (e.c === 1) toast('hourglass', t('toast.urgent'), 'info', 'urgent');
+            if (e.c === 1) toast('hourglass', t('toast.urgent'), 'info', 'urgent', true);
             break;
           case 'aog':
-            toast('wrench', t('toast.aog', { code: codeOf(e.a) }), 'warn');
+            toast('wrench', t('toast.aog', { code: codeOf(e.a) }), 'warn', 'aog');
             break;
-          case 'repairDone':
-            toast('check', t('toast.repairDone', { code: codeOf(e.a) }), 'good');
-            break;
+          // (a repair done: the plane goes on, no message)
           case 'waitingPart':
             toast('hourglass', t('toast.waitingPart', { code: codeOf(e.a) }), 'warn', 'part');
             break;
@@ -509,72 +514,57 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('build', t('toast.checkRequest', { code: codeOf(e.a), check: t(e.b === 2 ? 'sup.checkB' : 'sup.checkA') }), 'info');
             break;
           case 'checkDone':
-            toast('coin', t('toast.checkDone', { check: t(e.c === 2 ? 'sup.checkB' : 'sup.checkA'), n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            // (the coins fly up from the hangar)
             fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
             break;
           case 'cmdRejected':
-            if (e.a === REJECT.noStand) toast('warn', t('toast.noStand'), 'warn', 'noStand');
-            else if (e.a === REJECT.notReady) toast('hourglass', t('toast.notReady'), 'info', 'notReady');
-            else if (e.a === REJECT.noMoney) toast('coin', t('toast.noMoney'), 'warn', 'money');
-            else if (e.a === REJECT.limit) toast('team', t('toast.limit'), 'info', 'limit');
-            else if (e.a === REJECT.badSpot) toast('warn', t('toast.badSpot'), 'warn', 'spot');
-            else if (e.a === REJECT.needs) toast('warn', t('toast.needs'), 'warn', 'needs');
+            // (the test bot's own taps are not the player's: no answer on screen)
+            if (debug.auto) break;
+            if (e.a === REJECT.noStand) toast('warn', t('toast.noStand'), 'warn', 'noStand', true);
+            else if (e.a === REJECT.notReady) toast('hourglass', t('toast.notReady'), 'info', 'notReady', true);
+            else if (e.a === REJECT.noMoney) toast('coin', t('toast.noMoney'), 'warn', 'money', true);
+            else if (e.a === REJECT.limit) toast('team', t('toast.limit'), 'info', 'limit', true);
+            else if (e.a === REJECT.badSpot) toast('warn', t('toast.badSpot'), 'warn', 'spot', true);
+            else if (e.a === REJECT.needs) toast('warn', t('toast.needs'), 'warn', 'needs', true);
             break;
           case 'hired': {
             const m = s.staff.find((x) => x.id === e.b);
             const role = STAFF_ROLES[e.a];
-            if (m && role) toast('team', t('toast.hired', { name: personName(m, lang), role: t(`role.${role.id}` as TKey) }), 'good');
+            if (m && role) toast('team', t('toast.hired', { name: personName(m, lang), role: t(`role.${role.id}` as TKey) }), 'good', undefined, true);
             break;
           }
-          case 'wagesPaid':
-            toast('coin', t('toast.wages', { amount: formatBig(e.a) }), 'info');
-            break;
+          // (wages: the coins go down, no message)
           case 'applicantArrived': {
             const R = RARITIES[e.b];
-            if (R && e.b >= 1) toast('team', t('toast.applicant', { rarity: t(`rarity.${R.id}` as TKey), role: t(`role.${STAFF_ROLES[e.a]?.id ?? 'atc'}` as TKey) }), 'good');
+            // (only the rare finds: the staff button's dot says the rest)
+            if (R && e.b >= 2) toast('team', t('toast.applicant', { rarity: t(`rarity.${R.id}` as TKey), role: t(`role.${STAFF_ROLES[e.a]?.id ?? 'atc'}` as TKey) }), 'good');
             break;
           }
           case 'negotiated':
-            toast('team', e.a === 1 ? t('toast.negotiateOk') : t('toast.negotiateNo'), e.a === 1 ? 'good' : 'warn');
+            toast('team', e.a === 1 ? t('toast.negotiateOk') : t('toast.negotiateNo'), e.a === 1 ? 'good' : 'warn', undefined, true);
             break;
-          case 'levelUp': {
-            const m = s.staff.find((x) => x.id === e.c);
-            if (m) toast('star', t('toast.levelUp', { name: personName(m, lang), n: e.a }), 'good');
-            break;
-          }
-          case 'raiseRequest': {
-            const m = s.staff.find((x) => x.id === e.c);
-            if (m) toast('coin', t('toast.raise', { name: personName(m, lang) }), 'info');
-            break;
-          }
+          // (a level up or a raise request: the staff button's dot, no message)
           case 'quit':
           case 'fired': {
             const name = lastNames.current.get(e.c);
             if (name) toast('warn', t(e.kind === 'quit' ? 'toast.quit' : 'toast.fired', { name }), 'warn');
             break;
           }
-          case 'trialEnded':
-            toast('clock', t('toast.trialEnded'), 'info');
-            break;
+          // (a trial ended: the staff button's dot)
           case 'checkedIn':
             fx.bag();
             break;
           case 'sale':
             fx.sale(isoX(e.x, e.y), isoY(e.x, e.y) - 14, e.a, e.b);
             break;
-          case 'lostBag':
-            toast('bag', t('toast.lostBag'), 'warn', 'lostBag');
-            break;
-          case 'offerArrived':
-            toast('tail', t('toast.offer', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
-            break;
+          // (a lost bag: the rating and the reviews say it; an offer: the airlines button's dot)
           case 'contractSigned':
-            toast('handshake', t('toast.signed', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
+            toast('handshake', t('toast.signed', { name: AIRLINES[e.a]?.name ?? '' }), 'good', undefined, true);
             break;
           case 'offerResult': {
             const name = AIRLINES[e.a]?.name ?? '';
-            if (e.b === 1) toast('tail', t('toast.offerDiscount', { name }), 'info');
-            else toast('tail', e.c === 1 ? t('toast.offerMore', { name }) : t('toast.offerNo', { name }), e.c === 1 ? 'good' : 'warn');
+            if (e.b === 1) toast('tail', t('toast.offerDiscount', { name }), 'info', undefined, true);
+            else toast('tail', e.c === 1 ? t('toast.offerMore', { name }) : t('toast.offerNo', { name }), e.c === 1 ? 'good' : 'warn', undefined, true);
             break;
           }
           case 'airlineWarning': {
@@ -582,30 +572,23 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('warn', e.b === 1 ? t('toast.airlineCut', { name, n: e.c }) : t('toast.airlineWarning', { name }), 'warn');
             break;
           }
-          case 'airlineHappy':
-            toast('tail', t('toast.airlineHappy', { name: AIRLINES[e.a]?.name ?? '' }), 'good');
-            break;
           case 'airlineLeft':
             toast('warn', t('toast.airlineLeft', { name: AIRLINES[e.a]?.name ?? '' }), 'warn');
             break;
           case 'contractExpanded':
-            toast('up', t('toast.expanded', { name: AIRLINES[e.a]?.name ?? '', n: e.b }), 'good');
+            toast('up', t('toast.expanded', { name: AIRLINES[e.a]?.name ?? '', n: e.b }), 'good', undefined, true);
             break;
           case 'contractEnded': {
             const name = AIRLINES[e.a]?.name ?? '';
-            if (e.c === 2) toast('tail', t('toast.contractEnded', { name }), 'info');
+            if (e.c === 2) toast('tail', t('toast.contractEnded', { name }), 'info', undefined, true);
             else if (e.b > 0) toast('coin', t('toast.seasonBonus', { name, amount: formatBig(e.b) }), 'good');
-            else toast('tail', t('toast.seasonEnd', { name }), 'info');
             break;
           }
-          case 'oops':
-            toast('bag', t('toast.oops'), 'warn', 'oops');
-            break;
           case 'tierBuildStart':
             toast('build', t('toast.tierBuild', { tier: t(`tier.${tierDef(e.a).key}` as TKey) }), 'good');
             break;
           case 'tierUp': {
-            toast('star', t('toast.tierUp', { tier: t(`tier.${tierDef(e.a).key}` as TKey) }), 'good');
+            toast('star', t('toast.tierUp', { tier: t(`tier.${tierDef(e.a).key}` as TKey) }), 'good', undefined, true);
             const NL = layoutOf(e.a);
             for (const st of NL.stands) fx.sparkle(isoX(st.pos[0], st.pos[1]), isoY(st.pos[0], st.pos[1]) - 20);
             fx.sparkle(isoX(NL.hut[0] + 1, NL.hut[1] + 0.7), isoY(NL.hut[0] + 1, NL.hut[1] + 0.7) - 40);
@@ -644,14 +627,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('warn', t('inc.emergency.bad'), 'warn');
             break;
           case 'birdStrike':
-            toast('warn', t('toast.birdStrike', { code: codeOf(e.a) }), 'warn');
+            toast('warn', t('toast.birdStrike', { code: codeOf(e.a) }), 'warn', 'bird');
             break;
           case 'vipTip':
             toast('star', t('toast.vipTip', { code: codeOf(e.a), n: formatBig(Big.fromNumber(e.b)) }), 'good');
             break;
-          case 'fodCar':
-            toast('wrench', t('toast.fodCar'), 'info', 'fodCar');
-            break;
+          // (the runway car drives out on the map)
           case 'weekend':
             toast('sun', t('toast.weekend'), 'good', 'weekend');
             break;
@@ -660,9 +641,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             if (h) toast('party', t(e.b > 0 ? 'toast.holiday' : 'toast.holidayRush', { name: t(`hol.${h.id}.title` as TKey) }), 'good', 'holiday');
             break;
           }
-          case 'ambulanceOut':
-            toast('medic', t('toast.ambulance', { code: codeOf(e.a) }), 'info', 'ambulance');
-            break;
+          // (the ambulance drives out on the map)
           case 'medicalDone':
             toast('medic', t('inc.medical.good', { n: formatBig(Big.fromNumber(e.b)) }), 'good');
             fx.money(isoX(e.x, e.y), isoY(e.x, e.y, 0.3) - 20, Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
@@ -687,18 +666,18 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('ticket', t('toast.exhibitOpen'), 'good');
             break;
           case 'reviewBonus':
-            toast('coin', t('toast.reviewBonus', { n: formatBig(Big.fromNumber(e.a)) }), 'good');
+            toast('coin', t('toast.reviewBonus', { n: formatBig(Big.fromNumber(e.a)) }), 'good', undefined, true);
             setBump(1);
             break;
           case 'rumor':
-            toast('search', t('toast.rumor'), 'info');
+            toast('search', t('toast.rumor'), 'warn', 'rumor');
             break;
           case 'vipCare':
-            toast('star', t('toast.vipCare'), 'good');
+            toast('star', t('toast.vipCare'), 'good', undefined, true);
             fx.sparkle(isoX(e.x, e.y), isoY(e.x, e.y) - 16);
             break;
           case 'inspectorLeft':
-            toast(e.a === 1 ? 'star' : 'guide', t(`toast.inspector.${e.a}` as TKey), e.a === 1 ? 'good' : 'info');
+            toast(e.a === 1 ? 'star' : 'guide', t(`toast.inspector.${e.a}` as TKey), e.a === 1 ? 'good' : 'info', undefined, true);
             break;
           case 'guideEdition':
             setGuideNews({ edition: e.c, stars: e.a, prev: e.b, coins: e.x, gems: e.y });
@@ -706,7 +685,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             break;
           case 'goalDone': {
             const g = GOALS[e.a];
-            if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good');
+            if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good', undefined, true);
             setBump(1);
             break;
           }
@@ -714,7 +693,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('star', t('toast.milestone'), 'good');
             break;
           case 'buildStart':
-            toast('wrench', t('toast.buildStart'), 'info');
+            toast('wrench', t('toast.buildStart'), 'info', undefined, true);
             break;
           case 'buildDone': {
             toast('check', t('toast.buildDone'), 'good');
@@ -757,7 +736,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const gp = g?.progress(ctrl.state);
       const gv: GoalView | null = g && gp ? { id: g.id, index: ctrl.state.goal, total: GOALS.length, have: gp.have, need: gp.need, reward: formatBig(Big.fromNumber(goalReward(ctrl.state, g))) } : null;
       setGoal((old) => (old && gv && old.id === gv.id && old.have === gv.have && old.reward === gv.reward ? old : gv));
-      if (gv && goalOpen.current.id !== gv.id) goalOpen.current = { id: gv.id, until: performance.now() + 15000 };
+      if (gv && goalOpen.current.id !== gv.id) goalOpen.current = { id: gv.id, until: performance.now() + GOAL_OPEN_MS };
       const sel = selectedRef.current;
       const f = sel ? ctrl.state.flights.find((x) => x.id === sel) : undefined;
       const hold = f && f.landCleared && (f.phase === 'holding' || f.phase === 'inbound') ? (approachBlocker(ctrl.state, f) ?? '') : '';
@@ -1498,6 +1477,12 @@ function fullAirport(s: GameState): void {
 /** Sprites drawn again at a higher resolution per frame when zoomed in close, and how many pixels of them are kept. */
 const VEC_PER_FRAME = 5;
 const VEC_PIXELS = 12_000_000;
+/** Messages: at most this many at once; good news at most one every NEWS_GAP ms; the same one not again within SAME_GAP ms. */
+const MAX_TOASTS = 2;
+/** A new goal's card stays open this long, then folds to its title (a tap opens it again). */
+const GOAL_OPEN_MS = 8000;
+const NEWS_GAP = 6000;
+const SAME_GAP = 12000;
 /** Pixels of the sharp ground layer kept for a close zoom. */
 const CRISP_PIXELS = 14_000_000;
 

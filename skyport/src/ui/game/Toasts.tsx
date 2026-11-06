@@ -27,7 +27,7 @@ export const Toasts = memo(function Toasts({ items, now }: { items: Toast[]; now
         const age = now - it.at;
         const opacity = age > TOAST_MS - 500 ? Math.max(0, (TOAST_MS - age) / 500) : 1;
         return (
-          <View key={it.id} style={[styles.toast, { opacity, flexDirection: dir.row }]}>
+          <View key={it.id} style={[styles.toast, { opacity, flexDirection: dir.row }]} testID="toast">
             <View style={[styles.dot, { backgroundColor: TONE[it.tone] }]} />
             <Icon name={it.icon} size={20} />
             <Text style={[styles.text, { textAlign: dir.textAlign, writingDirection: dir.writingDirection }]} numberOfLines={2}>

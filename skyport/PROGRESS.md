@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| Calm screen | done | owner request: fewer messages, one rule for all of them, at most two at once |
 | M12c+d Aviation Guide | done | stars every 7 days for 6 parts, the undercover inspector (rumor, suspects, VIP care, notebook), ceremony, pylon |
 | The skyport (tier 8) | done | vertiport with electric air taxis (Hoverly), the airport hotel |
 
@@ -721,6 +722,29 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### A calm screen (owner request, after M12)
+"Make sure the screen does not fill up with junk that pops up; it should not bother the player."
+- Messages now follow one rule (`toast` in `GameScreen.tsx`):
+  - answers to what the player just did always show (a refused tap, a hire, a signed contract,
+    a goal done, the next stage);
+  - warnings show, but the same one not again within 12 s;
+  - good news and info show at most one every 6 s, and are dropped otherwise;
+  - two at a time at most (was three).
+- No message any more where the map or a button already says it:
+  - planes asking to land or take off (the bubble and the edge markers; only for the first three
+    flights);
+  - trucks busy, wages paid, an applicant (only the rare ones), a staff level-up, a raise request,
+    a trial ended (the staff button's dot);
+  - an airline offer or a happy airline (the airlines button's dot);
+  - a lost bag, the fog lifting, a delivery, a repair or check done (the coins fly up);
+  - the runway car, the ambulance, a staff slip.
+- The test bot's refused taps are not shown.
+- A new goal's card folds to its title after 8 s (was 15).
+- Measured with a probe on a busy international airport (60 s of play): messages on screen 63% of
+  the time, up to three at once, before; 10% and one at a time after.
+  - On the small airfield: 5%.
+- Toasts have a `testID` for tests.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a
