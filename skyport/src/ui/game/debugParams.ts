@@ -13,6 +13,9 @@ export interface DebugParams {
   /** Perf experiments: skip the ground picture / static sprites. */
   noBg: boolean;
   noStatics: boolean;
+  /** Performance checks: no vector sprites / no crisp ground when zoomed in. */
+  noVec: boolean;
+  noCrisp: boolean;
   /** Start with this many stands built, all staff hired (screenshots). */
   stands: number;
   crew: boolean;
@@ -48,7 +51,7 @@ export interface DebugParams {
 }
 
 export function readDebugParams(): DebugParams {
-  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0, follow: false, full: false, wx: null, fault: false, tanker: false, inc: null, hol: null, holDay: 1 };
+  const out: DebugParams = { seed: null, warp: 0, auto: false, speed: 1, screen: null, select: false, hook: false, noBg: false, noStatics: false, noVec: false, noCrisp: false, stands: 0, crew: false, money: 0, panel: null, save: false, isTest: false, tier: 1, build: false, cam: null, tab: 0, follow: false, full: false, wx: null, fault: false, tanker: false, inc: null, hol: null, holDay: 1 };
   if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.location) return out;
   const q = new URLSearchParams(window.location.search);
   const num = (k: string) => {
@@ -63,6 +66,8 @@ export function readDebugParams(): DebugParams {
   out.select = q.get('select') === '1';
   out.hook = q.get('hook') === '1';
   out.noBg = q.get('nobg') === '1';
+  out.noVec = q.get('novec') === '1';
+  out.noCrisp = q.get('nocrisp') === '1';
   out.noStatics = q.get('nostatics') === '1';
   out.stands = Math.max(0, Math.min(9, num('stands')));
   out.crew = q.get('crew') === '1';

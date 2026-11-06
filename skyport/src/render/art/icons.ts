@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -430,6 +430,24 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       for (let y = 19; y < 46; y += 6) stroke([42, y, 42, y + 3], '#fff7ed', 2.5);
       f.setColor(Skia.Color('#fff7ed'));
       canvas.drawPath(path([24, 22, 26.5, 28, 33, 28.5, 28, 32.5, 29.8, 39, 24, 35.4, 18.2, 39, 20, 32.5, 15, 28.5, 21.5, 28]), f);
+      break;
+    }
+    case 'search': {
+      // a magnifying glass
+      stroke([38, 38, 54, 54], '#78350f', 7);
+      circ(26, 26, 18, '#334155');
+      circ(26, 26, 13, '#bae6fd');
+      circ(21, 20, 4, '#f0f9ff');
+      break;
+    }
+    case 'guide': {
+      // the Aviation Guide: a red book with a gold star on the cover
+      f.setColor(Skia.Color('#b91c1c'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(12, 6, 40, 52), 4, 4), f);
+      f.setColor(Skia.Color('#fef3c7'));
+      canvas.drawRect(Skia.XYWHRect(46, 10, 4, 44), f);
+      f.setColor(Skia.Color('#facc15'));
+      canvas.drawPath(path([31, 16, 34, 25, 43, 25, 36, 31, 39, 40, 31, 34.5, 23, 40, 26, 31, 19, 25, 28, 25]), f);
       break;
     }
     case 'party': {

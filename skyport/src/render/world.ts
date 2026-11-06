@@ -29,6 +29,8 @@ export interface World {
   picture: SkPicture;
   /** The picture baked into image tiles. */
   tiles: GroundTile[];
+  /** The sharp part of the ground (no base grass, patches or soft shadows), drawn as vectors over the tiles when zoomed in close. */
+  crisp: SkPicture;
   statics: StaticSprite[];
   /** World-screen bounds the camera center may move within. */
   bounds: { x0: number; y0: number; x1: number; y1: number };
@@ -305,9 +307,9 @@ function paintT3(g: GroundPainter, T3: NonNullable<TierLayout['t3']>, blur: (r: 
   for (let x = x0 - 0.3; x < x1 + 0.6; x += 0.5) g.line(x, y0 - 0.55, x, y0, '#c7c2bd', 1);
   const road: number[] = [];
   for (const p of T3.road) road.push(p[0], p[1], 0);
-  g.f.setMaskFilter(blur(4));
+  g.mask(blur(4));
   ribbon(g, road, 1.25, 'rgba(40,70,50,0.25)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   ribbon(g, road, 1.05, '#a7b0bb');
   dashes(g, T3.road, 0.32, 0.36, '#f8fafc', 1.6);
   for (const side of [-0.43, 0.43]) {
@@ -326,9 +328,9 @@ function paintT3(g: GroundPainter, T3: NonNullable<TierLayout['t3']>, blur: (r: 
   for (const zx of (T3.st.entrances ?? []).map((e) => e[0])) for (let k = -3; k <= 3; k++) g.rect(zx + k * 0.13 - 0.04, cy - 0.75, zx + k * 0.13 + 0.04, cy - 0.3, '#f8fafc');
   // the garage's shadow on the ground
   const G = T3.garage;
-  g.f.setMaskFilter(blur(6));
+  g.mask(blur(6));
   g.rect(G[0] - 0.1, G[1] - 0.1, G[2] + 0.3, G[3] + 0.3, 'rgba(40,60,70,0.3)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   // inside
   paintBuildingFloor(g, T3.building, blur);
   const st = T3.st;
@@ -355,17 +357,17 @@ function segDist(x: number, y: number, a: readonly [number, number], b: readonly
 function paintRail(g: GroundPainter, r: Rail, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
   const [x0, x1] = r.portals;
   const y = r.y;
-  g.f.setMaskFilter(blur(4));
+  g.mask(blur(4));
   g.rect(x0, y - 0.5, x1, y + 0.5, 'rgba(40,60,50,0.25)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   g.rect(x0, y - 0.42, x1, y + 0.42, '#a8a29e');
   for (let x = x0 + 0.1; x < x1; x += 0.28) g.line(x, y - 0.3, x, y + 0.3, '#78716c', 2.2);
   for (const v of [-0.17, 0.17]) g.line(x0, y + v, x1, y + v, '#475569', 1.6);
   // the platform: concrete with a yellow safety line along the edge, tactile paving
   const P = r.platform;
-  g.f.setMaskFilter(blur(3));
+  g.mask(blur(3));
   g.rect(P[0] - 0.05, P[1] - 0.05, P[2] + 0.1, P[3] + 0.1, 'rgba(40,60,70,0.3)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   g.rect(P[0], P[1], P[2], P[3], '#e7e5e4');
   for (let x = Math.ceil(P[0] * 2) / 2; x < P[2]; x += 0.5) g.line(x, P[1], x, P[3], '#d6d3d1', 1);
   g.line(P[0], P[1] + 0.08, P[2], P[1] + 0.08, '#facc15', 2);
@@ -378,9 +380,9 @@ function paintRail(g: GroundPainter, r: Rail, blur: (r: number) => ReturnType<ty
 /** The people mover's guideway: a concrete track with running pads and a guide rail, a yellow line along each platform. */
 function paintApm(g: GroundPainter, sat: Satellite, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
   const a = sat.apm;
-  g.f.setMaskFilter(blur(3));
+  g.mask(blur(3));
   g.rect(a.x0, a.y - 0.32, a.x1, a.y + 0.34, 'rgba(40,60,70,0.3)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   g.rect(a.x0, a.y - 0.27, a.x1, a.y + 0.27, '#cbd5e1');
   for (const v of [-0.15, 0.15]) g.line(a.x0, a.y + v, a.x1, a.y + v, '#94a3b8', 2.4);
   g.line(a.x0, a.y, a.x1, a.y, '#64748b', 1.2);
@@ -404,9 +406,9 @@ const ZONE_FLOOR: Record<ZoneKind, [string, string]> = {
 /** Floors by zone (tiles, a carpet in the lounges), a soft shadow under the walls, door mats. */
 function paintBuildingFloor(g: GroundPainter, b: TerminalBuilding, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
   const [x0, y0, x1, y1] = b.box;
-  g.f.setMaskFilter(blur(5));
+  g.mask(blur(5));
   g.rect(x0 - 0.15, y0 - 0.1, x1 + 0.2, y1 + 0.2, 'rgba(40,60,70,0.3)');
-  g.f.setMaskFilter(null);
+  g.mask(null);
   for (const z of b.zones) {
     const [a, c, e, f] = z.box;
     const [base, line] = ZONE_FLOOR[z.kind];
@@ -486,15 +488,15 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const minY = isoY(0, 0) - 64;
   const maxY = isoY(W, H) + 64;
 
-  const picture = recordPicture(minX, minY, maxX - minX, maxY - minY, (c: SkCanvas) => {
-    const g = new GroundPainter(c);
+  const paintGround = (c: SkCanvas, crisp: boolean) => {
+    const g = new GroundPainter(c, crisp);
     const blur = (r: number) => Skia.MaskFilter.MakeBlur(BlurStyle.Normal, r, true);
 
-    // base grass and soft color patches (baked once, so blur is free at runtime)
+    // base grass and soft color patches (baked once, so blur is free at runtime; the tiles have them)
     g.f.setColor(Skia.Color(GROUND_BASE));
-    c.drawPath(diamondPath(-2, -2, W + 2, H + 2), g.f);
-    g.f.setMaskFilter(blur(18));
-    for (let i = 0; i < 90; i++) {
+    if (!crisp) c.drawPath(diamondPath(-2, -2, W + 2, H + 2), g.f);
+    g.mask(blur(18));
+    for (let i = 0; i < 90 && !crisp; i++) {
       const x = hash01(7000 + i) * W;
       const y = hash01(7100 + i) * H;
       const r = 1.5 + hash01(7200 + i) * 3.5;
@@ -503,7 +505,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       c.drawOval(Skia.XYWHRect(isoX(x, y) - r * 32, isoY(x, y) - r * 16, r * 64, r * 32), g.f);
     }
     g.f.setAlphaf(1);
-    g.f.setMaskFilter(null);
+    g.mask(null);
 
     // farm fields and a pond
     const fields: [number, number, number, number][] = [
@@ -532,9 +534,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       if (clear.some((b) => f[0] < b[2] && f[2] > b[0] && f[1] < b[3] + 1.5 && f[3] > b[1] - 1.5)) return;
       drawField(g, f[0], f[1], f[2], f[3], i);
     });
-    g.f.setMaskFilter(blur(6));
+    g.mask(blur(6));
     g.ellipse(39.5, 31.6, 3.5, 2.5, 'rgba(60,120,80,0.35)');
-    g.f.setMaskFilter(null);
+    g.mask(null);
     g.ellipse(39.5, 31.5, 3.2, 2.2, '#4fb3d9');
     g.ellipse(39.3, 31.3, 2.6, 1.7, '#6cc8ea');
     g.ellipse(38.5, 30.8, 1.0, 0.45, '#b6e8fa');
@@ -565,9 +567,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     // road and parking (asphalt with a soft shadow)
     const road: number[] = [];
     for (const p of L.road) road.push(p[0], p[1], 0);
-    g.f.setMaskFilter(blur(4));
+    g.mask(blur(4));
     ribbon(g, road, 1.25, 'rgba(40,70,50,0.25)');
-    g.f.setMaskFilter(null);
+    g.mask(null);
     ribbon(g, road, 1.05, '#a7b0bb');
     // road paint: solid edge lines, a dashed center line, a zebra crossing by the terminal
     for (const side of [-0.43, 0.43]) {
@@ -583,9 +585,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       }
     }
     const P = L.parking;
-    g.f.setMaskFilter(blur(4));
+    g.mask(blur(4));
     g.rect(P.x0 - 0.1, P.y0 - 0.1, P.x1 + 0.1, P.y1 + 0.1, 'rgba(40,70,50,0.25)');
-    g.f.setMaskFilter(null);
+    g.mask(null);
     g.rect(P.x0, P.y0, P.x1, P.y1, '#a7b0bb');
     for (let x = P.x0 + 0.65; x < P.x1; x += 0.65) {
       g.line(x, P.y0 + 0.12, x, P.y0 + 0.9, '#f1f5f9', 2);
@@ -607,9 +609,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     const ys1 = Math.max(...T.lanes.map((c) => c[1])) + 0.2;
     if (L.building) paintBuildingFloor(g, L.building, blur);
     else {
-      g.f.setMaskFilter(blur(4));
+      g.mask(blur(4));
       g.rect(xs0 - 0.1, ys0 - 0.1, xs1 + 0.1, ys1 + 0.1, 'rgba(60,80,90,0.25)');
-      g.f.setMaskFilter(null);
+      g.mask(null);
       g.rect(xs0, ys0, xs1, ys1, '#e2e8f0');
       for (let x = Math.ceil(xs0); x < xs1; x++) g.line(x, ys0, x, ys1, '#cbd5e1', 1);
       for (let y = Math.ceil(ys0); y < ys1; y++) g.line(xs0, y, xs1, y, '#cbd5e1', 1);
@@ -642,9 +644,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     const ay0 = L.building ? L.building.box[3] : L.hut[1] + 1.25;
     const ay1 = Math.max(...L.stands.map((st) => st.pos[1])) + 1.1;
     const apron = [ax0, ay0, ax1, ay0, ax1 + 0.3, ay1, ax0 + 0.2, ay1];
-    g.f.setMaskFilter(blur(5));
+    g.mask(blur(5));
     g.poly(apron, 'rgba(120,100,60,0.35)');
-    g.f.setMaskFilter(null);
+    g.mask(null);
     g.poly(apron, GRAVEL);
     // concrete in front of the bigger buildings, out to the stand lane
     for (const bd of L.buildings ?? []) {
@@ -700,9 +702,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     // the hotel's forecourt: paving, a fountain pool, flower beds
     if (L.hotel) {
       const H = L.hotel.box;
-      g.f.setMaskFilter(blur(5));
+      g.mask(blur(5));
       g.rect(H[0] - 0.2, H[1] - 0.2, H[2] + 0.3, H[3] + 0.3, 'rgba(40,60,70,0.3)');
-      g.f.setMaskFilter(null);
+      g.mask(null);
       g.rect(H[0] - 0.3, H[3], H[2] + 0.3, H[3] + 0.7, '#e7e5e4');
       for (let x = H[0] - 0.3; x < H[2] + 0.3; x += 0.5) g.line(x, H[3], x, H[3] + 0.7, '#d6d3d1', 1);
       g.ellipse(H[0] + 1.2, H[3] + 0.35, 0.42, 0.24, '#7dd3fc');
@@ -763,9 +765,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       g.rect(R.x0 - 0.3, R.y - hw - 0.14, R.x1 + 0.3, R.y + hw + 0.14, DIRT_EDGE);
       for (const path of tracks) ribbon(g, path, 0.7, DIRT);
       g.rect(R.x0 - 0.18, R.y - hw, R.x1 + 0.18, R.y + hw, DIRT);
-      g.f.setMaskFilter(blur(5));
+      g.mask(blur(5));
       g.rect(R.x0 + 0.2, R.y - 0.22, R.x1 - 0.2, R.y + 0.22, DIRT_LIGHT);
-      g.f.setMaskFilter(null);
+      g.mask(null);
       for (let k = -2; k <= 2; k++) g.line(R.x0 + 0.3, R.y + k * 0.22, R.x0 + 1.0, R.y + k * 0.22, '#ffffff', 3.4);
       for (let x = R.x0 + 1.8; x < R.x1 - 0.8; x += 1.4) g.line(x, R.y, x + 0.7, R.y, 'rgba(255,255,255,0.75)', 2.2);
     }
@@ -876,7 +878,9 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     L.stands.forEach((st, i) => {
       if (open[i] && st.size !== 'heli' && !st.hangar) paintText(c, String(i + 1), st.pos[0] + (RING[st.size] ?? 0.78) + 0.17, st.pos[1] - 0.55, '#facc15', 0.028);
     });
-  });
+  };
+  const picture = recordPicture(minX, minY, maxX - minX, maxY - minY, (c: SkCanvas) => paintGround(c, false));
+  const crisp = recordPicture(minX, minY, maxX - minX, maxY - minY, (c: SkCanvas) => paintGround(c, true));
 
   // small props: lamps, signs, trolleys, planters, and cones around plots still to be built
   const prop = (sprite: number, x: number, y: number, d = 0, r = 50) => statics.push({ sprite, x: isoX(x, y), y: isoY(x, y), depth: x + y + d, r });
@@ -1037,6 +1041,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   return {
     picture,
     tiles,
+    crisp,
     statics,
     bounds: { x0: isoX(0, H) * 0.7, y0: isoY(0, 0) + 200, x1: isoX(W, 0) * 0.7, y1: isoY(W, H) - 300 },
     windsock: { x: L.windsock[0], y: L.windsock[1] },

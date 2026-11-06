@@ -3,7 +3,8 @@
  * into a single image. Rects are stored flat: [x, y, w, h, ax, ay] per sprite,
  * where (ax, ay) is the anchor inside the rect (the entity's ground point).
  */
-import { ClipOp, Skia, type SkCanvas, type SkImage } from '@shopify/react-native-skia';
+import { ClipOp, Skia, type SkCanvas, type SkImage, type SkSurface } from '@shopify/react-native-skia';
+import { Platform } from 'react-native';
 
 export const ATLAS_SCALE = 2;
 export const RECT_STRIDE = 6;
@@ -24,6 +25,66 @@ export interface Atlas {
   width: number;
   height: number;
   buildMs: number;
+  /** How each sprite was drawn, kept so it can be recorded as vectors for a close zoom. */
+  draws: ((canvas: SkCanvas, ox: number, oy: number) => void)[];
+}
+
+/**
+ * An offscreen surface of this size, or null when there is no memory for it
+ * (on the web the wrapper is made even when CanvasKit returns nothing).
+ */
+export function makeSurface(w: number, h: number): SkSurface | null {
+  try {
+    const surface = Skia.Surface.Make(w, h);
+    if (!surface) return null;
+    surface.getCanvas();
+    return surface;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * What was drawn on the surface as an image, and the surface freed. Raster
+ * surfaces hand their pixels to the snapshot, so nothing is copied; on the web
+ * a copy (makeNonTextureImage reads the pixels out) would only cost memory.
+ * Surfaces that are never freed fill the canvas memory within seconds.
+ */
+export function takeImage(surface: SkSurface): SkImage {
+  surface.flush();
+  const snap = surface.makeImageSnapshot();
+  let image = snap;
+  if (Platform.OS !== 'web') {
+    image = snap.makeNonTextureImage() ?? snap;
+    if (image !== snap) snap.dispose();
+  }
+  surface.dispose();
+  return image;
+}
+
+/** A sprite drawn again at a higher resolution (f times the atlas), for a close zoom. */
+export interface HiSprite {
+  image: SkImage;
+  f: number;
+}
+
+/**
+ * Draws a sprite again from its vectors at f times the atlas resolution: used
+ * instead of the atlas image when zoomed in close, so nothing looks pixelated
+ * (and it is as quick to draw as the atlas).
+ */
+export function renderSprite(atlas: Atlas, i: number, f: number): HiSprite | null {
+  const o = i * RECT_STRIDE;
+  const w = atlas.rects[o + 2];
+  const h = atlas.rects[o + 3];
+  const surface = makeSurface(Math.ceil(w * f), Math.ceil(h * f));
+  if (!surface) return null;
+  const c = surface.getCanvas();
+  c.clear(Skia.Color('transparent'));
+  c.scale(f, f);
+  c.clipRect(Skia.XYWHRect(0, 0, w, h), ClipOp.Intersect, true);
+  atlas.draws[i](c, atlas.rects[o + 4], atlas.rects[o + 5]);
+  return { image: takeImage(surface), f };
 }
 
 export class AtlasBuilder {
@@ -89,9 +150,7 @@ export class AtlasBuilder {
       rects[o + 4] = it.ax;
       rects[o + 5] = it.ay;
     });
-    surface.flush();
-    const snap = surface.makeImageSnapshot();
-    const image = snap.makeNonTextureImage() ?? snap;
-    return { image, rects, count: this.items.length, width: W, height: H, buildMs: Date.now() - started };
+    const image = takeImage(surface);
+    return { image, rects, count: this.items.length, width: W, height: H, buildMs: Date.now() - started, draws: this.items.map((it) => it.draw) };
   }
 }

@@ -20,8 +20,8 @@ import {
   type SkRSXform,
 } from '@shopify/react-native-skia';
 
-import { ATLAS_SCALE, RECT_STRIDE } from './atlas';
-import type { GroundTile } from './ground';
+import { ATLAS_SCALE, RECT_STRIDE, type HiSprite } from './atlas';
+import type { CrispTile, GroundTile } from './ground';
 
 export const HEADER = 12;
 export const H_SHADOWS = 0;
@@ -195,9 +195,23 @@ export interface RenderRes {
   paint: SkPaint;
   shadowPaint: SkPaint;
   barPaint: SkPaint;
+  /** Sprites drawn again at a higher resolution (by sprite index, filled in as needed) and the zoom from which they are used. */
+  hi: (HiSprite | null)[];
+  vecZoom: number;
+  /** The sharp part of the ground as vectors, the tiles of it drawn so far at a close zoom's resolution, and the zoom from which they are drawn over the baked tiles. */
+  crisp: SkPicture | null;
+  crispTiles: CrispTile[];
+  bgZoom: number;
 }
 
-export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture | null, tiles: GroundTile[] = []): RenderRes {
+/** Zoom levels (times the screen's pixel density) past which the images would show their pixels. */
+export interface Sharpness {
+  vecZoom: number;
+  bgZoom: number;
+  crisp: SkPicture | null;
+}
+
+export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture | null, tiles: GroundTile[] = [], sharp: Sharpness = { vecZoom: Infinity, bgZoom: Infinity, crisp: null }): RenderRes {
   const srcPool: SkHostRect[] = [];
   const xfPool: SkRSXform[] = [];
   const colPool: SkColor[] = [];
@@ -213,7 +227,25 @@ export function makeRenderRes(image: SkImage, rects: Float32Array, bg: SkPicture
   const barPaint = Skia.Paint();
   barPaint.setAntiAlias(true);
   barPaint.setStyle(PaintStyle.Fill);
-  return { image, rects, bg, tiles, tileSrc: Skia.XYWHRect(0, 0, 1, 1), tileDst: Skia.XYWHRect(0, 0, 1, 1), srcPool, xfPool, colPool, paint, shadowPaint, barPaint };
+  return {
+    image,
+    rects,
+    bg,
+    tiles,
+    tileSrc: Skia.XYWHRect(0, 0, 1, 1),
+    tileDst: Skia.XYWHRect(0, 0, 1, 1),
+    srcPool,
+    xfPool,
+    colPool,
+    paint,
+    shadowPaint,
+    barPaint,
+    hi: new Array<HiSprite | null>(rects.length / RECT_STRIDE).fill(null),
+    vecZoom: sharp.vecZoom,
+    bgZoom: sharp.bgZoom,
+    crisp: sharp.crisp,
+    crispTiles: [],
+  };
 }
 
 const INV_ATLAS = 1 / ATLAS_SCALE;
@@ -235,12 +267,12 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
   c.save();
   c.translate(width / 2 - snap[H_CAMX] * zoom, height / 2 - snap[H_CAMY] * zoom);
   c.scale(zoom, zoom);
+  // visible part of the world in world-screen px
+  const vx0 = snap[H_CAMX] - width / 2 / zoom;
+  const vy0 = snap[H_CAMY] - height / 2 / zoom;
+  const vx1 = snap[H_CAMX] + width / 2 / zoom;
+  const vy1 = snap[H_CAMY] + height / 2 / zoom;
   if (res.tiles.length > 0) {
-    // visible part of the world in world-screen px
-    const vx0 = snap[H_CAMX] - width / 2 / zoom;
-    const vy0 = snap[H_CAMY] - height / 2 / zoom;
-    const vx1 = snap[H_CAMX] + width / 2 / zoom;
-    const vy1 = snap[H_CAMY] + height / 2 / zoom;
     for (let i = 0; i < res.tiles.length; i++) {
       const t = res.tiles[i];
       if (t.x + t.w < vx0 || t.x > vx1 || t.y + t.h < vy0 || t.y > vy1) continue;
@@ -250,6 +282,17 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
       c.drawImageRect(t.image, res.tileSrc, res.tileDst, res.paint);
     }
   } else if (res.bg) c.drawPicture(res.bg);
+  if (zoom >= res.bgZoom) {
+    // close in: the sharp part of the ground (lines, markings, floors) over the tiles, drawn at
+    // this zoom's resolution
+    for (let i = 0; i < res.crispTiles.length; i++) {
+      const t = res.crispTiles[i];
+      if (t.x + t.w < vx0 || t.x > vx1 || t.y + t.h < vy0 || t.y > vy1) continue;
+      res.tileSrc.setXYWH(0, 0, t.image.width(), t.image.height());
+      res.tileDst.setXYWH(t.x, t.y, t.w + 0.6 / zoom, t.h + 0.6 / zoom);
+      c.drawImageRectOptions(t.image, res.tileSrc, res.tileDst, FilterMode.Linear, MipmapMode.None, res.paint);
+    }
+  }
 
   const R = res.rects;
   let p = HEADER;
@@ -281,6 +324,30 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
           col[3] = al;
         }
         p += stride;
+      }
+      if (pass === 1 && zoom >= res.vecZoom) {
+        // close in: sprites drawn again at a higher resolution are used, in depth order with the rest
+        let run = 0;
+        let q = p - n * stride;
+        for (let i = 0; i < n; i++) {
+          const s = snap[q];
+          const hi = res.hi[s];
+          if (hi) {
+            if (run > 0) {
+              c.drawAtlas(res.image, res.srcPool.slice(pool + i - run, pool + i), res.xfPool.slice(pool + i - run, pool + i), res.paint, BlendMode.SrcOver, undefined, SAMPLING);
+              run = 0;
+            }
+            const ro = s * RECT_STRIDE;
+            const sc = snap[q + 3] * INV_ATLAS;
+            res.tileSrc.setXYWH(0, 0, hi.image.width(), hi.image.height());
+            res.tileDst.setXYWH(snap[q + 1] - R[ro + 4] * sc, snap[q + 2] - R[ro + 5] * sc, R[ro + 2] * sc, R[ro + 3] * sc);
+            c.drawImageRectOptions(hi.image, res.tileSrc, res.tileDst, FilterMode.Linear, MipmapMode.None, res.paint);
+          } else run++;
+          q += stride;
+        }
+        if (run > 0) c.drawAtlas(res.image, res.srcPool.slice(pool + n - run, pool + n), res.xfPool.slice(pool + n - run, pool + n), res.paint, BlendMode.SrcOver, undefined, SAMPLING);
+        pool += n;
+        continue;
       }
       const srcs = res.srcPool.slice(pool, pool + n);
       const dsts = res.xfPool.slice(pool, pool + n);
