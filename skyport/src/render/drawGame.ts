@@ -1,7 +1,7 @@
 /** Writes the game state into the frame snapshot (JS thread, every frame). */
 import { planeArt } from '../data/aircraft';
 import { STAFF_ROLES } from '../data/staff';
-import { doorPoint, layoutOf } from '../sim/game/layout';
+import { bigTerminal, doorPoint, layoutOf } from '../sim/game/layout';
 import { decorPos } from '../sim/game/tiers';
 import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
@@ -110,6 +110,8 @@ export function drawGame(
     const sy = isoY(p[0], p[1]);
     if (visible(sx, sy, 80)) w.sprite(sprite, sx, sy, 1, p[0] + p[1] + d);
   };
+  // the Aviation Guide's pylon in front of the main terminal, with its stars
+  deco(sp.guidePylon(s.guide.stars), guidePylonSpot(LL), 0.3);
   const items = decorItems(s);
   for (const it of items) {
     const dragged = o.build?.drag === it.id;
@@ -329,8 +331,16 @@ export function drawGame(
       }
     }
   }
+  // the inspector's day: a magnifier over each suspect (a star over the one getting the VIP care)
+  const visit = s.guide.visit && !s.guide.visit.done ? s.guide.visit : null;
   for (const p of s.people) {
     if (p.state === PST.inBus || p.state === PST.inBusA || p.state === PST.inApm || p.state === PST.inApmA) continue;
+    if (visit && visit.suspects.includes(p.id)) {
+      const mx = isoX(lerp(p.px, p.x, a), lerp(p.py, p.y, a));
+      const my = isoY(lerp(p.px, p.x, a), lerp(p.py, p.y, a));
+      const bob = Math.sin(o.time * 4 + p.id) * 2 * inv;
+      w.over(sp.icon(visit.picked === p.id ? 'star' : 'search'), mx, my - 22 - 10 * inv + bob, 0.6 * inv + 0.25);
+    }
     const x = lerp(p.px, p.x, a);
     const y = lerp(p.py, p.y, a);
     const sx = isoX(x, y);
@@ -504,6 +514,18 @@ function planeLights(w: SnapWriter, f: Flight, sp: SpriteSet, x: number, y: numb
 }
 
 /** Movable decorations the player owns (from upgrade levels). */
+/** Where the Aviation Guide's pylon stands: in front of Terminal 3 (or Terminal 1, or by the hut). */
+export function guidePylonSpot(L: TierLayout): [number, number] {
+  const T3 = bigTerminal(L, 1);
+  if (T3) {
+    const ins = T3.st.entrances ?? [T3.st.doors!.entrance];
+    const x = ins.length > 1 ? (ins[0][0] + ins[1][0]) / 2 : ins[0][0] + 1.6;
+    return [x, T3.building.box[1] - 0.45];
+  }
+  if (L.building) return [L.building.box[2] + 0.55, L.building.box[1] + 0.5];
+  return [L.terminal.entry[0] - 1.2, L.terminal.entry[1] - 1.4];
+}
+
 export function decorItems(s: GameState): { id: string }[] {
   const lv = (id: string) => s.upg[id] ?? 0;
   const out: { id: string }[] = [];

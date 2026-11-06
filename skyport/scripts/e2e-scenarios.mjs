@@ -515,6 +515,104 @@ export default [
   },
   { name: 'm12-rating', viewport: { width: 844, height: 390 }, query: '/?seed=70&tier=3&full=1&crew=1&warp=300&auto=1&panel=rating', wait: 2500, touch: true },
   { name: 'm12-reviews', viewport: { width: 844, height: 390 }, query: '/?seed=70&tier=3&full=1&crew=1&warp=900&auto=1&panel=reviews', wait: 2500, touch: true },
+  // close zoom: the ground and the sprites switch to their vectors (sharp, not pixelated)
+  ...[
+    ['zoom-close-t3', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=46.6,15.6,2.4'],
+    ['zoom-close-plane', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=44.3,19.4,2.4'],
+    ['zoom-close-t1', '/?seed=12&tier=2&full=1&crew=1&warp=300&auto=1&hook=1&cam=19.4,18.4,2.4'],
+  ].map(([name, query]) => ({ name, viewport: { width: 844, height: 390 }, query, wait: 4500, touch: true, langs: ['en'] })),
+  // the Aviation Guide: the rumor (magnifiers over the suspects), the suspects in the guide, the VIP care, an edition's ceremony, the guide and its notebook, the pylon by the terminal
+  {
+    name: 'm12-rumor',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=72&tier=4&full=1&crew=1&warp=300&auto=1&hook=1&cam=44,12,1.6',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.rumorNow(), null, { timeout: 60000, polling: 250 });
+      await page.waitForFunction(() => window.__skyport.guide().suspects.length >= 3, null, { timeout: 10000 });
+      await page.evaluate(() => {
+        const ss = window.__skyport.guide().suspects;
+        window.__skyport.lookAt(ss[0].x, ss[0].y, 2.0);
+      });
+      await page.waitForSelector('[data-testid="inspector-chip"]', { timeout: 5000 });
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'm12-suspects',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=72&tier=4&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.rumorNow(), null, { timeout: 60000, polling: 250 });
+      await page.click('[data-testid="inspector-chip"]');
+      await page.waitForSelector('[data-testid="guide-rumor"]', { timeout: 5000 });
+      await page.click('[data-testid="guide-vip"]');
+      await page.waitForFunction(() => window.__skyport.guide().visit.picked > 0, null, { timeout: 5000 });
+      await page.waitForTimeout(600);
+    },
+  },
+  {
+    name: 'm12-ceremony',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=73&tier=3&full=1&crew=1&warp=200&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => {
+        window.__skyport.guideSet(1, 2);
+        window.__skyport.publishNow();
+      });
+      await page.waitForSelector('[data-testid="guide-ceremony"]', { timeout: 5000 });
+      await page.waitForTimeout(1600);
+    },
+  },
+  {
+    name: 'm12-guide',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=73&tier=3&full=1&crew=1&warp=600&auto=1&hook=1&panel=guide',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.guideSet(2, 3));
+      await page.waitForSelector('[data-testid="guide-tab"]', { timeout: 5000 });
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'm12-guide-notebook',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=73&tier=3&full=1&crew=1&warp=600&auto=1&hook=1&panel=guide',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.guideSet(2, 3));
+      await page.waitForSelector('[data-testid="guide-notebook"]', { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="guide-notebook"]').scrollIntoView());
+      await page.waitForTimeout(700);
+    },
+  },
+  ...[
+    ['m12-pylon-t3', '/?seed=74&tier=4&full=1&crew=1&warp=120&auto=1&hook=1&cam=43,7.5,2.2'],
+    ['m12-pylon-t1', '/?seed=74&tier=2&full=1&crew=1&warp=120&auto=1&hook=1&cam=22.4,13.1,2.2'],
+  ].map(([name, query]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query,
+    wait: 3500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.guideSet(3, 4));
+      await page.waitForTimeout(800);
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -18,7 +18,7 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { AirlineOffer, Applicant, Build, Contract, GameState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, Contract, GameState, GuideState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
@@ -31,6 +31,8 @@ import { GOALS, skipDoneGoals } from './game/goals';
 import { REVIEWS } from '../data/reviews';
 import { PAX_TYPES } from '../data/paxTypes';
 import { MAX_REVIEWS } from './game/reviews';
+import { baseOf, editionAt, GUIDE_PARTS, newGuide, RIGHT_PICK, SUSPECTS } from './game/guide';
+import { GUIDE_NOTES } from '../data/guideNotes';
 
 export const SAVE_KEY = 'skyport.save.v1';
 
@@ -76,6 +78,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     builds: s.builds,
     reviews: s.reviews,
     reviewBonus: s.reviewBonus,
+    guide: s.guide,
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -351,6 +354,7 @@ export function cleanGame(raw: unknown): GameState | null {
     guests: int(st.guests, 0, 0),
     checks: int(st.checks, 0, 0),
   };
+  s.guide = cleanGuide(raw.guide, s);
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
   // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
@@ -387,6 +391,8 @@ export function cleanGame(raw: unknown): GameState | null {
   for (const m of s.staff) maxId = Math.max(maxId, m.id);
   for (const a of s.applicants) maxId = Math.max(maxId, a.id);
   for (const o of s.offers) maxId = Math.max(maxId, o.id);
+  // (the inspector and the suspects were people: new people must not take their ids)
+  for (const id of s.guide.visit?.suspects ?? []) maxId = Math.max(maxId, id);
   s.nextId = Math.max(int(raw.nextId, maxId + 1, 1), maxId + 1);
   s.spotCursor = int(raw.spotCursor, 0, 0, 1e9);
   const pr = isObj(raw.profile) ? raw.profile : {};
@@ -424,6 +430,61 @@ export function cleanGame(raw: unknown): GameState | null {
   s.events = [];
   s.queue = [];
   return s;
+}
+
+/** The Aviation Guide: a save from before it starts its first week now (no edition already due). */
+function cleanGuide(raw: unknown, s: GameState): GuideState {
+  // (editions that would have come out already: the next one is still ahead)
+  let due = 0;
+  while (editionAt(due + 1) <= s.time) due++;
+  if (!isObj(raw)) {
+    const g = newGuide(baseOf(s));
+    g.edition = due;
+    return g;
+  }
+  const st = s.stats;
+  const b = isObj(raw.base) ? raw.base : {};
+  const g = newGuide({
+    served: int(b.served, st.served, 0, st.served),
+    diverted: int(b.diverted, st.diverted, 0, st.diverted),
+    goArounds: int(b.goArounds, st.goArounds, 0, st.goArounds),
+    onTime: int(b.onTime, st.onTime, 0, st.onTime),
+    late: int(b.late, st.late, 0, st.late),
+    queued: int(b.queued, st.queued, 0, st.queued),
+    queueSecs: num(b.queueSecs, st.queueSecs, 0, st.queueSecs),
+    pax: int(b.pax, st.pax, 0, st.pax),
+    lostBags: int(b.lostBags, st.lostBags, 0, st.lostBags),
+  });
+  g.stars = int(raw.stars, 0, 0, 3);
+  g.best = Math.max(g.stars, int(raw.best, 0, 0, 3));
+  // (never more editions than the time allows, never so few that several are due at once)
+  g.edition = Math.max(due - 1, Math.min(due, int(raw.edition, due, 0)));
+  const last = isObj(raw.last) ? raw.last : null;
+  g.last = last ? Object.fromEntries(GUIDE_PARTS.map((k) => [k, num(last[k], 0, 0, 1)])) : null;
+  g.lastScore = num(raw.lastScore, 0, 0, 1);
+  g.samples = int(raw.samples, 0, 0, 1e6);
+  g.cleanSum = num(raw.cleanSum, 0, 0, g.samples);
+  g.moodSum = num(raw.moodSum, 0, 0, g.samples);
+  g.bonus = num(raw.bonus, 0, 0, RIGHT_PICK);
+  g.notes = Array.isArray(raw.notes) ? raw.notes.map((v) => int(v, -1, -1, GUIDE_NOTES.length - 1)).filter((v) => v >= 0).slice(0, 8) : [];
+  g.noteResult = g.notes.length ? int(raw.noteResult, 0, 0, 2) : -1;
+  const v = isObj(raw.visit) ? raw.visit : null;
+  if (v && Array.isArray(v.suspects)) {
+    const sus = v.suspects.map((x) => int(x, 0, 0)).filter((x) => x > 0).slice(0, SUSPECTS);
+    const inspector = int(v.inspector, 0, 0);
+    if (sus.includes(inspector)) {
+      const picked = int(v.picked, 0, 0);
+      g.visit = {
+        at: num(v.at, 0, 0, s.time),
+        suspects: sus,
+        inspector,
+        picked: sus.includes(picked) ? picked : 0,
+        done: v.done === true,
+        result: int(v.result, 0, 0, 2),
+      };
+    }
+  }
+  return g;
 }
 
 /** Migrations from older save versions (each step adds optional fields). */

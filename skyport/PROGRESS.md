@@ -35,7 +35,9 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | The hub (tier 6) | done | Concourse D satellite with a people mover, Terminal 3 grows, a railway station |
 | The mega hub (tier 7) | done | Terminal 4 for the jumbos (3 jumbo gates), Globetrail, a second cargo stand |
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
+| Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| M12c+d Aviation Guide | done | stars every 7 days for 6 parts, the undercover inspector (rumor, suspects, VIP care, notebook), ceremony, pylon |
 | The skyport (tier 8) | done | vertiport with electric air taxis (Hoverly), the airport hotel |
 
 ### M0 — infrastructure (done)
@@ -632,6 +634,93 @@ The last stage is playable now; every tier has a map.
   - the fault-rate test counts walk-around faults only, not bird strikes;
   - jet-bridge gates are for airliners only: a small plane used to take one when the small
     stands were full, and the big jets (Concourse D, Terminal 3) then had nowhere to park.
+
+### Sharp close zoom (owner request, after M12b)
+"Zoomed in, the game looks pixelated." The sprites are drawn once into an atlas at 2 pixels per
+world pixel (4095 x 6820 at the skyport, so there is no room to grow it), airliners at 0.62 of
+that, and the ground is baked into tiles at 1. On a phone at zoom 2.4 that is stretched up to 7x.
+- Sprites: when the zoom needs more than the atlas has, each sprite on screen is drawn again from
+  its vectors (`renderSprite`) at 2 to 4 times the atlas resolution.
+  - Five a frame, so nothing stutters.
+  - 12 M pixels are kept, oldest out first.
+  - They are drawn in depth order with the rest of the atlas.
+- Ground: it is recorded twice. The full picture becomes the baked tiles. A crisp layer has
+  everything sharp (lines, markings, floors, carousels, roads) without the base grass, the
+  blurred patches and the soft shadows.
+  - Close in, tiles of the crisp layer are drawn at this zoom's resolution over the baked tiles,
+    one a frame, nearest the middle of the screen first, 14 M pixels kept.
+  - Soft things look fine scaled up, and blurs would be slow to redraw every frame.
+- Measured at zoom 2.4 in the software-rendered test browser (relative): 7.8 FPS before (blurry),
+  10.2 FPS now (sharp). Drawing the vectors every frame instead was 1.4 to 2.2 FPS.
+- Debug switches `novec=1` and `nocrisp=1` turn each part off. The hook gives `frames()`,
+  `atlas()` and `lookAt(x, y, zoom)`.
+- E2E: `zoom-close-t3`, `zoom-close-plane`, `zoom-close-t1`.
+- Memory, found by the skyport's vertiport run (zoom 2.1): the offscreen surfaces were never freed.
+  - On the web, every sprite drawn again also left its surface and a copy of its pixels behind
+    (makeNonTextureImage reads them out). The canvas memory ran out within seconds.
+  - Now `takeImage` frees the surface and keeps its snapshot, which owns the pixels.
+  - Images dropped from the caches, and the old atlas and tiles after a tier change, are freed four
+    frames later, so no frame still drawing them is affected.
+  - `makeSurface` returns null when there is no memory, instead of throwing.
+
+### M12c+d — the Aviation Guide and the undercover inspector (done)
+Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
+- An edition every seven game days, at 08:00 on days 8, 15, 22 and so on, gives up to three
+  stars for how the week went. Six parts, each 0 to 1:
+  - safety: diversions, and go-arounds at 0.4 each, per landing;
+  - punctuality: on-time departures;
+  - infrastructure: the tier, the stands built of the tier's, comfort upgrades;
+  - service: the average wait in line (stricter than the passengers: 5 s is fine, 40 s as bad as
+    it gets) and lost bags;
+  - cleanliness and comfort: sampled every 5 s through the week (comfort also counts the comfort
+    upgrades).
+- The week's numbers are the stats since the last edition (a base is kept), so a bad week can be
+  made up for.
+- Stars at 0.65, 0.8 and 0.9 of the weighted score.
+  - The second star is only for a city airport (stage 3) on, the third for an international one
+    (stage 5) on. The guide tab says so when that is what holds a star back.
+  - Each edition pays 300 coins a star (times the tier's pay). A star never had before gives
+    5 diamonds. Each star brings 4% more flights.
+- Balance, before the stricter version (bot, seeds 1 and 7, 300 minutes): 2 stars from the first
+  edition (score 0.83 to 0.87 at the city airport) and 3 stars by minutes 210 to 280 at stage 4.
+  That was too easy, so the third star now needs stage 5, and the thresholds and the queue part
+  are stricter.
+- The inspector: the day before an edition, between 09:00 and 14:00, a rumor goes round.
+  - Four passengers on their way out look suspicious. They are picked from the ones furthest from
+    their plane, so there is time to find them.
+  - One of them, by hash, is the inspector.
+  - The player gives one of them the VIP care (once).
+  - When the inspector boards they are revealed: the right pick adds 0.05 to the week's score.
+  - Their notebook is written: a line for each part (good, fair or poor) and one for the VIP care.
+    That is 63 lines in he/en (`src/data/guideNotes.ts`), first person, with no gendered words
+    about the inspector in Hebrew.
+- Saved: stars, best, edition, the latest scores, the week's base and samples, the visit and the
+  notebook. An older save waits for the next edition: none comes out at once on load.
+- UI:
+  - the Guide tab of the rating panel shows the stars, when the next edition is out, the suspects
+    (with "show" and "VIP care"), the week so far with a bar to the next star and "what is
+    missing" (the two weakest parts with tips), and the notebook;
+  - a "find the inspector" chip under the HUD, and toasts;
+  - a magnifier bobs over each suspect (a star over the one getting the VIP care); tapping one
+    opens the guide;
+  - a ceremony when an edition is out: the stars pop in, a new star or a lost one, the coins and
+    diamonds;
+  - the guide's pylon in front of the main terminal shows the stars (Terminal 3, else Terminal 1,
+    else by the hut).
+- The bot gives the VIP care to the first suspect still around (a guess, like a player).
+- Tests (`tests/guide.test.ts`):
+  - the notebook lines;
+  - the edition and rumor times;
+  - scores, stars and the weakest parts;
+  - weekly scores;
+  - an edition's rewards (diamonds only for a new best);
+  - the rumor, the suspects, picks refused and taken, the reveal, the bonus and the notebook;
+  - a wrong pick;
+  - the rumor at the hub (figures that stand for groups count);
+  - old and new saves.
+- E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
+  `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
+  `guideSet(stars, edition)`.
 
 ### Playable build (owner request, after M10)
 - `npm run pack:play` makes `artifacts/play/` (relative paths, bundles in `js/`, plus `page.html`, a

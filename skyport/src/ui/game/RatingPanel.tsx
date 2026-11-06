@@ -8,10 +8,8 @@ import { useDir, useLang, useT, type TKey } from '../../i18n';
 import { Big, formatBig, formatDuration, RATING_PARTS, ratingParts, reviewAverage, weakestPart, type Command, type GameState } from '../../sim';
 import { Icon } from '../Icon';
 import { C } from '../theme';
+import { GuideTab, PAX_COLOR } from './GuideTab';
 import { Sheet } from './Sheet';
-
-/** Little colors for the reviewer's avatar, by passenger type. */
-const PAX_COLOR: Record<string, string> = { tourist: '#ff7a59', business: '#38465e', businessW: '#6c4f8f', family: '#59c27a', kid: '#ffcd3c', student: '#27a4d8', vip: '#1d1d22', elder: '#9fc5e8' };
 
 function Stars({ n, size = 14 }: { n: number; size?: number }) {
   return (
@@ -25,8 +23,8 @@ function Stars({ n, size = 14 }: { n: number; size?: number }) {
   );
 }
 
-/** The rating and what it is made of, and the passengers' reviews (with a bonus for good ones). */
-export function RatingPanel({ state, onClose, send, initialTab = 0 }: { state: GameState; rev: number; onClose: () => void; send: (c: Command) => void; initialTab?: number }) {
+/** The rating and what it is made of, the passengers' reviews (with a bonus for good ones) and the Aviation Guide. */
+export function RatingPanel({ state, onClose, send, initialTab = 0, onShow }: { state: GameState; rev: number; onClose: () => void; send: (c: Command) => void; initialTab?: number; onShow?: (personId: number) => void }) {
   const t = useT();
   const lang = useLang();
   const dir = useDir();
@@ -39,7 +37,7 @@ export function RatingPanel({ state, onClose, send, initialTab = 0 }: { state: G
   return (
     <Sheet title={t('rating.title')} subtitle={t('rating.sub', { n: state.rating.toFixed(1) })} onClose={onClose}>
       <View style={[styles.tabs, { flexDirection: dir.row }]}>
-        {[t('rating.tab.rating'), t('rating.tab.reviews', { n: state.reviews.length })].map((label, i) => (
+        {[t('rating.tab.rating'), t('rating.tab.reviews', { n: state.reviews.length }), t('rating.tab.guide')].map((label, i) => (
           <Pressable key={i} onPress={() => setTab(i)} style={[styles.tab, tab === i && styles.tabOn]} accessibilityRole="tab" testID={`rating-tab-${i}`}>
             <Text style={[styles.tabText, tab === i && styles.tabTextOn]}>{label}</Text>
           </Pressable>
@@ -69,6 +67,8 @@ export function RatingPanel({ state, onClose, send, initialTab = 0 }: { state: G
             <Text style={[styles.tipText, ta]}>{weak ? t(`rating.tip.${weak}` as TKey) : t('rating.tip.none')}</Text>
           </View>
         </>
+      ) : tab === 2 ? (
+        <GuideTab state={state} send={send} onShow={onShow} />
       ) : (
         <>
           <View style={[styles.summary, { flexDirection: dir.row }]}>

@@ -528,3 +528,33 @@ export function drawCleanCart(p: IsoPen): void {
   p.box(0.04, -0.05, 0.11, 0.05, 0.2, 0.24, '#facc15');
   p.line(0.08, 0.0, 0.24, 0.12, 0.0, 0.5, '#a16207', 1.4);
 }
+
+/** A star on the front face (y) of a board: five points around (x, z), r in tiles. */
+function faceStar(p: IsoPen, x: number, y: number, z: number, r: number, color: string): void {
+  const pts: number[] = [];
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const rr = k % 2 === 0 ? r : r * 0.42;
+    pts.push(x + Math.cos(a) * rr, y, z - Math.sin(a) * rr);
+  }
+  p.poly(pts, color, true, 0.9);
+}
+
+/**
+ * The Aviation Guide's pylon by the terminal: two posts, a white board with the
+ * guide's red band and book, and three stars (gold for the stars it gave).
+ */
+export function drawGuidePylon(p: IsoPen, stars: number): void {
+  p.shadow(0, 0, 18, 7, 0.18);
+  p.box(-0.22, -0.03, -0.17, 0.02, 0, 0.6, '#64748b');
+  p.box(0.17, -0.03, 0.22, 0.02, 0, 0.6, '#64748b');
+  p.box(-0.3, -0.04, 0.3, 0.04, 0.48, 1.08, '#f8fafc');
+  p.box(-0.3, -0.04, 0.3, 0.04, 0.94, 1.08, '#dc2626');
+  const y = 0.041;
+  // the book, white on the red band
+  p.box(-0.05, y, 0.05, y + 0.001, 0.965, 1.055, '#ffffff', false);
+  p.line(0, y + 0.002, 0.965, 0, y + 0.002, 1.055, '#dc2626', 1);
+  for (let k = 0; k < 3; k++) faceStar(p, -0.17 + k * 0.17, y, 0.71, 0.075, k < stars ? '#f5b301' : '#cbd5e1');
+  // a thin line under the stars
+  p.line(-0.22, y, 0.57, 0.22, y, 0.57, '#94a3b8', 1);
+}

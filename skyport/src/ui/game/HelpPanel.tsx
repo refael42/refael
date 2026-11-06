@@ -30,6 +30,7 @@ const TOPICS: { icon: IconName; key: string; tier: number }[] = [
   { icon: 'bell', key: 'events', tier: 2 },
   { icon: 'party', key: 'holidays', tier: 1 },
   { icon: 'plane', key: 'terminals', tier: 2 },
+  { icon: 'guide', key: 'guide', tier: 1 },
   { icon: 'tail', key: 'hub', tier: 6 },
   { icon: 'star', key: 'skyport', tier: 8 },
 ];

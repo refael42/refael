@@ -72,6 +72,7 @@ import {
   drawInfoDesk,
   drawKidsPlay,
   drawLitter,
+  drawGuidePylon,
   drawPottedPlant,
   drawRental,
   drawRestrooms,
@@ -259,6 +260,8 @@ export interface SpriteSet {
   ticketBooth: number;
   infoSign: number;
   tvCamera: number;
+  /** The Aviation Guide's pylon with 0..3 gold stars. */
+  guidePylon: (stars: number) => number;
   /** Holidays: the centerpiece and bunting of each (HOLIDAYS index), a light bulb by BULB_COLORS index. */
   holidayPiece: (h: number) => number;
   bunting: (h: number) => number;
@@ -527,6 +530,8 @@ export function buildSprites(content: Content): SpriteSet {
   const ticketBooth = b.add(-0.6 * T, -0.9 * T, 0.8 * T, 0.7 * T, (c, ox, oy) => drawTicketBooth(new IsoPen(c, ox, oy, S)));
   const infoSign = b.add(-0.3 * T, -0.8 * T, 0.6 * T, 0.5 * T, (c, ox, oy) => drawInfoSign(new IsoPen(c, ox, oy, S)));
   const tvCamera = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.3 * T, (c, ox, oy) => drawTvCamera(new IsoPen(c, ox, oy, S)));
+  const pylonBase = b.size;
+  for (let k = 0; k <= 3; k++) b.add(-0.45 * T, -1.25 * T, 0.45 * T, 0.35 * T, (c, ox, oy) => drawGuidePylon(new IsoPen(c, ox, oy, S), k));
   const holidayBase = b.size;
   for (const h of HOLIDAYS) b.add(-1.2 * T, -1.6 * T, 1.4 * T, 0.9 * T, (c, ox, oy) => drawHolidayPiece(new IsoPen(c, ox, oy, S), h.id));
   const buntingBase = b.size;
@@ -723,6 +728,7 @@ export function buildSprites(content: Content): SpriteSet {
     ticketBooth,
     infoSign,
     tvCamera,
+    guidePylon: (k) => pylonBase + Math.max(0, Math.min(3, k)),
     holidayPiece: (h) => holidayBase + h,
     bunting: (h) => buntingBase + h,
     bulb: (c) => bulbBase + c,
@@ -773,6 +779,8 @@ export function buildUiIcons(cell = 96): UiIconSheet {
   surface.flush();
   const img = surface.makeImageSnapshot();
   const uri = 'data:image/png;base64,' + img.encodeToBase64();
+  img.dispose();
+  surface.dispose();
   const map = new Map<string, number>();
   ICON_NAMES.forEach((n, i) => map.set(n, i));
   return { uri, cell, cols, width: cols * cell, height: rows * cell, index: (n) => map.get(n) ?? 0 };

@@ -5,7 +5,8 @@ import { HOLIDAYS } from '../../data/holidays';
 import { groundPlane, spawnFlight } from '../../sim/game/flights';
 import { capacity, placeOrder, storeActive, STORE_KINDS } from '../../sim/game/supplies';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { AppState, PixelRatio, Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import type { SkImage } from '@shopify/react-native-skia';
 import { useSharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,13 +20,16 @@ import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
 import { IncidentsPanel } from './IncidentsPanel';
 import { RatingPanel } from './RatingPanel';
+import { GuideCeremony, type GuideNews } from './GuideCeremony';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
-import { makeRenderRes, SnapWriter, type RenderRes } from '../../render/scene';
+import { ATLAS_SCALE, renderSprite } from '../../render/atlas';
+import { CRISP_TILE, renderCrispTile } from '../../render/ground';
+import { H_SHADOWS, H_SPRITES, HEADER, makeRenderRes, SHADOW_STRIDE, SnapWriter, SPRITE_STRIDE, type RenderRes } from '../../render/scene';
 import { SceneCanvas } from '../../render/SceneCanvas';
 import { buildSprites, type SpriteSet } from '../../render/sprites';
-import { recordFrame, useFrameLoop } from '../../render/useFrameLoop';
+import { frameStats, recordFrame, useFrameLoop } from '../../render/useFrameLoop';
 import { buildWorld } from '../../render/world';
 import { useSettings } from '../../settings/store';
 import { AIRCRAFT, aircraftIndex, planeArt } from '../../data/aircraft';
@@ -79,6 +83,8 @@ import {
   PST,
   railTrain,
   cleanliness,
+  publishEdition,
+  startRumor,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -287,6 +293,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [now, setNow] = useState(0);
   const [settings, setSettings] = useState(false);
   const [panel, setPanel] = useState<string | null>(debug.panel);
+  /** A new edition of the Aviation Guide, for its ceremony. */
+  const [guideNews, setGuideNews] = useState<GuideNews | null>(null);
   const [staffView, setStaffView] = useState<StaffView | null>(null);
   const [rev, setRev] = useState(0);
   const [upgCat, setUpgCat] = useState<'all' | 'terminal'>('all');
@@ -343,11 +351,33 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   /** Names of people by id, so a "quit" toast can still name them. */
   const lastNames = useRef(new Map<number, string>());
   const indicators = useRef<Indicator[]>([]);
+  /** Sprites drawn again at a higher resolution, oldest first, and their pixels. */
+  const vecOrder = useRef<number[]>([]);
+  const hiPixels = useRef(0);
+  /** Images no longer drawn, freed a few frames later (a frame being drawn may still use them). */
+  const trash = useRef<{ image: SkImage; frame: number }[]>([]);
+  const frameNo = useRef(0);
   const safe = useRef({ top: 90, bottom: 0 });
   const lastToastKey = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    res.value = makeRenderRes(sprites.atlas.image, sprites.atlas.rects, debug.noBg ? null : world.picture, debug.noBg ? [] : world.tiles);
+    // (close in, the sprites and the ground switch to their vectors before their pixels would show)
+    const dpr = Math.max(1, PixelRatio.get());
+    // (what the old resources had and the new ones do not is freed)
+    const prev = res.value;
+    if (prev) {
+      for (const h of prev.hi) if (h) trash.current.push({ image: h.image, frame: frameNo.current });
+      for (const c of prev.crispTiles) trash.current.push({ image: c.image, frame: frameNo.current });
+      if (prev.image !== sprites.atlas.image) trash.current.push({ image: prev.image, frame: frameNo.current });
+      for (const tl of prev.tiles) if (!world.tiles.some((n) => n.image === tl.image)) trash.current.push({ image: tl.image, frame: frameNo.current });
+    }
+    res.value = makeRenderRes(sprites.atlas.image, sprites.atlas.rects, debug.noBg ? null : world.picture, debug.noBg ? [] : world.tiles, {
+      vecZoom: debug.noVec ? Infinity : Math.max(0.9, 2.2 / dpr),
+      bgZoom: Math.max(0.9, 1.3 / dpr),
+      crisp: debug.noBg || debug.noCrisp ? null : world.crisp,
+    });
+    vecOrder.current = [];
+    hiPixels.current = 0;
     if (debug.noStatics) world.statics.length = 0;
   }, [sprites, world, res]);
 
@@ -660,6 +690,20 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast('coin', t('toast.reviewBonus', { n: formatBig(Big.fromNumber(e.a)) }), 'good');
             setBump(1);
             break;
+          case 'rumor':
+            toast('search', t('toast.rumor'), 'info');
+            break;
+          case 'vipCare':
+            toast('star', t('toast.vipCare'), 'good');
+            fx.sparkle(isoX(e.x, e.y), isoY(e.x, e.y) - 16);
+            break;
+          case 'inspectorLeft':
+            toast(e.a === 1 ? 'star' : 'guide', t(`toast.inspector.${e.a}` as TKey), e.a === 1 ? 'good' : 'info');
+            break;
+          case 'guideEdition':
+            setGuideNews({ edition: e.c, stars: e.a, prev: e.b, coins: e.x, gems: e.y });
+            if (e.x > 0) setBump(1);
+            break;
           case 'goalDone': {
             const g = GOALS[e.a];
             if (g) toast('star', t('toast.goalDone', { goal: t(`goal.${g.id}` as TKey), n: formatBig(Big.fromNumber(e.b)) }), 'good');
@@ -784,7 +828,91 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       },
       indicators.current,
     );
-    snap.value = writer.finish();
+    const out = writer.finish();
+    snap.value = out;
+    // close in: draw the sprites on screen again at the resolution this zoom needs (a few a frame, no stutter)
+    const r = res.value;
+    if (r && cam.zoom >= r.vecZoom) {
+      let budget = VEC_PER_FRAME;
+      const from = HEADER + out[H_SHADOWS] * SHADOW_STRIDE;
+      const n = out[H_SPRITES];
+      const dpr = Math.max(1, PixelRatio.get());
+      for (let k = 0; k < n && budget > 0; k++) {
+        const s = out[from + k * SPRITE_STRIDE];
+        if (s >= sprites.atlas.count) continue;
+        // (device pixels per atlas pixel at this zoom, rounded up; at most 4)
+        const f = Math.min(4, Math.max(2, Math.ceil((cam.zoom * dpr * out[from + k * SPRITE_STRIDE + 3]) / ATLAS_SCALE - 0.15)));
+        const have = r.hi[s];
+        if (have && have.f >= f) continue;
+        const hi = renderSprite(sprites.atlas, s, f);
+        if (!hi) break;
+        if (have) {
+          hiPixels.current -= have.image.width() * have.image.height();
+          trash.current.push({ image: have.image, frame: frameNo.current });
+        } else vecOrder.current.push(s);
+        r.hi[s] = hi;
+        hiPixels.current += hi.image.width() * hi.image.height();
+        budget--;
+      }
+      // (only so much kept: the oldest go first)
+      while (hiPixels.current > VEC_PIXELS && vecOrder.current.length > 0) {
+        const old = vecOrder.current.shift()!;
+        const h = r.hi[old];
+        if (h) {
+          hiPixels.current -= h.image.width() * h.image.height();
+          trash.current.push({ image: h.image, frame: frameNo.current });
+        }
+        r.hi[old] = null;
+      }
+      if (budget < VEC_PER_FRAME) res.value = { ...r };
+    }
+    // close in: the sharp ground layer, tile by tile at this zoom's resolution (one a frame)
+    const r2 = res.value;
+    if (r2 && r2.crisp && cam.zoom >= r2.bgZoom) {
+      const dpr = Math.max(1, PixelRatio.get());
+      const f = Math.min(4, Math.max(1.5, Math.ceil(cam.zoom * dpr * 2) / 2));
+      const hw = cam.viewW / 2 / cam.zoom;
+      const hh = cam.viewH / 2 / cam.zoom;
+      const tx0 = Math.floor((cam.x - hw) / CRISP_TILE);
+      const tx1 = Math.floor((cam.x + hw) / CRISP_TILE);
+      const ty0 = Math.floor((cam.y - hh) / CRISP_TILE);
+      const ty1 = Math.floor((cam.y + hh) / CRISP_TILE);
+      let made: ReturnType<typeof renderCrispTile> = null;
+      // (the one nearest the middle of the screen first)
+      let best = Infinity;
+      let pick: [number, number] | null = null;
+      for (let ty = ty0; ty <= ty1; ty++)
+        for (let tx = tx0; tx <= tx1; tx++) {
+          const key = ty * 100000 + tx;
+          const have = r2.crispTiles.find((t) => t.key === key);
+          if (have && have.f >= f) continue;
+          const d = Math.hypot((tx + 0.5) * CRISP_TILE - cam.x, (ty + 0.5) * CRISP_TILE - cam.y);
+          if (d < best) {
+            best = d;
+            pick = [tx, ty];
+          }
+        }
+      if (pick) made = renderCrispTile(r2.crisp, pick[0] * CRISP_TILE, pick[1] * CRISP_TILE, f, pick[1] * 100000 + pick[0]);
+      if (made) {
+        const keep: typeof r2.crispTiles = [];
+        for (const t of r2.crispTiles) {
+          if (t.key === made.key) trash.current.push({ image: t.image, frame: frameNo.current });
+          else keep.push(t);
+        }
+        keep.push(made);
+        // (only so much kept: the oldest go first)
+        let px = keep.reduce((a, t) => a + t.image.width() * t.image.height(), 0);
+        while (px > CRISP_PIXELS && keep.length > 1) {
+          const old = keep.shift()!;
+          px -= old.image.width() * old.image.height();
+          trash.current.push({ image: old.image, frame: frameNo.current });
+        }
+        res.value = { ...r2, crispTiles: keep };
+      }
+    }
+    // (freed once no frame can still be drawing them)
+    frameNo.current++;
+    while (trash.current.length > 0 && trash.current[0].frame < frameNo.current - 4) trash.current.shift()!.image.dispose();
     recordFrame(performance.now() - t0);
   });
 
@@ -813,6 +941,19 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         }
       }
       const p = viewToWorld(cam, vx, vy);
+      // the inspector's day: a suspect (or the magnifier over one) opens the guide
+      const visit = ctrl.state.guide.visit;
+      if (visit && !visit.done) {
+        for (const q of ctrl.state.people) {
+          if (!visit.suspects.includes(q.id)) continue;
+          const sx = isoX(q.x, q.y);
+          const sy = isoY(q.x, q.y);
+          if (Math.hypot(p.x - sx, p.y - (sy - 22 - 10 / cam.zoom)) * cam.zoom < 26 || Math.hypot(p.x - sx, p.y - (sy - 8)) * cam.zoom < 18) {
+            setPanel('guide');
+            return;
+          }
+        }
+      }
       const T = layoutOf(ctrl.state.tier).terminal;
       for (const c of [...T.counters.slice(0, counterCount(ctrl.state)), ...T.lanes.slice(0, laneCount(ctrl.state))]) {
         if (Math.hypot(p.x - isoX(c[0], c[1]), p.y - (isoY(c[0], c[1]) - 10)) * cam.zoom < 26) {
@@ -931,6 +1072,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         }),
       selected: () => selectedRef.current,
       camera: () => ({ x: cam.x, y: cam.y, zoom: cam.zoom }),
+      frames: () => frameStats.frames,
+      atlas: () => ({ w: sprites.atlas.width, h: sprites.atlas.height, count: sprites.atlas.count, ms: sprites.atlas.buildMs }),
       incidents: () => ctrl.state.incidents.map((i) => ({ kind: i.kind, state: i.state, choice: i.choice, result: i.result, amount: i.amount })),
       holiday: () => ({ holiday: ctrl.state.holiday, day: ctrl.state.holidayDay, today: ctrl.state.today }),
       terminals: () => ({ t1: ctrl.state.people.filter((p) => p.term === 0).length, t3: ctrl.state.people.filter((p) => p.term === 1).length, t4: ctrl.state.people.filter((p) => p.term === 2).length }),
@@ -956,6 +1099,32 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         cam.y = isoY(x, y);
         cam.zoom = zoom;
       },
+      guide: () => {
+        const g = ctrl.state.guide;
+        const v = g.visit;
+        return {
+          stars: g.stars,
+          edition: g.edition,
+          notes: g.notes.length,
+          visit: v ? { suspects: v.suspects.length, picked: v.picked, done: v.done, result: v.result, here: v.suspects.filter((id) => ctrl.state.people.some((q) => q.id === id)).length } : null,
+          suspects: v
+            ? ctrl.state.people
+                .filter((q) => v.suspects.includes(q.id))
+                .map((q) => ({ id: q.id, x: q.x, y: q.y, vx: (isoX(q.x, q.y) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(q.x, q.y) - 8 - cam.y) * cam.zoom + cam.viewH / 2 }))
+            : [],
+        };
+      },
+      // (screenshots: the rumor now, an edition now, or a guide with these stars and a notebook)
+      rumorNow: () => startRumor(ctrl.state),
+      publishNow: () => publishEdition(ctrl.state),
+      guideSet: (stars: number, edition: number) => {
+        const g = ctrl.state.guide;
+        g.stars = stars;
+        g.best = Math.max(g.best, stars);
+        g.edition = edition;
+        g.notes = [1, 10, 19, 28, 38, 46, 55];
+        g.noteResult = 1;
+      },
       skytaxis: () => ctrl.state.flights.filter((f) => AIRCRAFT[f.aircraft]?.id === 'skytaxi').map((f) => ({ phase: f.phase, z: f.z, x: f.x, y: f.y })),
       rail: () => {
         const r = layoutOf(ctrl.state.tier).rail;
@@ -965,8 +1134,9 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     return () => {
       delete w.__skyport;
     };
-  }, [cam, ctrl]);
+  }, [cam, ctrl, sprites]);
   const wide = size.w > size.h * 1.25;
+  const inspectorOn = !!ctrl.state.guide.visit && !ctrl.state.guide.visit.done && ctrl.state.guide.visit.picked === 0;
   const canHire =
     !!staffView &&
     (staffView.staff.some((m) => m.raise > 0 || m.trialUntil === 1 || m.points > 0) ||
@@ -1103,6 +1273,18 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           />
         </View>
       ) : null}
+      {inspectorOn && !card && !panel && !welcome && !settings && !guideNews ? (
+        <Pressable
+          onPress={() => setPanel('guide')}
+          style={({ pressed }) => [styles.inspector, { top: safe.current.top + 4 }, rtl ? { left: 10 + insets.left } : { right: 10 + insets.right }, { flexDirection: dir.row, transform: [{ scale: pressed ? 0.96 : 1 + Math.sin(now / 240) * 0.03 }] }]}
+          accessibilityRole="button"
+          accessibilityLabel={t('hud.inspector')}
+          testID="inspector-chip"
+        >
+          <Icon name="search" size={22} />
+          <Text style={styles.inspectorText}>{t('hud.inspector')}</Text>
+        </Pressable>
+      ) : null}
       {panel === 'help' ? <HelpPanel tier={ctrl.state.tier} onClose={() => setPanel(null)} /> : null}
       {card ? (
         <View
@@ -1190,7 +1372,22 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }}
         />
       ) : null}
-      {panel === 'rating' || panel === 'reviews' ? <RatingPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'reviews' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
+      {panel === 'rating' || panel === 'reviews' || panel === 'guide' ? (
+        <RatingPanel
+          state={ctrl.state}
+          rev={rev}
+          send={(c) => ctrl.send(c)}
+          initialTab={panel === 'reviews' ? 1 : panel === 'guide' ? 2 : 0}
+          onClose={() => setPanel(null)}
+          onShow={(id) => {
+            const q = ctrl.state.people.find((x) => x.id === id);
+            if (!q) return;
+            cam.target = { x: isoX(q.x, q.y), y: isoY(q.x, q.y) };
+            cam.zoom = Math.max(cam.zoom, 1.6);
+            setPanel(null);
+          }}
+        />
+      ) : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (
@@ -1219,6 +1416,16 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         />
       ) : null}
       {welcome ? <WelcomeBack r={welcome} onClose={() => setWelcome(null)} /> : null}
+      {guideNews && !welcome ? (
+        <GuideCeremony
+          news={guideNews}
+          onClose={() => setGuideNews(null)}
+          onSee={() => {
+            setGuideNews(null);
+            setPanel('guide');
+          }}
+        />
+      ) : null}
       {rebuilding ? (
         <View style={styles.rebuild} pointerEvents="none">
           <Text style={styles.rebuildText}>{t('app.loading')}</Text>
@@ -1288,6 +1495,12 @@ function fullAirport(s: GameState): void {
   });
 }
 
+/** Sprites drawn again at a higher resolution per frame when zoomed in close, and how many pixels of them are kept. */
+const VEC_PER_FRAME = 5;
+const VEC_PIXELS = 12_000_000;
+/** Pixels of the sharp ground layer kept for a close zoom. */
+const CRISP_PIXELS = 14_000_000;
+
 /** The toast icon for each kind of incident. */
 const INCIDENT_ICON: Partial<Record<IncidentKind, Toast['icon']>> = {
   vip: 'star',
@@ -1351,6 +1564,8 @@ const styles = StyleSheet.create({
   buildDoneText: { color: '#fff', fontWeight: '800' },
   hand: { position: 'absolute', alignItems: 'center', width: 220 },
   goal: { position: 'absolute' },
+  inspector: { position: 'absolute', alignItems: 'center', gap: 6, backgroundColor: '#ffffff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 2, borderColor: '#6366f1', ...SHADOW_SM },
+  inspectorText: { color: C.text, fontWeight: '800', fontSize: 13 },
   handBubble: { marginTop: 2, backgroundColor: C.text, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 220 },
   handText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
   skip: { position: 'absolute', right: 12, backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },

@@ -38,6 +38,8 @@ let fuelOutCount = 0;
 let partsOutCount = 0;
 let faultCount = 0;
 let airlineLeft = 0;
+const guide: string[] = [];
+const inspector: string[] = [];
 let airlineWarnings = 0;
 const STEPS_PER_MIN = 30 * 60;
 for (let m = 1; m <= minutes; m++) {
@@ -72,6 +74,8 @@ for (let m = 1; m <= minutes; m++) {
       if (e.kind === 'tierBuildStart') firsts[`tier ${e.a} build started`] ??= Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'tierUp') firsts[`tier ${e.a} reached`] ??= Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'contractSigned') firsts[`contract ${AIRLINES[e.a].id}`] ??= Math.round((s.time / 60) * 10) / 10;
+      if (e.kind === 'guideEdition') guide.push(`min ${Math.round(s.time / 60)}: ${e.a} stars (score ${s.guide.lastScore.toFixed(2)}; ${Object.entries(s.guide.last ?? {}).map(([k, v]) => `${k} ${Math.round(v * 100)}`).join(', ')})`);
+      if (e.kind === 'inspectorLeft') inspector.push(['nobody picked', 'found', 'wrong pick'][e.a]);
       if (e.kind === 'airlineLeft') airlineLeft++;
       if (e.kind === 'airlineWarning') airlineWarnings++;
     }
@@ -118,6 +122,8 @@ const report = {
   deadZoneStartsAtMin: Math.round(deadZoneAt / 60),
   biggestIncomeJump: `x${bestJump.toFixed(2)} at min ${bestJumpAt}`,
   milestonesAtMinute: firsts,
+  guideEditions: guide,
+  inspectorVisits: inspector,
   levels: s.upg,
   spent: formatBig(st.spent),
   wagesPaid: formatBig(st.wages),

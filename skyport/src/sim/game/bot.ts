@@ -51,6 +51,12 @@ export function botCommands(s: GameState, opts: BotOptions = { reaction: 1 }): C
     // also handle a second pending service at the stand
     if (f.want === WANT.bags && (f.wants & (1 << WANT.fuel)) !== 0) out.push({ type: 'sendFuel', flightId: f.id });
   }
+  // the inspector's day: the VIP care for the first suspect still around (a guess, like a player's)
+  const v = s.guide.visit;
+  if (v && !v.done && v.picked === 0 && s.time - v.at >= opts.reaction * 5) {
+    const id = v.suspects.find((k) => s.people.some((p) => p.id === k));
+    if (id) out.push({ type: 'pickSuspect', person: id });
+  }
   return out;
 }
 

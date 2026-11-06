@@ -16,6 +16,7 @@ import { DAY_SECONDS } from './clock';
 import { pushEvent } from './events';
 import { REJECT, type AirlineOffer, type Contract, type Flight, type GameState, type Planned } from './types';
 import { effects } from './upgrades';
+import { guideTraffic } from './guide';
 import { layoutOf } from './layout';
 
 /** Reputation every airline starts with. */
@@ -138,7 +139,8 @@ export function addedPerDay(s: GameState, perDay: number): number {
 }
 
 function traffic(s: GameState): number {
-  return Math.max(0.2, s.traffic * effects(s).traffic);
+  // (the Aviation Guide's stars bring more people too)
+  return Math.max(0.2, s.traffic * effects(s).traffic * guideTraffic(s));
 }
 
 /** Flights per stand per game day that can be turned around without delays (rough). */

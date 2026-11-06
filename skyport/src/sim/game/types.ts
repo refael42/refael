@@ -118,7 +118,15 @@ export type GameEventKind =
   | 'exhibitOpen'
   /** M12: a passenger wrote a review (a = stars, b = line); the bonus for good ones was collected (a = coins). */
   | 'review'
-  | 'reviewBonus';
+  | 'reviewBonus'
+  /** The Aviation Guide is out. a: stars, b: stars before, c: edition; x: coins, y: diamonds won (not a place). */
+  | 'guideEdition'
+  /** a: suspects. An undercover inspector is somewhere among the passengers. */
+  | 'rumor'
+  /** a: person. The staff gives this passenger the VIP care. */
+  | 'vipCare'
+  /** a: 0 nobody picked, 1 the right one, 2 someone else; b: the inspector, c: the pick. */
+  | 'inspectorLeft';
 
 export interface GameEvent {
   id: number;
@@ -170,6 +178,8 @@ export type Command =
   /** A celebrity visit: let the press in (false) or keep it private (true). */
   | { type: 'celebPrivacy'; incident: number; private: boolean }
   | { type: 'claimReviews' }
+  /** The inspector's day: the VIP care for this passenger (a suspect). */
+  | { type: 'pickSuspect'; person: number }
   /** The real date (epoch day), for the holidays. */
   | { type: 'setToday'; day: number };
 
@@ -508,6 +518,51 @@ export interface Review {
   at: number;
 }
 
+/** Stats at the start of the guide's week (its scores are for the week). */
+export interface GuideBase {
+  served: number;
+  diverted: number;
+  goArounds: number;
+  onTime: number;
+  late: number;
+  queued: number;
+  queueSecs: number;
+  pax: number;
+  lostBags: number;
+}
+
+/** The undercover inspector's visit: the suspects (person ids), the inspector, the pick (0 none). */
+export interface InspectorVisit {
+  at: number;
+  suspects: number[];
+  inspector: number;
+  picked: number;
+  /** The inspector has left; result: 0 nobody picked, 1 the right one, 2 someone else. */
+  done: boolean;
+  result: number;
+}
+
+/** The Aviation Guide (M12): stars every seven days and the inspector's visits. */
+export interface GuideState {
+  /** Stars of the latest edition (0..3), the most ever, editions so far. */
+  stars: number;
+  best: number;
+  edition: number;
+  /** The latest edition's parts and score (null before the first). */
+  last: Record<string, number> | null;
+  lastScore: number;
+  /** This week: stats at its start, samples of cleanliness and mood, the bonus for spotting the inspector. */
+  base: GuideBase;
+  cleanSum: number;
+  moodSum: number;
+  samples: number;
+  bonus: number;
+  visit: InspectorVisit | null;
+  /** The latest inspector's notebook (GUIDE_NOTES indices) and how the VIP care went (-1 none yet). */
+  notes: number[];
+  noteResult: number;
+}
+
 /** A piece of litter on a terminal floor (in one of the clean areas). */
 export interface Litter {
   id: number;
@@ -742,6 +797,8 @@ export interface GameState {
   /** Passenger reviews (newest first) and the bonus earned by the good ones, not collected yet. */
   reviews: Review[];
   reviewBonus: number;
+  /** The Aviation Guide. */
+  guide: GuideState;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];
