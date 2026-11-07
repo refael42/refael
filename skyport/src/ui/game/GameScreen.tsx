@@ -20,6 +20,8 @@ import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
 import { IncidentsPanel } from './IncidentsPanel';
 import { RatingPanel } from './RatingPanel';
+import { CareerPanel } from './CareerPanel';
+import { ACHIEVEMENTS, MEDALS } from '../../data/achievements';
 import { GuideCeremony, type GuideNews } from './GuideCeremony';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
@@ -85,6 +87,8 @@ import {
   cleanliness,
   publishEdition,
   startRumor,
+  xpToNext,
+  medalsToClaim,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -131,6 +135,9 @@ function hudOf(c: GameController): HudData {
     incidents: activeIncidents(s).length,
     weekend: isWeekend(s.time),
     holiday: s.holiday,
+    level: s.career.level,
+    xp: Math.floor((s.career.xp / xpToNext(s.career.level)) * 20) / 20,
+    careerDot: s.career.chests > 0 || medalsToClaim(s) > 0,
   };
 }
 
@@ -679,6 +686,19 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'inspectorLeft':
             toast(e.a === 1 ? 'star' : 'guide', t(`toast.inspector.${e.a}` as TKey), e.a === 1 ? 'good' : 'info', undefined, true);
             break;
+          case 'managerLevel':
+            // (a level is earned: always worth a word; a chest gets its own)
+            toast(e.c ? 'chest' : 'up', e.c ? t('toast.managerChest', { n: e.a }) : t('toast.managerLevel', { n: e.a, c: formatBig(Big.fromNumber(e.b)) }), 'good', 'level', true);
+            setBump(1);
+            break;
+          case 'chestOpened':
+            toast('diamond', t('toast.chestOpened', { g: e.a }), 'good', undefined, true);
+            break;
+          case 'medal': {
+            const a = ACHIEVEMENTS[e.a];
+            if (a) toast('star', t('toast.medal', { medal: t(`medal.${MEDALS[Math.max(0, e.b - 1)]}` as TKey), name: t(`ach.${a.id}` as TKey), g: e.c }), 'good', undefined, true);
+            break;
+          }
           case 'guideEdition':
             setGuideNews({ edition: e.c, stars: e.a, prev: e.b, coins: e.x, gems: e.y });
             if (e.x > 0) setBump(1);
@@ -1093,6 +1113,13 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             : [],
         };
       },
+      career: () => ({ level: ctrl.state.career.level, xp: ctrl.state.career.xp, chests: ctrl.state.career.chests, toClaim: medalsToClaim(ctrl.state) }),
+      // (screenshots: a manager at this level with chests to open)
+      careerSet: (level: number, chests: number) => {
+        ctrl.state.career.level = level;
+        ctrl.state.career.xp = Math.floor(xpToNext(level) * 0.6);
+        ctrl.state.career.chests = chests;
+      },
       // (screenshots: the rumor now, an edition now, or a guide with these stars and a notebook)
       rumorNow: () => startRumor(ctrl.state),
       publishNow: () => publishEdition(ctrl.state),
@@ -1221,7 +1248,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             safe.current.top = insets.top + 6 + e.nativeEvent.layout.height;
           }}
         >
-          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onRating={() => setPanel('rating')} onCoinPos={onCoinPos} bump={bump} />
+          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onRating={() => setPanel('rating')} onCareer={() => setPanel('career')} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
@@ -1367,6 +1394,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }}
         />
       ) : null}
+      {panel === 'career' || panel === 'achievements' ? <CareerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'achievements' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (

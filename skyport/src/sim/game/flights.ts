@@ -22,6 +22,8 @@ import { angleDiff, chaikin, makeSample, pathLength, samplePath, type Path } fro
 import { releaseBoarding, sendPaxHome, spawnArrivingPax, spawnDepartingPax } from './people';
 import { cleanliness } from './cleaning';
 import { maybeReview } from './reviews';
+import { Big } from '../big';
+import { incomeBoost } from './career';
 import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Planned, type Want } from './types';
 
 /** How much a passenger's mood drops for a terminal that is a mess (at 0 cleanliness). */
@@ -632,6 +634,8 @@ function pay(s: GameState, f: Flight): void {
       pushEvent(s, 'vipTip', f.x, f.y, f.id, rev.total.toNumber());
     } else s.rep[f.airline] = Math.max(0, (s.rep[f.airline] ?? 50) - 2);
   }
+  // (a chest's boost: double income for a while)
+  if (incomeBoost(s) > 1) amount = amount.mul(Big.fromNumber(incomeBoost(s)));
   recordIncome(s, amount.toNumber(), rev.parts, f.boarded);
   s.money = s.money.add(amount);
   s.stats.earned = s.stats.earned.add(amount);

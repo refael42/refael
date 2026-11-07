@@ -18,7 +18,7 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { AirlineOffer, Applicant, Build, Contract, GameState, GuideState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, CareerState, Contract, GameState, GuideState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
@@ -32,6 +32,8 @@ import { REVIEWS } from '../data/reviews';
 import { PAX_TYPES } from '../data/paxTypes';
 import { MAX_REVIEWS } from './game/reviews';
 import { baseOf, editionAt, GUIDE_PARTS, newGuide, RIGHT_PICK, SUSPECTS } from './game/guide';
+import { BOOST_SECONDS, newCareer, xpToNext } from './game/career';
+import { ACHIEVEMENTS } from '../data/achievements';
 import { GUIDE_NOTES } from '../data/guideNotes';
 
 export const SAVE_KEY = 'skyport.save.v1';
@@ -79,6 +81,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     reviews: s.reviews,
     reviewBonus: s.reviewBonus,
     guide: s.guide,
+    career: { ...s.career, seen: undefined },
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -355,6 +358,7 @@ export function cleanGame(raw: unknown): GameState | null {
     checks: int(st.checks, 0, 0),
   };
   s.guide = cleanGuide(raw.guide, s);
+  s.career = cleanCareer(raw.career, s);
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
   // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
@@ -430,6 +434,21 @@ export function cleanGame(raw: unknown): GameState | null {
   s.events = [];
   s.queue = [];
   return s;
+}
+
+/** The manager's career: a save from before it starts at level 1 (the stats' achievements count at once). */
+function cleanCareer(raw: unknown, s: GameState): CareerState {
+  const c = newCareer();
+  if (!isObj(raw)) return c;
+  c.level = int(raw.level, 1, 1, 999);
+  c.xp = num(raw.xp, 0, 0, xpToNext(c.level));
+  c.chests = int(raw.chests, 0, 0, 999);
+  c.boostUntil = num(raw.boostUntil, 0, 0, s.time + BOOST_SECONDS * 1000);
+  const counts = isObj(raw.counts) ? raw.counts : {};
+  for (const [k, v] of Object.entries(counts)) if (/^[a-zA-Z]{1,24}$/.test(k)) c.counts[k] = num(v, 0, 0, 1e15);
+  const medals = Array.isArray(raw.medals) ? raw.medals : [];
+  c.medals = ACHIEVEMENTS.map((_, i) => int(medals[i], 0, 0, 4));
+  return c;
 }
 
 /** The Aviation Guide: a save from before it starts its first week now (no edition already due). */

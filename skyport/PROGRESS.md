@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| M13a manager & achievements | done | levels with coins and chests (double income), 19 achievements with four medals each |
 | Calm screen | done | owner request: fewer messages, one rule for all of them, at most two at once |
 | M12c+d Aviation Guide | done | stars every 7 days for 6 parts, the undercover inspector (rumor, suspects, VIP care, notebook), ceremony, pylon |
 | The skyport (tier 8) | done | vertiport with electric air taxis (Hoverly), the airport hotel |
@@ -722,6 +723,51 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### M13a — manager level and achievements (done)
+The manager's career (`src/sim/game/career.ts`), read off the game's events each step.
+- Experience:
+  - a flight that leaves: 2 + paxMax/60 (bigger planes give more);
+  - an upgrade level: 2;
+  - a hire: 5;
+  - a goal: 10;
+  - a milestone: 5;
+  - a new stage: 40 times the stage;
+  - a guide star: 20;
+  - the inspector found: 15;
+  - an emergency landed: 10;
+  - an event handled well: 8;
+  - a five-star review: 1.
+- Levels need `25 * level^1.25` experience. Each pays 50 coins times the level (times the tier's
+  pay).
+- Every fifth level brings a chest: 10 diamonds and double income for 3 minutes. Every flight's
+  pay is doubled while it lasts; a second chest adds to the time.
+- 19 achievements (`src/data/achievements.ts`), each with bronze, silver, gold and diamond medals:
+  - flights, passengers, coins earned, on-time departures;
+  - stands, staff, airline contracts, stage, upgrade levels;
+  - five-star reviews, guide stars, inspectors found;
+  - emergencies, hangar checks, diverted planes taken in, events handled well, holidays;
+  - shop sales, manager level.
+- Collecting a medal gives 2, 5, 10 or 25 diamonds. Career counters keep what the stats do not
+  (and the best ever of what can go down), for a later new airport.
+- Saved: level, experience, chests, the boost, the counters, the medals collected. The last event
+  read is not saved (events are not either).
+- UI:
+  - a level badge in the HUD with an experience bar, and a red dot when there is a chest or a
+    medal to collect;
+  - the manager panel: the level, experience, what the next level brings, the chests with their
+    open button and the boost left; the achievements with medal pips, progress to the next one and
+    the collect button;
+  - messages for a level, a chest and a medal (they answer the player, so they always show).
+- The upgrade overspend test now keeps the manager far from a level-up, so level coins do not
+  count as change.
+- Tests (`tests/career.test.ts`): the level curve; experience from play, level coins and chests;
+  opening a chest (diamonds, double income, refused without one); medals collected once; the
+  counters from events; achievement names in both languages; the career in a save.
+- E2E: `m13-career`, `m13-chest`, `m13-achievements`. The hook adds `career()` and
+  `careerSet(level, chests)`.
+- Balance (bot, seed 1, 300 minutes): level 5 at minute 13, 10 at 58, 15 at 206. Medals by then:
+  mostly silver, gold for the shop sales, diamond for nothing yet.
 
 ### A calm screen (owner request, after M12)
 "Make sure the screen does not fill up with junk that pops up; it should not bother the player."

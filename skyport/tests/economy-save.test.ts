@@ -66,6 +66,8 @@ describe('upgrade costs', () => {
 
   it('x1 / x10 / MAX buy the right number of levels and never overspend', () => {
     const s = rich(1, 5000);
+    // (a manager level far from the next: no level-up coins in the sums below)
+    s.career.level = 500;
     buy(s, 'ticket', 1);
     expect(level(s, 'ticket')).toBe(1);
     buy(s, 'ticket', 10);

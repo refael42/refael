@@ -126,7 +126,13 @@ export type GameEventKind =
   /** a: person. The staff gives this passenger the VIP care. */
   | 'vipCare'
   /** a: 0 nobody picked, 1 the right one, 2 someone else; b: the inspector, c: the pick. */
-  | 'inspectorLeft';
+  | 'inspectorLeft'
+  /** a: the new level, b: coins, c: 1 when it brought a chest. */
+  | 'managerLevel'
+  /** a: diamonds, b: seconds of double income. */
+  | 'chestOpened'
+  /** a: achievement, b: medals now, c: diamonds. */
+  | 'medal';
 
 export interface GameEvent {
   id: number;
@@ -178,6 +184,9 @@ export type Command =
   /** A celebrity visit: let the press in (false) or keep it private (true). */
   | { type: 'celebPrivacy'; incident: number; private: boolean }
   | { type: 'claimReviews' }
+  | { type: 'openChest' }
+  /** Collect the medals an achievement (ACHIEVEMENTS index) has reached. */
+  | { type: 'claimMedals'; index: number }
   /** The inspector's day: the VIP care for this passenger (a suspect). */
   | { type: 'pickSuspect'; person: number }
   /** The real date (epoch day), for the holidays. */
@@ -518,6 +527,23 @@ export interface Review {
   at: number;
 }
 
+/** The manager's career (M13): level and experience, chests, the double-income boost, counters and medals. */
+export interface CareerState {
+  level: number;
+  /** Experience into this level. */
+  xp: number;
+  /** Chests to open. */
+  chests: number;
+  /** Double income until then (game time). */
+  boostUntil: number;
+  /** Career counters (what the stats do not keep). */
+  counts: Record<string, number>;
+  /** Medals collected per achievement (0..4). */
+  medals: number[];
+  /** Last event looked at (transient: events are not saved). */
+  seen: number;
+}
+
 /** Stats at the start of the guide's week (its scores are for the week). */
 export interface GuideBase {
   served: number;
@@ -799,6 +825,8 @@ export interface GameState {
   reviewBonus: number;
   /** The Aviation Guide. */
   guide: GuideState;
+  /** The manager's level, chests and achievements. */
+  career: CareerState;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];

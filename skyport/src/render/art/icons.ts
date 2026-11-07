@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party', 'search', 'guide',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -448,6 +448,20 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       canvas.drawRect(Skia.XYWHRect(46, 10, 4, 44), f);
       f.setColor(Skia.Color('#facc15'));
       canvas.drawPath(path([31, 16, 34, 25, 43, 25, 36, 31, 39, 40, 31, 34.5, 23, 40, 26, 31, 19, 25, 28, 25]), f);
+      break;
+    }
+    case 'chest': {
+      // a treasure chest: a wooden box with a rounded lid, gold bands and a lock
+      f.setColor(Skia.Color('#92400e'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(8, 28, 48, 26), 4, 4), f);
+      f.setColor(Skia.Color('#b45309'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(8, 12, 48, 20), 12, 12), f);
+      f.setColor(Skia.Color('#facc15'));
+      canvas.drawRect(Skia.XYWHRect(8, 27, 48, 4), f);
+      canvas.drawRect(Skia.XYWHRect(16, 12, 4, 42), f);
+      canvas.drawRect(Skia.XYWHRect(44, 12, 4, 42), f);
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 24, 10, 13), 2, 2), f);
+      circ(32, 30, 2, '#78350f');
       break;
     }
     case 'party': {

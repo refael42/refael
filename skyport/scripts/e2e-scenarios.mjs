@@ -613,6 +613,47 @@ export default [
       await page.waitForTimeout(800);
     },
   })),
+  // the manager: level, chests, achievements and medals
+  {
+    name: 'm13-career',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=75&tier=3&full=1&crew=1&warp=600&auto=1&hook=1&panel=career',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.careerSet(14, 1));
+      await page.waitForSelector('[data-testid="career-level"]', { timeout: 5000 });
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'm13-chest',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=75&tier=3&full=1&crew=1&warp=600&auto=1&hook=1&panel=career',
+    wait: 900,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.careerSet(10, 1));
+      await page.waitForSelector('[data-testid="career-open"]', { timeout: 5000 });
+      await page.click('[data-testid="career-open"]');
+      await page.waitForFunction(() => window.__skyport.career().chests === 0, null, { timeout: 5000 });
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'm13-achievements',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=75&tier=4&full=1&crew=1&warp=900&auto=1&hook=1&panel=achievements',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForSelector('[data-testid="career-ach"]', { timeout: 30000 });
+      await page.waitForTimeout(700);
+    },
+  },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

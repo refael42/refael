@@ -5,6 +5,8 @@
  */
 import { AIRLINES } from '../src/data/airlines';
 import { botAirlines, botBuys, botCommands, botHires, flightsPerDay, createGame, eventsSince, formatBig, incomeRate, queueCommand, stepGame } from '../src/sim';
+import { ACHIEVEMENTS } from '../src/data/achievements';
+import { medalsOf } from '../src/sim/game/career';
 
 function arg(name: string, def: number): number {
   const i = process.argv.indexOf(`--${name}`);
@@ -39,6 +41,7 @@ let partsOutCount = 0;
 let faultCount = 0;
 let airlineLeft = 0;
 const guide: string[] = [];
+const levelsAt: Record<string, number> = {};
 const inspector: string[] = [];
 let airlineWarnings = 0;
 const STEPS_PER_MIN = 30 * 60;
@@ -74,6 +77,7 @@ for (let m = 1; m <= minutes; m++) {
       if (e.kind === 'tierBuildStart') firsts[`tier ${e.a} build started`] ??= Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'tierUp') firsts[`tier ${e.a} reached`] ??= Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'contractSigned') firsts[`contract ${AIRLINES[e.a].id}`] ??= Math.round((s.time / 60) * 10) / 10;
+      if (e.kind === 'managerLevel' && (e.a <= 5 || e.a % 5 === 0)) levelsAt[`level ${e.a}`] = Math.round((s.time / 60) * 10) / 10;
       if (e.kind === 'guideEdition') guide.push(`min ${Math.round(s.time / 60)}: ${e.a} stars (score ${s.guide.lastScore.toFixed(2)}; ${Object.entries(s.guide.last ?? {}).map(([k, v]) => `${k} ${Math.round(v * 100)}`).join(', ')})`);
       if (e.kind === 'inspectorLeft') inspector.push(['nobody picked', 'found', 'wrong pick'][e.a]);
       if (e.kind === 'airlineLeft') airlineLeft++;
@@ -122,6 +126,9 @@ const report = {
   deadZoneStartsAtMin: Math.round(deadZoneAt / 60),
   biggestIncomeJump: `x${bestJump.toFixed(2)} at min ${bestJumpAt}`,
   milestonesAtMinute: firsts,
+  managerLevel: s.career.level,
+  levelsAtMinute: levelsAt,
+  medalsReached: ACHIEVEMENTS.map((a, i) => `${a.id} ${medalsOf(s, i).reached}`).join(', '),
   guideEditions: guide,
   inspectorVisits: inspector,
   levels: s.upg,

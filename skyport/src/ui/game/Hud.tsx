@@ -28,6 +28,10 @@ export interface HudData {
   weekend: boolean;
   /** The holiday on now (HOLIDAYS index, -1 none). */
   holiday: number;
+  /** The manager's level, how far to the next (0..1, steps of 0.05), and something to collect (a chest, a medal). */
+  level?: number;
+  xp?: number;
+  careerDot?: boolean;
 }
 
 /** HUD fields compared twice a second (a new object only when something shows differently). */
@@ -46,7 +50,10 @@ export function sameHud(a: HudData, b: HudData): boolean {
     a.storm === b.storm &&
     a.incidents === b.incidents &&
     a.weekend === b.weekend &&
-    a.holiday === b.holiday
+    a.holiday === b.holiday &&
+    a.level === b.level &&
+    a.xp === b.xp &&
+    a.careerDot === b.careerDot
   );
 }
 
@@ -56,6 +63,7 @@ export const Hud = memo(function Hud({
   onHelp,
   onEvents,
   onRating,
+  onCareer,
   onCoinPos,
   bump,
 }: {
@@ -64,6 +72,7 @@ export const Hud = memo(function Hud({
   onHelp: () => void;
   onEvents: () => void;
   onRating?: () => void;
+  onCareer?: () => void;
   onCoinPos: (x: number, y: number) => void;
   bump: number;
 }) {
@@ -78,6 +87,20 @@ export const Hud = memo(function Hud({
           onCoinPos(dir.rtl ? x + width - 22 : x + 22, y + height / 2);
         }}
       >
+        {data.level ? (
+          <>
+            <Pressable onPress={onCareer} style={styles.level} hitSlop={6} accessibilityRole="button" accessibilityLabel={t('hud.manager')} testID="hud-level">
+              <View style={styles.levelDisc}>
+                <Text style={styles.levelText}>{data.level}</Text>
+              </View>
+              <View style={styles.levelBar}>
+                <View style={[styles.levelFill, { width: `${Math.round((data.xp ?? 0) * 100)}%` }]} />
+              </View>
+              {data.careerDot ? <View style={styles.levelDot} /> : null}
+            </Pressable>
+            <View style={styles.divider} />
+          </>
+        ) : null}
         <View style={[styles.item, { flexDirection: dir.row }]}>
           <View style={{ transform: [{ scale: 1 + bump * 0.2 }] }}>
             <Icon name="coin" size={24} />
@@ -226,5 +249,11 @@ const styles = StyleSheet.create({
   pressed: { transform: [{ scale: 0.94 }], opacity: 0.9 },
   count: { position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: C.red, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: '#fff' },
   countText: { color: '#fff', fontSize: 10, fontWeight: '900' },
+  level: { alignItems: 'center', justifyContent: 'center', gap: 2 },
+  levelDisc: { width: 26, height: 26, borderRadius: 13, backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center' },
+  levelText: { color: '#ffffff', fontSize: 13, fontWeight: '900', fontVariant: ['tabular-nums'] },
+  levelBar: { width: 26, height: 3, borderRadius: 2, backgroundColor: 'rgba(15,23,42,0.12)', overflow: 'hidden' },
+  levelFill: { height: 3, backgroundColor: C.primary },
+  levelDot: { position: 'absolute', top: -3, right: -4, width: 10, height: 10, borderRadius: 5, backgroundColor: C.red, borderWidth: 2, borderColor: '#fff' },
   helpMark: { color: C.primary, fontSize: 22, fontWeight: '900', lineHeight: 26 },
 });

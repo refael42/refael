@@ -8,6 +8,7 @@ import { makeIncome } from './income';
 import { refreshApplicants } from './staff';
 import { startAirlines } from './airlines';
 import { newGuide } from './guide';
+import { newCareer } from './career';
 import type { GameState } from './types';
 import { makeVehicle } from './vehicles';
 
@@ -32,6 +33,7 @@ export function createGame(seed: number): GameState {
     reviews: [],
     reviewBonus: 0,
     guide: newGuide(),
+    career: newCareer(),
     apm: null,
     vehicles: [makeVehicle(1, 'fuel', L), makeVehicle(2, 'bags', L)],
     stands: L.stands.map(() => ({ occupant: 0, reserved: 0 })),

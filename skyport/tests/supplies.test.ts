@@ -33,6 +33,8 @@ describe('fuel farm', () => {
     const s = createGame(2);
     switchTier(s, 2);
     rich(s);
+    // (a manager far from the next level: the new stage's experience pays no level coins in this sum)
+    s.career.level = 500;
     const cap = capacity(s, 'fuel');
     draw(s, 'fuel', cap * 0.7);
     const before = s.money.toNumber();
