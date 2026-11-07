@@ -21,6 +21,7 @@ import { HelpPanel } from './HelpPanel';
 import { IncidentsPanel } from './IncidentsPanel';
 import { RatingPanel } from './RatingPanel';
 import { CareerPanel } from './CareerPanel';
+import { DailyPanel } from './DailyPanel';
 import { ACHIEVEMENTS, MEDALS } from '../../data/achievements';
 import { GuideCeremony, type GuideNews } from './GuideCeremony';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
@@ -89,6 +90,8 @@ import {
   startRumor,
   xpToNext,
   medalsToClaim,
+  giftReady,
+  spinIn,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -138,6 +141,7 @@ function hudOf(c: GameController): HudData {
     level: s.career.level,
     xp: Math.floor((s.career.xp / xpToNext(s.career.level)) * 20) / 20,
     careerDot: s.career.chests > 0 || medalsToClaim(s) > 0,
+    daily: giftReady(s).ready || spinIn(s) === 0,
   };
 }
 
@@ -248,7 +252,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // past midnight the date moves on
   useEffect(() => {
     if (debug.hol) return;
-    const id = setInterval(() => ctrl.send({ type: 'setToday', day: todayFor(null, 1) }), 60000);
+    // (the phone's clock, for the daily gift and the wheel: real minutes)
+    ctrl.send({ type: 'setNow', minutes: Math.floor(Date.now() / 60000) });
+    const id = setInterval(() => {
+      ctrl.send({ type: 'setToday', day: todayFor(null, 1) });
+      ctrl.send({ type: 'setNow', minutes: Math.floor(Date.now() / 60000) });
+    }, 60000);
     return () => clearInterval(id);
   }, [ctrl]);
   const [tier, setTier] = useState(ctrl.state.tier);
@@ -302,6 +311,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [panel, setPanel] = useState<string | null>(debug.panel);
   /** A new edition of the Aviation Guide, for its ceremony. */
   const [guideNews, setGuideNews] = useState<GuideNews | null>(null);
+  /** The wheel's last spin (it turns to it in the daily panel). */
+  const [lastSpin, setLastSpin] = useState<{ seg: number; at: number } | null>(null);
   const [staffView, setStaffView] = useState<StaffView | null>(null);
   const [rev, setRev] = useState(0);
   const [upgCat, setUpgCat] = useState<'all' | 'terminal'>('all');
@@ -690,6 +701,14 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             // (a level is earned: always worth a word; a chest gets its own)
             toast(e.c ? 'chest' : 'up', e.c ? t('toast.managerChest', { n: e.a }) : t('toast.managerLevel', { n: e.a, c: formatBig(Big.fromNumber(e.b)) }), 'good', 'level', true);
             setBump(1);
+            break;
+          case 'dailyGift':
+            toast('gift', t('toast.dailyGift', { n: e.a }), 'good', undefined, true);
+            if (e.x > 0) setBump(1);
+            break;
+          case 'wheelSpun':
+            // (the wheel turns in the panel and shows the prize)
+            setLastSpin({ seg: e.a, at: e.id });
             break;
           case 'chestOpened':
             toast('diamond', t('toast.chestOpened', { g: e.a }), 'good', undefined, true);
@@ -1113,6 +1132,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             : [],
         };
       },
+      daily: () => ({ ...ctrl.state.daily, gift: giftReady(ctrl.state), spinIn: spinIn(ctrl.state) }),
       career: () => ({ level: ctrl.state.career.level, xp: ctrl.state.career.xp, chests: ctrl.state.career.chests, toClaim: medalsToClaim(ctrl.state) }),
       // (screenshots: a manager at this level with chests to open)
       careerSet: (level: number, chests: number) => {
@@ -1248,7 +1268,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             safe.current.top = insets.top + 6 + e.nativeEvent.layout.height;
           }}
         >
-          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onRating={() => setPanel('rating')} onCareer={() => setPanel('career')} onCoinPos={onCoinPos} bump={bump} />
+          <Hud data={hud} onSettings={() => setSettings(true)} onHelp={() => setPanel('help')} onEvents={() => setPanel('events')} onRating={() => setPanel('rating')} onCareer={() => setPanel('career')} onDaily={() => setPanel('daily')} onCoinPos={onCoinPos} bump={bump} />
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
@@ -1394,6 +1414,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }}
         />
       ) : null}
+      {panel === 'daily' ? <DailyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} last={lastSpin} /> : null}
       {panel === 'career' || panel === 'achievements' ? <CareerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'achievements' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}

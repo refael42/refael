@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| M13b daily gift & wheel | done | a 7-day streak of gifts, a free spin every 4 real hours, odds shown, extra spins for diamonds |
 | M13a manager & achievements | done | levels with coins and chests (double income), 19 achievements with four medals each |
 | Calm screen | done | owner request: fewer messages, one rule for all of them, at most two at once |
 | M12c+d Aviation Guide | done | stars every 7 days for 6 parts, the undercover inspector (rumor, suspects, VIP care, notebook), ceremony, pylon |
@@ -723,6 +724,32 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### M13b — the daily gift and the lucky wheel (done)
+Both run on the phone's clock (`src/sim/game/daily.ts`). The UI sends it in as real minutes since
+1970 (`setNow`, at start and every minute), so the game itself stays deterministic.
+- Daily gift: one a real day, seven days of a streak:
+  - 200 coins, 5 diamonds, 500 coins, 5 minutes of double income, 10 diamonds, 1,500 coins, a
+    chest (coins times the tier's pay); then day 7's while the streak lasts;
+  - a missed day starts the streak over; a clock that goes back gives nothing.
+- Lucky wheel: a free spin every four real hours, more for 10 diamonds each.
+  - Eight segments with their odds shown: coins (30%, 20%, 9%), diamonds (18%, 6%, 1% for 50),
+    double income (12%), a chest (4%).
+  - Where a spin lands is a hash of the seed and the spin's number. A test checks 20,000 spins
+    land as often as the odds say.
+- Saved: the last gift's day, the streak, the last free spin and the spin count. The clock is not
+  saved; it comes from the phone again.
+- UI:
+  - a gift button in the HUD with a red dot when the gift or a free spin is ready;
+  - the daily panel: the seven days (today's lit), the collect button, the wheel (drawn with Skia,
+    turning to the prize), the free and paid spin buttons, the odds;
+  - a message for the gift (the wheel shows its prize itself).
+- Tests (`tests/daily.test.ts`): no gift before the clock is known; a gift a day, growing with the
+  streak; a missed day; a clock going back; the odds; the free spin every four hours and paid
+  spins; the save.
+- E2E: `m13-daily`, `m13-wheel`. The hook adds `daily()`.
+- Also: the fuel-farm order test keeps the manager far from a level-up, so level coins do not
+  count as change.
 
 ### M13a — manager level and achievements (done)
 The manager's career (`src/sim/game/career.ts`), read off the game's events each step.

@@ -654,6 +654,38 @@ export default [
       await page.waitForTimeout(700);
     },
   },
+  // the daily gift and the lucky wheel
+  {
+    name: 'm13-daily',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=76&tier=3&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.daily().now > 0, null, { timeout: 30000 });
+      await page.click('[data-testid="daily-button"]');
+      await page.waitForSelector('[data-testid="daily-claim"]', { timeout: 5000 });
+      await page.waitForTimeout(600);
+    },
+  },
+  {
+    name: 'm13-wheel',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=76&tier=3&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.daily().now > 0, null, { timeout: 30000 });
+      await page.click('[data-testid="daily-button"]');
+      await page.click('[data-testid="daily-claim"]');
+      await page.waitForFunction(() => window.__skyport.daily().streak === 1, null, { timeout: 5000 });
+      await page.click('[data-testid="daily-spin"]');
+      await page.waitForFunction(() => window.__skyport.daily().spins === 1, null, { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="daily-wheel"]').scrollIntoView());
+      await page.waitForSelector('[data-testid="daily-won"]', { timeout: 6000 });
+      await page.waitForTimeout(500);
+    },
+  },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

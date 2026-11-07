@@ -32,6 +32,8 @@ export interface HudData {
   level?: number;
   xp?: number;
   careerDot?: boolean;
+  /** The daily gift or a free spin is ready. */
+  daily?: boolean;
 }
 
 /** HUD fields compared twice a second (a new object only when something shows differently). */
@@ -53,7 +55,8 @@ export function sameHud(a: HudData, b: HudData): boolean {
     a.holiday === b.holiday &&
     a.level === b.level &&
     a.xp === b.xp &&
-    a.careerDot === b.careerDot
+    a.careerDot === b.careerDot &&
+    a.daily === b.daily
   );
 }
 
@@ -64,6 +67,7 @@ export const Hud = memo(function Hud({
   onEvents,
   onRating,
   onCareer,
+  onDaily,
   onCoinPos,
   bump,
 }: {
@@ -73,6 +77,7 @@ export const Hud = memo(function Hud({
   onEvents: () => void;
   onRating?: () => void;
   onCareer?: () => void;
+  onDaily?: () => void;
   onCoinPos: (x: number, y: number) => void;
   bump: number;
 }) {
@@ -167,6 +172,19 @@ export const Hud = memo(function Hud({
             </View>
           </View>
         </View>
+        {onDaily ? (
+          <Pressable
+            onPress={onDaily}
+            style={({ pressed }) => [styles.round, pressed && styles.pressed]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('hud.daily')}
+            testID="daily-button"
+          >
+            <Icon name="gift" size={24} />
+            {data.daily ? <View style={styles.levelDot} /> : null}
+          </Pressable>
+        ) : null}
         <Pressable
           onPress={onEvents}
           style={({ pressed }) => [styles.round, pressed && styles.pressed]}

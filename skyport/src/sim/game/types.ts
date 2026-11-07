@@ -132,7 +132,11 @@ export type GameEventKind =
   /** a: diamonds, b: seconds of double income. */
   | 'chestOpened'
   /** a: achievement, b: medals now, c: diamonds. */
-  | 'medal';
+  | 'medal'
+  /** x: coins (when coins); a: day of the streak, b: DAILY_GIFTS index, c: amount. */
+  | 'dailyGift'
+  /** x: coins (when coins); a: WHEEL segment, b: 1 when paid, c: amount. */
+  | 'wheelSpun';
 
 export interface GameEvent {
   id: number;
@@ -185,6 +189,11 @@ export type Command =
   | { type: 'celebPrivacy'; incident: number; private: boolean }
   | { type: 'claimReviews' }
   | { type: 'openChest' }
+  /** The phone's clock: real minutes since 1970 (the daily gift and the wheel). */
+  | { type: 'setNow'; minutes: number }
+  | { type: 'claimGift' }
+  /** paid: for diamonds instead of the free spin. */
+  | { type: 'spinWheel'; paid: boolean }
   /** Collect the medals an achievement (ACHIEVEMENTS index) has reached. */
   | { type: 'claimMedals'; index: number }
   /** The inspector's day: the VIP care for this passenger (a suspect). */
@@ -527,6 +536,17 @@ export interface Review {
   at: number;
 }
 
+/** The daily gift and the lucky wheel (M13): the real clock as the UI last sent it (-1 unknown) and what was claimed when. */
+export interface DailyState {
+  now: number;
+  /** Real day (minutes / 1440) of the last gift, and the streak's length then. */
+  giftDay: number;
+  streak: number;
+  /** Real minute of the last free spin; spins so far (the hash's counter). */
+  spinAt: number;
+  spins: number;
+}
+
 /** The manager's career (M13): level and experience, chests, the double-income boost, counters and medals. */
 export interface CareerState {
   level: number;
@@ -827,6 +847,8 @@ export interface GameState {
   guide: GuideState;
   /** The manager's level, chests and achievements. */
   career: CareerState;
+  /** The daily gift and the lucky wheel. */
+  daily: DailyState;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];

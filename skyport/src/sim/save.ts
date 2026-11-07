@@ -18,7 +18,7 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { AirlineOffer, Applicant, Build, CareerState, Contract, GameState, GuideState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, CareerState, Contract, DailyState, GameState, GuideState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
@@ -33,6 +33,7 @@ import { PAX_TYPES } from '../data/paxTypes';
 import { MAX_REVIEWS } from './game/reviews';
 import { baseOf, editionAt, GUIDE_PARTS, newGuide, RIGHT_PICK, SUSPECTS } from './game/guide';
 import { BOOST_SECONDS, newCareer, xpToNext } from './game/career';
+import { newDaily } from './game/daily';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { GUIDE_NOTES } from '../data/guideNotes';
 
@@ -82,6 +83,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     reviewBonus: s.reviewBonus,
     guide: s.guide,
     career: { ...s.career, seen: undefined },
+    daily: { ...s.daily, now: undefined },
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -359,6 +361,7 @@ export function cleanGame(raw: unknown): GameState | null {
   };
   s.guide = cleanGuide(raw.guide, s);
   s.career = cleanCareer(raw.career, s);
+  s.daily = cleanDaily(raw.daily);
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
   // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
@@ -434,6 +437,17 @@ export function cleanGame(raw: unknown): GameState | null {
   s.events = [];
   s.queue = [];
   return s;
+}
+
+/** The daily gift and the wheel: what was claimed when (the clock itself comes from the phone again). */
+function cleanDaily(raw: unknown): DailyState {
+  const d = newDaily();
+  if (!isObj(raw)) return d;
+  d.giftDay = int(raw.giftDay, -1, -1, 1e7);
+  d.streak = int(raw.streak, 0, 0, 7);
+  d.spinAt = num(raw.spinAt, -1e9, -1e9, 1e10);
+  d.spins = int(raw.spins, 0, 0, 1e9);
+  return d;
 }
 
 /** The manager's career: a save from before it starts at level 1 (the stats' achievements count at once). */

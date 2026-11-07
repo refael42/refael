@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -462,6 +462,19 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       canvas.drawRect(Skia.XYWHRect(44, 12, 4, 42), f);
       canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 24, 10, 13), 2, 2), f);
       circ(32, 30, 2, '#78350f');
+      break;
+    }
+    case 'gift': {
+      // a present: a red box, a gold ribbon both ways and a bow on top
+      f.setColor(Skia.Color('#ef4444'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(10, 26, 44, 30), 4, 4), f);
+      f.setColor(Skia.Color('#dc2626'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(7, 18, 50, 11), 3, 3), f);
+      f.setColor(Skia.Color('#facc15'));
+      canvas.drawRect(Skia.XYWHRect(28, 18, 8, 38), f);
+      canvas.drawPath(path([32, 18, 18, 8, 16, 16]), f);
+      canvas.drawPath(path([32, 18, 46, 8, 48, 16]), f);
+      circ(32, 17, 4, '#eab308');
       break;
     }
     case 'party': {
