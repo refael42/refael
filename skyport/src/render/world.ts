@@ -36,6 +36,8 @@ export interface World {
   bounds: { x0: number; y0: number; x1: number; y1: number };
   /** Windsock sprite placement (animated). */
   windsock: { x: number; y: number };
+  /** Where the control tower stands (it is drawn each frame: it grows with its upgrade), or null. */
+  tower: [number, number] | null;
 }
 
 export const GROUND_BASE = '#8fce78';
@@ -483,6 +485,7 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const F = L.field;
   const hangarBays = L.stands.filter((st, i) => st.hangar && open[i]).length;
   const statics: StaticSprite[] = [];
+  let towerAt: [number, number] | null = null;
   const minX = isoX(0, H) - 64;
   const maxX = isoX(W, 0) + 64;
   const minY = isoY(0, 0) - 64;
@@ -971,11 +974,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   }
   if (L.building) {
     buildingStatics(L.building, sprites, statics, tier);
-    const tw = L.tower ?? [18.6, 16.6];
-    statics.push({ sprite: sprites.tower, x: isoX(tw[0], tw[1]), y: isoY(tw[0], tw[1]), depth: tw[0] + tw[1] + 0.3, r: 120 });
+    towerAt = [...(L.tower ?? [18.6, 16.6])] as [number, number];
   } else if (L.runway.surface === 'asphalt') {
     statics.push({ sprite: sprites.terminal, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1.3 + L.hut[1] + 0.75, r: 160 });
-    statics.push({ sprite: sprites.tower, x: isoX(18.6, 16.6), y: isoY(18.6, 16.6), depth: 18.6 + 16.6 + 0.3, r: 120 });
+    towerAt = [18.6, 16.6];
   } else {
     statics.push({ sprite: sprites.hut, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1 + L.hut[1] + 0.7, r: 120 });
   }
@@ -1045,5 +1047,6 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     statics,
     bounds: { x0: isoX(0, H) * 0.7, y0: isoY(0, 0) + 200, x1: isoX(W, 0) * 0.7, y1: isoY(W, H) - 300 },
     windsock: { x: L.windsock[0], y: L.windsock[1] },
+    tower: towerAt,
   };
 }

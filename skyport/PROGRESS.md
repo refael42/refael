@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| Upgrade versions | done | owner request: the kiosk, billboard (animated LED), benches, tower (blinking beacon) and radar change look as they level up; a pop when bought |
 | M13c festivals & flash deals | done | a themed festival every 3 game days with three prizes and a trophy; a 40% deal every 3 real hours |
 | M13b daily gift & wheel | done | a 7-day streak of gifts, a free spin every 4 real hours, odds shown, extra spins for diamonds |
 | M13a manager & achievements | done | levels with coins and chests (double income), 19 achievements with four medals each |
@@ -725,6 +726,39 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### Upgrade versions and animations (owner request, after M13c)
+"Grow the upgrades, with different versions of them, and animations where needed." The upgrades you
+see on the map change look as they level up (`src/data/versions.ts`, names in `ver.<id>.<n>`):
+- Snack kiosk: a snack cart (level 1), the kiosk (10), a café with a terrace of two tables under
+  parasols (25), a glass food shop with a sign (50).
+- Billboard: a painted board on wooden posts (1), the big billboard (6), an LED screen on a steel
+  pole (14), a twin LED tower (24).
+  - The LED screens are animated: four adverts (a plane or a cup, colors, lines of text) that
+    change every 3 seconds; the twin tower's two screens are one advert apart.
+- Benches: a bench and parasol (1), two benches (10), shaded pergolas with climbing plants (20).
+- Control tower: it grows. Small (levels 0 to 1), tall with a wider cab (2), modern with a flared
+  shaft and a radar ball on the roof (4).
+  - The taller two have a red beacon that blinks. The tower moved from the baked statics to the
+    frame's drawing (`world.tower`), so it changes as soon as it is bought.
+- Radar: the mast (1), a bigger, faster-turning antenna (2), a white radome that does not turn
+  (3).
+- Animations when buying:
+  - the `upgraded` event now carries the upgrade and the level it reached;
+  - a sparkle pops over the thing on the map;
+  - a new version gets a ring of sparkles and a "New look: ..." message (an answer to the
+    player, so it always shows).
+- The upgrades panel shows the version and the next one ("Version 3/4: Café with a terrace · level
+  50: Glass food shop").
+- Tests (`tests/versions.test.ts`): each line is an upgrade, in order, within its levels and named
+  in both languages; versions by level; the bought event says what and to which level.
+- E2E:
+  - `ver-look-1`: the LED screen;
+  - `ver-look-4`: the twin LED tower;
+  - `ver-cafe`: the café;
+  - `ver-tower`: the modern tower and the radome;
+  - `ver-panel`: the version lines.
+  - The hook adds `setUpg(levels)` and `tower()`.
 
 ### M13c — festivals and flash deals (done)
 `src/sim/game/festival.ts`.

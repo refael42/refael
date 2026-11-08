@@ -1,3 +1,4 @@
+import { nextVersionAt, VERSIONS, versionOf } from '../../data/versions';
 import { storeCap } from '../../data/supplies';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -155,6 +156,14 @@ export function UpgradesPanel({
             <Text style={[styles.eff, ta]} numberOfLines={1}>
               {max ? effectText(t, r.def, r.lvl, r.lvl) : effectText(t, r.def, r.lvl, r.lvl + Math.max(1, r.n))}
             </Text>
+            {VERSIONS[r.def.id] ? (
+              <Text style={[styles.ver, ta]} numberOfLines={2} testID={`ver-${r.def.id}`}>
+                {versionOf(r.def.id, r.lvl) > 0 ? t('ver.now', { n: versionOf(r.def.id, r.lvl), of: VERSIONS[r.def.id].length, name: t(`ver.${r.def.id}.${versionOf(r.def.id, r.lvl)}` as TKey) }) : ''}
+                {nextVersionAt(r.def.id, r.lvl) !== null
+                  ? `${versionOf(r.def.id, r.lvl) > 0 ? ' · ' : ''}${t('ver.next', { n: nextVersionAt(r.def.id, r.lvl)!, name: t(`ver.${r.def.id}.${versionOf(r.def.id, r.lvl) + 1}` as TKey) })}`
+                  : ''}
+              </Text>
+            ) : null}
             {nextM ? (
               <View style={[styles.line, { flexDirection: dir.row, gap: 6 }]}>
                 <View style={styles.track}>
@@ -250,6 +259,7 @@ const styles = StyleSheet.create({
   name: { color: C.text, fontSize: 15, fontWeight: '800', flexShrink: 1 },
   lv: { borderRadius: 999, paddingHorizontal: 7, paddingVertical: 1 },
   lvText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  ver: { fontSize: 11, fontWeight: '700', color: '#7c3aed' },
   eff: { color: C.textDim, fontSize: 12, fontWeight: '600' },
   track: { flex: 1, height: 5, borderRadius: 3, backgroundColor: C.track, overflow: 'hidden' },
   fill: { position: 'absolute', top: 0, bottom: 0, borderRadius: 3 },

@@ -701,6 +701,89 @@ export default [
       await page.waitForTimeout(500);
     },
   },
+  // upgrade versions: the kiosk, billboard, benches, tower and radar change look as they level up
+  {
+    name: 'ver-look-1',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=78&tier=3&full=1&crew=1&warp=120&auto=1&hook=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ kiosk: 3, billboard: 16, benches: 12, tower: 1, radar: 1 });
+        const b = window.__skyport.decor().find((d) => d.id === 'billboard');
+        window.__skyport.lookAt(b.x, b.y - 0.6, 1.8);
+      });
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'ver-look-4',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=78&tier=3&full=1&crew=1&warp=120&auto=1&hook=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ kiosk: 60, billboard: 26, benches: 22, tower: 5, radar: 3 });
+        const b = window.__skyport.decor().find((d) => d.id === 'billboard');
+        window.__skyport.lookAt(b.x, b.y - 0.8, 1.8);
+      });
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'ver-cafe',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=78&tier=3&full=1&crew=1&warp=120&auto=1&hook=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ kiosk: 30, billboard: 15, benches: 22 });
+        const k = window.__skyport.decor().find((d) => d.id === 'kiosk');
+        window.__skyport.lookAt(k.x + 0.5, k.y, 2.2);
+      });
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'ver-tower',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=78&tier=4&full=1&crew=1&warp=120&auto=1&hook=1',
+    wait: 1500,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ tower: 5, radar: 3 });
+        const t = window.__skyport.tower();
+        window.__skyport.lookAt(t[0], t[1] - 1.5, 1.4);
+      });
+      await page.waitForTimeout(900);
+    },
+  },
+  {
+    name: 'ver-panel',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=78&tier=3&full=1&crew=1&warp=300&auto=1&hook=1&panel=upgrades',
+    wait: 1500,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 30000 });
+      await page.evaluate(() => window.__skyport.setUpg({ kiosk: 30, billboard: 8 }));
+      await page.waitForSelector('[data-testid="ver-kiosk"]', { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="ver-kiosk"]').scrollIntoView({ block: 'center' }));
+      await page.waitForTimeout(600);
+    },
+  },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

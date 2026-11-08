@@ -21,6 +21,16 @@ import {
   drawHut,
   drawJetBridge,
   drawKiosk,
+  drawSnackCart,
+  drawCafe,
+  drawFoodShop,
+  drawBoardPainted,
+  drawLedBoard,
+  drawLedTower,
+  LED_FRAMES,
+  drawPergola,
+  drawTowerV,
+  drawRadome,
   drawLamp,
   drawParkSign,
   drawPierSegment,
@@ -283,6 +293,12 @@ export interface SpriteSet {
   kiosk: number;
   billboard: number;
   bench: number;
+  /** Upgrade versions: the kiosk (1..4), the billboard (1..4, LED frames for 3 and 4), the shaded bench, the tower (1..3), the radome. */
+  kioskV: (v: number) => number;
+  billboardV: (v: number, frame: number) => number;
+  pergola: number;
+  towerV: (v: number) => number;
+  radome: number;
   crane: number;
   terminal: number;
   tower: number;
@@ -573,6 +589,19 @@ export function buildSprites(content: Content): SpriteSet {
   const kiosk = b.add(-34 * S, -40 * S, 50 * S, 40 * S, (c, ox, oy) => drawKiosk(new IsoPen(c, ox, oy, S)));
   const billboard = b.add(-10 * S, -54 * S, 44 * S, 28 * S, (c, ox, oy) => drawBillboard(new IsoPen(c, ox, oy, S)));
   const bench = b.add(-20 * S, -36 * S, 30 * S, 22 * S, (c, ox, oy) => drawBench(new IsoPen(c, ox, oy, S)));
+  // upgrade versions
+  const cart = b.add(-26 * S, -40 * S, 34 * S, 30 * S, (c, ox, oy) => drawSnackCart(new IsoPen(c, ox, oy, S)));
+  const cafe = b.add(-34 * S, -40 * S, 82 * S, 56 * S, (c, ox, oy) => drawCafe(new IsoPen(c, ox, oy, S)));
+  const shop = b.add(-40 * S, -50 * S, 60 * S, 48 * S, (c, ox, oy) => drawFoodShop(new IsoPen(c, ox, oy, S)));
+  const painted = b.add(-8 * S, -40 * S, 36 * S, 24 * S, (c, ox, oy) => drawBoardPainted(new IsoPen(c, ox, oy, S)));
+  const ledBase = b.size;
+  for (let f = 0; f < LED_FRAMES; f++) b.add(-12 * S, -56 * S, 46 * S, 30 * S, (c, ox, oy) => drawLedBoard(new IsoPen(c, ox, oy, S), f));
+  const ledTowerBase = b.size;
+  for (let f = 0; f < LED_FRAMES; f++) b.add(-14 * S, -84 * S, 48 * S, 30 * S, (c, ox, oy) => drawLedTower(new IsoPen(c, ox, oy, S), f));
+  const pergola = b.add(-26 * S, -44 * S, 40 * S, 30 * S, (c, ox, oy) => drawPergola(new IsoPen(c, ox, oy, S)));
+  const tower2 = b.add(-22 * S, -128 * S, 24 * S, 18 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 2));
+  const tower3 = b.add(-24 * S, -150 * S, 26 * S, 20 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 3));
+  const radome = b.add(-24 * S, -60 * S, 24 * S, 12 * S, (c, ox, oy) => drawRadome(new IsoPen(c, ox, oy, S)));
   const terminal = b.add(-2.2 * 32 * S, -2.0 * 32 * S, 3.0 * 32 * S, 2.6 * 32 * S, (c, ox, oy) => drawTerminal(new IsoPen(c, ox, oy, S)));
   const tower = b.add(-16 * S, -100 * S, 18 * S, 14 * S, (c, ox, oy) => drawTower(new IsoPen(c, ox, oy, S)));
   const tileOk = b.add(-34 * S, -18 * S, 34 * S, 18 * S, (c, ox, oy) => drawTile(new IsoPen(c, ox, oy, S), 'rgba(16,185,129,0.55)'));
@@ -748,6 +777,11 @@ export function buildSprites(content: Content): SpriteSet {
     kiosk,
     billboard,
     bench,
+    kioskV: (v) => (v <= 1 ? cart : v === 2 ? kiosk : v === 3 ? cafe : shop),
+    billboardV: (v, f) => (v <= 1 ? painted : v === 2 ? billboard : (v === 3 ? ledBase : ledTowerBase) + (((f % LED_FRAMES) + LED_FRAMES) % LED_FRAMES)),
+    pergola,
+    towerV: (v) => (v <= 1 ? tower : v === 2 ? tower2 : tower3),
+    radome,
     crane,
     terminal,
     tower,

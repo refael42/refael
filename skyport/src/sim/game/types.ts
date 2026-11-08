@@ -24,6 +24,7 @@ export type GameEventKind =
   | 'hired'
   | 'wagesPaid'
   | 'notEnoughMoney'
+  /** a: levels bought, b: UPGRADES index, c: the level now. */
   | 'upgraded'
   | 'milestone'
   | 'buildStart'

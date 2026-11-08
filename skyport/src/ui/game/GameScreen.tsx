@@ -1,5 +1,5 @@
 /** The airfield: canvas + camera + taps + HUD + flight card + toasts. */
-import { levelCap, upgradeDef } from '../../data/upgrades';
+import { levelCap, UPGRADES, upgradeDef } from '../../data/upgrades';
 import { INCIDENTS, VISITORS, type IncidentKind } from '../../data/incidents';
 import { HOLIDAYS } from '../../data/holidays';
 import { groundPlane, spawnFlight } from '../../sim/game/flights';
@@ -23,6 +23,7 @@ import { RatingPanel } from './RatingPanel';
 import { CareerPanel } from './CareerPanel';
 import { DailyPanel } from './DailyPanel';
 import { FestivalCard, type DealView, type FestView } from './FestivalCard';
+import { versionOf } from '../../data/versions';
 import { ACHIEVEMENTS, MEDALS } from '../../data/achievements';
 import { GuideCeremony, type GuideNews } from './GuideCeremony';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
@@ -384,6 +385,9 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const safe = useRef({ top: 90, bottom: 0 });
   const lastToastKey = useRef<Record<string, number>>({});
   const lastNews = useRef(-1e9);
+  /** Where the control tower stands (for the pop when its upgrade is bought). */
+  const towerRef = useRef<[number, number] | null>(null);
+  towerRef.current = world.tower;
 
   useEffect(() => {
     // (close in, the sprites and the ground switch to their vectors before their pixels would show)
@@ -488,9 +492,23 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           case 'takeoffCleared':
             if (tutorialRef.current === 4) setTutorial(5);
             break;
-          case 'upgraded':
+          case 'upgraded': {
             if (tutorialRef.current === 6) setTutorial(7);
+            const def = UPGRADES[e.b];
+            if (!def) break;
+            // where it shows on the map (a decoration, the tower, the radar)
+            const spot = upgradeSpot(s, def.id, towerRef.current);
+            const was = versionOf(def.id, e.c - e.a);
+            const now = versionOf(def.id, e.c);
+            if (spot) {
+              const sx = isoX(spot[0], spot[1]);
+              const sy = isoY(spot[0], spot[1]) - 30;
+              fx.sparkle(sx, sy);
+              if (now > was && was > 0) for (let k = 0; k < 5; k++) fx.sparkle(sx + Math.cos(k * 1.26) * 26, sy - 10 + Math.sin(k * 1.26) * 16);
+            }
+            if (now > was && was > 0) toast('up', t('toast.newVersion', { name: t(`ver.${def.id}.${now}` as TKey) }), 'good', undefined, true);
             break;
+          }
           // (the plane's bubble and the edge markers say it; a message only for the first few flights)
           case 'landingRequest':
             if (s.stats.served < 3) toast('land', t('toast.landingRequest', { code: codeOf(e.a) }), 'info', 'land');
@@ -1152,6 +1170,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             : [],
         };
       },
+      tower: () => world.tower,
+      // (screenshots: these upgrade levels at once)
+      setUpg: (lv: Record<string, number>) => {
+        for (const [k, v] of Object.entries(lv)) ctrl.state.upg[k] = v;
+        ctrl.state.upgRev++;
+      },
       fest: () => ({ ...ctrl.state.fest, deal: flashDeal(ctrl.state)?.id ?? null }),
       daily: () => ({ ...ctrl.state.daily, gift: giftReady(ctrl.state), spinIn: spinIn(ctrl.state) }),
       career: () => ({ level: ctrl.state.career.level, xp: ctrl.state.career.xp, chests: ctrl.state.career.chests, toClaim: medalsToClaim(ctrl.state) }),
@@ -1577,6 +1601,15 @@ const INCIDENT_ICON: Partial<Record<IncidentKind, Toast['icon']>> = {
 };
 
 /** Today on the player's device (an epoch day), or the given day of a holiday for screenshots. */
+/** Where an upgrade shows on the map (its decoration, the tower, the radar), for the pop when it is bought. */
+function upgradeSpot(s: GameState, id: string, tower: [number, number] | null): readonly [number, number] | null {
+  if (id === 'kiosk' || id === 'billboard') return decorPos(s, id);
+  if (id === 'benches') return decorPos(s, 'bench1');
+  if (id === 'tower') return tower;
+  if (id === 'radar') return layoutOf(s.tier).radar ?? null;
+  return null;
+}
+
 function todayFor(hol: string | null, day: number): number {
   const d = new Date();
   const today = epochDay(d.getFullYear(), d.getMonth() + 1, d.getDate());

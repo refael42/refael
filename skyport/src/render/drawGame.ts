@@ -9,7 +9,7 @@ import { weather } from '../sim/game/weather';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
-import { GAUGE_STEPS } from './art/objects';
+import { GAUGE_STEPS, towerTop } from './art/objects';
 import type { IconName } from './art/icons';
 import { OUTFITS, PAX_OUTFITS } from './art/people';
 import type { Camera } from './camera';
@@ -20,6 +20,7 @@ import { BEACON, CAR_VARIANTS } from './art/vehicles';
 import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
 import { parkedCars, roadCars, type CarPose } from './traffic';
 import { drawEventScenes, drawHolidayDecor } from './drawEvents';
+import { versionOf } from '../data/versions';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
@@ -99,8 +100,21 @@ export function drawGame(
   if ((s.upg.radar ?? 0) > 0 && s.tier >= 2) {
     const rx = (LLr.radar ?? RADAR_POS)[0];
     const ry = (LLr.radar ?? RADAR_POS)[1];
-    // one turn every 4 s (the antenna repeats every half turn)
-    w.sprite(sp.radar(Math.floor(o.time * 4)), isoX(rx, ry), isoY(rx, ry), 1, rx + ry + 0.2);
+    const rv = versionOf('radar', s.upg.radar ?? 0);
+    // one turn every 4 s (the antenna repeats every half turn); the radome does not turn
+    if (rv >= 3) w.sprite(sp.radome, isoX(rx, ry), isoY(rx, ry), 1, rx + ry + 0.2);
+    else w.sprite(sp.radar(Math.floor(o.time * (rv >= 2 ? 6 : 4))), isoX(rx, ry), isoY(rx, ry), rv >= 2 ? 1.25 : 1, rx + ry + 0.2);
+  }
+  // the control tower: it grows with its upgrade; the taller ones have a blinking beacon
+  if (world.tower) {
+    const [tx, ty] = world.tower;
+    const tv = versionOf('tower', s.upg.tower ?? 0);
+    const sx = isoX(tx, ty);
+    const sy = isoY(tx, ty);
+    if (visible(sx, sy, 160)) {
+      w.sprite(sp.towerV(tv), sx, sy, 1, tx + ty + 0.3);
+      if (tv >= 2 && Math.floor(o.time * 1.2) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), sx, isoY(tx, ty, towerTop(tv)), 0.8, 0.9);
+    }
   }
 
   // things upgrades add, and construction sites
@@ -119,10 +133,10 @@ export function drawGame(
     if (o.build) w.decal(o.build.drag && dragged ? (o.build.ok ? sp.tileOk : sp.tileBad) : sp.tileOk, isoX(p[0], p[1]), isoY(p[0], p[1]), 1, dragged ? 0.35 : 0.8);
     if (dragged && o.build) {
       w.decal(o.build.ok ? sp.tileOk : sp.tileBad, isoX(o.build.x, o.build.y), isoY(o.build.x, o.build.y), 1, 1);
-      w.fx(spriteOf(sp, it.id), isoX(o.build.x, o.build.y), isoY(o.build.x, o.build.y), 1, 0.75);
+      w.fx(spriteOf(sp, it.id, s, o.time), isoX(o.build.x, o.build.y), isoY(o.build.x, o.build.y), 1, 0.75);
       continue;
     }
-    deco(spriteOf(sp, it.id), p, it.id.startsWith('bench') ? 0.3 : 0.6);
+    deco(spriteOf(sp, it.id, s, o.time), p, it.id.startsWith('bench') ? 0.3 : 0.6);
   }
   const site = constructionSite(s);
   if (site) {
@@ -536,8 +550,12 @@ export function decorItems(s: GameState): { id: string }[] {
   return out;
 }
 
-function spriteOf(sp: SpriteSet, id: string): number {
-  return id === 'kiosk' ? sp.kiosk : id === 'billboard' ? sp.billboard : sp.bench;
+/** A movable decoration's sprite: its version by the upgrade's level (the LED screens change adverts). */
+function spriteOf(sp: SpriteSet, id: string, s: GameState, time: number): number {
+  const lv = (k: string) => s.upg[k] ?? 0;
+  if (id === 'kiosk') return sp.kioskV(versionOf('kiosk', lv('kiosk')));
+  if (id === 'billboard') return sp.billboardV(versionOf('billboard', lv('billboard')), Math.floor(time / 3));
+  return versionOf('benches', lv('benches')) >= 3 ? sp.pergola : sp.bench;
 }
 
 /** Where the current construction is (stand plot or vehicle depot) and how far along. */

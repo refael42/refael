@@ -849,3 +849,182 @@ export function drawRedCarpet(p: IsoPen): void {
 export function drawRain(p: IsoPen): void {
   p.line(0, 0, 0.5, 0.05, 0.05, 0.0, 'rgba(203,213,225,0.75)', 1);
 }
+
+// ------------------------------------------------------------------ upgrade versions (owner request)
+
+/** Kiosk version 1: a snack cart on two wheels with a striped umbrella. */
+export function drawSnackCart(p: IsoPen): void {
+  p.shadow(0.35, 0.25, 22, 9, 0.2);
+  p.circle(0.12, 0.42, 0.08, 4, '#1e293b');
+  p.circle(0.58, 0.42, 0.08, 4, '#1e293b');
+  p.box(0, 0, 0.7, 0.45, 0.1, 0.42, '#fde68a');
+  p.box(0, 0.45, 0.7, 0.46, 0.18, 0.36, '#f59e0b', false);
+  p.line(0.7, 0.22, 0.32, 0.92, 0.22, 0.38, '#78350f', 2);
+  p.line(0.35, 0.22, 0.42, 0.35, 0.22, 0.95, '#e2e8f0', 1.6);
+  const r = 0.38;
+  for (let i = 0; i < 8; i++) {
+    const a0 = (i / 8) * Math.PI * 2;
+    const a1 = ((i + 1) / 8) * Math.PI * 2;
+    p.poly([0.35, 0.22, 1.05, 0.35 + Math.cos(a0) * r, 0.22 + Math.sin(a0) * r, 0.9, 0.35 + Math.cos(a1) * r, 0.22 + Math.sin(a1) * r, 0.9], i % 2 ? '#ffffff' : '#ef4444', false);
+  }
+}
+
+/** Kiosk version 3: the kiosk with a little terrace, two tables under parasols. */
+export function drawCafe(p: IsoPen): void {
+  drawKiosk(p);
+  for (const [x, y, c] of [
+    [1.35, 0.15, '#0ea5e9'],
+    [1.35, 0.75, '#22c55e'],
+  ] as const) {
+    p.shadow(x, y, 14, 6, 0.16);
+    p.line(x, y, 0, x, y, 0.28, '#475569', 1.6);
+    p.circle(x, y, 0.28, 6, '#f8fafc');
+    p.box(x - 0.22, y - 0.05, x - 0.14, y + 0.05, 0, 0.18, '#94a3b8');
+    p.box(x + 0.14, y - 0.05, x + 0.22, y + 0.05, 0, 0.18, '#94a3b8');
+    p.line(x, y, 0.28, x, y, 0.7, '#e2e8f0', 1.4);
+    const r = 0.26;
+    const pts: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      pts.push(x + Math.cos(a) * r, y + Math.sin(a) * r, 0.66);
+    }
+    p.poly(pts, c);
+  }
+}
+
+/** Kiosk version 4: a glass food shop with a flat roof and a sign on top. */
+export function drawFoodShop(p: IsoPen): void {
+  p.shadow(0.6, 0.45, 40, 15, 0.22);
+  p.box(0, 0, 1.2, 0.9, 0, 0.08, '#cbd5e1');
+  p.box(0.04, 0.04, 1.16, 0.86, 0.08, 0.72, '#bae6fd');
+  for (let x = 0.24; x < 1.16; x += 0.23) p.line(x, 0.86, 0.08, x, 0.86, 0.72, '#f8fafc', 1.2);
+  for (let y = 0.24; y < 0.86; y += 0.23) p.line(1.16, y, 0.08, 1.16, y, 0.72, '#f8fafc', 1.2);
+  // the counter and shelves inside, seen through the glass
+  p.box(0.2, 0.55, 0.95, 0.7, 0.08, 0.32, '#f59e0b');
+  p.box(0.15, 0.1, 0.9, 0.22, 0.08, 0.55, '#e2e8f0');
+  p.box(-0.02, -0.02, 1.22, 0.92, 0.72, 0.8, '#1e293b');
+  p.box(0.25, 0.4, 0.95, 0.46, 0.8, 1.05, '#f43f5e');
+  p.poly([0.3, 0.46, 0.86, 0.9, 0.46, 0.86, 0.9, 0.46, 1.0, 0.3, 0.46, 1.0], '#ffffff', false);
+}
+
+/** Billboard version 1: a painted board on two wooden posts. */
+export function drawBoardPainted(p: IsoPen): void {
+  p.shadow(0.4, 0.1, 26, 7, 0.18);
+  p.line(0.15, 0, 0, 0.15, 0, 0.6, '#92400e', 3);
+  p.line(0.65, 0, 0, 0.65, 0, 0.6, '#92400e', 3);
+  p.poly([0, 0, 0.45, 0.8, 0, 0.45, 0.8, 0, 0.92, 0, 0, 0.92], '#fef3c7');
+  p.poly([0.12, 0, 0.62, 0.55, 0, 0.75, 0.6, 0, 0.72, 0.2, 0, 0.6], '#0ea5e9', false);
+}
+
+/** Frames of the LED billboards' adverts. */
+export const LED_FRAMES = 4;
+const LED_ADS: readonly [string, string, string][] = [
+  ['#6366f1', '#ffffff', '#fbbf24'],
+  ['#ef4444', '#fde68a', '#ffffff'],
+  ['#10b981', '#ffffff', '#0ea5e9'],
+  ['#f59e0b', '#1e293b', '#ffffff'],
+];
+
+/** An advert on an LED screen: a background, a plane or a cup, and a line of text. */
+function ledAd(p: IsoPen, x0: number, x1: number, z0: number, z1: number, frame: number): void {
+  const [bg, fg, accent] = LED_ADS[frame % LED_ADS.length];
+  p.poly([x0, 0.001, z0, x1, 0.001, z0, x1, 0.001, z1, x0, 0.001, z1], bg, false);
+  const w = x1 - x0;
+  const h = z1 - z0;
+  const cx = x0 + w * 0.35;
+  const cz = z0 + h * 0.55;
+  if (frame % 2 === 0) {
+    // a plane climbing
+    p.poly([cx - w * 0.18, 0.002, cz - h * 0.1, cx + w * 0.18, 0.002, cz + h * 0.12, cx + w * 0.12, 0.002, cz + h * 0.16, cx - w * 0.2, 0.002, cz - h * 0.04], fg, false);
+    p.poly([cx - w * 0.02, 0.002, cz, cx + w * 0.06, 0.002, cz - h * 0.2, cx + w * 0.1, 0.002, cz - h * 0.18, cx + w * 0.06, 0.002, cz + h * 0.04], fg, false);
+  } else {
+    // a cup of coffee
+    p.poly([cx - w * 0.1, 0.002, cz - h * 0.2, cx + w * 0.1, 0.002, cz - h * 0.2, cx + w * 0.12, 0.002, cz + h * 0.15, cx - w * 0.12, 0.002, cz + h * 0.15], fg, false);
+  }
+  p.circle(x0 + w * 0.82, 0.002, z0 + h * 0.75, 2.5, accent, false);
+  for (let k = 0; k < 3; k++) p.line(x0 + w * 0.6, 0.002, z0 + h * (0.25 + k * 0.15), x0 + w * (0.88 - k * 0.08), 0.002, z0 + h * (0.25 + k * 0.15), fg, 1.4);
+}
+
+/** Billboard version 3: an LED screen on a steel pole, its advert changing (frame). */
+export function drawLedBoard(p: IsoPen, frame: number): void {
+  p.shadow(0.5, 0.1, 32, 8, 0.2);
+  p.box(0.42, -0.06, 0.58, 0.06, 0, 0.62, '#64748b');
+  p.box(-0.08, -0.05, 1.08, 0.0, 0.58, 1.32, '#0f172a');
+  ledAd(p, -0.02, 1.02, 0.64, 1.26, frame);
+}
+
+/** Billboard version 4: a tall pylon with two LED screens, one above the other. */
+export function drawLedTower(p: IsoPen, frame: number): void {
+  p.shadow(0.5, 0.1, 38, 9, 0.22);
+  p.box(0.38, -0.08, 0.62, 0.08, 0, 2.1, '#475569');
+  p.box(-0.12, -0.05, 1.12, 0.0, 0.62, 1.32, '#0f172a');
+  ledAd(p, -0.06, 1.06, 0.68, 1.26, frame);
+  p.box(-0.12, -0.05, 1.12, 0.0, 1.4, 2.1, '#0f172a');
+  ledAd(p, -0.06, 1.06, 1.46, 2.04, frame + 1);
+  p.box(-0.14, -0.07, 1.14, 0.02, 2.1, 2.16, '#e2e8f0');
+}
+
+/** Benches version 3: a bench under a wooden pergola with climbing plants. */
+export function drawPergola(p: IsoPen): void {
+  p.shadow(0.35, 0.25, 28, 11, 0.2);
+  p.box(0, 0, 0.6, 0.18, 0.12, 0.17, '#b45309');
+  p.box(0.02, 0.0, 0.06, 0.18, 0, 0.12, '#78350f');
+  p.box(0.54, 0.0, 0.58, 0.18, 0, 0.12, '#78350f');
+  for (const [x, y] of [
+    [-0.1, -0.1],
+    [0.7, -0.1],
+    [-0.1, 0.5],
+    [0.7, 0.5],
+  ] as const) p.box(x - 0.03, y - 0.03, x + 0.03, y + 0.03, 0, 0.8, '#92400e');
+  for (let x = -0.15; x <= 0.76; x += 0.13) p.box(x, -0.14, x + 0.04, 0.54, 0.8, 0.84, '#a16207');
+  for (const [x, y] of [
+    [-0.1, -0.1],
+    [0.7, 0.5],
+    [0.3, 0.2],
+  ] as const) p.circle(x, y, 0.86, 7, '#16a34a', false);
+  p.circle(0.7, -0.1, 0.62, 4, '#22c55e', false);
+  p.circle(-0.1, 0.5, 0.5, 4, '#22c55e', false);
+}
+
+/** Control tower versions: 1 the small one (drawTower), 2 taller with a wider cab, 3 a modern flared one. */
+export function drawTowerV(p: IsoPen, v: number): void {
+  if (v <= 1) return drawTower(p);
+  const shaft = v === 2 ? 2.6 : 3.3;
+  const rs = v === 2 ? 8 : 9;
+  const cab = v === 2 ? 14 : 17;
+  p.shadow(0.35, 0.35, 34, 14, 0.24);
+  // the base building
+  p.box(-0.32, -0.32, 0.32, 0.32, 0, 0.32, '#cbd5e1');
+  for (let z = 0.32; z < shaft; z += 0.03) {
+    // (the modern one tapers in and flares out under the cab)
+    const k = v === 3 ? 1 - 0.18 * Math.sin(((z - 0.32) / (shaft - 0.32)) * Math.PI) : 1;
+    p.circle(0, 0, z, rs * k, z < 0.36 ? '#94a3b8' : '#e2e8f0', false);
+  }
+  // thin rings up the shaft (its concrete sections)
+  for (let z = 0.7; z < shaft - 0.2; z += 0.5) p.circle(0, 0, z, rs + 0.6, '#cbd5e1', false);
+  p.circle(0, 0, shaft, cab - 1, '#cbd5e1');
+  for (let z = shaft + 0.02; z < shaft + 0.42; z += 0.02) p.circle(0, 0, z, cab - 1 + (z - shaft) * 6, z > shaft + 0.39 ? '#7dd3fc' : '#0ea5e9', false);
+  p.circle(0, 0, shaft + 0.44, cab + 2, '#334155');
+  p.circle(0, 0, shaft + 0.5, cab - 2, '#475569');
+  // antennas and the radar ball on the roof
+  p.line(-0.05, 0, shaft + 0.5, -0.05, 0, shaft + 1.0, '#475569', 2);
+  p.line(0.08, 0.04, shaft + 0.5, 0.08, 0.04, shaft + 0.8, '#475569', 1.5);
+  if (v === 3) p.circle(0.05, -0.05, shaft + 0.62, 5, '#f8fafc');
+}
+
+/** The tower's top (where its beacon blinks), in tiles above the ground. */
+export function towerTop(v: number): number {
+  return v <= 1 ? 2.76 : v === 2 ? 3.6 : 4.3;
+}
+
+/** Radar version 3: a white radome on a short tower (it does not turn). */
+export function drawRadome(p: IsoPen): void {
+  p.shadow(0.1, 0.1, 22, 9, 0.22);
+  p.box(-0.26, -0.26, 0.26, 0.26, 0, 0.7, '#94a3b8');
+  p.box(-0.3, -0.3, 0.3, 0.3, 0.7, 0.76, '#64748b');
+  for (let z = 0.76; z < 1.28; z += 0.02) {
+    const r = Math.sqrt(Math.max(0, 1 - ((z - 1.0) / 0.3) ** 2)) * 15;
+    p.circle(0, 0, z, r, z > 1.2 ? '#ffffff' : '#f1f5f9', false);
+  }
+  for (let k = 0; k < 4; k++) p.circle(0, 0, 0.85 + k * 0.1, 15 - Math.abs(k - 1.5) * 2, 'rgba(148,163,184,0.35)', false);
+}

@@ -103,7 +103,7 @@ export function buyUpgrade(s: GameState, id: string, count: number): BuyResult {
     setLevel(s, id, from + n);
     if (milestonesReached(def, from + n) > before) pushEvent(s, 'milestone', 0, 0, from + n);
   }
-  pushEvent(s, 'upgraded', 0, 0, n, 0, 0);
+  pushEvent(s, 'upgraded', 0, 0, n, UPGRADES.findIndex((u) => u.id === id), from + n);
   return 0;
 }
 
@@ -115,7 +115,7 @@ export function addLevel(s: GameState, id: string): void {
   const before = milestonesReached(def, from);
   setLevel(s, id, from + 1);
   if (milestonesReached(def, from + 1) > before) pushEvent(s, 'milestone', 0, 0, from + 1);
-  pushEvent(s, 'upgraded', 0, 0, 1, 0, 0);
+  pushEvent(s, 'upgraded', 0, 0, 1, UPGRADES.findIndex((u) => u.id === id), from + 1);
 }
 
 function setLevel(s: GameState, id: string, lvl: number): void {
