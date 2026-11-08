@@ -686,6 +686,21 @@ export default [
       await page.waitForTimeout(500);
     },
   },
+  // festivals and the flash deal (the clock moved to the start of a deal window)
+  {
+    name: 'm13-festival',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=77&tier=3&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    fakeNow: Date.UTC(2026, 10, 7, 9, 2),
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.fest().deal, null, { timeout: 30000, polling: 250 });
+      await page.waitForSelector('[data-testid="festival-card"]', { timeout: 5000 });
+      await page.waitForSelector('[data-testid="deal-chip"]', { timeout: 5000 });
+      await page.waitForTimeout(500);
+    },
+  },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -107,6 +107,17 @@ export function buyUpgrade(s: GameState, id: string, count: number): BuyResult {
   return 0;
 }
 
+/** One more level of an upgrade, already paid for (a flash deal). */
+export function addLevel(s: GameState, id: string): void {
+  const def = upgradeDef(id);
+  if (!def) return;
+  const from = boughtLevel(s, id);
+  const before = milestonesReached(def, from);
+  setLevel(s, id, from + 1);
+  if (milestonesReached(def, from + 1) > before) pushEvent(s, 'milestone', 0, 0, from + 1);
+  pushEvent(s, 'upgraded', 0, 0, 1, 0, 0);
+}
+
 function setLevel(s: GameState, id: string, lvl: number): void {
   s.upg[id] = lvl;
   s.upgRev++;

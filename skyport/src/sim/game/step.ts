@@ -22,6 +22,7 @@ import { updateSupplies } from './supplies';
 import { updateGoals } from './goals';
 import { updateGuide } from './guide';
 import { updateCareer } from './career';
+import { updateFestival } from './festival';
 
 /** Advances the game by one fixed step. dt must be DT (kept for clarity). */
 export function stepGame(s: GameState, dt: number = DT): void {
@@ -55,6 +56,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateGoals(s);
   updateGuide(s);
   updateCareer(s);
+  updateFestival(s);
   rollIncome(s);
   pruneEvents(s);
 }

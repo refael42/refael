@@ -18,7 +18,7 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { AirlineOffer, Applicant, Build, CareerState, Contract, DailyState, GameState, GuideState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, CareerState, Contract, DailyState, FestState, GameState, GuideState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
@@ -34,6 +34,7 @@ import { MAX_REVIEWS } from './game/reviews';
 import { baseOf, editionAt, GUIDE_PARTS, newGuide, RIGHT_PICK, SUSPECTS } from './game/guide';
 import { BOOST_SECONDS, newCareer, xpToNext } from './game/career';
 import { newDaily } from './game/daily';
+import { FESTIVALS, newFest } from './game/festival';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { GUIDE_NOTES } from '../data/guideNotes';
 
@@ -84,6 +85,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     guide: s.guide,
     career: { ...s.career, seen: undefined },
     daily: { ...s.daily, now: undefined },
+    fest: { ...s.fest, seen: undefined },
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -362,6 +364,7 @@ export function cleanGame(raw: unknown): GameState | null {
   s.guide = cleanGuide(raw.guide, s);
   s.career = cleanCareer(raw.career, s);
   s.daily = cleanDaily(raw.daily);
+  s.fest = cleanFest(raw.fest);
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
   // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
@@ -437,6 +440,22 @@ export function cleanGame(raw: unknown): GameState | null {
   s.events = [];
   s.queue = [];
   return s;
+}
+
+/** Festivals and flash deals: the festival under way, its points and prizes, the trophies, the deal taken. */
+function cleanFest(raw: unknown): FestState {
+  const f = newFest();
+  if (!isObj(raw)) return f;
+  f.n = int(raw.n, -1, -1, 1e7);
+  f.kind = int(raw.kind, 0, 0, FESTIVALS.length - 1);
+  f.points = int(raw.points, 0, 0, 1e9);
+  f.prizes = int(raw.prizes, 0, 0, 3);
+  const tr = isObj(raw.trophies) ? raw.trophies : {};
+  for (const d of FESTIVALS) if (tr[d.kind] !== undefined) f.trophies[d.kind] = int(tr[d.kind], 0, 0, 1e6);
+  f.dealN = int(raw.dealN, -1, -1, 1e9);
+  f.dealId = typeof raw.dealId === 'string' && upgradeDef(raw.dealId) ? raw.dealId : '';
+  f.dealTaken = int(raw.dealTaken, -1, -1, 1e9);
+  return f;
 }
 
 /** The daily gift and the wheel: what was claimed when (the clock itself comes from the phone again). */

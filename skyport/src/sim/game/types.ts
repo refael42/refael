@@ -136,7 +136,12 @@ export type GameEventKind =
   /** x: coins (when coins); a: day of the streak, b: DAILY_GIFTS index, c: amount. */
   | 'dailyGift'
   /** x: coins (when coins); a: WHEEL segment, b: 1 when paid, c: amount. */
-  | 'wheelSpun';
+  | 'wheelSpun'
+  /** a: FESTIVALS index, b: its number. */
+  | 'festivalStart'
+  /** x: coins, y: diamonds (not a place); a: FESTIVALS index, b: prize tier reached (1..3). */
+  | 'festivalPrize'
+  | 'dealBought';
 
 export interface GameEvent {
   id: number;
@@ -192,6 +197,7 @@ export type Command =
   /** The phone's clock: real minutes since 1970 (the daily gift and the wheel). */
   | { type: 'setNow'; minutes: number }
   | { type: 'claimGift' }
+  | { type: 'buyDeal' }
   /** paid: for diamonds instead of the free spin. */
   | { type: 'spinWheel'; paid: boolean }
   /** Collect the medals an achievement (ACHIEVEMENTS index) has reached. */
@@ -536,6 +542,23 @@ export interface Review {
   at: number;
 }
 
+/** Festivals and flash deals (M13). */
+export interface FestState {
+  /** The festival running (its number since the start, FESTIVALS index), its points and prize tiers paid. */
+  n: number;
+  kind: number;
+  points: number;
+  prizes: number;
+  /** Festival trophies won, by kind. */
+  trophies: Record<string, number>;
+  /** Last event read (transient). */
+  seen: number;
+  /** The flash deal: its window (real minutes / DEAL_EVERY_MIN), the upgrade, the window already bought. */
+  dealN: number;
+  dealId: string;
+  dealTaken: number;
+}
+
 /** The daily gift and the lucky wheel (M13): the real clock as the UI last sent it (-1 unknown) and what was claimed when. */
 export interface DailyState {
   now: number;
@@ -849,6 +872,8 @@ export interface GameState {
   career: CareerState;
   /** The daily gift and the lucky wheel. */
   daily: DailyState;
+  /** Festivals and flash deals. */
+  fest: FestState;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];

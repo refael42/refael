@@ -13,6 +13,7 @@ import { setCelebPrivacy, setToday } from './incidents';
 import { pickSuspect } from './guide';
 import { claimMedals, openChest } from './career';
 import { claimGift, setNow, spinWheel } from './daily';
+import { buyDeal } from './festival';
 
 /** UI entry point: commands are applied at the start of the next step. */
 export function queueCommand(s: GameState, cmd: Command): void {
@@ -127,6 +128,9 @@ export function applyCommand(s: GameState, cmd: Command): void {
     }
     case 'setNow':
       setNow(s, Number(cmd.minutes));
+      return;
+    case 'buyDeal':
+      if (!buyDeal(s)) pushEvent(s, 'cmdRejected', 0, 0, REJECT.noMoney, 0, 0);
       return;
     case 'claimGift':
       if (!claimGift(s)) pushEvent(s, 'cmdRejected', 0, 0, REJECT.notReady, 0, 0);

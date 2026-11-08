@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| M13c festivals & flash deals | done | a themed festival every 3 game days with three prizes and a trophy; a 40% deal every 3 real hours |
 | M13b daily gift & wheel | done | a 7-day streak of gifts, a free spin every 4 real hours, odds shown, extra spins for diamonds |
 | M13a manager & achievements | done | levels with coins and chests (double income), 19 achievements with four medals each |
 | Calm screen | done | owner request: fewer messages, one rule for all of them, at most two at once |
@@ -724,6 +725,32 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### M13c — festivals and flash deals (done)
+`src/sim/game/festival.ts`.
+- A festival runs for three game days, one after another, each with a theme. Which one comes next
+  is a hash of the seed and its number, among those open at the tier, never the same twice in a
+  row. The themes and what earns points:
+  - On-Time Week: planes that leave on time;
+  - Charter Days: small planes;
+  - Family Fest: 4 and 5 star reviews;
+  - VIP Gala: VIP and celebrity tips;
+  - Jumbo Days: the big jets;
+  - Cargo Rush: cargo flights.
+- Three prize tiers, paid as the points come in: 300, 800 and 2,000 coins (times the tier's pay)
+  and 0, 5 and 15 diamonds. The top tier also gives that festival's trophy (kept for the career).
+- A flash deal every three real hours (the phone's clock) for twenty minutes: the best upgrade right
+  now (no construction ones) at 40% off, once a window. `addLevel` buys the one level.
+- Saved: the festival, its points and prizes, the trophies, the deal's window and whether it was
+  used.
+- UI: a small festival card opposite the goal card (name, time left, a three-part bar, points), and
+  the deal chip under it while a deal is on (-40%, the upgrade, the price, minutes left). The
+  inspector chip stacks with them. Messages for a new festival (news, so it obeys the calm rule), a
+  prize and a bought deal.
+- Tests (`tests/festival.test.ts`): festivals in turn, open at the tier, never twice in a row;
+  points only from the theme, prizes and the trophy; a real game earns points; the deal (the best
+  upgrade, the price, once a window, a new window, the end); the save.
+- E2E: `m13-festival` (the page clock set to the start of a deal window). The hook adds `fest()`.
 
 ### M13b — the daily gift and the lucky wheel (done)
 Both run on the phone's clock (`src/sim/game/daily.ts`). The UI sends it in as real minutes since

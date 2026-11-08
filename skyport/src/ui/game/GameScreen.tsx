@@ -22,6 +22,7 @@ import { IncidentsPanel } from './IncidentsPanel';
 import { RatingPanel } from './RatingPanel';
 import { CareerPanel } from './CareerPanel';
 import { DailyPanel } from './DailyPanel';
+import { FestivalCard, type DealView, type FestView } from './FestivalCard';
 import { ACHIEVEMENTS, MEDALS } from '../../data/achievements';
 import { GuideCeremony, type GuideNews } from './GuideCeremony';
 import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
@@ -92,6 +93,11 @@ import {
   medalsToClaim,
   giftReady,
   spinIn,
+  FESTIVALS,
+  DEAL_OFF,
+  flashDeal,
+  festivalLeft,
+  formatDuration,
 } from '../../sim';
 import { Icon } from '../Icon';
 import { C, SHADOW_SM } from '../theme';
@@ -702,6 +708,20 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             toast(e.c ? 'chest' : 'up', e.c ? t('toast.managerChest', { n: e.a }) : t('toast.managerLevel', { n: e.a, c: formatBig(Big.fromNumber(e.b)) }), 'good', 'level', true);
             setBump(1);
             break;
+          case 'festivalStart': {
+            const fd = FESTIVALS[e.a];
+            if (fd && e.b > 0) toast('party', t('toast.festivalStart', { name: t(`fest.${fd.kind}.name` as TKey) }), 'good', 'fest');
+            break;
+          }
+          case 'festivalPrize': {
+            const fd = FESTIVALS[e.a];
+            if (fd) toast(e.b === 3 ? 'star' : 'party', t('toast.festivalPrize', { name: t(`fest.${fd.kind}.name` as TKey), n: e.b }), 'good', undefined, true);
+            if (e.x > 0) setBump(1);
+            break;
+          }
+          case 'dealBought':
+            toast('check', t('toast.dealBought'), 'good', undefined, true);
+            break;
           case 'dailyGift':
             toast('gift', t('toast.dailyGift', { n: e.a }), 'good', undefined, true);
             if (e.x > 0) setBump(1);
@@ -1132,6 +1152,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             : [],
         };
       },
+      fest: () => ({ ...ctrl.state.fest, deal: flashDeal(ctrl.state)?.id ?? null }),
       daily: () => ({ ...ctrl.state.daily, gift: giftReady(ctrl.state), spinIn: spinIn(ctrl.state) }),
       career: () => ({ level: ctrl.state.career.level, xp: ctrl.state.career.xp, chests: ctrl.state.career.chests, toClaim: medalsToClaim(ctrl.state) }),
       // (screenshots: a manager at this level with chests to open)
@@ -1162,6 +1183,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
     };
   }, [cam, ctrl, sprites]);
   const wide = size.w > size.h * 1.25;
+  const fs = ctrl.state.fest;
+  const festDef = fs.n >= 0 ? FESTIVALS[fs.kind] : null;
+  const festView: FestView | null = festDef ? { kind: festDef.kind, icon: festDef.icon, points: fs.points, goals: festDef.goals, prizes: fs.prizes, left: formatDuration(festivalLeft(ctrl.state)) } : null;
+  const fd = flashDeal(ctrl.state);
+  const dealView: DealView | null = fd ? { id: fd.id, price: formatBig(fd.price), left: Math.ceil(fd.left), off: Math.round(DEAL_OFF * 100), canBuy: ctrl.state.money.gte(fd.price) } : null;
   const inspectorOn = !!ctrl.state.guide.visit && !ctrl.state.guide.visit.done && ctrl.state.guide.visit.picked === 0;
   const canHire =
     !!staffView &&
@@ -1299,17 +1325,22 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           />
         </View>
       ) : null}
-      {inspectorOn && !card && !panel && !welcome && !settings && !guideNews ? (
-        <Pressable
-          onPress={() => setPanel('guide')}
-          style={({ pressed }) => [styles.inspector, { top: safe.current.top + 4 }, rtl ? { left: 10 + insets.left } : { right: 10 + insets.right }, { flexDirection: dir.row, transform: [{ scale: pressed ? 0.96 : 1 + Math.sin(now / 240) * 0.03 }] }]}
-          accessibilityRole="button"
-          accessibilityLabel={t('hud.inspector')}
-          testID="inspector-chip"
-        >
-          <Icon name="search" size={22} />
-          <Text style={styles.inspectorText}>{t('hud.inspector')}</Text>
-        </Pressable>
+      {!card && !panel && !welcome && !settings && !guideNews && (inspectorOn || festView || dealView) ? (
+        <View style={[styles.side, { top: safe.current.top + 4 }, rtl ? { left: 10 + insets.left, alignItems: 'flex-start' } : { right: 10 + insets.right, alignItems: 'flex-end' }]} pointerEvents="box-none">
+          {inspectorOn ? (
+            <Pressable
+              onPress={() => setPanel('guide')}
+              style={({ pressed }) => [styles.inspector, { flexDirection: dir.row, transform: [{ scale: pressed ? 0.96 : 1 + Math.sin(now / 240) * 0.03 }] }]}
+              accessibilityRole="button"
+              accessibilityLabel={t('hud.inspector')}
+              testID="inspector-chip"
+            >
+              <Icon name="search" size={22} />
+              <Text style={styles.inspectorText}>{t('hud.inspector')}</Text>
+            </Pressable>
+          ) : null}
+          <FestivalCard fest={festView} deal={dealView} onBuy={() => ctrl.send({ type: 'buyDeal' })} />
+        </View>
       ) : null}
       {panel === 'help' ? <HelpPanel tier={ctrl.state.tier} onClose={() => setPanel(null)} /> : null}
       {card ? (
@@ -1598,7 +1629,8 @@ const styles = StyleSheet.create({
   buildDoneText: { color: '#fff', fontWeight: '800' },
   hand: { position: 'absolute', alignItems: 'center', width: 220 },
   goal: { position: 'absolute' },
-  inspector: { position: 'absolute', alignItems: 'center', gap: 6, backgroundColor: '#ffffff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 2, borderColor: '#6366f1', ...SHADOW_SM },
+  side: { position: 'absolute', gap: 6 },
+  inspector: { alignItems: 'center', gap: 6, backgroundColor: '#ffffff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 2, borderColor: '#6366f1', ...SHADOW_SM },
   inspectorText: { color: C.text, fontWeight: '800', fontSize: 13 },
   handBubble: { marginTop: 2, backgroundColor: C.text, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, maxWidth: 220 },
   handText: { color: '#fff', fontWeight: '700', fontSize: 13, textAlign: 'center' },
