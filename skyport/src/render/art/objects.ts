@@ -409,7 +409,12 @@ export function drawDesk(p: IsoPen): void {
 }
 
 /** Security: a walk-through scanner arch next to an x-ray box. */
-export function drawScanner(p: IsoPen): void {
+export function drawScanner(p: IsoPen, v = 1): void {
+  if (v >= 2) {
+    // (version 2 on: a round body scanner, a glass booth with two posts; version 3: a big rounded CT tunnel)
+    drawScannerBooth(p);
+    if (v >= 3) return drawCtTunnel(p);
+  }
   p.shadow(0.2, 0.1, 22, 8, 0.18);
   p.box(-0.3, -0.06, -0.22, 0.06, 0, 0.72, '#cbd5e1');
   p.box(0.22, -0.06, 0.3, 0.06, 0, 0.72, '#cbd5e1');
@@ -417,6 +422,30 @@ export function drawScanner(p: IsoPen): void {
   p.circle(0, 0, 0.8, 2.2, '#22c55e', false);
   p.box(0.42, -0.2, 0.95, 0.2, 0, 0.36, '#64748b');
   p.box(0.4, -0.22, 0.97, 0.22, 0.36, 0.42, '#334155');
+}
+
+/** The body scanner: a round glass booth beside the walk-through frame. */
+function drawScannerBooth(p: IsoPen): void {
+  p.shadow(-0.55, 0, 12, 6, 0.16);
+  p.box(-0.78, -0.2, -0.38, 0.2, 0, 0.05, '#94a3b8');
+  for (let z = 0.06; z < 0.8; z += 0.03) p.circle(-0.58, 0, z, 9, 'rgba(186,230,253,0.35)', false);
+  p.box(-0.76, -0.04, -0.72, 0.04, 0.05, 0.82, '#cbd5e1');
+  p.box(-0.44, -0.04, -0.4, 0.04, 0.05, 0.82, '#cbd5e1');
+  p.circle(-0.58, 0, 0.84, 9.5, '#e2e8f0');
+  p.circle(-0.58, 0, 0.86, 2, '#38bdf8', false);
+}
+
+/** The CT scanner for bags: a long rounded tunnel with a blue lit band (in place of the X-ray box). */
+function drawCtTunnel(p: IsoPen): void {
+  p.shadow(0.2, 0.1, 26, 9, 0.18);
+  p.box(-0.3, -0.06, -0.22, 0.06, 0, 0.72, '#cbd5e1');
+  p.box(0.22, -0.06, 0.3, 0.06, 0, 0.72, '#cbd5e1');
+  p.box(-0.3, -0.06, 0.3, 0.06, 0.72, 0.8, '#94a3b8');
+  p.circle(0, 0, 0.8, 2.2, '#22c55e', false);
+  p.box(0.38, -0.24, 1.05, 0.24, 0, 0.12, '#475569');
+  for (let z = 0.12; z < 0.5; z += 0.02) p.box(0.42, -0.22 + (z - 0.3) ** 2, 1.01, 0.22 - (z - 0.3) ** 2, z, z + 0.02, '#e2e8f0', false);
+  p.box(0.6, -0.23, 0.68, 0.23, 0.12, 0.5, '#2563eb', false);
+  p.box(0.36, -0.08, 1.07, 0.08, 0.1, 0.14, '#1e293b', false);
 }
 
 // ------------------------------------------------------------------ small props

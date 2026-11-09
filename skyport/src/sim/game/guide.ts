@@ -17,6 +17,7 @@ import { cleanliness } from './cleaning';
 import { pushEvent } from './events';
 import { layoutOf } from './layout';
 import { effects } from './upgrades';
+import { securityLevel } from './security';
 import { PST, type GameState, type GuideBase, type GuideState, type Person } from './types';
 
 /** Game days between editions. */
@@ -93,7 +94,8 @@ export function guideParts(s: GameState): GuideParts {
   const clean = g.samples > 0 ? g.cleanSum / g.samples : cleanliness(s);
   const mood = g.samples > 0 ? g.moodSum / g.samples : clamp((s.rating - 1) / 4);
   return {
-    safety: clamp(1 - (bad / Math.max(8, landed)) * 4),
+    // (flights kept safe, and the airport kept secure)
+    safety: clamp(1 - (bad / Math.max(8, landed)) * 4) * 0.75 + securityLevel(s) * 0.25,
     punctuality: flown > 0 ? (st.onTime - b.onTime) / flown : 1,
     infrastructure: infrastructure(s),
     service: (queues + bags) / 2,

@@ -1,5 +1,5 @@
 /** Staff roles. Adding a role = adding a row (plus i18n keys role.<id> and roleDesc.<id>). */
-export type StaffRole = 'atc' | 'fueler' | 'porter' | 'agent' | 'mechanic' | 'cleaner';
+export type StaffRole = 'atc' | 'fueler' | 'porter' | 'agent' | 'mechanic' | 'cleaner' | 'guard';
 
 export interface StaffRoleDef {
   id: StaffRole;
@@ -23,6 +23,8 @@ export const STAFF_ROLES: readonly StaffRoleDef[] = [
   { id: 'agent', unlockTier: 1, hireCost: 60, wage: 18, reaction: 1.6, outfit: 'agent' },
   { id: 'mechanic', unlockTier: 3, hireCost: 900, wage: 140, reaction: 2.4, outfit: 'mechanic' },
   { id: 'cleaner', unlockTier: 2, hireCost: 50, wage: 14, reaction: 1.4, outfit: 'cleaner', max: 10 },
+  // (airport security: patrols the halls and checks unattended bags)
+  { id: 'guard', unlockTier: 2, hireCost: 110, wage: 28, reaction: 1.6, outfit: 'guard', max: 8 },
 ];
 
 export function roleIndex(id: StaffRole): number {

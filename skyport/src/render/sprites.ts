@@ -83,6 +83,13 @@ import {
   drawKidsPlay,
   drawLitter,
   drawGuidePylon,
+  drawLostBag,
+  drawCordon,
+  drawDog,
+  DOG_FRAMES,
+  drawCameraPole,
+  drawDrone,
+  DRONE_FRAMES,
   drawPottedPlant,
   drawRental,
   drawRestrooms,
@@ -109,7 +116,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus', 'apmCar', 'railCar', 'railCab'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus', 'apmCar', 'railCar', 'railCab', 'patrol'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3, blue: 4, pink: 5, purple: 6, gold: 7 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020', '#3b82f6', '#ec4899', '#a855f7', '#facc15'];
@@ -205,7 +212,7 @@ export interface Content {
 }
 
 /** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
-const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3, apmCar: 6, railCar: 6, railCab: 6 };
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3, apmCar: 6, railCar: 6, railCab: 6, patrol: 3 };
 
 export interface SpriteSet {
   atlas: Atlas;
@@ -264,6 +271,12 @@ export interface SpriteSet {
   /** Litter on a terminal floor (LITTER_KINDS looks) and the cleaner's trolley. */
   litter: (kind: number) => number;
   cleanCart: number;
+  /** Security: an unattended bag and its cordon, the sniffer dog (dir, frame), a camera pole, a drone (frame). */
+  lostBag: number;
+  cordon: number;
+  dog: (dir: number, frame: number) => number;
+  cameraPole: number;
+  drone: (frame: number) => number;
   /** Events (M11): the stretcher, rope barriers, ticket booth, info sign, TV camera. */
   stretcher: number;
   rope: (alongY: boolean) => number;
@@ -306,6 +319,8 @@ export interface SpriteSet {
   tileBad: number;
   desk: number;
   scanner: number;
+  /** The security scanner by version (1 X-ray, 2 with a body scanner, 3 a CT scanner too). */
+  scannerV: (v: number) => number;
 }
 
 function stackSprite(b: AtlasBuilder, parts: (dir: number) => StackPart[], dir: number, silhouette?: string, modelScale = 1): number {
@@ -535,6 +550,13 @@ export function buildSprites(content: Content): SpriteSet {
   const litterBase = b.size;
   for (let k = 0; k < LITTER_KINDS; k++) b.add(-0.18 * T, -0.22 * T, 0.18 * T, 0.14 * T, (c, ox, oy) => drawLitter(new IsoPen(c, ox, oy, S), k));
   const cleanCart = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.25 * T, (c, ox, oy) => drawCleanCart(new IsoPen(c, ox, oy, S)));
+  const lostBag = b.add(-0.15 * T, -0.4 * T, 0.15 * T, 0.12 * T, (c, ox, oy) => drawLostBag(new IsoPen(c, ox, oy, S)));
+  const cordon = b.add(-0.65 * T, -0.75 * T, 0.65 * T, 0.45 * T, (c, ox, oy) => drawCordon(new IsoPen(c, ox, oy, S)));
+  const dogBase = b.size;
+  for (let d = 0; d < 8; d++) for (let f = 0; f < DOG_FRAMES; f++) b.add(-0.25 * T, -0.35 * T, 0.25 * T, 0.18 * T, (c, ox, oy) => drawDog(new IsoPen(c, ox, oy, S), d, f));
+  const cameraPole = b.add(-0.15 * T, -1.25 * T, 0.3 * T, 0.12 * T, (c, ox, oy) => drawCameraPole(new IsoPen(c, ox, oy, S)));
+  const droneBase = b.size;
+  for (let f = 0; f < DRONE_FRAMES; f++) b.add(-0.3 * T, -0.25 * T, 0.3 * T, 0.2 * T, (c, ox, oy) => drawDrone(new IsoPen(c, ox, oy, S), f));
   const stationHall = b.add(-1.0 * T, -1.3 * T, 1.8 * T, 1.4 * T, (c, ox, oy) => drawStationHall(new IsoPen(c, ox, oy, S)));
   const hotel =
     tier >= 8
@@ -608,6 +630,8 @@ export function buildSprites(content: Content): SpriteSet {
   const tileBad = b.add(-34 * S, -18 * S, 34 * S, 18 * S, (c, ox, oy) => drawTile(new IsoPen(c, ox, oy, S), 'rgba(239,68,68,0.55)'));
   const desk = b.add(-14 * S, -34 * S, 26 * S, 16 * S, (c, ox, oy) => drawDesk(new IsoPen(c, ox, oy, S)));
   const scanner = b.add(-18 * S, -34 * S, 40 * S, 18 * S, (c, ox, oy) => drawScanner(new IsoPen(c, ox, oy, S)));
+  const scanner2 = b.add(-34 * S, -36 * S, 40 * S, 20 * S, (c, ox, oy) => drawScanner(new IsoPen(c, ox, oy, S), 2));
+  const scanner3 = b.add(-34 * S, -36 * S, 46 * S, 22 * S, (c, ox, oy) => drawScanner(new IsoPen(c, ox, oy, S), 3));
   const crane = b.add(-40 * S, -80 * S, 50 * S, 24 * S, (c, ox, oy) => drawCrane(new IsoPen(c, ox, oy, S)));
 
   // world icons, drawn centered on the anchor
@@ -752,6 +776,11 @@ export function buildSprites(content: Content): SpriteSet {
     hotel,
     litter: (k) => litterBase + (k % LITTER_KINDS),
     cleanCart,
+    lostBag,
+    cordon,
+    dog: (d, f) => dogBase + (((d % 8) + 8) % 8) * DOG_FRAMES + (f % DOG_FRAMES),
+    cameraPole,
+    drone: (f) => droneBase + (f % DRONE_FRAMES),
     stretcher,
     rope: (alongY) => (alongY ? ropeY : ropeX),
     ticketBooth,
@@ -789,6 +818,7 @@ export function buildSprites(content: Content): SpriteSet {
     tileBad,
     desk,
     scanner,
+    scannerV: (v) => (v >= 3 ? scanner3 : v === 2 ? scanner2 : scanner),
   };
 }
 

@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| Airport security | done | owner request: guards, cameras, a 3-level fence, patrol cars, a dog team, drone defence; unattended bags, drones and holes in the fence |
 | Upgrade versions | done | owner request: the kiosk, billboard (animated LED), benches, tower (blinking beacon) and radar change look as they level up; a pop when bought |
 | M13c festivals & flash deals | done | a themed festival every 3 game days with three prizes and a trophy; a 40% deal every 3 real hours |
 | M13b daily gift & wheel | done | a 7-day streak of gifts, a free spin every 4 real hours, odds shown, extra spins for diamonds |
@@ -726,6 +727,59 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### Airport security (owner request, after the upgrade versions)
+"More airport security." `src/sim/game/security.ts`, a new upgrade category and staff role, and three
+incidents.
+- Guards (a new staff role from the small airfield, up to 8):
+  - they walk rounds of the halls;
+  - when a bag is noticed, the guard of its hall walks to it; with no guard there, the nearest
+    one comes over, out of sight for the walk through the corridors, then in at the hall's edge.
+    No walking through walls;
+  - the bot hires one for every two halls.
+- Security upgrades (a "Security" category):
+  - cameras (10 levels): a bag is noticed sooner. On the map, poles at the terminals' and the
+    fence's corners, one more a level;
+  - the security fence (3 levels): a taller fence with more wires, then barbed wire, then sensor
+    boxes with green lights. Holes in it get rarer;
+  - patrol cars (2): white with a blue-and-yellow band and a blue light bar. They go round inside
+    the fence and answer a hole in it or a drone;
+  - a sniffer dog team: bags are checked twice as fast, and the dog walks with the first guard;
+  - drone defence (2 levels): drone closures are shorter.
+- Scanner versions with the scanner speed line: the X-ray tunnel (1), a round glass body scanner
+  beside it (8), a CT scanner in place of the X-ray box (15). The world is rebuilt when the
+  version or the fence's level changes.
+- Incidents:
+  - unattended bag: next to a passenger in a hall, or along a hall's front edge.
+    - Security lanes work at half speed until it is checked.
+    - It is noticed after 22 s, 2 s less a camera level.
+    - A guard checks it in 8 s (4 s with the dog).
+    - Within 35 s is a bonus (40 times the tier's pay). With no guards, the city's security comes
+      after 60 s.
+    - On the map, the bag stands in a ring of yellow-and-black tape with a blinking warning.
+  - drone (from the city airport): every runway closes for 45 s, 30% less a drone-defence level and
+    20% less with a patrol car out at the runway end. On the map, a hovering quadcopter with a
+    blinking red light.
+  - hole in the fence (from the regional airport): the runways hold until a patrol car (or the
+    inspection car) has driven to it and checked it. It is rarer with a better fence. On the map,
+    cones and a blinking warning.
+- The security level (0..1): cameras, the fence, patrols, guards for the halls, the dog team,
+  drone defence. It counts for a quarter of the Aviation Guide's safety, and it makes bags rarer.
+- Tests (`tests/security.test.ts`):
+  - names in both languages;
+  - the level and what each part does;
+  - a bag: slow lanes, a guard, the bonus;
+  - a bag without guards;
+  - a drone, and a shorter drone with defence and a patrol;
+  - a hole in the fence, with and without a patrol car;
+  - security incidents in a real game.
+- The review test plays 2,000 s instead of 1,500. The new role changes the seed's draw of
+  applicants and so the flights, and 1,500 s was just short of the six reviews it checks for.
+- E2E: `sec-bag`, `sec-drone`, `sec-breach`, `sec-scanners`, `sec-panel`. The hook adds
+  `security(kind)` and `guards()`.
+  - `apron-bus` now runs at 4x with a longer wait. The seed's first remote-stand flight comes later
+    since the draw changed; the buses work as before.
+- Balance (bot, seed 1, 90 minutes): 303 flights, 7 diversions.
 
 ### Upgrade versions and animations (owner request, after M13c)
 "Grow the upgrades, with different versions of them, and animations where needed." The upgrades you

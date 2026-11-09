@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift', 'shield', 'drone',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -462,6 +462,32 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       canvas.drawRect(Skia.XYWHRect(44, 12, 4, 42), f);
       canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 24, 10, 13), 2, 2), f);
       circ(32, 30, 2, '#78350f');
+      break;
+    }
+    case 'shield': {
+      // a security shield: navy with a gold rim and a white check
+      f.setColor(Skia.Color('#facc15'));
+      canvas.drawPath(path([32, 4, 56, 12, 54, 34, 32, 60, 10, 34, 8, 12]), f);
+      f.setColor(Skia.Color('#1e3a8a'));
+      canvas.drawPath(path([32, 9, 51, 15, 49, 33, 32, 54, 15, 33, 13, 15]), f);
+      stroke([22, 32, 29, 39, 43, 24], '#ffffff', 5);
+      break;
+    }
+    case 'drone': {
+      // a quadcopter seen from above: four rotors on two arms, a red light
+      stroke([14, 14, 50, 50], '#334155', 5);
+      stroke([50, 14, 14, 50], '#334155', 5);
+      for (const [x, y] of [
+        [14, 14],
+        [50, 14],
+        [14, 50],
+        [50, 50],
+      ] as const) {
+        circ(x, y, 10, '#94a3b8');
+        circ(x, y, 4, '#475569');
+      }
+      circ(32, 32, 9, '#1e293b');
+      circ(32, 32, 3, '#ef4444');
       break;
     }
     case 'gift': {

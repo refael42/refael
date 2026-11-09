@@ -352,7 +352,7 @@ export interface Flight {
 
 /** A vehicle an incident sends out (the runway inspection car, a fire truck). */
 export interface IncidentUnit {
-  kind: 'opsCar' | 'fire' | 'ambulance';
+  kind: 'opsCar' | 'fire' | 'ambulance' | 'patrol';
   x: number;
   y: number;
   px: number;
@@ -643,6 +643,20 @@ export interface Litter {
 }
 
 /** A cleaner at work: walks the area they look after, picks litter up. */
+/** A guard on patrol in the halls (one per guard on the payroll; transient). */
+export interface Guard {
+  staffId: number;
+  area: number;
+  x: number;
+  y: number;
+  px: number;
+  py: number;
+  heading: number;
+  /** The bag (incident id) being walked to, 0 none. */
+  target: number;
+  until: number;
+}
+
 export interface Sweeper {
   /** The staff member (StaffMember.id). */
   staffId: number;
@@ -864,6 +878,8 @@ export interface GameState {
   /** Litter on the terminal floors and the cleaners at work (transient). */
   litter: Litter[];
   sweepers: Sweeper[];
+  /** Guards on patrol in the halls (transient). */
+  guards: Guard[];
   /** Passenger reviews (newest first) and the bonus earned by the good ones, not collected yet. */
   reviews: Review[];
   reviewBonus: number;

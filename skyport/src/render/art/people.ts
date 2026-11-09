@@ -45,6 +45,8 @@ export const OUTFITS: readonly Outfit[] = [
   { id: 'guard', skin: '#a8714f', hair: '#1f1a17', hairStyle: 'bald', shirt: '#111827', pants: '#111827', shoes: '#0b0b0b', hat: { kind: 'headset', color: '#0b0b0b' }, size: 1.05 },
   { id: 'star', skin: '#f0c9a8', hair: '#fde68a', hairStyle: 'long', shirt: '#f0abfc', pants: '#f8fafc', shoes: '#c026d3', bag: { kind: 'briefcase', color: '#facc15' }, size: 1 },
   // M12: the cleaner, in teal with a light vest
+  // security (owner request): the guard, in navy with a black cap and a yellow vest
+  { id: 'guard', skin: '#d9a07a', hair: '#1f1a17', hairStyle: 'short', shirt: '#1e3a8a', pants: '#0f172a', shoes: '#111111', vest: '#facc15', hat: { kind: 'cap', color: '#0f172a' }, size: 1 },
   { id: 'cleaner', skin: '#c58c63', hair: '#2b2b2b', hairStyle: 'bun', shirt: '#0f766e', pants: '#115e59', shoes: '#1d1d22', vest: '#99f6e4', hat: { kind: 'cap', color: '#0f766e' }, size: 1 },
 ];
 

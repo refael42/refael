@@ -21,6 +21,7 @@ import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, ty
 import { parkedCars, roadCars, type CarPose } from './traffic';
 import { drawEventScenes, drawHolidayDecor } from './drawEvents';
 import { versionOf } from '../data/versions';
+import { noticeSeconds } from '../sim/game/security';
 import type { World } from './world';
 
 const WANT_ICON: Record<number, IconName> = {
@@ -38,6 +39,7 @@ const RADAR_POS: readonly [number, number] = [16.5, 15.3];
 const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) => o.id === r.outfit)));
 const MECH_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'mechanic'));
 const CLEANER_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'cleaner'));
+const GUARD_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'guard'));
 const PAX_OUTFIT_IDX = PAX_OUTFITS.map((id) => Math.max(0, OUTFITS.findIndex((o) => o.id === id)));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
@@ -310,6 +312,84 @@ export function drawGame(
     w.sprite(sp.person(CLEANER_OUTFIT, svy < 0, svx < 0, frame), sx, sy, 1, x + y);
   }
 
+  // guards on patrol (one checking a bag stands by it); the bag itself, behind a ring of tape
+  for (const g of s.guards) {
+    if (g.until > s.time) continue;
+    const x = lerp(g.px, g.x, a);
+    const y = lerp(g.py, g.y, a);
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    if (!visible(sx, sy, 30)) continue;
+    const moving = Math.hypot(g.x - g.px, g.y - g.py) > 1e-4;
+    const svx = Math.cos(g.heading) - Math.sin(g.heading);
+    const svy = Math.cos(g.heading) + Math.sin(g.heading);
+    const frame = moving ? Math.floor(o.time * 8 + g.staffId * 0.37) % 4 : 4;
+    w.sprite(sp.person(GUARD_OUTFIT, svy < 0, svx < 0, frame), sx, sy, 1, x + y);
+    // the dog team walks with the first guard
+    if ((s.upg.k9 ?? 0) > 0 && g === s.guards[0]) {
+      const dx = x + Math.cos(g.heading + 1.2) * 0.3;
+      const dy = y + Math.sin(g.heading + 1.2) * 0.3;
+      w.sprite(sp.dog(dirIndex(g.heading), moving ? Math.floor(o.time * 10) % 2 : 0), isoX(dx, dy), isoY(dx, dy), 1, dx + dy);
+    }
+  }
+  for (const inc of s.incidents) {
+    if (inc.kind !== 'bag' || inc.state !== 'active') continue;
+    const sx = isoX(inc.x, inc.y);
+    const sy = isoY(inc.x, inc.y);
+    if (!visible(sx, sy, 40)) continue;
+    w.decal(sp.cordon, sx, sy, 1, 0.95);
+    w.sprite(sp.lostBag, sx, sy, 1, inc.x + inc.y);
+    // noticed: a blinking marker over it
+    if (s.time - inc.at >= noticeSeconds(s) && Math.floor(o.time * 2) % 2 === 0) w.over(sp.icon('warn'), sx, sy - 26, 0.5 * inv + 0.2);
+  }
+
+  // a drone hovering over the field (its light blinks)
+  for (const inc of s.incidents) {
+    if (inc.kind !== 'drone' || inc.state !== 'active') continue;
+    const hx = inc.x + Math.sin(o.time * 0.7) * 0.6;
+    const hy = inc.y + Math.cos(o.time * 0.5) * 0.4;
+    const hz = 1.4 + Math.sin(o.time * 2.1) * 0.12;
+    const sx = isoX(hx, hy);
+    if (!visible(sx, isoY(hx, hy), 60)) continue;
+    w.shadow(sp.drone(0), sx + 2, isoY(hx, hy) + 2, 1.4, 0.18);
+    w.sprite(sp.drone(Math.floor(o.time * 20) % 2), sx, isoY(hx, hy, hz), 1.6, hx + hy + 3);
+    if (Math.floor(o.time * 3) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), sx, isoY(hx, hy, hz + 0.08), 0.7, 0.9);
+  }
+  // a hole in the fence: cones by it and a blinking warning until it is checked
+  for (const inc of s.incidents) {
+    if (inc.kind !== 'breach' || inc.state !== 'active') continue;
+    const sx = isoX(inc.x, inc.y);
+    const sy = isoY(inc.x, inc.y);
+    if (!visible(sx, sy, 60)) continue;
+    for (const [dx, dy] of [
+      [-0.45, -0.3],
+      [0.45, -0.3],
+    ] as const)
+      w.sprite(sp.cone, isoX(inc.x + dx, inc.y + dy), isoY(inc.x + dx, inc.y + dy), 1, inc.x + dx + inc.y + dy);
+    if (Math.floor(o.time * 2) % 2 === 0) w.over(sp.icon('warn'), sx, sy - 30, 0.55 * inv + 0.25);
+  }
+  // security cameras on poles at the terminals' corners and the fence's (one more each camera level)
+  const cams = s.upg.cctv ?? 0;
+  if (cams > 0) {
+    const spots = cameraSpots(LL);
+    for (let i = 0; i < Math.min(cams, spots.length); i++) deco(sp.cameraPole, spots[i], 0.4);
+  }
+  // patrol cars on their rounds inside the fence (when not out on a call)
+  const cars = s.upg.patrol ?? 0;
+  if (cars > 0 && s.tier >= 3) {
+    const busy = s.incidents.some((i) => i.state !== 'done' && i.units.some((u) => u.kind === 'patrol' && u.state !== 'home'));
+    const PATROL = VEHICLE_KINDS.indexOf('patrol');
+    for (let k = busy ? 1 : 0; k < cars; k++) {
+      const pt = patrolRound(LL, o.time * 1.6 + k * 0.5);
+      const sx = isoX(pt[0], pt[1]);
+      const sy = isoY(pt[0], pt[1]);
+      if (!visible(sx, sy, 40)) continue;
+      const d = dirIndex(pt[2]);
+      w.shadow(sp.vehicleShadow(PATROL, d), sx + 2, sy + 2, 1, 0.28);
+      w.sprite(sp.vehicle(PATROL, d), sx, sy, 1, pt[0] + pt[1]);
+    }
+  }
+
   // the hub: the people mover (its riders are inside) and the train at the station
   if (s.apm && LL.sat) {
     const APM = VEHICLE_KINDS.indexOf('apmCar');
@@ -528,6 +608,37 @@ function planeLights(w: SnapWriter, f: Flight, sp: SpriteSet, x: number, y: numb
 }
 
 /** Movable decorations the player owns (from upgrade levels). */
+/** Where the security cameras go, in order: the main terminal's corners, then the fence's. */
+export function cameraSpots(L: TierLayout): [number, number][] {
+  const out: [number, number][] = [];
+  const corners = (b: readonly number[]) => out.push([b[0] - 0.25, b[1] - 0.25], [b[2] + 0.25, b[3] + 0.25], [b[2] + 0.25, b[1] - 0.25], [b[0] - 0.25, b[3] + 0.25]);
+  const T3 = bigTerminal(L, 1);
+  if (T3) corners(T3.building.box);
+  if (L.building) corners(L.building.box);
+  const F = L.field;
+  out.push([F.x0 + 0.4, F.y1 - 0.4], [F.x1 - 0.4, F.y1 - 0.4], [F.x1 - 0.4, F.y0 + 0.4], [F.x0 + 0.4, F.y0 + 0.4]);
+  return out;
+}
+
+/** A patrol car's place on its round inside the fence (x, y and heading) at time t (in rounds of 1 per perimeter tile... by distance). */
+export function patrolRound(L: TierLayout, dist: number): [number, number, number] {
+  const F = L.field;
+  const x0 = F.x0 + 0.8;
+  const x1 = F.x1 - 0.8;
+  const y0 = F.y0 + 0.8;
+  const y1 = F.y1 - 0.8;
+  const w = x1 - x0;
+  const h = y1 - y0;
+  let d = ((dist % (2 * (w + h))) + 2 * (w + h)) % (2 * (w + h));
+  if (d < w) return [x0 + d, y1, 0];
+  d -= w;
+  if (d < h) return [x1, y1 - d, -Math.PI / 2];
+  d -= h;
+  if (d < w) return [x1 - d, y0, Math.PI];
+  d -= w;
+  return [x0, y0 + d, Math.PI / 2];
+}
+
 /** Where the Aviation Guide's pylon stands: in front of Terminal 3 (or Terminal 1, or by the hut). */
 export function guidePylonSpot(L: TierLayout): [number, number] {
   const T3 = bigTerminal(L, 1);
@@ -604,7 +715,7 @@ function drawIncidents(
       if (Math.floor(o.time * 4 + inc.id) % 2 === 0) {
         const b = BEACON[u.kind];
         const p = modelPoint(x, y, 0, d, b.u * VEHICLE_SCALE, b.v * VEHICLE_SCALE, b.h * VEHICLE_SCALE);
-        w.fx(sp.glow(u.kind === 'fire' ? GLOW_COLORS.red : u.kind === 'ambulance' ? GLOW_COLORS.blue : GLOW_COLORS.amber), p.x, p.y, 1.1, 0.95);
+        w.fx(sp.glow(u.kind === 'fire' ? GLOW_COLORS.red : u.kind === 'ambulance' || u.kind === 'patrol' ? GLOW_COLORS.blue : GLOW_COLORS.amber), p.x, p.y, 1.1, 0.95);
       } else if (u.kind === 'ambulance') {
         // the ambulance flashes blue and red
         const b = BEACON[u.kind];

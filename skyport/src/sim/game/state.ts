@@ -32,6 +32,7 @@ export function createGame(seed: number): GameState {
     buses: [],
     litter: [],
     sweepers: [],
+    guards: [],
     reviews: [],
     reviewBonus: 0,
     guide: newGuide(),

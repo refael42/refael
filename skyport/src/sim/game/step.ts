@@ -8,6 +8,7 @@ import { updateBuses } from './buses';
 import { updateApm } from './apm';
 import { updateRail } from './rail';
 import { updateCleaning } from './cleaning';
+import { updateGuards } from './security';
 import { layoutOf } from './layout';
 import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
@@ -47,6 +48,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateRail(s, layoutOf(s.tier).rail);
   updateTerminal(s, dt);
   updateCleaning(s, dt);
+  updateGuards(s, dt);
   payWages(s);
   updateStaffLife(s, dt);
   updateApplicants(s);

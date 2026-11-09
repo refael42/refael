@@ -45,7 +45,8 @@ describe('passenger reviews', () => {
 
   it('flights leave reviews; a lost bag or a late plane is what people write about', () => {
     const s = airfield(3);
-    play(s, 1500);
+    // (long enough for a dozen flights to leave, whatever the seed's draw of applicants)
+    play(s, 2000);
     expect(s.reviews.length).toBeGreaterThan(5);
     expect(s.reviews.length).toBeLessThanOrEqual(MAX_REVIEWS);
     // newest first

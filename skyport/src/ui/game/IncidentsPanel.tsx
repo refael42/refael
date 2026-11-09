@@ -10,6 +10,9 @@ import { C } from '../theme';
 import { Sheet } from './Sheet';
 
 const ICON: Record<IncidentKind, IconName> = {
+  bag: 'bag',
+  drone: 'drone',
+  breach: 'shield',
   storm: 'cloud',
   birds: 'warn',
   fod: 'wrench',

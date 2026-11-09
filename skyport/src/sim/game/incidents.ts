@@ -43,6 +43,7 @@ import { doorSide, layoutOf, opsOf } from './layout';
 import { chaikin, makeSample, samplePath } from './path';
 import type { Flight, GameState, Incident, IncidentUnit, Planned } from './types';
 import { level } from './upgrades';
+import { bagBonus, bagSpot, breachChance, breachSpot, checkSeconds, droneSeconds, droneSpot, guardAtBag, guardCount, NO_GUARD_SECONDS, BAG_GOOD, PATROL_SPEED, payBonus, securityLevel, securityUnit } from './security';
 
 const SAMPLE = makeSample();
 /** Seconds an emergency may circle before it gives up on you. */
@@ -78,6 +79,10 @@ export function runwayBlocked(s: GameState, runway = 1): 'storm' | 'closed' | nu
   if (s.incidents.length === 0 && s.time >= s.runwayClosedUntil) return null;
   if (stormActive(s)) return 'storm';
   if (live(s, 'airshow')) return 'closed';
+  // a drone over the field closes every runway; a hole in the fence holds the runways until it is checked
+  if (live(s, 'drone')) return 'closed';
+  const br = live(s, 'breach');
+  if (br && !br.units.some((u) => u.state === 'work' || u.state === 'back')) return 'closed';
   if (runway === 1 && (live(s, 'fod') || s.time < s.runwayClosedUntil)) return 'closed';
   return null;
 }
@@ -169,7 +174,7 @@ function possible(s: GameState, kind: IncidentKind): boolean {
   if (s.tierSwitch || !layoutOf(s.tier).depot) return false;
   if (activeIncidents(s).some((i) => i.kind === kind)) return false;
   // one runway closure at a time
-  const closing = (k: IncidentKind) => k === 'storm' || k === 'fod' || k === 'airshow';
+  const closing = (k: IncidentKind) => k === 'storm' || k === 'fod' || k === 'airshow' || k === 'drone' || k === 'breach';
   if (closing(kind) && activeIncidents(s).some((i) => closing(i.kind))) return false;
   switch (kind) {
     case 'emergency':
@@ -182,6 +187,8 @@ function possible(s: GameState, kind: IncidentKind): boolean {
       return freeStands(s) >= 2 && celebPlane(s) >= 0;
     case 'historic':
       return freeStands(s) >= 2 && freeStands(s, 'small') >= 1;
+    case 'bag':
+      return bagSpot(s, 1) !== null;
     default:
       return true;
   }
@@ -230,7 +237,8 @@ function schedule(s: GameState, spawn: (p: Planned) => Flight | null): void {
   s.nextIncidentAt = s.time + INCIDENT_GAP[0] + (INCIDENT_GAP[1] - INCIDENT_GAP[0]) * gh(s, s.tick);
   const pool = INCIDENTS.filter((d) => d.minTier <= s.tier && !cooling(s, d.kind) && possible(s, d.kind));
   // a bird-control program makes flocks rarer
-  const weight = (k: IncidentKind, w: number) => (k === 'birds' ? w * Math.max(0.2, 1 - 0.3 * level(s, 'birdControl')) : w);
+  const weight = (k: IncidentKind, w: number) =>
+    k === 'birds' ? w * Math.max(0.2, 1 - 0.3 * level(s, 'birdControl')) : k === 'breach' ? w * breachChance(s) : k === 'bag' ? w * (1.2 - 0.6 * securityLevel(s)) : w;
   const total = pool.reduce((a, d) => a + weight(d.kind, d.weight), 0);
   if (total <= 0) return;
   let r = gh(s, s.tick + 7) * total;
@@ -300,6 +308,25 @@ export function startIncident(s: GameState, kind: IncidentKind, spawn: (p: Plann
     return inc;
   }
   const inc = newIncident(s, kind);
+  if (kind === 'bag') {
+    const at = bagSpot(s, inc.id)!;
+    inc.x = at[0];
+    inc.y = at[1];
+  }
+  if (kind === 'drone') {
+    const at = droneSpot(s);
+    inc.x = at[0];
+    inc.y = at[1];
+    inc.ends = s.time + droneSeconds(s);
+    // a patrol car drives out to the runway end
+    if (level(s, 'patrol') > 0) inc.units.push(securityUnit(s, [at[0], at[1] + 0.6]));
+  }
+  if (kind === 'breach') {
+    const at = breachSpot(s, inc.id);
+    inc.x = at[0];
+    inc.y = at[1];
+    inc.units.push(securityUnit(s, at));
+  }
   if (kind === 'fod') {
     // somewhere on the landing half of the runway
     const r = L.runway;
@@ -326,8 +353,8 @@ function sendUnit(u: IncidentUnit, pts: number[], state: IncidentUnit['state']):
   u.state = state;
 }
 
-function moveUnit(u: IncidentUnit, dt: number): boolean {
-  u.pathPos += UNIT_SPEED * dt;
+function moveUnit(u: IncidentUnit, dt: number, speed = UNIT_SPEED): boolean {
+  u.pathPos += speed * dt;
   samplePath(u.path, u.pathPos, SAMPLE);
   u.x = SAMPLE.x;
   u.y = SAMPLE.y;
@@ -419,6 +446,31 @@ export function updateIncidents(s: GameState, dt: number, spawn: (p: Planned) =>
       case 'historic':
         updateHistoric(s, inc, dt);
         break;
+      case 'bag':
+        updateBag(s, inc, dt);
+        break;
+      case 'drone':
+        for (const u of inc.units) if (u.state === 'out' && moveUnit(u, dt, PATROL_SPEED)) u.state = 'work';
+        if (s.time >= inc.ends) {
+          for (const u of inc.units) unitHome(u);
+          finish(s, inc, level(s, 'droneDefense') > 0 ? 1 : 0);
+        }
+        break;
+      case 'breach': {
+        const u = inc.units[0];
+        if (u && u.state === 'out' && moveUnit(u, dt, PATROL_SPEED)) {
+          u.state = 'work';
+          u.pathPos = 0;
+        } else if (u && u.state === 'work') {
+          u.pathPos += dt;
+          if (u.pathPos >= 5) {
+            unitHome(u);
+            // (a patrol car on the airfield in time: well handled)
+            finish(s, inc, u.kind === 'patrol' && s.time - inc.at < 45 ? 1 : 0);
+          }
+        }
+        break;
+      }
     }
   }
   // keep the panel short
@@ -426,6 +478,39 @@ export function updateIncidents(s: GameState, dt: number, spawn: (p: Planned) =>
   if (done.length > KEEP_DONE) {
     const drop = new Set(done.slice(0, done.length - KEEP_DONE));
     s.incidents = s.incidents.filter((i) => !drop.has(i));
+  }
+}
+
+/** Back to the depot the way it came. */
+function unitHome(u: IncidentUnit): void {
+  const back: number[] = [];
+  for (let i = u.path.length - 3; i >= 0; i -= 3) back.push(u.path[i], u.path[i + 1], 0);
+  u.path = [u.x, u.y, 0, ...back];
+  u.pathPos = 0;
+  u.state = 'back';
+}
+
+/** An unattended bag: noticed (cameras help), a guard walks to it and checks it; the lanes are slow meanwhile. */
+function updateBag(s: GameState, inc: Incident, dt: number): void {
+  void dt;
+  if (guardCount(s) === 0) {
+    // nobody of ours: the city's security comes, late
+    if (s.time - inc.at >= NO_GUARD_SECONDS) finish(s, inc, 0);
+    return;
+  }
+  const g = guardAtBag(s, inc);
+  if (!g) {
+    inc.choice = 0;
+    return;
+  }
+  // (choice holds when the check began)
+  if (inc.choice === 0) inc.choice = s.time;
+  if (s.time - inc.choice >= checkSeconds(s)) {
+    const quick = s.time - inc.at <= BAG_GOOD;
+    const bonus = quick ? bagBonus(s) : 0;
+    if (bonus > 0) payBonus(s, bonus);
+    g.target = 0;
+    finish(s, inc, quick ? 1 : 0, bonus);
   }
 }
 

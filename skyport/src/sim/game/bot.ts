@@ -11,6 +11,7 @@ import { checkTier } from './tiers';
 import { addedPerDay, airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
 import { bestOffer } from './upgrades';
 import { WANT, type Command, type GameState } from './types';
+import { guardsNeeded } from './security';
 
 export interface BotOptions {
   /** Seconds before reacting to a request. */
@@ -79,6 +80,8 @@ export function botHires(s: GameState, keep = 1.3): Command[] {
   if (s.tier >= 2) {
     const n = Math.min(8, Math.ceil(cleanAreas(layoutOf(s.tier)).length / 2));
     for (let k = 0; k < n; k++) wants.push(STAFF_ROLES.findIndex((r) => r.id === 'cleaner'));
+    // and guards: one for every two halls
+    for (let k = 0; k < guardsNeeded(s); k++) wants.push(STAFF_ROLES.findIndex((r) => r.id === 'guard'));
   }
   const counted = new Map<number, number>();
   for (const role of wants) {

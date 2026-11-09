@@ -558,3 +558,99 @@ export function drawGuidePylon(p: IsoPen, stars: number): void {
   // a thin line under the stars
   p.line(-0.22, y, 0.57, 0.22, y, 0.57, '#94a3b8', 1);
 }
+
+// ------------------------------------------------------------------ security (owner request)
+
+/** An unattended bag: a dark suitcase standing alone. */
+export function drawLostBag(p: IsoPen): void {
+  p.shadow(0, 0, 8, 4, 0.2);
+  p.box(-0.09, -0.05, 0.09, 0.05, 0, 0.24, '#334155');
+  p.box(-0.09, -0.051, 0.09, -0.05, 0.08, 0.1, '#64748b', false);
+  p.line(-0.04, 0, 0.24, -0.04, 0, 0.31, '#94a3b8', 1.4);
+  p.line(0.04, 0, 0.24, 0.04, 0, 0.31, '#94a3b8', 1.4);
+  p.line(-0.04, 0, 0.31, 0.04, 0, 0.31, '#94a3b8', 1.4);
+}
+
+/** The cordon round an unattended bag: four posts and yellow-and-black tape (a decal on the floor plus the posts). */
+export function drawCordon(p: IsoPen): void {
+  const r = 0.55;
+  const pts: [number, number][] = [
+    [-r, -r],
+    [r, -r],
+    [r, r],
+    [-r, r],
+  ];
+  for (let i = 0; i < 4; i++) {
+    const [ax, ay] = pts[i];
+    const [bx, by] = pts[(i + 1) % 4];
+    for (let k = 0; k < 6; k++) {
+      const t0 = k / 6;
+      const t1 = (k + 1) / 6;
+      p.line(ax + (bx - ax) * t0, ay + (by - ay) * t0, 0.32, ax + (bx - ax) * t1, ay + (by - ay) * t1, 0.32, k % 2 ? '#111827' : '#facc15', 2.2);
+    }
+  }
+  for (const [x, y] of pts) p.line(x, y, 0, x, y, 0.36, '#475569', 2);
+}
+
+/** Frames of the sniffer dog's trot. */
+export const DOG_FRAMES = 2;
+
+/** A sniffer dog seen from one side (dir 0..7 picks the facing), trotting (frame). */
+export function drawDog(p: IsoPen, dir: number, frame: number): void {
+  const a = (dir / 8) * Math.PI * 2;
+  const ux = Math.cos(a);
+  const uy = Math.sin(a);
+  const at = (u: number, v: number): [number, number] => [ux * u - uy * v, uy * u + ux * v];
+  p.shadow(0, 0, 9, 4, 0.18);
+  const leg = frame ? 0.02 : -0.02;
+  for (const [u, v, s] of [
+    [0.1, -0.03, 1],
+    [0.1, 0.03, -1],
+    [-0.1, -0.03, -1],
+    [-0.1, 0.03, 1],
+  ] as const) {
+    const [x, y] = at(u + leg * s, v);
+    p.line(x, y, 0, x, y, 0.1, '#3f2a1d', 2);
+  }
+  const [bx0, by0] = at(-0.13, 0);
+  const [bx1, by1] = at(0.12, 0);
+  p.line(bx0, by0, 0.12, bx1, by1, 0.13, '#8b5a2b', 6);
+  const [hx, hy] = at(0.17, 0);
+  p.circle(hx, hy, 0.17, 3.2, '#8b5a2b');
+  const [nx, ny] = at(0.22, 0);
+  p.circle(nx, ny, 0.15, 1.6, '#1f1a17', false);
+  const [ex, ey] = at(0.15, 0.03);
+  p.line(ex, ey, 0.19, ex, ey, 0.24, '#3f2a1d', 2);
+  const [tx, ty] = at(-0.15, 0);
+  const [tx2, ty2] = at(-0.2, 0);
+  p.line(tx, ty, 0.14, tx2, ty2, 0.2, '#8b5a2b', 1.8);
+  // the harness
+  const [hx0, hy0] = at(-0.02, 0);
+  p.circle(hx0, hy0, 0.14, 2.6, '#1e3a8a', false);
+}
+
+/** A security camera on a pole, looking out (a white body with a dark lens, a small red light). */
+export function drawCameraPole(p: IsoPen): void {
+  p.shadow(0, 0, 6, 3, 0.18);
+  p.line(0, 0, 0, 0, 0, 0.95, '#64748b', 2.4);
+  p.box(-0.02, -0.02, 0.18, 0.06, 0.92, 1.02, '#f8fafc');
+  p.box(0.18, -0.005, 0.21, 0.045, 0.94, 1.0, '#1e293b');
+  p.circle(0.0, 0.02, 1.04, 1.4, '#ef4444', false);
+}
+
+/** Frames of the drone's rotors. */
+export const DRONE_FRAMES = 2;
+
+/** A small drone hovering (z is drawn by the caller): four rotors (blurred discs, frame), a red light. */
+export function drawDrone(p: IsoPen, frame: number): void {
+  const arms: [number, number][] = [
+    [0.12, 0.12],
+    [-0.12, 0.12],
+    [0.12, -0.12],
+    [-0.12, -0.12],
+  ];
+  for (const [x, y] of arms) p.line(0, 0, 0.02, x, y, 0.02, '#334155', 2);
+  p.box(-0.05, -0.05, 0.05, 0.05, 0, 0.05, '#1e293b');
+  for (const [x, y] of arms) p.circle(x, y, 0.04, 5, frame ? 'rgba(148,163,184,0.55)' : 'rgba(203,213,225,0.45)', false);
+  p.circle(0, 0, 0.06, 1.3, '#ef4444', false);
+}

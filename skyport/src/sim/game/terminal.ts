@@ -105,7 +105,9 @@ export function checkinSeconds(s: GameState): number {
 }
 
 export function scanSeconds(s: GameState): number {
-  return SCAN_SECONDS / (1 + effectValue(s, 'scanSpeed'));
+  // (an unattended bag in a hall: security works carefully and slowly until it is checked)
+  const bag = s.incidents.length > 0 && s.incidents.some((i) => i.kind === 'bag' && i.state === 'active');
+  return (SCAN_SECONDS / (1 + effectValue(s, 'scanSpeed'))) * (bag ? 2 : 1);
 }
 
 /**

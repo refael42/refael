@@ -284,9 +284,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // which stands are built, as a string so the world is rebuilt only when it changes
   const [openSig, setOpenSig] = useState(() => ctrl.state.standOpen.map((o) => (o ? '1' : '0')).join(''));
   // counters, lanes and the fuel farm size in one number (each a digit)
-  const [stations, setStations] = useState(() => (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
+  // (and the fence's level and the scanners' version: digits above those)
+  const [stations, setStations] = useState(() => versionOf('scanner', ctrl.state.upg.scanner ?? 0) * 10000 + (ctrl.state.upg.fence ?? 0) * 1000 + (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
   const world = useMemo(
-    () => buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100)),
+    () =>
+      buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100) % 10, Math.floor(stations / 1000) % 10, Math.max(1, Math.floor(stations / 10000))),
     [L, sprites, tier, openSig, stations],
   );
   const cam = useMemo(() => {
@@ -656,7 +658,9 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             // (emergencies and VIPs have their own moment when it happens)
             if (!kind || kind === 'emergency' || kind === 'vip' || kind === 'birds' || kind === 'medical' || kind === 'celebrity') break;
             if (kind === 'historic' && e.b <= 0) break;
-            if (e.b > 0 && kind !== 'fod') toast('coin', t(`inc.${kind}.good` as TKey, { n: formatBig(Big.fromNumber(e.c)) }), 'good');
+            // (security: how it went, well or late)
+            if (kind === 'bag' || kind === 'drone' || kind === 'breach') toast(e.b > 0 ? 'shield' : 'warn', t(`inc.${kind}.${e.b > 0 ? 'good' : 'bad'}` as TKey, { n: formatBig(Big.fromNumber(e.c)) }), e.b > 0 ? 'good' : 'info');
+            else if (e.b > 0 && kind !== 'fod') toast('coin', t(`inc.${kind}.good` as TKey, { n: formatBig(Big.fromNumber(e.c)) }), 'good');
             else if (kind === 'storm') toast('sun', t('inc.storm.end'), 'good');
             else if (kind === 'fod') toast('check', t('inc.fod.good'), 'good');
             break;
@@ -825,7 +829,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const openNow = st.standOpen.map((o) => (o ? '1' : '0')).join('');
       setOpenSig((old) => (old === openNow ? old : openNow));
       setTier((old) => (old === st.tier ? old : st.tier));
-      const sig = (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
+      const sig = versionOf('scanner', st.upg.scanner ?? 0) * 10000 + (st.upg.fence ?? 0) * 1000 + (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
       setStations((old) => (old === sig ? old : sig));
       updateTutorial();
       setRev((r) => r + 1);
@@ -1171,6 +1175,12 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      // (screenshots: start a security incident now; where its spot is)
+      security: (kind: 'bag' | 'drone' | 'breach') => {
+        const inc = startIncident(ctrl.state, kind, (p) => spawnFlight(ctrl.state, p));
+        return inc ? { x: inc.x, y: inc.y } : null;
+      },
+      guards: () => ctrl.state.guards.map((g) => ({ x: g.x, y: g.y, target: g.target })),
       // (screenshots: these upgrade levels at once)
       setUpg: (lv: Record<string, number>) => {
         for (const [k, v] of Object.entries(lv)) ctrl.state.upg[k] = v;
@@ -1598,6 +1608,9 @@ const INCIDENT_ICON: Partial<Record<IncidentKind, Toast['icon']>> = {
   medical: 'medic',
   celebrity: 'camera',
   historic: 'ticket',
+  bag: 'bag',
+  drone: 'drone',
+  breach: 'shield',
 };
 
 /** Today on the player's device (an epoch day), or the given day of a holiday for screenshots. */

@@ -22,6 +22,7 @@ export * from './game/upgrades';
 export * from './game/rating';
 export { cleanliness } from './game/cleaning';
 export { reviewAverage, MAX_REVIEWS } from './game/reviews';
+export { securityLevel, guardCount, guardsNeeded, noticeSeconds, droneSeconds } from './game/security';
 export { FESTIVALS, FESTIVAL_PRIZES, FESTIVAL_DAYS, DEAL_OFF, flashDeal, festivalLeft, type FestivalKind } from './game/festival';
 export { DAILY_GIFTS, WHEEL, WHEEL_TOTAL, SPIN_GEMS, SPIN_EVERY_MIN, giftReady, spinIn, type Gift } from './game/daily';
 export { xpToNext, LEVEL_COINS, CHEST_EVERY, CHEST_GEMS, BOOST_SECONDS, medalsOf, medalsToClaim, incomeBoost, metric } from './game/career';

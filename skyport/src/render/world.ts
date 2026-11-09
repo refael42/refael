@@ -479,7 +479,7 @@ function buildingStatics(b: TerminalBuilding, sprites: SpriteSet, statics: Stati
 /** Painted ring radius of a stand by its size. */
 const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0, fenceLevel = 0, scanV = 1): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
@@ -846,6 +846,8 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     ];
     const rails = Skia.PathBuilder.Make();
     const posts = Skia.PathBuilder.Make();
+    const wire = Skia.PathBuilder.Make();
+    const sensors: [number, number, number][] = [];
     // along the landside the terminal, the road and the parking lot are the boundary: no fence there
     const TL = L.terminal;
     const landX0 = Math.min(...TL.counters.map((q) => q[0]), ...TL.lanes.map((q) => q[0]), ...TL.belt.map((q) => q[0])) - 0.9;
@@ -863,20 +865,45 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         // (no fence through a terminal building)
         const inBuilding = [L.building?.box, L.t3?.building.box, L.t4?.building.box].some((b) => !!b && (x0 + x1) / 2 > b[0] - 0.2 && (x0 + x1) / 2 < b[2] + 0.2 && (y0 + y1) / 2 > b[1] - 0.2 && (y0 + y1) / 2 < b[3] + 0.2);
         if (gate || inBuilding) continue;
-        for (const z of [0.24, 0.13]) {
+        // (the security fence grows: taller with more wires, then barbed wire on top, then sensors)
+        const railsZ = fenceLevel >= 1 ? [0.46, 0.34, 0.22, 0.1] : [0.24, 0.13];
+        for (const z of railsZ) {
           rails.moveTo(isoX(x0, y0), isoY(x0, y0, z));
           rails.lineTo(isoX(x1, y1), isoY(x1, y1, z));
         }
+        const top = fenceLevel >= 1 ? 0.56 : 0.32;
         posts.moveTo(isoX(x0, y0), isoY(x0, y0));
-        posts.lineTo(isoX(x0, y0), isoY(x0, y0, 0.32));
+        posts.lineTo(isoX(x0, y0), isoY(x0, y0, top));
+        if (fenceLevel >= 2) {
+          // barbed wire: a zigzag along the top
+          const k = 6;
+          wire.moveTo(isoX(x0, y0), isoY(x0, y0, top));
+          for (let j = 1; j <= k; j++) {
+            const t = j / k;
+            wire.lineTo(isoX(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t), isoY(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, top + (j % 2 ? 0.05 : 0)));
+          }
+        }
+        if (fenceLevel >= 3 && i % 3 === 0) sensors.push([x0, y0, top]);
       }
     }
-    g.s.setColor(Skia.Color('#f1e6d2'));
-    g.s.setStrokeWidth(1.4);
+    g.s.setColor(Skia.Color(fenceLevel >= 1 ? '#cbd5e1' : '#f1e6d2'));
+    g.s.setStrokeWidth(fenceLevel >= 1 ? 1.1 : 1.4);
     c.drawPath(rails.build(), g.s);
-    g.s.setColor(Skia.Color('#c8b08a'));
+    g.s.setColor(Skia.Color(fenceLevel >= 1 ? '#64748b' : '#c8b08a'));
     g.s.setStrokeWidth(2.4);
     c.drawPath(posts.build(), g.s);
+    if (fenceLevel >= 2) {
+      g.s.setColor(Skia.Color('#94a3b8'));
+      g.s.setStrokeWidth(1);
+      c.drawPath(wire.build(), g.s);
+    }
+    // the smart fence's sensor boxes, with a green light each
+    for (const [x, y, z] of sensors) {
+      g.f.setColor(Skia.Color('#1e293b'));
+      c.drawRect(Skia.XYWHRect(isoX(x, y) - 2, isoY(x, y, z - 0.08) - 2, 4, 4), g.f);
+      g.f.setColor(Skia.Color('#22c55e'));
+      c.drawCircle(isoX(x, y), isoY(x, y, z - 0.08) - 3, 1.2, g.f);
+    }
     // stand numbers painted next to each built stand
     L.stands.forEach((st, i) => {
       if (open[i] && st.size !== 'heli' && !st.hangar) paintText(c, String(i + 1), st.pos[0] + (RING[st.size] ?? 0.78) + 0.17, st.pos[1] - 0.55, '#facc15', 0.028);
@@ -941,14 +968,14 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   // static sprites with depth: buildings and trees
   const T2 = L.terminal;
   T2.counters.slice(0, counters).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
-  T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
+  T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scannerV(scanV), x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
   for (const T3 of [L.t3, L.t4]) {
     if (!T3) continue;
     buildingStatics(T3.building, sprites, statics, tier);
     const st = T3.st;
     const n3 = Math.min(st.counters.length, counters * 2);
     st.counters.slice(0, n3).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
-    st.lanes.slice(0, Math.min(st.lanes.length, lanes * 2)).forEach((c) => statics.push({ sprite: sprites.scanner, x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
+    st.lanes.slice(0, Math.min(st.lanes.length, lanes * 2)).forEach((c) => statics.push({ sprite: sprites.scannerV(scanV), x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
     for (const b of [...(st.passport?.booths ?? []), ...(st.arrPassport?.booths ?? [])]) statics.push({ sprite: sprites.termProp('booth'), x: isoX(b[0] - 0.22, b[1] - 0.15), y: isoY(b[0] - 0.22, b[1] - 0.15), depth: b[0] + b[1] + 0.1, r: 40 });
     const G = T3.garage;
     statics.push({ sprite: sprites.garage, x: isoX(G[0], G[1]), y: isoY(G[0], G[1]), depth: G[0] + G[1] + 3.6, r: 260 });

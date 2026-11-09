@@ -30,6 +30,7 @@ const CAT_COLOR: Record<UpgradeCategory, string> = {
   vehicles: '#f59e0b',
   marketing: '#ec4899',
   comfort: '#14b8a6',
+  security: '#1e3a8a',
 };
 
 function lineValue(def: UpgradeDef, lvl: number): number {
@@ -80,6 +81,16 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       const cap = (l: number) => formatBig(Big.fromNumber(storeCap(fuel ? 'fuel' : 'parts', l)));
       return t('eff.storage', { a: cap(from), b: cap(to), unit: t(fuel ? 'sup.liters' : 'sup.pieces') });
     }
+    case 'cctv':
+      return t('eff.cctv', { a: from, b: to });
+    case 'fence':
+      return t('eff.fence', { a: from, b: to });
+    case 'patrol':
+      return t('eff.patrol', { a: from, b: to });
+    case 'k9':
+      return t('eff.k9');
+    case 'drone':
+      return t('eff.drone', { a: Math.round(Math.min(70, 30 * from)), b: Math.round(Math.min(70, 30 * to)) });
     default:
       return t('eff.speed', { a: Math.round(a * 100), b: Math.round(b * 100) });
   }

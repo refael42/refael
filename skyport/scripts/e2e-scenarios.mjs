@@ -442,11 +442,12 @@ export default [
   {
     name: 'apron-bus',
     viewport: { width: 844, height: 390 },
-    query: '/?seed=65&tier=3&full=1&warp=380&auto=1&hook=1&cam=27.5,20.6,1.25',
+    // (at 4x: when the first remote stand gets a bus depends on the seed's traffic)
+    query: '/?seed=65&tier=3&full=1&warp=380&auto=1&hook=1&speed=4&cam=27.5,20.6,1.25',
     wait: 1500,
     touch: true,
     actions: async (page) => {
-      await page.waitForFunction(() => window.__skyport && window.__skyport.buses().some((b) => b.state !== 'idle' && b.x > 23), null, { timeout: 60000 });
+      await page.waitForFunction(() => window.__skyport && window.__skyport.buses().some((b) => b.state !== 'idle' && b.x > 23), null, { timeout: 150000 });
     },
   },
   // the hub: the whole airport, Concourse D, the people mover between the terminals, the railway station
@@ -784,6 +785,75 @@ export default [
       await page.waitForTimeout(600);
     },
   },
+  // security (owner request): guards, an unattended bag with its cordon, a drone, a hole in the fence and the patrol car, cameras and the fence
+  {
+    name: 'sec-bag',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=79&tier=4&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport && window.__skyport.guards().length > 0, null, { timeout: 60000, polling: 250 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ cctv: 8 });
+        const at = window.__skyport.security('bag');
+        window.__skyport.lookAt(at.x, at.y, 2.0);
+      });
+      // (spotted after a few seconds; a guard on the way to it)
+      await page.waitForFunction(() => window.__skyport.guards().some((g) => g.target > 0), null, { timeout: 30000 });
+      await page.waitForTimeout(1200);
+    },
+  },
+  {
+    name: 'sec-drone',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=79&tier=5&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ patrol: 1, droneDefense: 1 });
+        const at = window.__skyport.security('drone');
+        window.__skyport.lookAt(at.x - 1, at.y + 0.5, 1.6);
+      });
+      await page.waitForTimeout(2500);
+    },
+  },
+  {
+    name: 'sec-breach',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=79&tier=4&full=1&crew=1&warp=300&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        window.__skyport.setUpg({ patrol: 1, fence: 3, cctv: 10 });
+        const at = window.__skyport.security('breach');
+        window.__skyport.lookAt(at.x, at.y - 1, 1.5);
+      });
+      await page.waitForTimeout(6000);
+    },
+  },
+  {
+    name: 'sec-scanners',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=79&tier=4&full=1&crew=1&warp=200&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ scanner: 16, cctv: 6 }));
+      await page.waitForTimeout(1500);
+      await page.evaluate(() => window.__skyport.lookAt(47.6, 12.6, 2.0));
+      await page.waitForTimeout(1500);
+    },
+  },
+  { name: 'sec-panel', viewport: { width: 844, height: 390 }, query: '/?seed=79&tier=4&full=1&crew=1&warp=300&auto=1&panel=upgrades', wait: 2500, touch: true, langs: ['he'] },
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

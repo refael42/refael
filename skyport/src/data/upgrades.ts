@@ -2,7 +2,7 @@
  * Upgrade catalog. Adding an upgrade = adding a row (plus i18n keys
  * upg.<id> and upgDesc.<id>). Costs grow geometrically per level.
  */
-export type UpgradeCategory = 'runway' | 'apron' | 'terminal' | 'vehicles' | 'marketing' | 'comfort';
+export type UpgradeCategory = 'runway' | 'apron' | 'terminal' | 'vehicles' | 'marketing' | 'comfort' | 'security';
 
 export type EffectKind =
   | 'paxFee'
@@ -34,7 +34,13 @@ export type EffectKind =
   /** Bird control (falconer, scare cannons): fewer flocks over the runway. */
   | 'birds'
   /** More bins in the terminals: less litter on the floors. */
-  | 'litter';
+  | 'litter'
+  /** Security (see security.ts): cameras, the fence, patrol cars, the dog team, drone defence. */
+  | 'cctv'
+  | 'fence'
+  | 'patrol'
+  | 'k9'
+  | 'drone';
 
 export interface UpgradeDef {
   id: string;
@@ -53,7 +59,7 @@ export interface UpgradeDef {
   buildSeconds?: readonly number[];
   /** Airport tier needed for each level (1-based index = level). */
   levelTier?: readonly number[];
-  icon: 'coin' | 'pax' | 'land' | 'takeoff' | 'fuel' | 'bag' | 'star' | 'clock' | 'team' | 'plus' | 'wrench' | 'sun' | 'plane' | 'gear' | 'check';
+  icon: 'coin' | 'pax' | 'land' | 'takeoff' | 'fuel' | 'bag' | 'star' | 'clock' | 'team' | 'plus' | 'wrench' | 'sun' | 'plane' | 'gear' | 'check' | 'shield' | 'camera' | 'drone';
 }
 
 export const MILESTONES = [10, 25, 50, 75, 100] as const;
@@ -96,11 +102,17 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // supplies: bigger fuel farm and parts store
   { id: 'fuelFarm', category: 'vehicles', unlockTier: 2, maxLevel: 5, baseCost: 1200, growth: 7, effect: 'storage', per: 1, buildSeconds: [60, 90, 120, 180, 240], levelTier: [2, 3, 3, 4, 5], icon: 'fuel' },
   { id: 'partsStore', category: 'vehicles', unlockTier: 3, maxLevel: 4, baseCost: 15000, growth: 5, effect: 'storage', per: 1, buildSeconds: [60, 90, 150, 200], levelTier: [3, 4, 4, 5], icon: 'wrench' },
+  // security (owner request)
+  { id: 'cctv', category: 'security', unlockTier: 2, maxLevel: 10, baseCost: 350, growth: 1.55, effect: 'cctv', per: 1, icon: 'camera' },
+  { id: 'fence', category: 'security', unlockTier: 2, maxLevel: 3, baseCost: 1200, growth: 4, effect: 'fence', per: 1, levelTier: [2, 3, 5], icon: 'shield' },
+  { id: 'patrol', category: 'security', unlockTier: 3, maxLevel: 2, baseCost: 4000, growth: 3, effect: 'patrol', per: 1, levelTier: [3, 5], icon: 'shield' },
+  { id: 'k9', category: 'security', unlockTier: 4, maxLevel: 1, baseCost: 9000, growth: 1, effect: 'k9', per: 1, icon: 'team' },
+  { id: 'droneDefense', category: 'security', unlockTier: 4, maxLevel: 2, baseCost: 25000, growth: 3, effect: 'drone', per: 1, levelTier: [4, 6], icon: 'drone' },
   { id: 'birdControl', category: 'runway', unlockTier: 3, maxLevel: 3, baseCost: 12000, growth: 6, effect: 'birds', per: 1, levelTier: [3, 4, 5], icon: 'star' },
   { id: 'night', category: 'comfort', unlockTier: 1, maxLevel: 10, baseCost: 250, growth: 1.8, effect: 'offlineCap', per: 1, icon: 'clock' },
 ];
 
-export const CATEGORIES: readonly UpgradeCategory[] = ['runway', 'apron', 'terminal', 'vehicles', 'marketing', 'comfort'];
+export const CATEGORIES: readonly UpgradeCategory[] = ['runway', 'apron', 'terminal', 'vehicles', 'security', 'marketing', 'comfort'];
 
 export function upgradeDef(id: string): UpgradeDef | undefined {
   return UPGRADES.find((u) => u.id === id);

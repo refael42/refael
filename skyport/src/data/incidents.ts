@@ -3,7 +3,7 @@
  * picks one now and then (by weight, among those the tier allows and that are
  * not cooling down). Text lives in i18n (inc.<kind>.title / .body).
  */
-export type IncidentKind = 'storm' | 'birds' | 'fod' | 'emergency' | 'vip' | 'airshow' | 'medical' | 'celebrity' | 'historic';
+export type IncidentKind = 'storm' | 'birds' | 'fod' | 'emergency' | 'vip' | 'airshow' | 'medical' | 'celebrity' | 'historic' | 'bag' | 'drone' | 'breach';
 
 export interface IncidentDef {
   kind: IncidentKind;
@@ -20,6 +20,10 @@ export interface IncidentDef {
 }
 
 export const INCIDENTS: readonly IncidentDef[] = [
+  // security (owner request): an unattended bag in a hall, a drone over the field, a hole in the fence
+  { kind: 'bag', minTier: 2, weight: 3, duration: 0, lead: 0, cooldown: 900 },
+  { kind: 'drone', minTier: 4, weight: 2, duration: 0, lead: 0, cooldown: 1500 },
+  { kind: 'breach', minTier: 3, weight: 2, duration: 0, lead: 0, cooldown: 1200 },
   // lightning nearby: no landings, no takeoffs, no fueling on the ramp
   { kind: 'storm', minTier: 2, weight: 3, duration: 75, lead: 45, cooldown: 1200 },
   // a flock over the runway: the next plane to land takes a bird and needs an inspection

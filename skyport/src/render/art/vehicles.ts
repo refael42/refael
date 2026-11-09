@@ -427,6 +427,30 @@ function opsCar(): StackPart[] {
 }
 
 /**
+ * Security patrol car: a white sedan with a blue and yellow checked band on
+ * the doors, a "security" bar on the roof (blue lights) and a push bar.
+ */
+function patrolCar(): StackPart[] {
+  const body = '#f8fafc';
+  const parts: StackPart[] = [];
+  for (const u of [0.14, -0.14]) for (const v of [-0.078, 0.078]) parts.push(...wheel(u, v, 0.035, 0.027));
+  parts.push(rbox(-0.23, -0.088, 0.23, 0.088, 0.03, 0.1, 0.03, (t) => paint(body, t), { dots: [...lights(0.232, 0.062, 0.085, '#fff7d6', 0.011), ...lights(-0.232, 0.062, 0.085, '#ef4444', 0.01)] }));
+  parts.push(cabin(-0.1, -0.082, 0.12, 0.082, 0.1, 0.175, 0.05, 0.04, glass, { outline: false, bias: 1 }));
+  parts.push(boxPart(-0.08, -0.075, 0.08, 0.075, 0.175, 0.185, (t) => shade(body, 0.1 + t * 0.15)));
+  // the checked band on the doors
+  for (const v of [-0.09, 0.088]) for (let k = 0; k < 10; k++) {
+    const u0 = -0.2 + k * 0.04;
+    parts.push(boxPart(u0, v, u0 + 0.04, v + 0.002, 0.055, 0.075, () => (k % 2 ? '#facc15' : '#1d4ed8'), { outline: false, bias: 2 }));
+  }
+  // the light bar (blue at the ends) and the push bar in front
+  parts.push(boxPart(-0.03, -0.065, 0.04, 0.065, 0.185, 0.205, (t) => (t > 0.5 ? '#93c5fd' : '#1e293b'), { outline: false, bias: 4 }));
+  parts.push(boxPart(-0.025, -0.07, 0.035, -0.04, 0.186, 0.207, () => '#2563eb', { outline: false, bias: 5 }));
+  parts.push(boxPart(-0.025, 0.04, 0.035, 0.07, 0.186, 0.207, () => '#2563eb', { outline: false, bias: 5 }));
+  parts.push(boxPart(0.23, -0.07, 0.25, 0.07, 0.03, 0.08, () => '#1f2937', { outline: false, bias: 2 }));
+  return parts;
+}
+
+/**
  * Ambulance: a white box body on a van cab, a red band and a yellow-and-green
  * checkered stripe, a blue light bar, a rear door with a step, and a white
  * star (six arms) in a red disc on the sides and the roof.
@@ -550,7 +574,7 @@ function railCar(cab: boolean): StackPart[] {
 
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus' | 'apmCar' | 'railCar' | 'railCab';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus' | 'apmCar' | 'railCar' | 'railCab' | 'patrol';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -580,6 +604,8 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return railCar(false);
     case 'railCab':
       return railCar(true);
+    case 'patrol':
+      return patrolCar();
   }
 }
 
@@ -598,4 +624,5 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   apmCar: { u: 0, v: 0, h: 0 },
   railCar: { u: 0, v: 0, h: 0 },
   railCab: { u: 0, v: 0, h: 0 },
+  patrol: { u: 0.005, v: 0, h: 0.21 },
 };
