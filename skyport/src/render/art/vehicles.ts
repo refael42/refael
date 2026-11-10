@@ -572,9 +572,125 @@ function railCar(cab: boolean): StackPart[] {
   return parts;
 }
 
+// ------------------------------------------------------------------ ground service equipment (owner request: the small details)
+
+/** Ground power unit: a small two-axle trailer, a vented box, a cable reel on top and a tow bar. */
+function gpuCart(): StackPart[] {
+  const body = '#facc15';
+  const parts: StackPart[] = [];
+  for (const [u, v] of [[0.09, 0.07], [0.09, -0.07], [-0.09, 0.07], [-0.09, -0.07]]) parts.push(...wheel(u, v, 0.028, 0.02));
+  parts.push(boxPart(-0.13, -0.075, 0.13, 0.075, 0.03, 0.05, () => '#374151'));
+  parts.push(rbox(-0.12, -0.07, 0.12, 0.07, 0.05, 0.17, 0.015, (t) => paint(body, t)));
+  // vent slats down the sides
+  for (const v of [-0.072, 0.07]) for (let k = 0; k < 4; k++) parts.push(boxPart(-0.08 + k * 0.035, v, -0.06 + k * 0.035, v + 0.002, 0.08, 0.14, () => '#1f2937', { outline: false, bias: 2 }));
+  // a control panel with a green light
+  parts.push(boxPart(0.12, -0.04, 0.122, 0.04, 0.1, 0.15, () => '#1e293b', { outline: false, bias: 2, dots: [{ u: 0.124, v: 0.02, h: 0.135, r: 0.008, color: '#22c55e' }] }));
+  // the cable reel on top, black cable coiled on it
+  parts.push(tubePart({ u0: -0.05, u1: 0.05, v: 0, hc: 0.205, r: 0.035, tall: 1, profile: () => 1, color: (_h, rel) => shade('#111827', rel * 0.3), samples: 6 }));
+  parts.push(boxPart(-0.06, -0.008, -0.05, 0.008, 0.17, 0.24, () => '#64748b', { outline: false, bias: 2 }));
+  parts.push(boxPart(0.05, -0.008, 0.06, 0.008, 0.17, 0.24, () => '#64748b', { outline: false, bias: 2 }));
+  // tow bar
+  parts.push(boxPart(0.13, -0.008, 0.26, 0.008, 0.05, 0.06, () => '#475569', { outline: false }));
+  return parts;
+}
+
+/** Belt loader: a low chassis, the driver at the side, a conveyor belt rising to the hold door. */
+function beltLoader(): StackPart[] {
+  const body = '#f8fafc';
+  const parts: StackPart[] = [];
+  for (const [u, v] of [[0.16, 0.08], [0.16, -0.08], [-0.2, 0.08], [-0.2, -0.08]]) parts.push(...wheel(u, v, 0.03, 0.022));
+  parts.push(rbox(-0.26, -0.085, 0.24, 0.085, 0.03, 0.08, 0.015, (t) => paint(body, t)));
+  // hazard stripes along the skirt
+  for (let k = 0; k < 10; k++) for (const v of [-0.087, 0.085]) parts.push(boxPart(-0.24 + k * 0.048, v, -0.216 + k * 0.048, v + 0.002, 0.04, 0.06, () => (k % 2 ? '#111827' : '#facc15'), { outline: false, bias: 1 }));
+  // the driver on a seat on the right, a small wheel
+  parts.push(boxPart(-0.06, 0.04, 0.02, 0.085, 0.08, 0.11, () => '#334155', { outline: false, bias: 1 }));
+  parts.push(...driver(-0.02, 0.06, 0.1, '#f97316'));
+  // the belt: rising from the back (low) to the front (high), dark rubber between yellow rails
+  const n = 12;
+  for (let k = 0; k < n; k++) {
+    const u0 = -0.28 + (k / n) * 0.62;
+    const u1 = u0 + 0.62 / n + 0.004;
+    const h = 0.11 + (k / n) * 0.3;
+    parts.push(boxPart(u0, -0.045, u1, 0.025, h, h + 0.025, (t) => shade('#1f2937', t * 0.25), { bias: 3 + k * 0.01 }));
+    for (const v of [-0.055, 0.025]) parts.push(boxPart(u0, v, u1, v + 0.01, h + 0.01, h + 0.045, () => '#facc15', { outline: false, bias: 4 + k * 0.01 }));
+  }
+  // the struts holding it up
+  parts.push(boxPart(0.04, -0.03, 0.06, 0.01, 0.08, 0.27, () => '#64748b', { outline: false, bias: 2 }));
+  parts.push(boxPart(0.2, -0.03, 0.22, 0.01, 0.08, 0.35, () => '#64748b', { outline: false, bias: 2 }));
+  parts.push(boxPart(0.1, -0.02, 0.13, 0.02, 0.08, 0.12, () => '#f97316', { outline: false, bias: 5 }));
+  return parts;
+}
+
+/** Catering truck: a cab and a white box raised on a scissor lift to the plane's door, a platform in front. */
+function cateringTruck(): StackPart[] {
+  const parts: StackPart[] = [];
+  for (const [u, v] of [[0.24, 0.085], [0.24, -0.085], [-0.2, 0.085], [-0.2, -0.085]]) parts.push(...wheel(u, v, 0.034, 0.026));
+  parts.push(boxPart(-0.3, -0.09, 0.3, 0.09, 0.035, 0.07, (t) => shade('#1f2937', t * 0.2)));
+  // the cab (front), white with a blue stripe
+  parts.push(rbox(0.18, -0.095, 0.34, 0.095, 0.06, 0.17, 0.02, (t) => paint('#f8fafc', t), { dots: lights(0.342, 0.06, 0.09, '#fff7d6', 0.011) }));
+  parts.push(cabin(0.18, -0.09, 0.335, 0.09, 0.17, 0.24, 0.04, 0.0, glass, { outline: false, bias: 1 }));
+  parts.push(boxPart(0.2, -0.02, 0.24, 0.02, 0.24, 0.26, (t) => (t > 0.5 ? '#ffb347' : '#f97316'), { outline: false, bias: 4 }));
+  // the scissor lift: crossing arms under the box
+  for (let k = 0; k < 5; k++) {
+    const h = 0.08 + k * 0.045;
+    for (const v of [-0.08, 0.072]) {
+      parts.push(boxPart(-0.28 + (k % 2) * 0.22, v, -0.06 + (k % 2) * 0.22, v + 0.008, h, h + 0.012, () => '#64748b', { outline: false, bias: 2 }));
+      parts.push(boxPart(-0.28 + ((k + 1) % 2) * 0.22, v, -0.06 + ((k + 1) % 2) * 0.22, v + 0.008, h + 0.02, h + 0.032, () => '#94a3b8', { outline: false, bias: 2 }));
+    }
+  }
+  // the box: white with the caterer's blue band and a roller door, up at door height
+  parts.push(rbox(-0.3, -0.1, 0.15, 0.1, 0.3, 0.52, 0.015, (t) => paint('#ffffff', t * 0.8)));
+  for (const v of [-0.102, 0.1]) parts.push(boxPart(-0.29, v, 0.14, v + 0.002, 0.4, 0.44, () => '#0ea5e9', { outline: false, bias: 2 }));
+  for (let k = 0; k < 5; k++) parts.push(boxPart(0.152, -0.06, 0.154, 0.06, 0.32 + k * 0.035, 0.33 + k * 0.035, () => '#cbd5e1', { outline: false, bias: 2 }));
+  // the platform out to the door, with a railing
+  parts.push(boxPart(0.15, -0.08, 0.26, 0.08, 0.3, 0.315, () => '#94a3b8'));
+  for (const v of [-0.08, 0.072]) parts.push(boxPart(0.15, v, 0.26, v + 0.008, 0.315, 0.38, () => '#facc15', { outline: false, bias: 3 }));
+  return parts;
+}
+
+/** Pushback tug: a long, low, heavy tractor with a cab at one end and a tow bar to the nose gear. */
+function pushbackTug(): StackPart[] {
+  const parts: StackPart[] = [];
+  for (const [u, v] of [[0.13, 0.095], [0.13, -0.095], [-0.13, 0.095], [-0.13, -0.095]]) parts.push(...wheel(u, v, 0.042, 0.032));
+  parts.push(rbox(-0.22, -0.1, 0.22, 0.1, 0.03, 0.115, 0.02, (t) => paint('#1f2937', t), { dots: [...lights(0.222, 0.07, 0.08, '#fff7d6', 0.011), ...lights(-0.222, 0.07, 0.08, '#ef4444', 0.01)] }));
+  // a yellow top deck with black chevrons
+  parts.push(boxPart(-0.2, -0.09, 0.2, 0.09, 0.115, 0.13, () => '#facc15'));
+  for (let k = 0; k < 5; k++) parts.push(boxPart(-0.18 + k * 0.08, -0.03, -0.15 + k * 0.08, 0.03, 0.13, 0.132, () => '#111827', { outline: false, bias: 2 }));
+  // the low cab with its glass and a beacon
+  parts.push(cabin(-0.2, -0.085, -0.04, 0.085, 0.13, 0.22, 0.03, 0.02, glass, { outline: false, bias: 2 }));
+  parts.push(boxPart(-0.2, -0.08, -0.05, 0.08, 0.22, 0.232, () => '#1f2937', { bias: 3 }));
+  parts.push(boxPart(-0.14, -0.015, -0.11, 0.015, 0.232, 0.255, (t) => (t > 0.5 ? '#ffb347' : '#f97316'), { outline: false, bias: 4 }));
+  // the tow bar out front
+  parts.push(boxPart(0.22, -0.012, 0.46, 0.012, 0.055, 0.07, () => '#f97316', { outline: false }));
+  parts.push(boxPart(0.44, -0.03, 0.47, 0.03, 0.045, 0.075, () => '#475569', { outline: false, bias: 1 }));
+  return parts;
+}
+
+/** Passenger stairs truck: a small cab and a flight of stairs with handrails up to a covered top. */
+function stairsTruck(): StackPart[] {
+  const parts: StackPart[] = [];
+  for (const [u, v] of [[0.24, 0.08], [0.24, -0.08], [-0.24, 0.08], [-0.24, -0.08]]) parts.push(...wheel(u, v, 0.032, 0.024));
+  parts.push(boxPart(-0.3, -0.085, 0.32, 0.085, 0.035, 0.07, (t) => shade('#1f2937', t * 0.2)));
+  parts.push(rbox(0.2, -0.09, 0.33, 0.09, 0.07, 0.15, 0.02, (t) => paint('#f8fafc', t), { dots: lights(0.332, 0.06, 0.1, '#fff7d6', 0.011) }));
+  parts.push(cabin(0.2, -0.085, 0.325, 0.085, 0.15, 0.22, 0.03, 0.0, glass, { outline: false, bias: 1 }));
+  // the steps, rising toward the back (the end at the door)
+  const n = 9;
+  for (let k = 0; k < n; k++) {
+    const u0 = 0.16 - (k / n) * 0.44;
+    const h = 0.08 + (k / n) * 0.34;
+    parts.push(boxPart(u0 - 0.05, -0.055, u0, 0.055, h, h + 0.025, (t) => shade('#cbd5e1', -0.1 + t * 0.2), { bias: 3 + k * 0.01 }));
+    for (const v of [-0.065, 0.055]) parts.push(boxPart(u0 - 0.05, v, u0, v + 0.01, h + 0.025, h + 0.1, () => '#e2e8f0', { outline: false, bias: 4 + k * 0.01 }));
+  }
+  // the covered top with the airline-blue canopy
+  parts.push(boxPart(-0.36, -0.07, -0.26, 0.07, 0.42, 0.44, () => '#94a3b8'));
+  parts.push(boxPart(-0.37, -0.075, -0.25, 0.075, 0.58, 0.6, () => '#2563eb', { bias: 6 }));
+  for (const v of [-0.07, 0.062]) parts.push(boxPart(-0.36, v, -0.352, v + 0.008, 0.44, 0.58, () => '#94a3b8', { outline: false, bias: 5 }));
+  return parts;
+}
+
 // ------------------------------------------------------------------ entry points
 
-export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus' | 'apmCar' | 'railCar' | 'railCab' | 'patrol';
+export type VehicleKind = 'fuel' | 'bags' | 'mech' | 'tanker' | 'partsTruck' | 'fire' | 'opsCar' | 'ambulance' | 'limo' | 'apronBus' | 'apmCar' | 'railCar' | 'railCab' | 'patrol' | 'gpu' | 'belt' | 'catering' | 'tug' | 'stairs';
 
 export function buildVehicle(kind: VehicleKind): StackPart[] {
   switch (kind) {
@@ -606,6 +722,16 @@ export function buildVehicle(kind: VehicleKind): StackPart[] {
       return railCar(true);
     case 'patrol':
       return patrolCar();
+    case 'gpu':
+      return gpuCart();
+    case 'belt':
+      return beltLoader();
+    case 'catering':
+      return cateringTruck();
+    case 'tug':
+      return pushbackTug();
+    case 'stairs':
+      return stairsTruck();
   }
 }
 
@@ -625,4 +751,9 @@ export const BEACON: Record<VehicleKind, { u: number; v: number; h: number }> = 
   railCar: { u: 0, v: 0, h: 0 },
   railCab: { u: 0, v: 0, h: 0 },
   patrol: { u: 0.005, v: 0, h: 0.21 },
+  gpu: { u: 0, v: 0, h: 0 },
+  belt: { u: 0.115, v: 0, h: 0.12 },
+  catering: { u: 0.22, v: 0, h: 0.26 },
+  tug: { u: -0.125, v: 0, h: 0.255 },
+  stairs: { u: 0, v: 0, h: 0 },
 };

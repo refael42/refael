@@ -102,6 +102,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // supplies: bigger fuel farm and parts store
   { id: 'fuelFarm', category: 'vehicles', unlockTier: 2, maxLevel: 5, baseCost: 1200, growth: 7, effect: 'storage', per: 1, buildSeconds: [60, 90, 120, 180, 240], levelTier: [2, 3, 3, 4, 5], icon: 'fuel' },
   { id: 'partsStore', category: 'vehicles', unlockTier: 3, maxLevel: 4, baseCost: 15000, growth: 5, effect: 'storage', per: 1, buildSeconds: [60, 90, 150, 200], levelTier: [3, 4, 4, 5], icon: 'wrench' },
+  // ground services (owner request): power for the cabin, the caterer's trucks, pushback tugs at the gates
+  { id: 'gpu', category: 'vehicles', unlockTier: 2, maxLevel: 3, baseCost: 700, growth: 3, effect: 'comfort', per: 0.02, levelTier: [2, 3, 4], icon: 'gear' },
+  { id: 'catering', category: 'vehicles', unlockTier: 3, maxLevel: 10, baseCost: 1500, growth: 1.6, effect: 'kiosk', per: 0.5, icon: 'coin' },
+  { id: 'pushback', category: 'vehicles', unlockTier: 4, maxLevel: 3, baseCost: 6000, growth: 2.5, effect: 'taxiSpeed', per: 0.04, icon: 'takeoff' },
   // security (owner request)
   { id: 'cctv', category: 'security', unlockTier: 2, maxLevel: 10, baseCost: 350, growth: 1.55, effect: 'cctv', per: 1, icon: 'camera' },
   { id: 'fence', category: 'security', unlockTier: 2, maxLevel: 3, baseCost: 1200, growth: 4, effect: 'fence', per: 1, levelTier: [2, 3, 5], icon: 'shield' },

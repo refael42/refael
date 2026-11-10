@@ -828,6 +828,21 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         g.ellipse(st.pos[0], st.pos[1], r, r, '#ffffff');
         g.ellipse(st.pos[0], st.pos[1], r - 0.12, r - 0.12, GRAVEL);
         g.line(st.pos[0] + r * 0.7, st.pos[1] + r, st.pos[0] - r * 0.45, st.pos[1] - r * 0.7, '#fbbf24', 3.4);
+        // (the small details: a white stop bar across the lead-in where the nose wheel stops, and for
+        // the airliners' stands a red dashed line round the stand that ground vehicles must not cross)
+        const bx = st.pos[0] - r * 0.45;
+        const by = st.pos[1] - r * 0.7;
+        const nx = 1.7 / Math.hypot(1.7, 1.15);
+        const ny = -1.15 / Math.hypot(1.7, 1.15);
+        g.line(bx - nx * 0.2, by - ny * 0.2, bx + nx * 0.2, by + ny * 0.2, '#ffffff', 3);
+        if (st.size !== 'small') {
+          const rr = r + 0.16;
+          for (let k = 0; k < 44; k += 2) {
+            const a0 = (k / 44) * Math.PI * 2;
+            const a1 = ((k + 1) / 44) * Math.PI * 2;
+            g.line(st.pos[0] + Math.cos(a0) * rr, st.pos[1] + Math.sin(a0) * rr, st.pos[0] + Math.cos(a1) * rr, st.pos[1] + Math.sin(a1) * rr, 'rgba(220,38,38,0.55)', 1.1);
+          }
+        }
       } else {
         for (let k = 0; k < 16; k += 2) {
           const a0 = (k / 16) * Math.PI * 2;

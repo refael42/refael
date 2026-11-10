@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| Ground services | done | owner request: GPU, belt loader, catering truck, pushback tug, stairs truck round parked planes; chocks, cones; stand stop bars and restraint lines; a detailed jet bridge |
 | Airport security | done | owner request: guards, cameras, a 3-level fence, patrol cars, a dog team, drone defence; unattended bags, drones and holes in the fence |
 | Upgrade versions | done | owner request: the kiosk, billboard (animated LED), benches, tower (blinking beacon) and radar change look as they level up; a pop when bought |
 | M13c festivals & flash deals | done | a themed festival every 3 game days with three prizes and a trophy; a 40% deal every 3 real hours |
@@ -727,6 +728,42 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### Ground services and the small details (owner request, after security)
+"Invest in the small details of the design" and "everything a real airport has".
+- Five new ground vehicles, modelled like the others (16 directions, shadows):
+  - the ground power unit: a vented yellow trailer with a cable reel and a green panel light;
+  - the belt loader: a white chassis with a hazard-striped skirt, the driver at the side, a dark
+    belt between yellow rails rising to the hold;
+  - the catering truck: a cab, and a white box with a blue band and a roller door, lifted on
+    scissor arms, with a railed platform out to the door;
+  - the pushback tug: long, low and black, a yellow deck with chevrons, a low cab with a beacon, an
+    orange tow bar;
+  - the stairs truck: a cab and a flight of steps with handrails up to a blue canopy.
+- Round each parked plane, by its phase (`drawGroundService` in `drawGame.ts`):
+  - chocks at the nose wheel;
+  - for the airliners, cones off both wingtips and behind the tail;
+  - the belt loader at the forward hold (ahead of the wing) while bags come and go;
+  - the ground power unit by the nose;
+  - the catering truck at the back right door during the turnaround and boarding;
+  - a stairs truck at the front door of a remote stand (city airport on);
+  - the pushback tug at the nose of a jet-bridge plane while it boards and closes up.
+- New vehicle upgrades:
+  - ground power units (3 levels): +2% comfort a level;
+  - catering trucks (10 levels): 0.5 coins of sales on board per passenger a level;
+  - pushback tugs (3 levels): +4% taxi speed a level.
+  - The equipment shows on the map once the line is bought; chocks, cones, belt loaders and stairs
+    are always there.
+- Stand markings:
+  - a white stop bar across the lead-in where the nose wheel stops;
+  - round the airliners' stands, a thin red dashed line that ground vehicles must not cross.
+- The jet bridge:
+  - a rotunda on a column with a ring of windows;
+  - a tunnel with a strip of windows and its ribs;
+  - a wheeled leg (two struts, a bogie, two wheels);
+  - a cab with its control window, the black bellows at the plane, a yellow gate sign and a
+    warning light.
+- E2E: `gse-turnaround`, `gse-boarding`, `gse-remote`. The hook adds `planes()`.
 
 ### Airport security (owner request, after the upgrade versions)
 "More airport security." `src/sim/game/security.ts`, a new upgrade category and staff role, and three

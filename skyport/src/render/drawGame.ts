@@ -1,5 +1,5 @@
 /** Writes the game state into the frame snapshot (JS thread, every frame). */
-import { planeArt } from '../data/aircraft';
+import { AIRCRAFT, planeArt } from '../data/aircraft';
 import { STAFF_ROLES } from '../data/staff';
 import { bigTerminal, doorPoint, layoutOf } from '../sim/game/layout';
 import { decorPos } from '../sim/game/tiers';
@@ -448,6 +448,8 @@ export function drawGame(
     w.sprite(sp.person(p.outfit, idleFront ? false : svy < 0, idleFront ? (p.id & 1) === 1 : svx < 0, frame), sx, sy, 1, x + y);
   }
 
+  // the ground crew's equipment round each parked plane (under the planes' own drawing order)
+  for (const f of s.flights) drawGroundService(w, s, f, sp, LL, visible);
   // flights
   for (const f of s.flights) drawFlight(w, f, sp, o, a, inv, visible);
 
@@ -532,6 +534,59 @@ function drawFlight(
   if ((f.phase === 'holding' || f.phase === 'inbound') && !f.landCleared && f.patience < 0.999) {
     w.bar(b.x, barY, 44, f.patience, f.patience < 0.35 ? 0xff6b5e : 0xffd23f);
   }
+}
+
+const PARKED = new Set(['deboarding', 'turnaround', 'boarding', 'doorsClosed']);
+const GSE = { gpu: VEHICLE_KINDS.indexOf('gpu'), belt: VEHICLE_KINDS.indexOf('belt'), catering: VEHICLE_KINDS.indexOf('catering'), tug: VEHICLE_KINDS.indexOf('tug'), stairs: VEHICLE_KINDS.indexOf('stairs') };
+
+/**
+ * The details of a turnaround (owner request: the small things): chocks at the
+ * nose wheel, cones off the wingtips and the tail, and for the bigger planes the
+ * ground power unit, the belt loader at the hold, the catering truck lifted to
+ * the back door, a stairs truck at a remote stand and the pushback tug waiting
+ * at the nose of a jet-bridge plane. Each by its phase and the upgrades bought.
+ */
+function drawGroundService(w: SnapWriter, s: GameState, f: Flight, sp: SpriteSet, L: TierLayout, visible: (x: number, y: number, r: number) => boolean): void {
+  if (!PARKED.has(f.phase) || f.stand < 0 || f.z > 0.01) return;
+  const art = planeArt(f.aircraft);
+  if (art.engines === 'rotor' || art.engines === 'quad' || art.chord <= 0) return;
+  if (!visible(isoX(f.x, f.y), isoY(f.x, f.y), 140)) return;
+  const ac = AIRCRAFT[f.aircraft];
+  const big = (ac?.paxMax ?? 0) >= 50 || ac?.category === 'cargo';
+  const h = f.heading;
+  const c = Math.cos(h);
+  const sn = Math.sin(h);
+  const at = (u: number, v: number): [number, number] => [f.x + u * c - v * sn, f.y + u * sn + v * c];
+  const put = (sprite: number, p: [number, number], d = 0) => w.sprite(sprite, isoX(p[0], p[1]), isoY(p[0], p[1]), 1, p[0] + p[1] + d);
+  const vehicle = (k: number, p: [number, number], heading: number) => {
+    if (k < 0) return;
+    const dd = dirIndex(heading);
+    w.shadow(sp.vehicleShadow(k, dd), isoX(p[0], p[1]) + 2, isoY(p[0], p[1]) + 2, 1, 0.26);
+    put(sp.vehicle(k, dd), p);
+  };
+  const Lp = art.length;
+  const r = art.radius;
+  // chocks at the nose wheel, always
+  put(sp.chocks, at(Lp * 0.33, 0), 0.02);
+  if (!big || s.tier < 2) return;
+  // cones off the wingtips and behind the tail
+  const half = art.span / 2 + 0.14;
+  const tipU = (art.wing === 'high' ? -Lp / 2 + Lp * 0.6 : -Lp / 2 + Lp * 0.52) - art.sweep * 0.8;
+  put(sp.cone, at(tipU, -half));
+  put(sp.cone, at(tipU, half));
+  put(sp.cone, at(-Lp / 2 - 0.18, 0));
+  const lv = (id: string) => s.upg[id] ?? 0;
+  const bridge = !!L.stands[f.stand]?.bridge;
+  // the ground power unit by the nose (the cabin stays cool without the engine running)
+  if (lv('gpu') > 0) vehicle(GSE.gpu, at(Lp * 0.3, r + 0.38), h - Math.PI / 2);
+  // the belt loader up to the hold while bags come and go
+  if (f.phase !== 'doorsClosed') vehicle(GSE.belt, at(Lp * 0.2, -(r + 0.3)), h + Math.PI / 2);
+  // the caterer lifted to the back door during the turnaround
+  if (lv('catering') > 0 && (f.phase === 'turnaround' || f.phase === 'boarding') && (ac?.paxMax ?? 0) > 0) vehicle(GSE.catering, at(-Lp * 0.4, r + 0.36), h - Math.PI / 2);
+  // stairs to the front door at a remote stand
+  if (!bridge && s.tier >= 3 && (f.phase === 'deboarding' || f.phase === 'boarding') && (ac?.paxMax ?? 0) > 0) vehicle(GSE.stairs, at(Lp * 0.36, -(r + 0.46)), h - Math.PI / 2);
+  // the pushback tug at the nose, ready to push a jet-bridge plane back
+  if (bridge && lv('pushback') > 0 && (f.phase === 'boarding' || f.phase === 'doorsClosed')) vehicle(GSE.tug, at(Lp / 2 + 0.3, 0), h + Math.PI);
 }
 
 /** Screen point of a model-space point (u forward, v right, h up) on something at (x, y, z) facing direction d. */

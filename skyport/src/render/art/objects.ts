@@ -566,16 +566,31 @@ export function drawPierSegment(p: IsoPen, end: boolean): void {
 /** Jet bridge: a corridor on a wheeled leg reaching toward +y (length in tiles). */
 export function drawJetBridge(p: IsoPen, len: number): void {
   p.shadow(0.2, len * 0.6, 22, 10, 0.16);
-  // rotunda by the pier
-  p.box(-0.22, -0.1, 0.22, 0.3, 0, 0.62, '#94a3b8');
-  // the tunnel (slightly lower toward the plane)
+  // the rotunda by the pier: a round drum on a column, a ring of windows
+  p.box(-0.06, 0.04, 0.06, 0.16, 0, 0.36, '#64748b');
+  p.box(-0.22, -0.1, 0.22, 0.3, 0.36, 0.66, '#94a3b8');
+  p.poly([0.22, -0.06, 0.48, 0.22, 0.26, 0.48, 0.22, 0.26, 0.58, 0.22, -0.06, 0.58], '#38bdf8', false);
+  p.box(-0.24, -0.12, 0.24, 0.32, 0.66, 0.7, '#64748b');
+  // the tunnel (a little lower toward the plane), ribbed steel with a strip of windows
   p.box(-0.14, 0.3, 0.14, len - 0.35, 0.38, 0.62, '#cbd5e1');
-  p.poly([0.14, 0.4, 0.42, 0.14, len - 0.45, 0.42, 0.14, len - 0.45, 0.56, 0.14, 0.4, 0.56], '#e2e8f0', false);
-  // wheeled leg and the cab at the plane door
-  p.line(0, len - 0.6, 0, 0, len - 0.6, 0.38, '#475569', 2.4);
-  p.box(-0.12, len - 0.72, 0.12, len - 0.5, 0, 0.06, '#1f2937');
-  p.box(-0.2, len - 0.35, 0.2, len, 0.34, 0.66, '#94a3b8');
-  p.poly([-0.2, len, 0.38, 0.2, len, 0.38, 0.2, len, 0.62, -0.2, len, 0.62], '#475569', false);
+  p.poly([0.14, 0.4, 0.44, 0.14, len - 0.45, 0.44, 0.14, len - 0.45, 0.55, 0.14, 0.4, 0.55], '#7dd3fc', false);
+  for (let y = 0.5; y < len - 0.45; y += 0.18) p.line(0.141, y, 0.44, 0.141, y, 0.55, '#e2e8f0', 1);
+  for (let y = 0.34; y < len - 0.35; y += 0.36) p.line(0.141, y, 0.38, 0.141, y, 0.62, '#94a3b8', 1);
+  p.box(-0.15, 0.3, 0.15, len - 0.35, 0.62, 0.65, '#94a3b8');
+  // the wheeled leg: two struts down to a bogie with two wheels
+  p.line(-0.06, len - 0.6, 0.38, -0.06, len - 0.6, 0.08, '#475569', 2.2);
+  p.line(0.06, len - 0.6, 0.38, 0.06, len - 0.6, 0.08, '#475569', 2.2);
+  p.box(-0.14, len - 0.7, 0.14, len - 0.5, 0.04, 0.09, '#1f2937');
+  p.circle(-0.1, len - 0.6, 0.04, 3, '#111827');
+  p.circle(0.1, len - 0.6, 0.04, 3, '#111827');
+  // the cab at the plane door: a control window, and the black bellows that seal to the plane
+  p.box(-0.2, len - 0.35, 0.2, len - 0.06, 0.34, 0.66, '#94a3b8');
+  p.poly([0.2, len - 0.3, 0.44, 0.2, len - 0.12, 0.44, 0.2, len - 0.12, 0.58, 0.2, len - 0.3, 0.58], '#38bdf8', false);
+  p.box(-0.22, len - 0.06, 0.22, len, 0.32, 0.68, '#1f2937');
+  for (let z = 0.38; z < 0.66; z += 0.06) p.line(-0.22, len, z, 0.22, len, z, '#334155', 0.8);
+  // a little gate-number sign on the cab, and its warning light
+  p.box(-0.08, len - 0.2, 0.08, len - 0.12, 0.66, 0.74, '#facc15');
+  p.circle(0, len - 0.25, 0.7, 1.6, '#f97316', false);
 }
 
 /** Cargo warehouse: a ribbed shed with a roller door and a red stripe. Footprint 3.2 x 2.0. */
@@ -1056,4 +1071,11 @@ export function drawRadome(p: IsoPen): void {
     p.circle(0, 0, z, r, z > 1.2 ? '#ffffff' : '#f1f5f9', false);
   }
   for (let k = 0; k < 4; k++) p.circle(0, 0, 0.85 + k * 0.1, 15 - Math.abs(k - 1.5) * 2, 'rgba(148,163,184,0.35)', false);
+}
+
+/** Wheel chocks: a pair of yellow wedges on a short rope (they sit either side of a nose wheel). */
+export function drawChocks(p: IsoPen): void {
+  p.box(-0.07, -0.025, -0.025, 0.025, 0, 0.03, '#facc15');
+  p.box(0.025, -0.025, 0.07, 0.025, 0, 0.03, '#facc15');
+  p.line(-0.05, 0.028, 0.02, 0.05, 0.028, 0.02, '#1f2937', 1);
 }

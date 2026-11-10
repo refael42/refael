@@ -854,6 +854,30 @@ export default [
     },
   },
   { name: 'sec-panel', viewport: { width: 844, height: 390 }, query: '/?seed=79&tier=4&full=1&crew=1&warp=300&auto=1&panel=upgrades', wait: 2500, touch: true, langs: ['he'] },
+  // the small details of a turnaround: chocks, cones, the ground power unit, the belt loader, the caterer, the pushback tug, stairs at a remote stand
+  ...[
+    ['gse-turnaround', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1', 'turnaround', ['he', 'en']],
+    ['gse-boarding', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1', 'boarding', ['en']],
+    ['gse-remote', '/?seed=70&tier=3&full=1&crew=1&warp=420&auto=1&hook=1', 'deboarding', ['en']],
+  ].map(([name, query, phase, langs]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query,
+    wait: 900,
+    touch: true,
+    langs,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ gpu: 3, catering: 5, pushback: 2 }));
+      const big = (f, ph) => f.phase === ph && !['sparrow', 'finch', 'kestrel', 'skytaxi'].includes(f.aircraft);
+      await page.waitForFunction(([ph, src]) => window.__skyport.planes().some((f) => new Function('f', 'ph', src)(f, ph)), [phase, 'return (' + big.toString() + ')(f, ph)'], { timeout: 120000, polling: 200 });
+      await page.evaluate(([ph, src]) => {
+        const f = window.__skyport.planes().find((x) => new Function('f', 'ph', src)(x, ph));
+        window.__skyport.lookAt(f.x, f.y, 2.3);
+      }, [phase, 'return (' + big.toString() + ')(f, ph)']);
+      await page.waitForTimeout(1500);
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

@@ -21,6 +21,7 @@ import {
   drawHut,
   drawJetBridge,
   drawKiosk,
+  drawChocks,
   drawSnackCart,
   drawCafe,
   drawFoodShop,
@@ -116,7 +117,7 @@ export const TREE_KINDS: readonly TreeKind[] = ['round', 'roundDark', 'pine', 'b
 export const TREE_SIZES = [0.8, 1.0, 1.25] as const;
 export const GLYPH_COLORS = ['#ffd23f', '#ffffff', '#ff6b5e'] as const;
 export const COIN_FRAMES = 6;
-export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus', 'apmCar', 'railCar', 'railCab', 'patrol'];
+export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 'tanker', 'partsTruck', 'fire', 'opsCar', 'ambulance', 'limo', 'apronBus', 'apmCar', 'railCar', 'railCab', 'patrol', 'gpu', 'belt', 'catering', 'tug', 'stairs'];
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3, blue: 4, pink: 5, purple: 6, gold: 7 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020', '#3b82f6', '#ec4899', '#a855f7', '#facc15'];
@@ -212,7 +213,7 @@ export interface Content {
 }
 
 /** First tier that shows each vehicle kind (supply trucks and the mechanics' van come later). */
-const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3, apmCar: 6, railCar: 6, railCab: 6, patrol: 3 };
+const VEHICLE_TIER: Record<VehicleKind, number> = { fuel: 1, bags: 1, tanker: 2, partsTruck: 3, mech: 3, fire: 2, opsCar: 2, ambulance: 2, limo: 2, apronBus: 3, apmCar: 6, railCar: 6, railCab: 6, patrol: 3, gpu: 2, belt: 2, catering: 3, tug: 4, stairs: 3 };
 
 export interface SpriteSet {
   atlas: Atlas;
@@ -306,6 +307,8 @@ export interface SpriteSet {
   kiosk: number;
   billboard: number;
   bench: number;
+  /** Wheel chocks at a parked plane's nose wheel. */
+  chocks: number;
   /** Upgrade versions: the kiosk (1..4), the billboard (1..4, LED frames for 3 and 4), the shaded bench, the tower (1..3), the radome. */
   kioskV: (v: number) => number;
   billboardV: (v: number, frame: number) => number;
@@ -612,6 +615,7 @@ export function buildSprites(content: Content): SpriteSet {
   const billboard = b.add(-10 * S, -54 * S, 44 * S, 28 * S, (c, ox, oy) => drawBillboard(new IsoPen(c, ox, oy, S)));
   const bench = b.add(-20 * S, -36 * S, 30 * S, 22 * S, (c, ox, oy) => drawBench(new IsoPen(c, ox, oy, S)));
   // upgrade versions
+  const chocks = b.add(-0.12 * T, -0.1 * T, 0.12 * T, 0.08 * T, (c, ox, oy) => drawChocks(new IsoPen(c, ox, oy, S)));
   const cart = b.add(-26 * S, -40 * S, 34 * S, 30 * S, (c, ox, oy) => drawSnackCart(new IsoPen(c, ox, oy, S)));
   const cafe = b.add(-34 * S, -40 * S, 82 * S, 56 * S, (c, ox, oy) => drawCafe(new IsoPen(c, ox, oy, S)));
   const shop = b.add(-40 * S, -50 * S, 60 * S, 48 * S, (c, ox, oy) => drawFoodShop(new IsoPen(c, ox, oy, S)));
@@ -806,6 +810,7 @@ export function buildSprites(content: Content): SpriteSet {
     kiosk,
     billboard,
     bench,
+    chocks,
     kioskV: (v) => (v <= 1 ? cart : v === 2 ? kiosk : v === 3 ? cafe : shop),
     billboardV: (v, f) => (v <= 1 ? painted : v === 2 ? billboard : (v === 3 ? ledBase : ledTowerBase) + (((f % LED_FRAMES) + LED_FRAMES) % LED_FRAMES)),
     pergola,

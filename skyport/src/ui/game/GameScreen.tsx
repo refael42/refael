@@ -1175,6 +1175,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      planes: () => ctrl.state.flights.map((f) => ({ id: f.id, phase: f.phase, x: f.x, y: f.y, stand: f.stand, aircraft: AIRCRAFT[f.aircraft]?.id })),
       // (screenshots: start a security incident now; where its spot is)
       security: (kind: 'bag' | 'drone' | 'breach') => {
         const inc = startIncident(ctrl.state, kind, (p) => spawnFlight(ctrl.state, p));
