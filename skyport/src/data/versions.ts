@@ -10,6 +10,7 @@ export const VERSIONS: Readonly<Record<string, readonly number[]>> = {
   tower: [0, 2, 4],
   radar: [1, 2, 3],
   scanner: [1, 8, 15],
+  lights: [1, 5, 12],
   fence: [0, 1, 2, 3],
 };
 

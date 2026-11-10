@@ -37,6 +37,7 @@ npm run export:web && npm run e2e   # web build + Playwright screenshots (artifa
 | M12a cleanliness | done | litter, cleaners, bins, the rating breakdown panel |
 | Sharp zoom | done | owner request: sprites and the ground drawn again at the zoom's resolution when close in |
 | M12b reviews | done | 244 lines in he/en by topic, a reviews tab, a bonus for good reviews |
+| The night | done | owner request: dusk, night and dawn; runway, approach and strobe lights, floodlight masts, lamps, headlights; posted guards |
 | Ground services | done | owner request: GPU, belt loader, catering truck, pushback tug, stairs truck round parked planes; chocks, cones; stand stop bars and restraint lines; a detailed jet bridge |
 | Airport security | done | owner request: guards, cameras, a 3-level fence, patrol cars, a dog team, drone defence; unattended bags, drones and holes in the fence |
 | Upgrade versions | done | owner request: the kiosk, billboard (animated LED), benches, tower (blinking beacon) and radar change look as they level up; a pop when bought |
@@ -728,6 +729,32 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
 - E2E: `m12-rumor`, `m12-suspects`, `m12-ceremony`, `m12-guide`, `m12-guide-notebook`,
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
+
+### The night (owner request: the small details, after the ground services)
+The clock ran through the night but the game never got dark. Now it does
+(`nightOf` in `drawGame.ts`).
+- Dusk from 18:00 to 20:00, night until 05:00, dawn until 07:00.
+- The world takes a blue tint, at most 42%. It is drawn under the lights and the bubbles
+  (`scene.ts`), so they stay bright.
+- Lights at night:
+  - white edge lights along every paved runway, green across the threshold and red across the far
+    end;
+  - the runway-lights line has versions:
+    - edge lights (level 1);
+    - approach lights (5): a row of nine and a crossbar before the threshold planes land toward,
+      which follows the wind;
+    - a running strobe along them (12);
+  - the street lamps glow amber;
+  - moving cars have headlights;
+  - the terminal halls glow warm.
+- Floodlight masts (a new apron upgrade, 3 levels; +3% staff speed a level):
+  - tall poles with a head of four lamps beside the airliners' stands, every other stand, then all;
+  - at night an amber light up top and a pool on the stand, white LED at level 3.
+- The HUD shows a moon by the clock at night.
+- Guards are posted at each terminal's security checkpoint. A patrol car parks at Terminal 3's curb
+  once there are patrol cars.
+- E2E: `night-apron`, `night-runway`. Many scenarios warp to 420 s, which is now night (23:48):
+  their screenshots are dark, as the game is.
 
 ### Ground services and the small details (owner request, after security)
 "Invest in the small details of the design" and "everything a real airport has".

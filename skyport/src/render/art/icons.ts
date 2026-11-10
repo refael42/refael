@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift', 'shield', 'drone',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift', 'shield', 'drone', 'moon',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -462,6 +462,14 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       canvas.drawRect(Skia.XYWHRect(44, 12, 4, 42), f);
       canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(27, 24, 10, 13), 2, 2), f);
       circ(32, 30, 2, '#78350f');
+      break;
+    }
+    case 'moon': {
+      // a crescent moon with two little stars
+      circ(30, 32, 20, '#fde68a');
+      circ(39, 25, 17, '#1e293b');
+      circ(48, 14, 2.5, '#fef3c7');
+      circ(54, 30, 1.8, '#fef3c7');
       break;
     }
     case 'shield': {

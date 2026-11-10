@@ -34,6 +34,8 @@ export interface HudData {
   careerDot?: boolean;
   /** The daily gift or a free spin is ready. */
   daily?: boolean;
+  /** Night (the moon instead of the sun by the clock). */
+  night?: boolean;
 }
 
 /** HUD fields compared twice a second (a new object only when something shows differently). */
@@ -56,7 +58,8 @@ export function sameHud(a: HudData, b: HudData): boolean {
     a.level === b.level &&
     a.xp === b.xp &&
     a.careerDot === b.careerDot &&
-    a.daily === b.daily
+    a.daily === b.daily &&
+    a.night === b.night
   );
 }
 
@@ -157,7 +160,7 @@ export const Hud = memo(function Hud({
           </View>
           <View style={styles.divider} />
           <View style={[styles.item, { flexDirection: dir.row }]}>
-            <Icon name="sun" size={20} />
+            <Icon name={data.night ? 'moon' : 'sun'} size={20} />
             <View>
               <Text style={styles.time} numberOfLines={1}>
                 {data.time}

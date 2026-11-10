@@ -1079,3 +1079,13 @@ export function drawChocks(p: IsoPen): void {
   p.box(0.025, -0.025, 0.07, 0.025, 0, 0.03, '#facc15');
   p.line(-0.05, 0.028, 0.02, 0.05, 0.028, 0.02, '#1f2937', 1);
 }
+
+/** A floodlight mast over a stand: a tall grey pole on a footing, a ladder, a head of four lamps. */
+export function drawFloodMast(p: IsoPen): void {
+  p.shadow(0, 0, 7, 3, 0.18);
+  p.box(-0.08, -0.08, 0.08, 0.08, 0, 0.06, '#94a3b8');
+  p.line(0, 0, 0.06, 0, 0, 2.15, '#64748b', 3);
+  p.line(0.04, 0.03, 0.1, 0.04, 0.03, 2.0, '#94a3b8', 1);
+  p.box(-0.16, -0.05, 0.16, 0.05, 2.12, 2.3, '#334155');
+  for (const x of [-0.11, -0.04, 0.04, 0.11]) p.box(x - 0.03, 0.05, x + 0.03, 0.06, 2.15, 2.27, '#fef3c7', false);
+}

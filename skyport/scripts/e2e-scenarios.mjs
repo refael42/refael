@@ -878,6 +878,22 @@ export default [
       await page.waitForTimeout(1500);
     },
   })),
+  // the night: lights on the runways, approach strobes, floodlights over the stands, lamps, headlights, the moon by the clock
+  ...[
+    ['night-apron', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=44,18,0.9'],
+    ['night-runway', '/?seed=63&tier=4&full=1&crew=1&warp=420&auto=1&hook=1&cam=30,22.5,1.0'],
+  ].map(([name, query]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query,
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ floodlights: 3, lights: 14, gpu: 2, catering: 3, pushback: 1 }));
+      await page.waitForTimeout(2500);
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

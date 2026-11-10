@@ -21,6 +21,7 @@ import {
   drawHut,
   drawJetBridge,
   drawKiosk,
+  drawFloodMast,
   drawChocks,
   drawSnackCart,
   drawCafe,
@@ -307,6 +308,8 @@ export interface SpriteSet {
   kiosk: number;
   billboard: number;
   bench: number;
+  /** A floodlight mast over a stand. */
+  floodMast: number;
   /** Wheel chocks at a parked plane's nose wheel. */
   chocks: number;
   /** Upgrade versions: the kiosk (1..4), the billboard (1..4, LED frames for 3 and 4), the shaded bench, the tower (1..3), the radome. */
@@ -615,6 +618,7 @@ export function buildSprites(content: Content): SpriteSet {
   const billboard = b.add(-10 * S, -54 * S, 44 * S, 28 * S, (c, ox, oy) => drawBillboard(new IsoPen(c, ox, oy, S)));
   const bench = b.add(-20 * S, -36 * S, 30 * S, 22 * S, (c, ox, oy) => drawBench(new IsoPen(c, ox, oy, S)));
   // upgrade versions
+  const floodMast = b.add(-0.25 * T, -2.5 * T, 0.25 * T, 0.12 * T, (c, ox, oy) => drawFloodMast(new IsoPen(c, ox, oy, S)));
   const chocks = b.add(-0.12 * T, -0.1 * T, 0.12 * T, 0.08 * T, (c, ox, oy) => drawChocks(new IsoPen(c, ox, oy, S)));
   const cart = b.add(-26 * S, -40 * S, 34 * S, 30 * S, (c, ox, oy) => drawSnackCart(new IsoPen(c, ox, oy, S)));
   const cafe = b.add(-34 * S, -40 * S, 82 * S, 56 * S, (c, ox, oy) => drawCafe(new IsoPen(c, ox, oy, S)));
@@ -811,6 +815,7 @@ export function buildSprites(content: Content): SpriteSet {
     billboard,
     bench,
     chocks,
+    floodMast,
     kioskV: (v) => (v <= 1 ? cart : v === 2 ? kiosk : v === 3 ? cafe : shop),
     billboardV: (v, f) => (v <= 1 ? painted : v === 2 ? billboard : (v === 3 ? ledBase : ledTowerBase) + (((f % LED_FRAMES) + LED_FRAMES) % LED_FRAMES)),
     pergola,

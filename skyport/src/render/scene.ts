@@ -300,6 +300,11 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
 
   // shadows (black), sorted sprites, fx (own colors, alpha), overlay
   for (let pass = 0; pass < 4; pass++) {
+    // night: the world darkens, then the lights (fx) and the bubbles are drawn bright on top
+    if (pass === 2 && snap[H_DARK] > 0.01) {
+      res.barPaint.setColor(Skia.Color(`rgba(14,20,52,${Math.min(0.6, snap[H_DARK])})`));
+      c.drawRect(Skia.XYWHRect(vx0 - 20, vy0 - 20, vx1 - vx0 + 40, vy1 - vy0 + 40), res.barPaint);
+    }
     const n = snap[pass === 0 ? H_SHADOWS : pass === 1 ? H_SPRITES : pass === 2 ? H_FX : H_OVERLAY];
     const tinted = pass === 0 || pass === 2;
     const stride = tinted ? SHADOW_STRIDE : SPRITE_STRIDE;
@@ -380,10 +385,5 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
   }
   c.restore();
 
-  const dark = snap[H_DARK];
-  if (dark > 0.01) {
-    bp.setColor(Skia.Color(`rgba(16,24,58,${Math.min(0.6, dark)})`));
-    c.drawRect(Skia.XYWHRect(0, 0, width, height), bp);
-  }
   return rec.finishRecordingAsPicture();
 }

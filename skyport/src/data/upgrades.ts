@@ -102,6 +102,8 @@ export const UPGRADES: readonly UpgradeDef[] = [
   // supplies: bigger fuel farm and parts store
   { id: 'fuelFarm', category: 'vehicles', unlockTier: 2, maxLevel: 5, baseCost: 1200, growth: 7, effect: 'storage', per: 1, buildSeconds: [60, 90, 120, 180, 240], levelTier: [2, 3, 3, 4, 5], icon: 'fuel' },
   { id: 'partsStore', category: 'vehicles', unlockTier: 3, maxLevel: 4, baseCost: 15000, growth: 5, effect: 'storage', per: 1, buildSeconds: [60, 90, 150, 200], levelTier: [3, 4, 4, 5], icon: 'wrench' },
+  // floodlight masts at the stands (owner request: the details of the night): the crews see better
+  { id: 'floodlights', category: 'apron', unlockTier: 2, maxLevel: 3, baseCost: 900, growth: 3, effect: 'staffSpeed', per: 0.03, levelTier: [2, 3, 4], icon: 'sun' },
   // ground services (owner request): power for the cabin, the caterer's trucks, pushback tugs at the gates
   { id: 'gpu', category: 'vehicles', unlockTier: 2, maxLevel: 3, baseCost: 700, growth: 3, effect: 'comfort', per: 0.02, levelTier: [2, 3, 4], icon: 'gear' },
   { id: 'catering', category: 'vehicles', unlockTier: 3, maxLevel: 10, baseCost: 1500, growth: 1.6, effect: 'kiosk', per: 0.5, icon: 'coin' },

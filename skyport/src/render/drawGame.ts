@@ -23,6 +23,8 @@ import { drawEventScenes, drawHolidayDecor } from './drawEvents';
 import { versionOf } from '../data/versions';
 import { noticeSeconds } from '../sim/game/security';
 import type { World } from './world';
+import { gameClock } from '../sim/game/clock';
+import { cleanAreas } from '../sim/game/cleaning';
 
 const WANT_ICON: Record<number, IconName> = {
   [WANT.clearLanding]: 'actLand',
@@ -40,6 +42,7 @@ const STAFF_OUTFIT = STAFF_ROLES.map((r) => Math.max(0, OUTFITS.findIndex((o) =>
 const MECH_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'mechanic'));
 const CLEANER_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'cleaner'));
 const GUARD_OUTFIT = Math.max(0, OUTFITS.findIndex((o) => o.id === 'guard'));
+const GUARD_ROLE = STAFF_ROLES.findIndex((r) => r.id === 'guard');
 const PAX_OUTFIT_IDX = PAX_OUTFITS.map((id) => Math.max(0, OUTFITS.findIndex((o) => o.id === id)));
 
 /** Screen position of a flight's bubble (world-screen px), used for taps too. */
@@ -126,6 +129,13 @@ export function drawGame(
     const sy = isoY(p[0], p[1]);
     if (visible(sx, sy, 80)) w.sprite(sprite, sx, sy, 1, p[0] + p[1] + d);
   };
+  // floodlight masts at the stands (one every other stand, then all)
+  const mastsN = s.upg.floodlights ?? 0;
+  if (mastsN > 0)
+    LL.stands.forEach((st, i) => {
+      if (!s.standOpen[i] || st.size === 'small' || st.size === 'heli' || st.hangar || (mastsN < 2 && i % 2 === 1)) return;
+      deco(sp.floodMast, mastSpot(st), 0.3);
+    });
   // the Aviation Guide's pylon in front of the main terminal, with its stars
   deco(sp.guidePylon(s.guide.stars), guidePylonSpot(LL), 0.3);
   const items = decorItems(s);
@@ -241,10 +251,10 @@ export function drawGame(
 
   // background traffic: parked cars and cars on the access road
   drawCars(w, sp, parkedCars(LL, s.stats.served), visible, o.time, false);
-  drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true);
+  drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true, nightOf(s.time));
   // Terminal 3's road: cars, taxis and buses to its curb
-  if (LL.t3) drawCars(w, sp, roadCars(LL, s.time * 1.3 + 3, LL.t3.road, 7), visible, o.time, true);
-  if (LL.t4) drawCars(w, sp, roadCars(LL, s.time * 1.2 + 11, LL.t4.road, 13), visible, o.time, true);
+  if (LL.t3) drawCars(w, sp, roadCars(LL, s.time * 1.3 + 3, LL.t3.road, 7), visible, o.time, true, nightOf(s.time));
+  if (LL.t4) drawCars(w, sp, roadCars(LL, s.time * 1.2 + 11, LL.t4.road, 13), visible, o.time, true, nightOf(s.time));
 
   // idle staff at their posts (fueler and porter ride their vehicles while working)
   const L = layoutOf(s.tier);
@@ -343,6 +353,32 @@ export function drawGame(
     if (s.time - inc.at >= noticeSeconds(s) && Math.floor(o.time * 2) % 2 === 0) w.over(sp.icon('warn'), sx, sy - 26, 0.5 * inv + 0.2);
   }
 
+  // guards posted at the security checkpoints (one at each terminal's first lane), and a patrol car at the curb
+  if (s.staff.some((m) => m.role === GUARD_ROLE)) {
+    const posts: (readonly [number, number])[] = [];
+    if (LL.building && LL.terminal.lanes[0]) posts.push(LL.terminal.lanes[0]);
+    const T3 = bigTerminal(LL, 1);
+    if (T3?.st.lanes?.[0]) posts.push(T3.st.lanes[0]);
+    const T4 = bigTerminal(LL, 2);
+    if (T4?.st.lanes?.[0]) posts.push(T4.st.lanes[0]);
+    for (const lane of posts) {
+      const gx = lane[0] - 0.55;
+      const gy = lane[1] + 0.35;
+      if (visible(isoX(gx, gy), isoY(gx, gy), 30)) w.sprite(sp.person(GUARD_OUTFIT, false, true, 4), isoX(gx, gy), isoY(gx, gy), 1, gx + gy);
+    }
+  }
+  if ((s.upg.patrol ?? 0) > 0) {
+    const T3 = bigTerminal(LL, 1);
+    if (T3) {
+      const cx = T3.st.entry[0] + 3.2;
+      const cy = T3.st.entry[1] - 0.45;
+      const PATROL = VEHICLE_KINDS.indexOf('patrol');
+      if (visible(isoX(cx, cy), isoY(cx, cy), 40)) {
+        w.shadow(sp.vehicleShadow(PATROL, 0), isoX(cx, cy) + 2, isoY(cx, cy) + 2, 1, 0.26);
+        w.sprite(sp.vehicle(PATROL, 0), isoX(cx, cy), isoY(cx, cy), 1, cx + cy);
+      }
+    }
+  }
   // a drone hovering over the field (its light blinks)
   for (const inc of s.incidents) {
     if (inc.kind !== 'drone' || inc.state !== 'active') continue;
@@ -448,6 +484,10 @@ export function drawGame(
     w.sprite(sp.person(p.outfit, idleFront ? false : svy < 0, idleFront ? (p.id & 1) === 1 : svx < 0, frame), sx, sy, 1, x + y);
   }
 
+  // night: the world darkens and the lights come on
+  const night = nightOf(s.time);
+  w.dark = night * 0.42;
+  if (night > 0.02) drawNightLights(w, s, sp, LL, world, o.time, night, visible);
   // the ground crew's equipment round each parked plane (under the planes' own drawing order)
   for (const f of s.flights) drawGroundService(w, s, f, sp, LL, visible);
   // flights
@@ -536,6 +576,79 @@ function drawFlight(
   }
 }
 
+/** How dark it is, 0 (day) .. 1 (night): dusk 18:00 to 20:00, night until 05:00, dawn until 07:00. */
+export function nightOf(time: number): number {
+  const m = gameClock(time).minuteOfDay;
+  if (m >= 20 * 60 || m < 5 * 60) return 1;
+  if (m >= 18 * 60) return (m - 18 * 60) / 120;
+  if (m < 7 * 60) return 1 - (m - 5 * 60) / 120;
+  return 0;
+}
+
+/** Where a stand's floodlight mast stands (behind it, to the side), by stand. */
+export function mastSpot(st: { pos: readonly [number, number]; size: string }): [number, number] {
+  const r = st.size === 'large' ? 1.2 : st.size === 'huge' || st.size === 'hugeX' ? 1.6 : st.size === 'cargo' ? 1.4 : 1.0;
+  return [st.pos[0] + r * 0.82, st.pos[1] - r * 0.82];
+}
+
+/**
+ * The lights of the night (owner request: the details): runway edge lights (green at the threshold,
+ * red at the far end), the approach lights and their running strobe as the lights line grows, the
+ * street lamps, floodlight masts over the stands with pools of light, warm light in the halls.
+ */
+function drawNightLights(w: SnapWriter, s: GameState, sp: SpriteSet, L: TierLayout, world: World, time: number, night: number, visible: (x: number, y: number, r: number) => boolean): void {
+  const glow = (c: number, x: number, y: number, z: number, scale: number, alpha: number) => {
+    const sx = isoX(x, y);
+    const sy = isoY(x, y, z);
+    if (visible(sx, sy, 20 * scale)) w.fx(sp.glow(c), sx, sy, scale, alpha * night);
+  };
+  const lv = versionOf('lights', s.upg.lights ?? 0);
+  for (const R of [L.runway, L.depRunway]) {
+    if (!R || L.runway.surface === 'dirt') continue;
+    const h2 = R.width / 2 + 0.08;
+    for (let x = R.x0; x <= R.x1 + 0.01; x += 1.5) for (const side of [-1, 1]) glow(GLOW_COLORS.white, x, R.y + side * h2, 0.05, 0.55, 0.85);
+    for (let k = -2; k <= 2; k++) {
+      glow(GLOW_COLORS.green, R.x0 - 0.1, R.y + (k * R.width) / 5, 0.05, 0.6, 0.95);
+      glow(GLOW_COLORS.red, R.x1 + 0.1, R.y + (k * R.width) / 5, 0.05, 0.6, 0.95);
+    }
+  }
+  // the approach lights before the threshold planes land toward, and the running strobe
+  const R = L.runway;
+  if (lv >= 2 && R.surface !== 'dirt') {
+    const dir = s.rwyDir >= 0 ? 1 : -1;
+    const x0 = dir > 0 ? R.x0 : R.x1;
+    for (let k = 1; k <= 9; k++) glow(GLOW_COLORS.white, x0 - dir * k * 0.6, R.y, 0.05, 0.6, 0.9);
+    for (let k = -2; k <= 2; k++) glow(GLOW_COLORS.white, x0 - dir * 3, R.y + k * 0.35, 0.05, 0.55, 0.85);
+    if (lv >= 3) {
+      const k = 9 - (Math.floor(time * 18) % 10);
+      if (k >= 1) glow(GLOW_COLORS.white, x0 - dir * k * 0.6, R.y, 0.1, 1.6, 1);
+    }
+  }
+  // street lamps
+  for (const st of world.statics) if (st.sprite === sp.lamp && visible(st.x, st.y, 40)) w.fx(sp.glow(GLOW_COLORS.amber), st.x + LAMP_DX, st.y + LAMP_DY, 1.3, 0.9 * night);
+  // floodlight masts: a light up top and a pool on the stand
+  const masts = s.upg.floodlights ?? 0;
+  if (masts > 0) {
+    L.stands.forEach((st, i) => {
+      if (!s.standOpen[i] || st.size === 'small' || st.size === 'heli' || st.hangar || (masts < 2 && i % 2 === 1)) return;
+      const m = mastSpot(st);
+      glow(masts >= 3 ? GLOW_COLORS.white : GLOW_COLORS.amber, m[0], m[1], MAST_H, 1.5, 1);
+      glow(masts >= 3 ? GLOW_COLORS.white : GLOW_COLORS.amber, st.pos[0], st.pos[1], 0, 6, 0.16);
+    });
+  }
+  // warm light in the halls
+  for (const b of cleanAreas(L)) {
+    const cx = (b[0] + b[2]) / 2;
+    const cy = (b[1] + b[3]) / 2;
+    glow(GLOW_COLORS.amber, cx, cy, 0.4, 5, 0.12);
+  }
+}
+
+/** The street lamp's head, from its anchor (screen px); the floodlight mast's height (tiles). */
+const LAMP_DX = isoX(0.2, 0) - isoX(0, 0);
+const LAMP_DY = isoY(0.2, 0, 1.27) - isoY(0, 0, 0);
+const MAST_H = 2.2;
+
 const PARKED = new Set(['deboarding', 'turnaround', 'boarding', 'doorsClosed']);
 const GSE = { gpu: VEHICLE_KINDS.indexOf('gpu'), belt: VEHICLE_KINDS.indexOf('belt'), catering: VEHICLE_KINDS.indexOf('catering'), tug: VEHICLE_KINDS.indexOf('tug'), stairs: VEHICLE_KINDS.indexOf('stairs') };
 
@@ -599,7 +712,7 @@ function modelPoint(x: number, y: number, z: number, d: number, u: number, v: nu
   return { x: isoX(wx, wy), y: isoY(wx, wy, z + h) };
 }
 
-function drawCars(w: SnapWriter, sp: SpriteSet, cars: CarPose[], visible: (x: number, y: number, r: number) => boolean, time: number, moving: boolean): void {
+function drawCars(w: SnapWriter, sp: SpriteSet, cars: CarPose[], visible: (x: number, y: number, r: number) => boolean, time: number, moving: boolean, night = 0): void {
   for (const c of cars) {
     const sx = isoX(c.x, c.y);
     const sy = isoY(c.x, c.y);
@@ -607,6 +720,13 @@ function drawCars(w: SnapWriter, sp: SpriteSet, cars: CarPose[], visible: (x: nu
     const d = dirIndex(c.heading);
     w.shadow(sp.carShadow(c.variant, d), sx + 1.5, sy + 1.5, 1, 0.25);
     w.sprite(sp.car(c.variant, d), sx, sy, 1, c.x + c.y);
+    if (moving && night > 0.1 && !c.stopped) {
+      // headlights after dark
+      for (const v of [-0.05, 0.05]) {
+        const p = modelPoint(c.x, c.y, 0, d, 0.22 * VEHICLE_SCALE, v * VEHICLE_SCALE, 0.07 * VEHICLE_SCALE);
+        w.fx(sp.glow(GLOW_COLORS.white), p.x, p.y, 0.8, 0.9 * night);
+      }
+    }
     if (moving && c.stopped) {
       // brake lights at the curb, hazard blink while dropping people off
       const on = Math.floor(time * 2.5 + c.x) % 2 === 0;

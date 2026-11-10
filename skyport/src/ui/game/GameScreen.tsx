@@ -26,7 +26,7 @@ import { FestivalCard, type DealView, type FestView } from './FestivalCard';
 import { versionOf } from '../../data/versions';
 import { ACHIEVEMENTS, MEDALS } from '../../data/achievements';
 import { GuideCeremony, type GuideNews } from './GuideCeremony';
-import { bubbleAnchor, constructionSite, decorItems, drawGame, type Indicator } from '../../render/drawGame';
+import { bubbleAnchor, constructionSite, decorItems, drawGame, nightOf, type Indicator } from '../../render/drawGame';
 import { Effects } from '../../render/effects';
 import { isoX, isoY, screenToWorld, Z_PX } from '../../render/iso';
 import { ATLAS_SCALE, renderSprite } from '../../render/atlas';
@@ -149,6 +149,7 @@ function hudOf(c: GameController): HudData {
     xp: Math.floor((s.career.xp / xpToNext(s.career.level)) * 20) / 20,
     careerDot: s.career.chests > 0 || medalsToClaim(s) > 0,
     daily: giftReady(s).ready || spinIn(s) === 0,
+    night: nightOf(s.time) > 0.5,
   };
 }
 
