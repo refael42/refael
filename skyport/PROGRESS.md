@@ -730,6 +730,27 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### The ILS on the map (owner request: more of what an airport needs, after the tower)
+The ILS line (landing in fog) was only a number. It now stands on the map (`ilsParts` in
+`tower.ts`, art in `objects.ts`):
+- the localizer: a row of antennas on a low steel frame across the runway's line, past its far
+  end, red caps at its ends and an equipment hut beside it;
+- the glideslope: a red-and-white mast with three antenna panels facing the approach, beside the
+  touchdown zone on the side away from the terminals, with a hut at its foot;
+- the versions:
+  - CAT I (level 1): one of each, for landings toward the east;
+  - CAT II (2): a wider localizer with more antennas, and a monitor post out toward the
+    approach;
+  - CAT III (3): a second set for landings the other way.
+- Each piece moves out along the runway to the spot with the most room from the taxiways (a
+  wide-body's wing), within 4 tiles of the end and inside the fence. A test checks every airport
+  from the small airfield to the Skyport.
+- Tapping the localizer or the glideslope opens the tower panel. The upgrades panel shows the ILS
+  category as its version.
+- E2E: `ils-cat1-loc`, `ils-cat2-gs`, `ils-cat3-west`, `ils-cat3-east-t7`, `ils-cat2-east-t5`,
+  `ils-tap` (it waits for a moment with no plane near the mast, then taps it). The hook adds
+  `ilsTap()`.
+
 ### The control tower in the game (owner request, after the night)
 "Is there a control tower? Make it part of the game, not only the look." It is now: tap it on the
 map (or the weather station by it) and it opens its own panel (`TowerPanel.tsx`). Sim in

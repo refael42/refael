@@ -33,6 +33,8 @@ import {
   drawPergola,
   drawTowerV,
   drawWeatherStation,
+  drawLocalizer,
+  drawGlideslope,
   METEO_FRAMES,
   drawRadome,
   drawLamp,
@@ -321,6 +323,9 @@ export interface SpriteSet {
   towerV: (v: number) => number;
   /** The weather station (frame of the cups; with the dome at level 3). */
   meteo: (frame: number, dome: boolean) => number;
+  /** The ILS: the localizer (wide for CAT II/III) and the glideslope (with its monitor; facing +x or -x). */
+  localizer: (wide: boolean) => number;
+  glideslope: (monitor: boolean, face: number) => number;
   radome: number;
   crane: number;
   terminal: number;
@@ -636,6 +641,10 @@ export function buildSprites(content: Content): SpriteSet {
   const tower2 = b.add(-22 * S, -128 * S, 24 * S, 18 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 2));
   const tower3 = b.add(-24 * S, -150 * S, 26 * S, 20 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 3));
   const tower4 = b.add(-34 * S, -186 * S, 36 * S, 26 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 4));
+  const locBase = b.size;
+  for (const wide of [false, true]) b.add(-40 * S, -36 * S, 40 * S, 40 * S, (c, ox, oy) => drawLocalizer(new IsoPen(c, ox, oy, S), wide));
+  const gsBase = b.size;
+  for (const monitor of [false, true]) for (const face of [1, -1]) b.add(-40 * S, -54 * S, 40 * S, 24 * S, (c, ox, oy) => drawGlideslope(new IsoPen(c, ox, oy, S), monitor, face));
   const meteoBase = b.size;
   for (const dome of [false, true]) for (let f = 0; f < METEO_FRAMES; f++) b.add(-34 * S, -34 * S, 34 * S, 36 * S, (c, ox, oy) => drawWeatherStation(new IsoPen(c, ox, oy, S), f, dome));
   const radome = b.add(-24 * S, -60 * S, 24 * S, 12 * S, (c, ox, oy) => drawRadome(new IsoPen(c, ox, oy, S)));
@@ -827,6 +836,8 @@ export function buildSprites(content: Content): SpriteSet {
     billboardV: (v, f) => (v <= 1 ? painted : v === 2 ? billboard : (v === 3 ? ledBase : ledTowerBase) + (((f % LED_FRAMES) + LED_FRAMES) % LED_FRAMES)),
     pergola,
     towerV: (v) => (v <= 1 ? tower : v === 2 ? tower2 : v === 3 ? tower3 : tower4),
+    localizer: (wide) => locBase + (wide ? 1 : 0),
+    glideslope: (monitor, face) => gsBase + (monitor ? 2 : 0) + (face > 0 ? 0 : 1),
     meteo: (f, dome) => meteoBase + (dome ? METEO_FRAMES : 0) + (((f % METEO_FRAMES) + METEO_FRAMES) % METEO_FRAMES),
     radome,
     crane,

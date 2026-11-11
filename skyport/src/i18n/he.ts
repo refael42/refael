@@ -1057,4 +1057,7 @@ export const he: Record<TKey, string> = {
   'tw.buy': 'שדרוג',
   'tw.build': 'בנייה',
   'tw.open': 'מגדל',
+  'ver.ils.1': 'CAT I: משדר כיוון ומשדר שיפוע',
+  'ver.ils.2': 'CAT II: אנטנות רחבות יותר ותורן בקרה',
+  'ver.ils.3': 'CAT III: לשני הכיוונים',
 };

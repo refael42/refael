@@ -17,7 +17,7 @@ import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
 import { TowerPanel } from './TowerPanel';
-import { meteoSpot } from '../../sim/game/tower';
+import { ilsParts, meteoSpot } from '../../sim/game/tower';
 import { towerTop } from '../../render/art/objects';
 import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
@@ -1068,7 +1068,9 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         const onTower = Math.abs(p.x - sx) * cam.zoom < 26 && p.y > top - 14 / cam.zoom && p.y < sy + 14 / cam.zoom;
         const ms = (ctrl.state.upg.meteo ?? 0) > 0 ? meteoSpot(ctrl.state.tier) : null;
         const onStation = !!ms && Math.hypot(p.x - isoX(ms[0] + 0.5, ms[1] + 0.5), p.y - (isoY(ms[0] + 0.5, ms[1] + 0.5) - 16)) * cam.zoom < 30;
-        if (onTower || onStation) {
+        // (or a piece of the ILS)
+        const onIls = ilsParts(ctrl.state.tier, ctrl.state.upg.ils ?? 0).some((q) => Math.hypot(p.x - isoX(q.x, q.y), p.y - (isoY(q.x, q.y) - (q.kind === 'gs' ? 20 : 8))) * cam.zoom < 28);
+        if (onTower || onStation || onIls) {
           setSelected(0);
           setPanel('tower');
           return;
@@ -1194,6 +1196,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      ilsTap: () =>
+        ilsParts(ctrl.state.tier, ctrl.state.upg.ils ?? 0).map((q) => ({ kind: q.kind, x: q.x, y: q.y, vx: (isoX(q.x, q.y) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(q.x, q.y) - (q.kind === 'gs' ? 20 : 8) - cam.y) * cam.zoom + cam.viewH / 2 })),
       towerTap: () => {
         const tw = world.tower;
         if (!tw) return null;
@@ -1645,6 +1649,10 @@ function upgradeSpot(s: GameState, id: string, tower: [number, number] | null): 
   if (id === 'kiosk' || id === 'billboard') return decorPos(s, id);
   if (id === 'benches') return decorPos(s, 'bench1');
   if (id === 'tower') return tower;
+  if (id === 'ils') {
+    const q = ilsParts(s.tier, Math.max(1, s.upg.ils ?? 0))[0];
+    return q ? [q.x, q.y] : null;
+  }
   if (id === 'meteo') {
     const m = meteoSpot(s.tier);
     return m ? [m[0] + 0.5, m[1] + 0.5] : null;

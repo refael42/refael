@@ -17,6 +17,7 @@
 import type { TierLayout } from '../../data/tiers';
 import { DAY_SECONDS } from './clock';
 import { clearLanding, clearTakeoff, wantsAction } from './flights';
+import { graphOf } from './graph';
 import { layoutOf } from './layout';
 import { weatherAt, type Weather } from './weather';
 import { WANT, type GameState } from './types';
@@ -84,6 +85,84 @@ export function meteoSpot(tier: number): [number, number] | null {
 export function meteoSpotOf(L: TierLayout): [number, number] | null {
   const t = towerSpotOf(L);
   return t ? [t[0] + 1.8, t[1] - 3.2] : null;
+}
+
+/** A piece of the ILS on the map. */
+export interface IlsPart {
+  kind: 'loc' | 'gs';
+  x: number;
+  y: number;
+  /** The way planes land that it serves (+1 toward +x, -1 toward -x). */
+  dir: number;
+}
+
+/**
+ * The ILS on the map: for each runway direction it serves, a localizer past the
+ * far end on the centerline and a glideslope beside the touchdown zone (on the
+ * side away from the terminals). Levels 1 and 2 serve landings toward +x; level
+ * 3 (CAT III) both ways. None on a dirt strip. Each piece moves out along the
+ * runway until it is clear of the taxiways.
+ */
+export function ilsParts(tier: number, level: number): IlsPart[] {
+  const key = tier * 10 + Math.min(3, level);
+  const hit = ilsCache.get(key);
+  if (hit) return hit;
+  const L = layoutOf(tier);
+  const R = L.runway;
+  const out: IlsPart[] = [];
+  if (level > 0 && R.surface !== 'dirt') {
+    const g = graphOf(tier);
+    // the taxiway edges (not the runway's own)
+    const onRunway = (q: readonly number[]) => Math.abs(q[1] - R.y) < 0.05 && q[0] >= R.x0 - 0.05 && q[0] <= R.x1 + 0.05;
+    const taxi = g.edges.filter((e) => !(onRunway(g.pos[e.from]) && onRunway(g.pos[e.to]))).map((e) => [g.pos[e.from], g.pos[e.to]] as const);
+    // how far a piece (a row across the runway's line) is from the nearest taxiway
+    const room = (x: number, y0: number, y1: number) => {
+      let d = Infinity;
+      for (let y = y0; y <= y1 + 1e-6; y += 0.3) for (const [a, b] of taxi) d = Math.min(d, segDist(x, y, a, b));
+      return d;
+    };
+    // the first spot along a stretch with room for a wide-body's wing beside it, else the roomiest
+    const place = (from: number, step: number, n: number, y0: number, y1: number, want: number) => {
+      let best = from;
+      let bestRoom = -1;
+      for (let k = 0; k <= n; k++) {
+        const x = from + k * step;
+        const r = room(x, y0, y1);
+        if (r >= want) return x;
+        if (r > bestRoom + 1e-6) {
+          bestRoom = r;
+          best = x;
+        }
+      }
+      return best;
+    };
+    const F = L.field;
+    for (const dir of level >= 3 ? [1, -1] : [1]) {
+      const far = dir > 0 ? R.x1 : R.x0;
+      const near = dir > 0 ? R.x0 : R.x1;
+      // the localizer: past the end (up to 4 tiles out, inside the fence)
+      const reach = Math.max(0, Math.min(4, dir > 0 ? F.x1 - 0.6 - far : far - F.x0 - 0.6) - 0.75);
+      const lx = place(far + dir * 0.75, dir * 0.25, Math.floor(reach / 0.25), R.y - 1.05, R.y + 1.05, 1.5);
+      out.push({ kind: 'loc', x: lx, y: R.y, dir });
+      // the glideslope: down the runway from the threshold
+      const gy = R.y + R.width / 2 + 0.8;
+      const gx = place(near + dir * 1.4, dir * 0.25, 18, gy - 0.2, gy + 0.2, 1.0);
+      out.push({ kind: 'gs', x: gx, y: gy, dir });
+    }
+  }
+  ilsCache.set(key, out);
+  return out;
+}
+
+const ilsCache = new Map<number, IlsPart[]>();
+
+/** Distance from a point to a segment. */
+function segDist(x: number, y: number, a: readonly number[], b: readonly number[]): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / l2)) : 0;
+  return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy);
 }
 
 export function towerSpotOf(L: TierLayout): [number, number] | null {

@@ -17,9 +17,12 @@ import {
   hasAbility,
   spacingAt,
   TOWER_ABILITIES,
+  ilsParts,
   towerSpot,
   warningMul,
 } from '../src/sim/game/tower';
+import { layoutOf } from '../src/sim/game/layout';
+import { graphOf } from '../src/sim/game/graph';
 import { WANT } from '../src/sim/game/types';
 import { weatherAt } from '../src/sim/game/weather';
 import { DAY_SECONDS } from '../src/sim/game/clock';
@@ -139,5 +142,47 @@ describe('the control tower', () => {
     expect(s.builds.some((b) => b.id === 'tower' && b.level === 3)).toBe(true);
     step(s, upgradeDef('tower')!.buildSeconds![2] + 2);
     expect(s.upg.tower).toBe(3);
+  });
+
+  it('the ILS stands on the map: one way at CAT I and II, both ways at CAT III', () => {
+    expect(ilsParts(1, 3)).toEqual([]);
+    expect(ilsParts(2, 0)).toEqual([]);
+    const one = ilsParts(4, 1);
+    expect(one.map((q) => q.kind)).toEqual(['loc', 'gs']);
+    const R = layoutOf(4).runway;
+    // the localizer past the far end on the centerline, the glideslope by the touchdown zone
+    expect(one[0].x).toBeGreaterThan(R.x1);
+    expect(one[0].y).toBe(R.y);
+    expect(one[1].x).toBeLessThan(R.x0 + 2);
+    expect(one[1].y).toBeGreaterThan(R.y + R.width / 2);
+    const both = ilsParts(4, 3);
+    expect(both).toHaveLength(4);
+    expect(both.filter((q) => q.dir < 0).map((q) => q.kind)).toEqual(['loc', 'gs']);
+    // inside the fence and off the runways, at every airport
+    for (let t = 2; t <= 8; t++) {
+      const L = layoutOf(t);
+      for (const q of ilsParts(t, 3)) {
+        expect(q.x, `tier ${t}`).toBeGreaterThan(L.field.x0);
+        expect(q.x, `tier ${t}`).toBeLessThan(L.field.x1);
+        expect(q.y, `tier ${t}`).toBeLessThan(L.field.y1);
+        for (const W of [L.runway, L.depRunway]) if (W && q.kind === 'gs') expect(Math.abs(q.y - W.y), `tier ${t}`).toBeGreaterThan(W.width / 2 + 0.5);
+        // clear of the taxiways
+        const g = graphOf(t);
+        const R = L.runway;
+        const onRunway = (p: readonly number[]) => Math.abs(p[1] - R.y) < 0.05 && p[0] >= R.x0 - 0.05 && p[0] <= R.x1 + 0.05;
+        for (const e of g.edges) {
+          const a = g.pos[e.from];
+          const b = g.pos[e.to];
+          if (onRunway(a) && onRunway(b)) continue;
+          for (let k = -3; k <= 3; k++) {
+            const y = q.y + (q.kind === 'loc' ? k * 0.33 : 0);
+            const dx = b[0] - a[0];
+            const dy = b[1] - a[1];
+            const u = Math.max(0, Math.min(1, ((q.x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1)));
+            expect(Math.hypot(q.x - a[0] - u * dx, y - a[1] - u * dy), `tier ${t} ${q.kind} ${q.dir}`).toBeGreaterThan(0.6);
+          }
+        }
+      }
+    }
   });
 });

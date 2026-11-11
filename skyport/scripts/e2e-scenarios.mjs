@@ -948,6 +948,67 @@ export default [
       await page.waitForTimeout(700);
     },
   },
+  // the ILS on the map: the localizer past the far end, the glideslope by the touchdown zone (CAT III: both ways)
+  ...[
+    ['ils-cat1-loc', 3, 1, 'loc', 1],
+    ['ils-cat2-gs', 4, 2, 'gs', 1],
+    ['ils-cat3-west', 5, 3, 'loc', -1],
+    ['ils-cat3-east-t7', 7, 3, 'loc', 1],
+    ['ils-cat2-east-t5', 5, 2, 'loc', 1],
+  ].map(([name, tier, level, kind, dir]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query: `/?seed=85&tier=${tier}&full=1&crew=1&warp=60&auto=1&hook=1`,
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(
+        ([level, kind, dir]) => {
+          const h = window.__skyport;
+          h.setUpg({ ils: level });
+          const q = h.ilsTap().filter((p) => p.kind === kind)[dir > 0 ? 0 : 1];
+          h.lookAt(q.x - 0.4, q.y - 0.6, 2.2);
+        },
+        [level, kind, dir],
+      );
+      await page.waitForTimeout(2000);
+    },
+  })),
+  {
+    name: 'ils-tap',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=86&tier=4&full=1&crew=1&warp=60&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.setUpg({ ils: 2 });
+        const q = h.ilsTap().find((p) => p.kind === 'gs');
+        h.lookAt(q.x, q.y, 1.6);
+      });
+      await page.waitForTimeout(900);
+      // (a moment with no plane near it, so the tap is the mast's)
+      await page.waitForFunction(
+        () => {
+          const h = window.__skyport;
+          const g = h.ilsTap().find((p) => p.kind === 'gs');
+          return h.planes().every((f) => Math.hypot(f.x - g.x, f.y - g.y) > 4);
+        },
+        null,
+        { timeout: 60000 },
+      );
+      const q = await page.evaluate(() => window.__skyport.ilsTap().find((p) => p.kind === 'gs'));
+      await page.touchscreen.tap(q.vx, q.vy);
+      await page.waitForSelector('[data-testid="tower-equipment"]', { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="equip-ils"]').scrollIntoView());
+      await page.waitForTimeout(700);
+    },
+  },
   // the four towers and the weather station by them
   ...[
     ['tower-v1-meteo', 2, { tower: 1, meteo: 1 }],

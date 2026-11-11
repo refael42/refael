@@ -1055,6 +1055,9 @@ export const en = {
   'tw.buy': 'Upgrade',
   'tw.build': 'Build',
   'tw.open': 'Tower',
+  'ver.ils.1': 'CAT I: a localizer and a glideslope',
+  'ver.ils.2': 'CAT II: wider antennas and a monitor',
+  'ver.ils.3': 'CAT III: both ways',
 } as const;
 
 export type TKey = keyof typeof en;

@@ -1096,6 +1096,65 @@ export function towerTop(v: number): number {
   return v <= 1 ? 2.76 : v === 2 ? 3.6 : v === 3 ? 4.3 : 5.45;
 }
 
+// ------------------------------------------------------------------ the ILS on the map (owner request: what an airport needs)
+
+/**
+ * The localizer: a row of antennas across the runway's centerline past its far
+ * end (local frame: the runway runs along x, the row along y), on a low steel
+ * frame, with a small white equipment hut beside it. The CAT II/III one is
+ * wider, with more antennas.
+ */
+export function drawLocalizer(p: IsoPen, wide: boolean): void {
+  const n = wide ? 14 : 10;
+  const half = wide ? 1.05 : 0.8;
+  p.shadow(0, 0, 30 * half, 7, 0.12);
+  // the frame: two rails on short posts
+  for (let k = 0; k <= 4; k++) {
+    const y = -half + (k * 2 * half) / 4;
+    p.line(0, y, 0, 0, y, 0.22, '#64748b', 1.4);
+  }
+  p.line(0, -half, 0.22, 0, half, 0.22, '#94a3b8', 1.6);
+  p.line(-0.06, -half, 0.12, -0.06, half, 0.12, '#94a3b8', 1);
+  // the antennas: short masts with a crossbar (dipoles) facing the runway, red caps at the ends
+  for (let k = 0; k < n; k++) {
+    const y = -half + (k + 0.5) * ((2 * half) / n);
+    p.line(0, y, 0.22, 0, y, 0.42, '#e2e8f0', 1.4);
+    p.line(-0.07, y, 0.4, 0.05, y, 0.4, '#f8fafc', 1.6);
+    p.line(-0.05, y, 0.33, 0.04, y, 0.33, '#cbd5e1', 1.2);
+    if (k === 0 || k === n - 1) p.circle(0, y, 0.44, 1.4, '#ef4444', false);
+  }
+  // the equipment hut
+  p.box(0.25, half + 0.1, 0.55, half + 0.38, 0, 0.24, '#f8fafc');
+  p.box(0.23, half + 0.08, 0.57, half + 0.4, 0.24, 0.27, '#94a3b8');
+  p.poly([0.55, half + 0.17, 0.03, 0.55, half + 0.27, 0.03, 0.55, half + 0.27, 0.19, 0.55, half + 0.17, 0.19], '#64748b', false);
+}
+
+/**
+ * The glideslope: a tall red-and-white mast beside the touchdown zone with
+ * three antenna panels facing the approach (from -x when face is 1, from +x when
+ * -1), a hut at its foot; the CAT II/III one has a far-field monitor post out
+ * toward the approach as well.
+ */
+export function drawGlideslope(p: IsoPen, monitor: boolean, face: number): void {
+  const f = face >= 0 ? 1 : -1;
+  p.shadow(0.1 * f, 0.05, 16, 6, 0.14);
+  // the hut (on the runway side of the mast, away from the approach)
+  p.box(Math.min(0.12 * f, 0.4 * f), -0.15, Math.max(0.12 * f, 0.4 * f), 0.12, 0, 0.24, '#f8fafc');
+  p.box(Math.min(0.1 * f, 0.42 * f), -0.17, Math.max(0.1 * f, 0.42 * f), 0.14, 0.24, 0.27, '#94a3b8');
+  // the mast, banded red and white toward the top
+  for (let z = 0; z < 1.3; z += 0.1) p.line(0, 0, z, 0, 0, Math.min(1.3, z + 0.1), z > 0.7 && Math.floor(z * 10 + 0.01) % 2 === 0 ? '#ef4444' : '#e2e8f0', 2.2);
+  p.circle(0, 0, 1.32, 1.6, '#ef4444', false);
+  // the three panels, facing the approach
+  const px = -0.03 * f;
+  for (const z of [0.45, 0.8, 1.12]) p.poly([px, -0.08, z - 0.06, px, 0.08, z - 0.06, px, 0.08, z + 0.06, px, -0.08, z + 0.06], '#cbd5e1', true, 0.8);
+  if (monitor) {
+    // the monitor: a short post with one antenna, out toward the approach
+    const mx = -0.7 * f;
+    p.line(mx, 0.05, 0, mx, 0.05, 0.42, '#94a3b8', 1.4);
+    p.poly([mx, -0.02, 0.36, mx, 0.12, 0.36, mx, 0.12, 0.46, mx, -0.02, 0.46], '#e2e8f0', true, 0.8);
+  }
+}
+
 /** Frames of the weather station's turning anemometer cups. */
 export const METEO_FRAMES = 4;
 

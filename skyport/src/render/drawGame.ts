@@ -6,7 +6,7 @@ import { decorPos } from '../sim/game/tiers';
 import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
-import { meteoSpot } from '../sim/game/tower';
+import { ilsParts, meteoSpot } from '../sim/game/tower';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
@@ -127,6 +127,16 @@ export function drawGame(
     if (visible(sx, sy, 180)) {
       w.sprite(sp.towerV(tv), sx, sy, 1, tx + ty + 0.3);
       if (tv >= 2 && Math.floor(o.time * 1.2) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), sx, isoY(tx, ty, towerTop(tv)), 0.8, 0.9);
+    }
+  }
+
+  // the ILS: localizers past the far ends of the runway, glideslopes by the touchdown zones
+  const ilsLv = s.upg.ils ?? 0;
+  if (ilsLv > 0) {
+    for (const part of ilsParts(s.tier, ilsLv)) {
+      const px = isoX(part.x, part.y);
+      const py = isoY(part.x, part.y);
+      if (visible(px, py, 60)) w.sprite(part.kind === 'loc' ? sp.localizer(ilsLv >= 2) : sp.glideslope(ilsLv >= 2, part.dir), px, py, 1, part.x + part.y + 0.3);
     }
   }
 
