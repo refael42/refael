@@ -9,6 +9,7 @@ import { updateApm } from './apm';
 import { updateRail } from './rail';
 import { updateCleaning } from './cleaning';
 import { updateGuards } from './security';
+import { updateTower } from './tower';
 import { layoutOf } from './layout';
 import { updateTerminal } from './terminal';
 import { rollIncome } from './income';
@@ -38,6 +39,7 @@ export function stepGame(s: GameState, dt: number = DT): void {
   updateIncidents(s, dt, (p) => spawnFlight(s, p));
   updateSpawning(s);
   updateStaff(s);
+  updateTower(s);
   updateFlights(s, dt);
   updateDepartingPax(s);
   updateVehicles(s, dt);

@@ -27,7 +27,10 @@ describe('upgrade versions', () => {
     expect(nextVersionAt('kiosk', 50)).toBeNull();
     // the tower is there from the start
     expect(versionOf('tower', 0)).toBe(1);
-    expect(versionOf('tower', 4)).toBe(3);
+    // (ten levels: a taller tower at 3, the modern one at 6, the mega tower at 9)
+    expect(versionOf('tower', 4)).toBe(2);
+    expect(versionOf('tower', 6)).toBe(3);
+    expect(versionOf('tower', 9)).toBe(4);
     expect(versionOf('ticket', 50)).toBe(0);
   });
 

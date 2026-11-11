@@ -16,6 +16,9 @@ import { attachWebZoom, makeCamera, updateCamera, useCameraResponder, viewToWorl
 import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
+import { TowerPanel } from './TowerPanel';
+import { meteoSpot } from '../../sim/game/tower';
+import { towerTop } from '../../render/art/objects';
 import { GoalCard, type GoalView } from './GoalCard';
 import { HelpPanel } from './HelpPanel';
 import { IncidentsPanel } from './IncidentsPanel';
@@ -1054,9 +1057,24 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         const f = ctrl.state.flights.find((x) => x.id === best);
         if (f && f.want !== WANT.none) act(best);
         setSelected(best);
-      } else {
-        setSelected(0);
+        return;
       }
+      // the control tower (from its foot to its cab) or the weather station by it opens the tower's panel
+      const tw = towerRef.current;
+      if (tw) {
+        const sx = isoX(tw[0], tw[1]);
+        const sy = isoY(tw[0], tw[1]);
+        const top = isoY(tw[0], tw[1], towerTop(versionOf('tower', ctrl.state.upg.tower ?? 0)));
+        const onTower = Math.abs(p.x - sx) * cam.zoom < 26 && p.y > top - 14 / cam.zoom && p.y < sy + 14 / cam.zoom;
+        const ms = (ctrl.state.upg.meteo ?? 0) > 0 ? meteoSpot(ctrl.state.tier) : null;
+        const onStation = !!ms && Math.hypot(p.x - isoX(ms[0] + 0.5, ms[1] + 0.5), p.y - (isoY(ms[0] + 0.5, ms[1] + 0.5) - 16)) * cam.zoom < 30;
+        if (onTower || onStation) {
+          setSelected(0);
+          setPanel('tower');
+          return;
+        }
+      }
+      setSelected(0);
     },
     [cam, ctrl, act],
   );
@@ -1176,6 +1194,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      towerTap: () => {
+        const tw = world.tower;
+        if (!tw) return null;
+        return { vx: (isoX(tw[0], tw[1]) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(tw[0], tw[1], 1.2) - cam.y) * cam.zoom + cam.viewH / 2 };
+      },
       planes: () => ctrl.state.flights.map((f) => ({ id: f.id, phase: f.phase, x: f.x, y: f.y, stand: f.stand, aircraft: AIRCRAFT[f.aircraft]?.id })),
       // (screenshots: start a security incident now; where its spot is)
       security: (kind: 'bag' | 'drone' | 'breach') => {
@@ -1235,7 +1258,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // landscape phones: compact bar, and the best-value tip beside it when there is room
   const short = size.h > 0 && size.h < 500;
   const barRow = short && size.w >= 800 && !!offer;
-  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies' || panel === 'events' || panel === 'help');
+  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies' || panel === 'events' || panel === 'help' || panel === 'tower');
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
@@ -1483,6 +1506,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       ) : null}
       {panel === 'daily' ? <DailyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} last={lastSpin} /> : null}
       {panel === 'career' || panel === 'achievements' ? <CareerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'achievements' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
+      {panel === 'tower' ? <TowerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} onStaff={() => setPanel('staff')} /> : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
       {buildMode ? (
@@ -1621,6 +1645,10 @@ function upgradeSpot(s: GameState, id: string, tower: [number, number] | null): 
   if (id === 'kiosk' || id === 'billboard') return decorPos(s, id);
   if (id === 'benches') return decorPos(s, 'bench1');
   if (id === 'tower') return tower;
+  if (id === 'meteo') {
+    const m = meteoSpot(s.tier);
+    return m ? [m[0] + 0.5, m[1] + 0.5] : null;
+  }
   if (id === 'radar') return layoutOf(s.tier).radar ?? null;
   return null;
 }

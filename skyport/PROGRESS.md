@@ -730,6 +730,56 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### The control tower in the game (owner request, after the night)
+"Is there a control tower? Make it part of the game, not only the look." It is now: tap it on the
+map (or the weather station by it) and it opens its own panel (`TowerPanel.tsx`). Sim in
+`sim/game/tower.ts`.
+- Ten levels (were five). Each takes a build (60 s to 6 min) and opens with the airport:
+  two at the small airfield, all ten at the Skyport.
+  - Levels 1 to 5: wake gaps 10% shorter each (to 50%) and go-arounds 12% rarer each (to 60%).
+  - Levels 6 to 10: go-arounds 3% rarer each.
+- Some levels bring a tower ability:
+  - 2, ground control: planes taxi 10% faster;
+  - 4, approach control: planes in the hold keep their patience 25% longer;
+  - 6, automatic clearances: the tower clears a landing or a takeoff itself once the plane has
+    waited 5 s and nobody else has (your own taps and the controllers still come first);
+  - 8, surface radar: a further 30% off the go-arounds that are left;
+  - 10, integrated operations: planes fly the approach 10% faster.
+- Four looks: the small tower, the tall one (level 3), the modern one (6), and the mega tower
+  (9): a tapering white shaft with a light strip, a two-storey glass cab, a gold band, a white
+  roof and two radar balls. The beacon sits on top of each.
+- A new runway upgrade, the weather station (3 levels):
+  - storm warnings 1.5x, 2x, then 2.5x earlier;
+  - crosswind go-arounds 15% rarer a level;
+  - a forecast in the tower panel: wind and visibility in an hour, two at level 3;
+  - on the map it stands on the grass north of Terminal 1: a fenced square with a louvred
+    screen, a rain gauge, a wind vane and cups that turn faster in a stronger wind. A weather
+    radar dome joins them at level 3. Trees keep off its square.
+- The tower panel:
+  - the tower card: its look, level, ten pips (gold rims for the levels with an ability), how
+    much shorter the gaps and how much rarer the go-arounds, what the next level adds, and the
+    upgrade button (price and build time, or "being built", or the tier that opens the next
+    level);
+  - the five abilities, active or locked with their level;
+  - the traffic now: in the air, waiting for you, on the ground, go-arounds and diversions so
+    far, controllers on duty with a button to Staff;
+  - the tower's equipment: the weather station, the approach radar and the ILS, each with its
+    level, what the next one does and a buy button; and the forecast, with a storm countdown when
+    one is announced.
+- A panel opened by a tap on the map no longer closes at once from that same tap's click
+  (`Sheet.tsx` ignores backdrop presses in its first 450 ms).
+- New icons: tower and lock.
+- Tests: `tower.test.ts`:
+  - the ten levels, the abilities and the names;
+  - each level helps;
+  - wake gaps;
+  - automatic clearances at level 6 and not at 5;
+  - the weather station's warning lead, crosswind and forecast;
+  - building a level.
+- E2E: `tower-tap` (a real tap on the tower opens the panel), `tower-panel-max`,
+  `tower-panel-equipment`, `tower-v1-meteo`, `tower-v2`, `tower-v3`, `tower-mega`. The hook adds
+  `towerTap()`.
+
 ### The night (owner request: the small details, after the ground services)
 The clock ran through the night but the game never got dark. Now it does
 (`nightOf` in `drawGame.ts`).

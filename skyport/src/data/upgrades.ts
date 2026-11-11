@@ -40,7 +40,9 @@ export type EffectKind =
   | 'fence'
   | 'patrol'
   | 'k9'
-  | 'drone';
+  | 'drone'
+  /** The weather station (see tower.ts). */
+  | 'meteo';
 
 export interface UpgradeDef {
   id: string;
@@ -96,7 +98,10 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'hangar', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 40000, growth: 6, effect: 'opens', per: 1, buildSeconds: [150, 240], levelTier: [3, 4], icon: 'wrench' },
   { id: 'lounge', category: 'comfort', unlockTier: 4, maxLevel: 10, baseCost: 150000, growth: 1.6, effect: 'comfort', per: 0.02, icon: 'star' },
   // air traffic control
-  { id: 'tower', category: 'runway', unlockTier: 2, maxLevel: 5, baseCost: 1500, growth: 6, effect: 'tower', per: 0.1, buildSeconds: [60, 90, 120, 150, 180], levelTier: [2, 2, 3, 4, 5], icon: 'gear' },
+  // the control tower (owner request: part of the game): ten levels, abilities at 2, 4, 6, 8 and 10 (tower.ts)
+  { id: 'tower', category: 'runway', unlockTier: 2, maxLevel: 10, baseCost: 1500, growth: 4.2, effect: 'tower', per: 0.1, buildSeconds: [60, 90, 120, 150, 180, 210, 240, 270, 300, 360], levelTier: [2, 2, 3, 4, 5, 5, 6, 6, 7, 8], icon: 'gear' },
+  // the weather station: storms announced earlier, fewer crosswind go-arounds, a forecast
+  { id: 'meteo', category: 'runway', unlockTier: 2, maxLevel: 3, baseCost: 1800, growth: 5, effect: 'meteo', per: 1, buildSeconds: [45, 90, 150], levelTier: [2, 3, 5], icon: 'sun' },
   { id: 'radar', category: 'runway', unlockTier: 2, maxLevel: 3, baseCost: 2500, growth: 10, effect: 'radar', per: 0.25, buildSeconds: [60, 120, 180], levelTier: [2, 3, 4], icon: 'clock' },
   { id: 'ils', category: 'runway', unlockTier: 2, maxLevel: 3, baseCost: 2000, growth: 12, effect: 'ils', per: 1, buildSeconds: [90, 150, 210], levelTier: [2, 3, 4], icon: 'land' },
   // supplies: bigger fuel farm and parts store

@@ -44,6 +44,7 @@ import { chaikin, makeSample, samplePath } from './path';
 import type { Flight, GameState, Incident, IncidentUnit, Planned } from './types';
 import { level } from './upgrades';
 import { bagBonus, bagSpot, breachChance, breachSpot, checkSeconds, droneSeconds, droneSpot, guardAtBag, guardCount, NO_GUARD_SECONDS, BAG_GOOD, PATROL_SPEED, payBonus, securityLevel, securityUnit } from './security';
+import { warningMul } from './tower';
 
 const SAMPLE = makeSample();
 /** Seconds an emergency may circle before it gives up on you. */
@@ -153,8 +154,9 @@ function newIncident(s: GameState, kind: IncidentKind): Incident {
     id: s.nextId++,
     kind,
     state: def.lead > 0 ? 'announced' : 'active',
-    at: s.time + def.lead,
-    ends: def.duration > 0 ? s.time + def.lead + def.duration : 0,
+    // (the weather station sees storms coming sooner)
+    at: s.time + def.lead * (kind === 'storm' ? warningMul(s) : 1),
+    ends: def.duration > 0 ? s.time + def.lead * (kind === 'storm' ? warningMul(s) : 1) + def.duration : 0,
     flight: 0,
     x: 0,
     y: 0,

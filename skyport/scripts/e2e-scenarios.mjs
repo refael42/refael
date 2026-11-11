@@ -894,6 +894,84 @@ export default [
       await page.waitForTimeout(2500);
     },
   })),
+  // the control tower (owner request: part of the game, not only the look): tap it for its panel
+  {
+    name: 'tower-tap',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=81&tier=4&full=1&crew=1&warp=60&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.setUpg({ tower: 6, meteo: 2 });
+        const t = h.tower();
+        h.lookAt(t[0] + 0.6, t[1] + 0.6, 1.4);
+      });
+      await page.waitForTimeout(900);
+      const p = await page.evaluate(() => window.__skyport.towerTap());
+      if (!p) throw new Error('no tower on the map');
+      await page.touchscreen.tap(p.vx, p.vy);
+      await page.waitForSelector('[data-testid="tower-card"]', { timeout: 5000 });
+      // the sixth level brings automatic clearances
+      await page.waitForSelector('[data-testid="ability-auto"]', { timeout: 5000 });
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'tower-panel-max',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=82&tier=8&full=1&crew=1&warp=60&auto=1&hook=1&panel=tower',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ tower: 10, meteo: 3, radar: 3, ils: 3 }));
+      await page.waitForSelector('[data-testid="tower-abilities"]', { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="tower-abilities"]').scrollIntoView());
+      await page.waitForTimeout(700);
+    },
+  },
+  {
+    name: 'tower-panel-equipment',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=83&tier=3&full=1&crew=1&warp=60&auto=1&hook=1&panel=tower',
+    wait: 900,
+    touch: true,
+    langs: ['he'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ tower: 3, meteo: 1 }));
+      await page.waitForSelector('[data-testid="tower-forecast"]', { timeout: 5000 });
+      await page.evaluate(() => document.querySelector('[data-testid="tower-forecast"]').scrollIntoView());
+      await page.waitForTimeout(700);
+    },
+  },
+  // the four towers and the weather station by them
+  ...[
+    ['tower-v1-meteo', 2, { tower: 1, meteo: 1 }],
+    ['tower-v2', 3, { tower: 4, meteo: 2 }],
+    ['tower-v3', 5, { tower: 7, meteo: 2 }],
+    ['tower-mega', 8, { tower: 10, meteo: 3 }],
+  ].map(([name, tier, upg]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query: `/?seed=84&tier=${tier}&full=1&crew=1&warp=60&auto=1&hook=1`,
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate((upg) => {
+        const h = window.__skyport;
+        h.setUpg(upg);
+        const t = h.tower();
+        h.lookAt(t[0] + 0.2, t[1] - 2.6, 1.35);
+      }, upg);
+      await page.waitForTimeout(2200);
+    },
+  })),
   { name: 'm11-firestation', viewport: { width: 844, height: 390 }, query: '/?seed=47&tier=3&full=1&crew=1&warp=120&auto=1&cam=27.5,15.5,2.0', wait: 2500, touch: true, langs: ['en'] },
   { name: 'gallery-phone', viewport: { width: 844, height: 390 }, query: '/?screen=gallery', wait: 2500, touch: true, langs: ['he'] },
 ];

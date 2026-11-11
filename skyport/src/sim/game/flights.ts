@@ -25,6 +25,7 @@ import { maybeReview } from './reviews';
 import { Big } from '../big';
 import { incomeBoost } from './career';
 import { FUEL, WANT, type Flight, type FlightPhase, type GameState, type Planned, type Want } from './types';
+import { crosswindCut, goAroundCut, hasAbility, towerSpacing } from './tower';
 
 /** How much a passenger's mood drops for a terminal that is a mess (at 0 cleanliness). */
 const DIRT_MOOD = 0.14;
@@ -92,7 +93,7 @@ export function wakeClearAt(s: GameState, r: number, f: Flight): number {
   const w = s.wake[r - 1];
   if (!w) return 0;
   // a better tower spaces planes tighter
-  const tower = Math.max(0.5, 1 - effectValue(s, 'tower'));
+  const tower = 1 - towerSpacing(s);
   return w.at + WAKE_GAP[w.cat][wakeCat(f)] * tower;
 }
 
@@ -393,8 +394,9 @@ export function mustGoAround(s: GameState, f: Flight, L: TierLayout): boolean {
   }
   const w = weather(s);
   const cross = crosswind(w) / CROSSWIND_LIMIT[wakeCat(f)];
-  let risk = 0.015 + 0.12 * Math.max(0, cross - 0.6) + (w.vis < 0.5 ? 0.04 : 0);
-  risk *= Math.max(0.4, 1 - effectValue(s, 'tower') * 1.5);
+  // (the weather station gives the pilots the wind as it is: fewer crosswind go-arounds)
+  let risk = 0.015 + 0.12 * Math.max(0, cross - 0.6) * (1 - crosswindCut(s)) + (w.vis < 0.5 ? 0.04 : 0);
+  risk *= 1 - goAroundCut(s);
   return hash01(f.id * 131 + f.goArounds * 17 + 7) < risk;
 }
 
@@ -715,7 +717,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
   const base = AIRCRAFT[f.aircraft];
   const fx = effects(s);
   // upgrades: smoother taxiways and runway lights speed things up
-  const ac = { ...base, taxiSpeed: base.taxiSpeed * fx.taxiSpeed, approachSpeed: base.approachSpeed * fx.runwayOps };
+  // (the tower's ground control: faster taxiing; integrated operations: faster runway work)
+  const ac = { ...base, taxiSpeed: base.taxiSpeed * fx.taxiSpeed * (hasAbility(s, 'ground') ? 1.1 : 1), approachSpeed: base.approachSpeed * fx.runwayOps * (hasAbility(s, 'ops') ? 1.1 : 1) };
   switch (f.phase) {
     case 'inbound': {
       if (f.landCleared && canStartFinal(s, f, L) && f.phaseT > 1) {
@@ -747,7 +750,8 @@ function updateFlight(s: GameState, f: Flight, dt: number, L: TierLayout): boole
       f.z += (tz - f.z) * k;
       turnToward(f, f.holdAngle + Math.PI / 2, 3, dt);
       if (!f.landCleared) {
-        if (!airportPaused(s)) f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(s, f));
+        // (approach control keeps holding planes patient longer)
+        if (!airportPaused(s)) f.patience -= dt / (HOLD_PATIENCE_S * holdFuel(s, f) * (hasAbility(s, 'approach') ? 1.25 : 1));
         f.mood = Math.max(0, f.mood - 0.006 * dt);
       } else {
         // a runway change is nobody's fault: pilots wait it out more calmly

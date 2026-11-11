@@ -1033,6 +1033,7 @@ export function drawPergola(p: IsoPen): void {
 /** Control tower versions: 1 the small one (drawTower), 2 taller with a wider cab, 3 a modern flared one. */
 export function drawTowerV(p: IsoPen, v: number): void {
   if (v <= 1) return drawTower(p);
+  if (v >= 4) return drawMegaTower(p);
   const shaft = v === 2 ? 2.6 : 3.3;
   const rs = v === 2 ? 8 : 9;
   const cab = v === 2 ? 14 : 17;
@@ -1056,9 +1057,87 @@ export function drawTowerV(p: IsoPen, v: number): void {
   if (v === 3) p.circle(0.05, -0.05, shaft + 0.62, 5, '#f8fafc');
 }
 
+/**
+ * The mega tower (version 4): a tall white shaft on a wide base building, a
+ * two-storey glass cab (the controllers above, the supervisors below), a gold
+ * band under a white roof and two radar balls on masts.
+ */
+function drawMegaTower(p: IsoPen): void {
+  const shaft = 4.0;
+  p.shadow(0.4, 0.4, 40, 16, 0.24);
+  // the base building with its glass entrance
+  p.box(-0.5, -0.5, 0.5, 0.5, 0, 0.42, '#e2e8f0');
+  p.poly([0.5, -0.2, 0.05, 0.5, 0.2, 0.05, 0.5, 0.2, 0.35, 0.5, -0.2, 0.35], '#7dd3fc', false);
+  p.box(-0.52, -0.52, 0.52, 0.52, 0.42, 0.47, '#94a3b8');
+  // the shaft: tapering, with a vertical light strip
+  for (let z = 0.47; z < shaft; z += 0.03) {
+    const k = 1 - 0.22 * ((z - 0.47) / (shaft - 0.47));
+    p.circle(0, 0, z, 10 * k, '#f1f5f9', false);
+  }
+  for (let z = 0.7; z < shaft - 0.2; z += 0.06) p.circle(0.06, 0.06, z, 1.6, '#38bdf8', false);
+  // the lower cab (supervisors) and the upper cab (controllers), both glass
+  p.circle(0, 0, shaft, 15, '#cbd5e1');
+  for (let z = shaft + 0.02; z < shaft + 0.3; z += 0.02) p.circle(0, 0, z, 15, z > shaft + 0.27 ? '#7dd3fc' : '#0ea5e9', false);
+  p.circle(0, 0, shaft + 0.32, 17, '#334155');
+  for (let z = shaft + 0.34; z < shaft + 0.74; z += 0.02) p.circle(0, 0, z, 16 + (z - shaft - 0.34) * 6, z > shaft + 0.71 ? '#bae6fd' : '#38bdf8', false);
+  // a gold band round the top of the glass, a white roof stepping up, the masts with two radar balls
+  for (let z = shaft + 0.72; z < shaft + 0.82; z += 0.02) p.circle(0, 0, z, 18.8, '#eab308', false);
+  p.circle(0, 0, shaft + 0.84, 20, '#f1f5f9');
+  p.circle(0, 0, shaft + 0.9, 14, '#cbd5e1');
+  p.circle(0, 0, shaft + 0.95, 9, '#94a3b8');
+  p.line(-0.08, 0, shaft + 0.95, -0.08, 0, shaft + 1.3, '#475569', 2);
+  p.line(0.1, 0.05, shaft + 0.95, 0.1, 0.05, shaft + 1.15, '#475569', 2);
+  p.circle(-0.08, 0, shaft + 1.36, 5.5, '#f8fafc');
+  p.circle(0.1, 0.05, shaft + 1.2, 4.5, '#f8fafc');
+}
+
 /** The tower's top (where its beacon blinks), in tiles above the ground. */
 export function towerTop(v: number): number {
-  return v <= 1 ? 2.76 : v === 2 ? 3.6 : 4.3;
+  return v <= 1 ? 2.76 : v === 2 ? 3.6 : v === 3 ? 4.3 : 5.45;
+}
+
+/** Frames of the weather station's turning anemometer cups. */
+export const METEO_FRAMES = 4;
+
+/**
+ * The weather station: a fenced square of gravel, a mast with turning cups and a
+ * wind vane, a white louvred screen on legs, a rain gauge; at level 3 a weather
+ * radar dome as well.
+ */
+export function drawWeatherStation(p: IsoPen, frame: number, dome: boolean): void {
+  p.shadow(0.5, 0.5, 36, 16, 0.14);
+  p.box(0, 0, 1.0, 1.0, 0, 0.01, '#d6d3d1');
+  // a low white fence round it
+  for (let k = 0; k <= 5; k++) {
+    for (const [x, y] of [[k * 0.2, 0], [k * 0.2, 1.0], [0, k * 0.2], [1.0, k * 0.2]] as const) p.line(x, y, 0, x, y, 0.16, '#f8fafc', 1.4);
+  }
+  for (const [x0, y0, x1, y1] of [[0, 0, 1, 0], [0, 1, 1, 1], [0, 0, 0, 1], [1, 0, 1, 1]] as const) p.line(x0, y0, 0.14, x1, y1, 0.14, '#f8fafc', 1.2);
+  // the Stevenson screen: a white louvred box on four legs
+  for (const [x, y] of [[0.15, 0.6], [0.35, 0.6], [0.15, 0.8], [0.35, 0.8]] as const) p.line(x, y, 0, x, y, 0.3, '#e2e8f0', 1.4);
+  p.box(0.12, 0.57, 0.38, 0.83, 0.3, 0.52, '#ffffff');
+  for (let z = 0.33; z < 0.5; z += 0.04) p.line(0.38, 0.58, z, 0.38, 0.82, z, '#cbd5e1', 0.8);
+  p.box(0.1, 0.55, 0.4, 0.85, 0.52, 0.56, '#f1f5f9');
+  // the rain gauge
+  for (let z = 0; z < 0.22; z += 0.02) p.circle(0.75, 0.75, z, 3, z > 0.2 ? '#94a3b8' : '#e2e8f0', false);
+  // the mast, the vane and the turning cups
+  p.line(0.7, 0.3, 0, 0.7, 0.3, 1.2, '#64748b', 2);
+  p.line(0.62, 0.3, 1.1, 0.82, 0.3, 1.1, '#475569', 1.4);
+  p.poly([0.82, 0.3, 1.06, 0.9, 0.3, 1.1, 0.82, 0.3, 1.14], '#ef4444', false);
+  const a0 = (frame / METEO_FRAMES) * ((Math.PI * 2) / 3);
+  for (let k = 0; k < 3; k++) {
+    const a = a0 + (k * Math.PI * 2) / 3;
+    const x = 0.7 + Math.cos(a) * 0.12;
+    const y = 0.3 + Math.sin(a) * 0.12;
+    p.line(0.7, 0.3, 1.22, x, y, 1.22, '#94a3b8', 1);
+    p.circle(x, y, 1.22, 2, k === 0 ? '#ef4444' : '#f8fafc', false);
+  }
+  if (dome) {
+    p.box(0.1, 0.08, 0.42, 0.4, 0, 0.3, '#94a3b8');
+    for (let z = 0.3; z < 0.62; z += 0.02) {
+      const r = Math.sqrt(Math.max(0, 1 - ((z - 0.42) / 0.2) ** 2)) * 9;
+      p.circle(0.26, 0.24, z, r, z > 0.56 ? '#ffffff' : '#f1f5f9', false);
+    }
+  }
 }
 
 /** Radar version 3: a white radome on a short tower (it does not turn). */

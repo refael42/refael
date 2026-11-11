@@ -22,6 +22,7 @@ export * from './game/upgrades';
 export * from './game/rating';
 export { cleanliness } from './game/cleaning';
 export { reviewAverage, MAX_REVIEWS } from './game/reviews';
+export { TOWER_ABILITIES, AUTO_CLEAR_SECONDS, towerLevel, hasAbility, abilityAt, spacingAt, goAroundCutAt, towerSpot, towerSpacing, goAroundCut, meteoLevel, warningMul, crosswindCut, forecast, type TowerAbility } from './game/tower';
 export { securityLevel, guardCount, guardsNeeded, noticeSeconds, droneSeconds } from './game/security';
 export { FESTIVALS, FESTIVAL_PRIZES, FESTIVAL_DAYS, DEAL_OFF, flashDeal, festivalLeft, type FestivalKind } from './game/festival';
 export { DAILY_GIFTS, WHEEL, WHEEL_TOTAL, SPIN_GEMS, SPIN_EVERY_MIN, giftReady, spinIn, type Gift } from './game/daily';

@@ -6,6 +6,7 @@ import { decorPos } from '../sim/game/tiers';
 import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
+import { meteoSpot } from '../sim/game/tower';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
@@ -116,7 +117,14 @@ export function drawGame(
     const tv = versionOf('tower', s.upg.tower ?? 0);
     const sx = isoX(tx, ty);
     const sy = isoY(tx, ty);
-    if (visible(sx, sy, 160)) {
+    // the weather station by the tower (its cups turn with the wind)
+    const mv = s.upg.meteo ?? 0;
+    const ms = mv > 0 ? meteoSpot(s.tier) : null;
+    if (ms) {
+      const [mx, my] = ms;
+      if (visible(isoX(mx, my), isoY(mx, my), 60)) w.sprite(sp.meteo(Math.floor(o.time * (2 + wx.speed / 5)), mv >= 3), isoX(mx, my), isoY(mx, my), 1, mx + my + 0.5);
+    }
+    if (visible(sx, sy, 180)) {
       w.sprite(sp.towerV(tv), sx, sy, 1, tx + ty + 0.3);
       if (tv >= 2 && Math.floor(o.time * 1.2) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), sx, isoY(tx, ty, towerTop(tv)), 0.8, 0.9);
     }

@@ -1,5 +1,6 @@
 import { nextVersionAt, VERSIONS, versionOf } from '../../data/versions';
 import { storeCap } from '../../data/supplies';
+import { abilityAt, goAroundCutAt, spacingAt } from '../../sim/game/tower';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -65,8 +66,14 @@ export function effectText(t: (k: TKey, p?: Record<string, string | number>) => 
       return t('eff.counters', { a: 1 + from, b: 1 + to });
     case 'opens':
       return t('eff.opens', { a: from, b: to });
-    case 'tower':
-      return t('eff.tower', { a: Math.round(a * 100), b: Math.round(b * 100) });
+    case 'tower': {
+      // levels 1-5 shorten the gaps; later ones cut go-arounds; some bring a tower ability
+      const text = to <= 5 ? t('eff.tower', { a: Math.round(spacingAt(from) * 100), b: Math.round(spacingAt(to) * 100) }) : t('eff.towerGa', { a: Math.round(goAroundCutAt(from) * 100), b: Math.round(goAroundCutAt(to) * 100) });
+      const ab = to > from ? abilityAt(to) : null;
+      return ab ? t('eff.towerAb', { text, name: t(`ab.${ab}` as TKey) }) : text;
+    }
+    case 'meteo':
+      return t('eff.meteo', { a: from, b: to });
     case 'radar':
       return t('eff.radar', { a: Math.round(a * 100), b: Math.round(b * 100) });
     case 'ils':

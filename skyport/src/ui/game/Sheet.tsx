@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -21,9 +21,14 @@ export function Sheet({ title, subtitle, onClose, children, footer }: { title: s
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const side = width > height;
+  // (a panel opened by a tap on the map: the browser's click from that same tap must not close it at once)
+  const openedAt = useRef(Date.now());
+  const onBackdrop = () => {
+    if (Date.now() - openedAt.current > 450) onClose();
+  };
   return (
     <View style={[styles.backdrop, side && { flexDirection: 'row', justifyContent: dir.rtl ? 'flex-start' : 'flex-end', alignItems: 'stretch' }]}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      <Pressable style={StyleSheet.absoluteFill} onPress={onBackdrop} />
       <View
         style={
           side

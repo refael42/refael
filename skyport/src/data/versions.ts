@@ -7,7 +7,7 @@ export const VERSIONS: Readonly<Record<string, readonly number[]>> = {
   kiosk: [1, 10, 25, 50],
   billboard: [1, 6, 14, 24],
   benches: [1, 10, 20],
-  tower: [0, 2, 4],
+  tower: [0, 3, 6, 9],
   radar: [1, 2, 3],
   scanner: [1, 8, 15],
   lights: [1, 5, 12],

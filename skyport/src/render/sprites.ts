@@ -32,6 +32,8 @@ import {
   LED_FRAMES,
   drawPergola,
   drawTowerV,
+  drawWeatherStation,
+  METEO_FRAMES,
   drawRadome,
   drawLamp,
   drawParkSign,
@@ -317,6 +319,8 @@ export interface SpriteSet {
   billboardV: (v: number, frame: number) => number;
   pergola: number;
   towerV: (v: number) => number;
+  /** The weather station (frame of the cups; with the dome at level 3). */
+  meteo: (frame: number, dome: boolean) => number;
   radome: number;
   crane: number;
   terminal: number;
@@ -631,6 +635,9 @@ export function buildSprites(content: Content): SpriteSet {
   const pergola = b.add(-26 * S, -44 * S, 40 * S, 30 * S, (c, ox, oy) => drawPergola(new IsoPen(c, ox, oy, S)));
   const tower2 = b.add(-22 * S, -128 * S, 24 * S, 18 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 2));
   const tower3 = b.add(-24 * S, -150 * S, 26 * S, 20 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 3));
+  const tower4 = b.add(-34 * S, -186 * S, 36 * S, 26 * S, (c, ox, oy) => drawTowerV(new IsoPen(c, ox, oy, S), 4));
+  const meteoBase = b.size;
+  for (const dome of [false, true]) for (let f = 0; f < METEO_FRAMES; f++) b.add(-34 * S, -34 * S, 34 * S, 36 * S, (c, ox, oy) => drawWeatherStation(new IsoPen(c, ox, oy, S), f, dome));
   const radome = b.add(-24 * S, -60 * S, 24 * S, 12 * S, (c, ox, oy) => drawRadome(new IsoPen(c, ox, oy, S)));
   const terminal = b.add(-2.2 * 32 * S, -2.0 * 32 * S, 3.0 * 32 * S, 2.6 * 32 * S, (c, ox, oy) => drawTerminal(new IsoPen(c, ox, oy, S)));
   const tower = b.add(-16 * S, -100 * S, 18 * S, 14 * S, (c, ox, oy) => drawTower(new IsoPen(c, ox, oy, S)));
@@ -819,7 +826,8 @@ export function buildSprites(content: Content): SpriteSet {
     kioskV: (v) => (v <= 1 ? cart : v === 2 ? kiosk : v === 3 ? cafe : shop),
     billboardV: (v, f) => (v <= 1 ? painted : v === 2 ? billboard : (v === 3 ? ledBase : ledTowerBase) + (((f % LED_FRAMES) + LED_FRAMES) % LED_FRAMES)),
     pergola,
-    towerV: (v) => (v <= 1 ? tower : v === 2 ? tower2 : tower3),
+    towerV: (v) => (v <= 1 ? tower : v === 2 ? tower2 : v === 3 ? tower3 : tower4),
+    meteo: (f, dome) => meteoBase + (dome ? METEO_FRAMES : 0) + (((f % METEO_FRAMES) + METEO_FRAMES) % METEO_FRAMES),
     radome,
     crane,
     terminal,

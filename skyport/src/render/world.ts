@@ -9,6 +9,7 @@ import type { Rail, Satellite, TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { pierOf, routeLineUp } from '../sim/game/layout';
+import { meteoSpotOf, towerSpotOf } from '../sim/game/tower';
 import { chaikin } from '../sim/game/path';
 import { GLYPHS } from './art/glyphs';
 import { GroundPainter, rasterizeGround, recordPicture, type GroundTile } from './ground';
@@ -1016,10 +1017,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   }
   if (L.building) {
     buildingStatics(L.building, sprites, statics, tier);
-    towerAt = [...(L.tower ?? [18.6, 16.6])] as [number, number];
+    towerAt = towerSpotOf(L);
   } else if (L.runway.surface === 'asphalt') {
     statics.push({ sprite: sprites.terminal, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1.3 + L.hut[1] + 0.75, r: 160 });
-    towerAt = [18.6, 16.6];
+    towerAt = towerSpotOf(L);
   } else {
     statics.push({ sprite: sprites.hut, x: isoX(L.hut[0], L.hut[1]), y: isoY(L.hut[0], L.hut[1]), depth: L.hut[0] + 1 + L.hut[1] + 0.7, r: 120 });
   }
@@ -1032,8 +1033,11 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const px1 = Math.max(...TT.checkinQueue.map((c) => c[0]), BB ? BB[2] : 0) + 1.2;
   const py0 = Math.min(...TT.checkinQueue.map((c) => c[1]), BB ? BB[1] : 99) - 1.2;
   const py1 = Math.max(TT.claim[1], BB ? BB[3] : 0) + 1;
+  // (and off the weather station's square)
+  const met = meteoSpotOf(L);
   const treeAt = (x: number, y: number, seed: number) => {
     if (x > px0 && x < px1 && y > py0 && y < py1) return;
+    if (met && x > met[0] - 0.9 && x < met[0] + 2 && y > met[1] - 0.9 && y < met[1] + 2) return;
     for (const T of [L.t3, L.t4]) if (T && x > Math.min(T.building.box[0], T.garage[0]) - 2 && x < Math.max(T.building.box[2], T.garage[2]) + 3.2 && y > T.garage[1] - 1.5 && y < T.building.box[3] + 0.5) return;
     if (L.rail && y < L.rail.y + 1.6 && y > L.rail.y - 1.4 && x > L.rail.portals[0] - 2 && x < L.rail.portals[1] + 2) return;
     if (L.rail && x > L.rail.platform[0] - 1 && x < L.rail.platform[2] + 1 && y < 7.6) return;

@@ -11,7 +11,7 @@ export const ICON_NAMES = [
   'gear', 'check', 'warn', 'close', 'plus', 'bag', 'hold', 'bubble', 'plane', 'hourglass',
   'actLand', 'actFuel', 'actBoard', 'actTakeoff', 'actBags', 'team', 'wait', 'hand', 'build',
   'tail', 'board', 'handshake', 'up', 'wind', 'fog', 'arrow', 'actRepair', 'bell',
-  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift', 'shield', 'drone', 'moon',
+  'medic', 'camera', 'ticket', 'party', 'search', 'guide', 'chest', 'gift', 'shield', 'drone', 'moon', 'tower', 'lock',
 ] as const;
 export type IconName = (typeof ICON_NAMES)[number];
 
@@ -470,6 +470,36 @@ export function drawIcon(canvas: SkCanvas, name: IconName, x: number, y: number,
       circ(39, 25, 17, '#1e293b');
       circ(48, 14, 2.5, '#fef3c7');
       circ(54, 30, 1.8, '#fef3c7');
+      break;
+    }
+    case 'tower': {
+      // a control tower: a white shaft, a wide glass cab with a dark roof, a red light
+      f.setColor(Skia.Color('#e2e8f0'));
+      canvas.drawPath(path([26, 58, 38, 58, 36, 26, 28, 26]), f);
+      f.setColor(Skia.Color('#94a3b8'));
+      canvas.drawRect(Skia.XYWHRect(20, 56, 24, 4), f);
+      f.setColor(Skia.Color('#cbd5e1'));
+      canvas.drawRect(Skia.XYWHRect(20, 24, 24, 4), f);
+      f.setColor(Skia.Color('#0ea5e9'));
+      canvas.drawPath(path([14, 12, 50, 12, 46, 24, 18, 24]), f);
+      stroke([24, 12, 26, 24], '#bae6fd', 2);
+      stroke([38, 12, 37, 24], '#bae6fd', 2);
+      f.setColor(Skia.Color('#1e293b'));
+      canvas.drawRect(Skia.XYWHRect(12, 8, 40, 5), f);
+      stroke([32, 8, 32, 2], '#475569', 2.5);
+      circ(32, 3, 3, '#ef4444');
+      break;
+    }
+    case 'lock': {
+      // a padlock
+      stroke([22, 30, 22, 20, 42, 20, 42, 30], '#64748b', 6);
+      circ(22, 20, 3, '#64748b');
+      circ(42, 20, 3, '#64748b');
+      stroke([22, 18, 26, 10, 38, 10, 42, 18], '#64748b', 6);
+      f.setColor(Skia.Color('#f59e0b'));
+      canvas.drawRRect(Skia.RRectXY(Skia.XYWHRect(14, 28, 36, 28), 5, 5), f);
+      circ(32, 39, 4, '#78350f');
+      stroke([32, 41, 32, 48], '#78350f', 3.5);
       break;
     }
     case 'shield': {
