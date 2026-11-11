@@ -68,6 +68,7 @@ import {
   type TreeKind,
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
+import { BAG_KINDS, BELT_FRAMES, drawBeltBag, drawBeltPiece, drawCarouselBase, drawCarouselIsland } from './art/baggage';
 import { drawHotel, drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
 import {
@@ -126,6 +127,8 @@ export const VEHICLE_KINDS: readonly VehicleKind[] = ['fuel', 'bags', 'mech', 't
 /** Colors of the soft light glows (nav lights, beacons, lamps). */
 export const GLOW_COLORS = { red: 0, green: 1, white: 2, amber: 3, blue: 4, pink: 5, purple: 6, gold: 7 } as const;
 const GLOW_HEX = ['#ff3b30', '#34d058', '#ffffff', '#ffb020', '#3b82f6', '#ec4899', '#a855f7', '#facc15'];
+/** Colours of the action rings: land, fuel, board, take off, bags, and red for one that has waited too long. */
+export const ACTION_RING_COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#6366f1', '#a855f7', '#ef4444'] as const;
 
 /** Every color the holiday string lights use (one bulb sprite each). */
 export const BULB_COLORS: readonly string[] = [...new Set(HOLIDAYS.flatMap((h) => h.colors))];
@@ -234,6 +237,8 @@ export interface SpriteSet {
   car: (variant: number, dir: number) => number;
   carShadow: (variant: number, dir: number) => number;
   glow: (color: number) => number;
+  /** A ring on the ground round a plane that asks for something, in the action's colour (ACTION_RING_COLORS). */
+  actionRing: (color: number) => number;
   lamp: number;
   cone: number;
   taxiSign: number;
@@ -279,6 +284,11 @@ export interface SpriteSet {
   cleanCart: number;
   /** Security: an unattended bag and its cordon, the sniffer dog (dir, frame), a camera pole, a drone (frame). */
   lostBag: number;
+  /** Baggage: the carousel's base (a frame of its turning plates) and island, a bag lying on a belt, a conveyor piece. */
+  carouselBase: (frame: number) => number;
+  carouselIsland: number;
+  beltBag: (kind: number, alongY: boolean) => number;
+  beltPiece: (alongY: boolean, frame: number, forward: boolean) => number;
   cordon: number;
   dog: (dir: number, frame: number) => number;
   cameraPole: number;
@@ -565,6 +575,13 @@ export function buildSprites(content: Content): SpriteSet {
   const litterBase = b.size;
   for (let k = 0; k < LITTER_KINDS; k++) b.add(-0.18 * T, -0.22 * T, 0.18 * T, 0.14 * T, (c, ox, oy) => drawLitter(new IsoPen(c, ox, oy, S), k));
   const cleanCart = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.25 * T, (c, ox, oy) => drawCleanCart(new IsoPen(c, ox, oy, S)));
+  const carouselBaseAt = b.size;
+  for (let f = 0; f < BELT_FRAMES; f++) b.add(-28 * S, -20 * S, 28 * S, 18 * S, (c, ox, oy) => drawCarouselBase(new IsoPen(c, ox, oy, S), f));
+  const carouselIsland = b.add(-16 * S, -28 * S, 16 * S, 10 * S, (c, ox, oy) => drawCarouselIsland(new IsoPen(c, ox, oy, S)));
+  const beltBagAt = b.size;
+  for (let k = 0; k < BAG_KINDS; k++) for (const alongY of [false, true]) b.add(-11 * S, -10 * S, 11 * S, 9 * S, (c, ox, oy) => drawBeltBag(new IsoPen(c, ox, oy, S), k, alongY));
+  const beltPieceAt = b.size;
+  for (const alongY of [false, true]) for (const forward of [false, true]) for (let f = 0; f < BELT_FRAMES; f++) b.add(-16 * S, -12 * S, 16 * S, 11 * S, (c, ox, oy) => drawBeltPiece(new IsoPen(c, ox, oy, S), alongY, f, forward));
   const lostBag = b.add(-0.15 * T, -0.4 * T, 0.15 * T, 0.12 * T, (c, ox, oy) => drawLostBag(new IsoPen(c, ox, oy, S)));
   const cordon = b.add(-0.65 * T, -0.75 * T, 0.65 * T, 0.45 * T, (c, ox, oy) => drawCordon(new IsoPen(c, ox, oy, S)));
   const dogBase = b.size;
@@ -734,6 +751,28 @@ export function buildSprites(content: Content): SpriteSet {
     c.drawOval(Skia.XYWHRect(ox - 36 * S, oy - 18 * S, 72 * S, 36 * S), p);
   });
 
+  const actionRingAt = b.size;
+  for (const hex of ACTION_RING_COLORS) {
+    b.add(-40 * S, -22 * S, 40 * S, 22 * S, (c, ox, oy) => {
+      const p = Skia.Paint();
+      p.setAntiAlias(true);
+      // a soft wide glow, then a crisp ring with a white edge
+      p.setStyle(PaintStyle.Stroke);
+      p.setStrokeWidth(7 * S);
+      p.setColor(Skia.Color(hex));
+      p.setAlphaf(0.45);
+      p.setMaskFilter(Skia.MaskFilter.MakeBlur(BlurStyle.Normal, 3.5 * S, true));
+      c.drawOval(Skia.XYWHRect(ox - 35 * S, oy - 17.5 * S, 70 * S, 35 * S), p);
+      p.setMaskFilter(null);
+      p.setAlphaf(1);
+      p.setStrokeWidth(3.2 * S);
+      c.drawOval(Skia.XYWHRect(ox - 35 * S, oy - 17.5 * S, 70 * S, 35 * S), p);
+      p.setStrokeWidth(1 * S);
+      p.setColor(Skia.Color('rgba(255,255,255,0.85)'));
+      c.drawOval(Skia.XYWHRect(ox - 33 * S, oy - 16.5 * S, 66 * S, 33 * S), p);
+    });
+  }
+
   // a big fleet needs a wider sheet (keeps the texture's height in check)
   const atlas = b.build(content.combos.length > 10 ? 4096 : 2048);
   const glyphIndex = new Map<string, number>();
@@ -758,6 +797,7 @@ export function buildSprites(content: Content): SpriteSet {
     car: (v, d) => carBase[v] + d,
     carShadow: (v, d) => (carShadowBase.get(CAR_VARIANTS[v]?.kind ?? 'sedan') ?? 0) + d,
     glow: (c) => glowBase + c,
+    actionRing: (c) => actionRingAt + Math.max(0, Math.min(ACTION_RING_COLORS.length - 1, c)),
     lamp,
     cone,
     taxiSign,
@@ -801,6 +841,10 @@ export function buildSprites(content: Content): SpriteSet {
     litter: (k) => litterBase + (k % LITTER_KINDS),
     cleanCart,
     lostBag,
+    carouselBase: (f) => carouselBaseAt + (((f % BELT_FRAMES) + BELT_FRAMES) % BELT_FRAMES),
+    carouselIsland,
+    beltBag: (k, alongY) => beltBagAt + (((k % BAG_KINDS) + BAG_KINDS) % BAG_KINDS) * 2 + (alongY ? 1 : 0),
+    beltPiece: (alongY, f, forward) => beltPieceAt + ((alongY ? 2 : 0) + (forward ? 1 : 0)) * BELT_FRAMES + (((f % BELT_FRAMES) + BELT_FRAMES) % BELT_FRAMES),
     cordon,
     dog: (d, f) => dogBase + (((d % 8) + 8) % 8) * DOG_FRAMES + (f % DOG_FRAMES),
     cameraPole,

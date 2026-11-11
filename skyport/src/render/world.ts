@@ -287,19 +287,27 @@ function paintQueueRopes(g: GroundPainter, lines: readonly (readonly (readonly [
   g.c.drawPath(rope.build(), g.s);
 }
 
-/** A baggage carousel: a dark ring with a moving belt and a few bags on it. */
-function paintCarousel(g: GroundPainter, at: readonly [number, number], seed: number): void {
-  g.ellipse(at[0], at[1], 0.62, 0.62, '#334155');
-  g.ellipse(at[0], at[1], 0.52, 0.52, '#64748b');
-  g.ellipse(at[0], at[1], 0.3, 0.3, '#cbd5e1');
-  const colors = ['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#0ea5e9', '#ec4899'];
-  for (let k = 0; k < 6; k++) {
-    const a = (k / 6) * Math.PI * 2 + seed;
-    const bx = at[0] + Math.cos(a) * 0.42;
-    const by = at[1] + Math.sin(a) * 0.42;
-    g.f.setColor(Skia.Color(colors[(k + seed) % colors.length]));
-    g.c.drawRect(Skia.XYWHRect(isoX(bx, by) - 3, isoY(bx, by) - 5, 6, 5), g.f);
+/** Under a baggage carousel (drawn in 3D with the world): its soft shadow and a yellow keep-clear ring on the floor. */
+function paintCarousel(g: GroundPainter, at: readonly [number, number]): void {
+  g.ellipse(at[0], at[1], 0.56, 0.56, 'rgba(51,65,85,0.18)');
+  const ring = Skia.PathBuilder.Make();
+  for (let k = 0; k <= 48; k++) {
+    const a = (k / 48) * Math.PI * 2;
+    const x = isoX(at[0] + Math.cos(a) * 0.66, at[1] + Math.sin(a) * 0.66);
+    const y = isoY(at[0] + Math.cos(a) * 0.66, at[1] + Math.sin(a) * 0.66);
+    if (k === 0) ring.moveTo(x, y);
+    else ring.lineTo(x, y);
   }
+  g.s.setColor(Skia.Color('#facc15'));
+  g.s.setStrokeWidth(1.6);
+  g.c.drawPath(ring.build(), g.s);
+}
+
+/** Under a check-in conveyor (drawn in 3D with the world): a soft shadow along it. */
+function paintBeltShadow(g: GroundPainter, line: readonly (readonly [number, number])[]): void {
+  const pts: number[] = [];
+  for (const p of line) pts.push(p[0], p[1], 0);
+  ribbon(g, pts, 0.34, 'rgba(51,65,85,0.2)');
 }
 
 /** Terminal 3 on the ground: the road with its curb and crossings, the floors, the belt, carousels and queue ropes. */
@@ -337,11 +345,8 @@ function paintT3(g: GroundPainter, T3: NonNullable<TierLayout['t3']>, blur: (r: 
   // inside
   paintBuildingFloor(g, T3.building, blur);
   const st = T3.st;
-  const belt: number[] = [];
-  for (const p of st.belt) belt.push(p[0], p[1], 0);
-  ribbon(g, belt, 0.34, '#334155');
-  ribbon(g, belt, 0.24, '#64748b');
-  (st.carousels ?? [st.claim]).forEach((c, i) => paintCarousel(g, c, i * 2));
+  paintBeltShadow(g, st.belt);
+  for (const c of st.carousels ?? [st.claim]) paintCarousel(g, c);
   const lines: (readonly (readonly [number, number])[])[] = [st.checkinQueue, st.securityQueue];
   if (st.passport) lines.push(st.passport.queue);
   if (st.arrPassport) lines.push(st.arrPassport.queue);
@@ -621,25 +626,13 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       for (let y = Math.ceil(ys0); y < ys1; y++) g.line(xs0, y, xs1, y, '#cbd5e1', 1);
     }
     paintQueueRopes(g, [T.checkinQueue, T.securityQueue]);
-    // the bag conveyor
-    const belt: number[] = [];
-    for (const p of T.belt) belt.push(p[0], p[1], 0);
-    ribbon(g, belt, 0.34, '#334155');
-    ribbon(g, belt, 0.24, '#64748b');
+    // the bag conveyor (drawn in 3D with the world): its shadow
+    paintBeltShadow(g, T.belt);
     // Terminal 3: its road and curb, the floors, the belt, three carousels and the queue lines
     if (L.t3) paintT3(g, L.t3, blur);
     if (L.t4) paintT3(g, L.t4, blur);
-    // baggage carousel
-    g.ellipse(T.claim[0], T.claim[1], 0.62, 0.62, '#334155');
-    g.ellipse(T.claim[0], T.claim[1], 0.52, 0.52, '#64748b');
-    g.ellipse(T.claim[0], T.claim[1], 0.3, 0.3, '#cbd5e1');
-    for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2;
-      const bx = T.claim[0] + Math.cos(a) * 0.42;
-      const by = T.claim[1] + Math.sin(a) * 0.42;
-      g.f.setColor(Skia.Color(['#ef4444', '#f59e0b', '#10b981', '#8b5cf6', '#0ea5e9', '#ec4899'][k]));
-      c.drawRect(Skia.XYWHRect(isoX(bx, by) - 3, isoY(bx, by) - 5, 6, 5), g.f);
-    }
+    // the baggage carousel (drawn in 3D with the world): its floor ring
+    paintCarousel(g, T.claim);
 
     // apron: light gravel with a soft edge, under the hut front and every stand
     const xs = L.stands.map((st) => st.pos[0]);

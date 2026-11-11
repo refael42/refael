@@ -17,6 +17,7 @@ import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
 import { TowerPanel } from './TowerPanel';
+import { pointAt } from '../../render/baggage';
 import { ilsParts, meteoSpot } from '../../sim/game/tower';
 import { towerTop } from '../../render/art/objects';
 import { GoalCard, type GoalView } from './GoalCard';
@@ -310,7 +311,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const writer = useMemo(() => new SnapWriter(), []);
   const fx = useMemo(() => new Effects(), []);
   useEffect(() => {
-    fx.belt = L.terminal.belt.map((p) => ({ x: isoX(p[0], p[1]), y: isoY(p[0], p[1], 0.12) }));
+    // the check-in conveyors of every terminal
+    fx.bags.setBelts([L.terminal.belt, ...(L.t3 ? [L.t3.st.belt] : []), ...(L.t4 ? [L.t4.st.belt] : [])]);
   }, [fx, L]);
 
   const [hud, setHud] = useState<HudData>(() => hudOf(ctrl));
@@ -600,7 +602,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           }
           // (a trial ended: the staff button's dot)
           case 'checkedIn':
-            fx.bag();
+            fx.bag(e.x, e.y);
             break;
           case 'sale':
             fx.sale(isoX(e.x, e.y), isoY(e.x, e.y) - 14, e.a, e.b);
@@ -1196,6 +1198,10 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      // (tests: passengers waiting at a baggage carousel)
+      atClaim: () => ctrl.state.people.filter((q) => q.state === PST.atClaim).map((q) => ({ x: q.x, y: q.y, term: q.term })),
+      // (tests: the bags riding the check-in conveyors, in world tiles)
+      beltBags: () => fx.bags.bags.map((b) => ({ ...pointAt(fx.bags.belts[b.belt], b.d), d: b.d, kind: b.kind })),
       ilsTap: () =>
         ilsParts(ctrl.state.tier, ctrl.state.upg.ils ?? 0).map((q) => ({ kind: q.kind, x: q.x, y: q.y, vx: (isoX(q.x, q.y) - cam.x) * cam.zoom + cam.viewW / 2, vy: (isoY(q.x, q.y) - (q.kind === 'gs' ? 20 : 8) - cam.y) * cam.zoom + cam.viewH / 2 })),
       towerTap: () => {

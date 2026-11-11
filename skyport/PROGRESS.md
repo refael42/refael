@@ -730,6 +730,37 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### Baggage in 3D, and what needs you stands out (owner request)
+"The conveyor looks very low quality and the animation is terrible; and make things a bit more
+emphasized so it is clear."
+- Baggage (`render/baggage.ts`, art in `render/art/baggage.ts`):
+  - the check-in conveyor of every terminal is built in 3D, piece by piece: short legs, steel side
+    rails and a black rubber belt whose ribs move along it;
+  - a bag (eight kinds: six hard-shell suitcases with ridges, a handle and a tag, two duffels with
+    a strap) goes on behind the counter at each check-in, rides the belt at its speed, turns the
+    corner and goes into the baggage room. It replaces the flat bag icon that slid over
+    everything;
+  - the claim carousels are 3D:
+    - a steel skirt with a kick strip, a belt of plates that turns, and an island with the feed
+      hatch and its rubber curtain;
+    - the island is drawn on its own, so bags on the far side pass behind it;
+    - each passenger waiting there has their bag going round; the belt stops when nobody waits;
+  - the floor keeps a soft shadow under each, and a yellow keep-clear ring round each carousel.
+- What needs you (`drawGame.ts`):
+  - each request bubble has a glowing halo in its action's colour, and the plane gets a ring of
+    that colour on the ground: green to land, amber for fuel, blue for boarding, purple to take
+    off, pink for bags, red for a repair;
+  - once a request has waited 15 s (or a holding plane is running out of patience) both turn red
+    and pulse faster;
+  - the edge markers for planes off screen glow too;
+  - progress bars are a little thicker.
+- Tests: `baggage.test.ts`:
+  - a bag goes on behind its counter;
+  - it rides at the belt speed, turns the corner and is gone at the end;
+  - a far counter puts nothing on;
+  - each terminal has its own belt.
+- E2E: `baggage-belt`, `baggage-carousel`. The hook adds `beltBags()` and `atClaim()`.
+
 ### Owner tools (owner request: "lots of money to see the upgrades")
 - Hidden in the settings: tap the title "Settings" five times and an "Owner tools" section opens:
   - 1T coins and 1,000 diamonds (command `ownerGift`);

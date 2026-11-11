@@ -4,6 +4,7 @@
  */
 import { Big } from '../sim/big';
 import { formatBig } from '../sim/format';
+import { BeltBags } from './baggage';
 import type { Camera } from './camera';
 import type { SnapWriter } from './scene';
 import type { SpriteSet } from './sprites';
@@ -11,7 +12,7 @@ import { overlayText } from './text';
 
 const MAX = 160;
 
-type Kind = 0 | 1 | 2 | 3 | 4 | 5; // 0 text, 1 coin to HUD, 2 dust puff, 3 sparkle, 4 bag on belt, 5 small text
+type Kind = 0 | 1 | 2 | 3 | 5; // 0 text, 1 coin to HUD, 2 dust puff, 3 sparkle, 5 small text
 
 interface Fx {
   live: boolean;
@@ -28,8 +29,8 @@ interface Fx {
 
 export class Effects {
   private pool: Fx[] = [];
-  /** Belt polyline in world-screen px (for bags riding the conveyor). */
-  belt: { x: number; y: number }[] = [];
+  /** Bags riding the check-in conveyors (drawn with the world, see baggage.ts). */
+  readonly bags = new BeltBags();
   /** View-space target the coins fly to (the HUD coin counter). */
   coinTarget = { x: 40, y: 30 };
   onCoinArrive: (() => void) | null = null;
@@ -72,9 +73,9 @@ export class Effects {
     this.add(5, x, y, 1.1, 0, -24, '+' + formatBig(new Big(m, e)));
   }
 
-  /** A checked bag rides the conveyor into the building. */
-  bag(): void {
-    if (this.belt.length > 1) this.add(4, this.belt[0].x, this.belt[0].y, 3.2);
+  /** A bag checked in at the counter at (x, y) rides the conveyor into the baggage room. */
+  bag(x: number, y: number): void {
+    this.bags.add(x, y);
   }
 
   dust(x: number, y: number, n = 4): void {
@@ -92,30 +93,13 @@ export class Effects {
   }
 
   update(dt: number, cam: Camera): void {
+    this.bags.update(dt);
     for (const f of this.pool) {
       if (!f.live) continue;
       f.t += dt;
       if (f.t >= f.life) {
         if (f.kind === 1 && this.onCoinArrive) this.onCoinArrive();
         f.live = false;
-        continue;
-      }
-      if (f.kind === 4 && this.belt.length > 1) {
-        // position along the belt by time
-        let total = 0;
-        for (let i = 1; i < this.belt.length; i++) total += Math.hypot(this.belt[i].x - this.belt[i - 1].x, this.belt[i].y - this.belt[i - 1].y);
-        let d = (f.t / f.life) * total;
-        for (let i = 1; i < this.belt.length; i++) {
-          const a = this.belt[i - 1];
-          const b = this.belt[i];
-          const seg = Math.hypot(b.x - a.x, b.y - a.y);
-          if (d <= seg) {
-            f.x = a.x + ((b.x - a.x) * d) / seg;
-            f.y = a.y + ((b.y - a.y) * d) / seg;
-            break;
-          }
-          d -= seg;
-        }
         continue;
       }
       if (f.kind === 1) {
@@ -157,9 +141,6 @@ export class Effects {
           break;
         case 3:
           w.fx(sp.sparkle, f.x, f.y, 0.9 * (1 - k * 0.5), 1 - k);
-          break;
-        case 4:
-          w.over(sp.icon('bag'), f.x, f.y - 6, 0.32);
           break;
         case 5:
           if (k < 0.85) overlayText(w, sp, f.text, f.x, f.y - 18, 0.75 * Math.max(0.8, inv * 0.7), 0);

@@ -7,6 +7,7 @@ import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
 import { ilsParts, meteoSpot } from '../sim/game/tower';
+import { drawBaggage } from './baggage';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
@@ -26,6 +27,19 @@ import { noticeSeconds } from '../sim/game/security';
 import type { World } from './world';
 import { gameClock } from '../sim/game/clock';
 import { cleanAreas } from '../sim/game/cleaning';
+
+/** A request waiting longer than this (game seconds) turns urgent: red, and it pulses faster. */
+const URGENT_S = 15;
+/** The colour of each request's halo and ground ring (the ring's index in ACTION_RING_COLORS). */
+const WANT_GLOW: Record<number, number> = {
+  [WANT.clearLanding]: GLOW_COLORS.green,
+  [WANT.fuel]: GLOW_COLORS.amber,
+  [WANT.board]: GLOW_COLORS.blue,
+  [WANT.clearTakeoff]: GLOW_COLORS.purple,
+  [WANT.bags]: GLOW_COLORS.pink,
+  [WANT.repair]: GLOW_COLORS.red,
+};
+const WANT_RING: Record<number, number> = { [WANT.clearLanding]: 0, [WANT.fuel]: 1, [WANT.board]: 2, [WANT.clearTakeoff]: 3, [WANT.bags]: 4, [WANT.repair]: 5 };
 
 const WANT_ICON: Record<number, IconName> = {
   [WANT.clearLanding]: 'actLand',
@@ -509,8 +523,10 @@ export function drawGame(
   // the ground crew's equipment round each parked plane (under the planes' own drawing order)
   for (const f of s.flights) drawGroundService(w, s, f, sp, LL, visible);
   // flights
-  for (const f of s.flights) drawFlight(w, f, sp, o, a, inv, visible);
+  for (const f of s.flights) drawFlight(w, f, sp, o, a, inv, visible, s.time);
 
+  // the conveyors and the carousels, and the bags on them
+  drawBaggage(w, s, sp, o.time, fx.bags, visible);
   fx.draw(w, sp, zoom, o.time);
 
   // off-screen markers for flights that want something
@@ -541,6 +557,7 @@ export function drawGame(
     const wy = cam.y + (iy - H / 2) / zoom;
     const pulse = 1 + Math.sin(o.time * 6 + f.id) * 0.07;
     const icon = WANT_ICON[f.want];
+    w.fx(sp.glow(WANT_GLOW[f.want] ?? GLOW_COLORS.white), wx, wy, 4.8 * inv * pulse, 1);
     if (icon) w.over(sp.icon(icon), wx, wy, 1.5 * inv * pulse);
   }
 }
@@ -553,6 +570,7 @@ function drawFlight(
   a: number,
   inv: number,
   visible: (x: number, y: number, r: number) => boolean,
+  now: number,
 ): void {
   const x = lerp(f.px, f.x, a);
   const y = lerp(f.py, f.y, a);
@@ -575,12 +593,18 @@ function drawFlight(
   planeLights(w, f, sp, x, y, z, d, o.time);
 
   const b = bubbleAnchor({ x, y, z, aircraft: f.aircraft }, 1 / inv);
-  // action bubble
+  // action bubble (owner request: what needs you stands out): a halo in the action's colour behind it and a
+  // ring on the ground round the plane; red, pulsing faster, once it has waited long
   if (f.want !== WANT.none) {
     const icon = WANT_ICON[f.want];
-    const pulse = 1 + Math.sin(o.time * 6 + f.id) * 0.07;
+    const urgent = now - f.readyAt > URGENT_S || ((f.phase === 'holding' || f.phase === 'inbound') && f.patience < 0.35);
+    const pulse = 1 + Math.sin(o.time * (urgent ? 9 : 5) + f.id) * (urgent ? 0.12 : 0.07);
     const k = Math.max(1, inv * 0.75) * pulse;
+    const halo = sp.glow(urgent ? GLOW_COLORS.red : (WANT_GLOW[f.want] ?? GLOW_COLORS.white));
+    w.fx(halo, b.x, b.y - 10 * k, 4.8 * k, 1);
+    w.fx(halo, b.x, b.y - 10 * k, 3.2 * k, urgent ? 1 : 0.8);
     if (icon) w.over(sp.icon(icon), b.x, b.y - 10 * k, 1.45 * k);
+    if (z < 0.05) w.decal(sp.actionRing(urgent ? 5 : (WANT_RING[f.want] ?? 0)), isoX(x, y), isoY(x, y), (0.5 + planeArt(f.aircraft).length * 0.42) * (1 + 0.05 * Math.sin(o.time * 5 + f.id)), 0.9);
   }
   // progress bars over the plane
   const barY = b.y + (f.want !== WANT.none ? 16 * Math.max(1, inv * 0.75) : 14 * inv);

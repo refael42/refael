@@ -371,7 +371,7 @@ export function renderScene(snap: Float32Array, res: RenderRes, width: number, h
     const w = snap[p + 2] / zoom;
     const prog = Math.max(0, Math.min(1, snap[p + 3]));
     const rgb = snap[p + 4];
-    const h = 5 / zoom;
+    const h = 6 / zoom;
     const r = h / 2;
     bp.setColor(Skia.Color('rgba(15,23,42,0.22)'));
     c.drawRRect(Skia.RRectXY(Skia.XYWHRect(x - w / 2 - 2 / zoom, y - 1 / zoom, w + 4 / zoom, h + 4 / zoom), r + 2, r + 2), bp);

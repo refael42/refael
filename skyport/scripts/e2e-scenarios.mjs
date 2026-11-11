@@ -970,6 +970,37 @@ export default [
       await page.waitForTimeout(700);
     },
   },
+  // baggage (owner request: the conveyor looked flat): the 3D conveyor with bags riding it, the carousels turning with bags
+  {
+    name: 'baggage-belt',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=84&tier=3&full=1&crew=1&warp=100&auto=1&hook=1&speed=2',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      // (a bag on the leg that runs down the side of the check-in hall, where it shows)
+      await page.waitForFunction(() => window.__skyport.beltBags().some((b) => b.alongY), null, { timeout: 90000 });
+      await page.evaluate(() => window.__skyport.lookAt(17.6, 14.4, 2.6));
+      await page.waitForTimeout(300);
+    },
+  },
+  {
+    name: 'baggage-carousel',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=84&tier=4&full=1&crew=1&warp=100&auto=1&hook=1&speed=2',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.waitForFunction(() => window.__skyport.atClaim().some((p) => p.term === 1), null, { timeout: 90000 });
+      const p = await page.evaluate(() => window.__skyport.atClaim().find((q) => q.term === 1));
+      await page.evaluate((p) => window.__skyport.lookAt(p.x, p.y, 2.8), p);
+      await page.waitForTimeout(400);
+    },
+  },
   // the ILS on the map: the localizer past the far end, the glideslope by the touchdown zone (CAT III: both ways)
   ...[
     ['ils-cat1-loc', 3, 1, 'loc', 1],
