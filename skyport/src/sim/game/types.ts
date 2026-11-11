@@ -161,6 +161,9 @@ export const REJECT = { noStand: 1, notReady: 2, unknownFlight: 3, noMoney: 4, l
 
 export type Command =
   | { type: 'debugAddMoney'; amount: number }
+  /** Owner tools (hidden in the settings): a pile of coins and diamonds, or the next tier built at once without its needs. */
+  | { type: 'ownerGift' }
+  | { type: 'ownerTier' }
   | { type: 'clearLanding'; flightId: number }
   | { type: 'sendFuel'; flightId: number }
   | { type: 'startBoarding'; flightId: number }

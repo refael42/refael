@@ -4,7 +4,7 @@ import { pushEvent } from './events';
 import { findFlight } from './state';
 import { REJECT, type Command, type GameState } from './types';
 import { answerRaise, confirmTrial, fire, hire, negotiate, spendTalent, startTrial, transfer } from './staff';
-import { cleanName, moveDecor, rushTier, startTierBuild } from './tiers';
+import { cleanName, moveDecor, ownerTierBuild, rushTier, startTierBuild } from './tiers';
 import { buyUpgrade, rushBuild } from './upgrades';
 import { declineOffer, endContract, expandContract, negotiateOffer, signOffer } from './airlines';
 import { requestService } from './vehicles';
@@ -14,6 +14,10 @@ import { pickSuspect } from './guide';
 import { claimMedals, openChest } from './career';
 import { claimGift, setNow, spinWheel } from './daily';
 import { buyDeal } from './festival';
+
+/** Owner tools: what the gift gives. */
+export const OWNER_COINS = 1e12;
+export const OWNER_GEMS = 1000;
 
 /** UI entry point: commands are applied at the start of the next step. */
 export function queueCommand(s: GameState, cmd: Command): void {
@@ -31,6 +35,18 @@ export function applyCommand(s: GameState, cmd: Command): void {
       if (!Number.isFinite(cmd.amount)) return;
       s.money = s.money.add(cmd.amount);
       pushEvent(s, 'moneyChanged', 0, 0, cmd.amount);
+      return;
+    }
+    case 'ownerGift': {
+      // (owner tools: enough to see every upgrade)
+      s.money = s.money.add(Big.fromNumber(OWNER_COINS));
+      s.diamonds += OWNER_GEMS;
+      pushEvent(s, 'moneyChanged', 0, 0, OWNER_COINS);
+      return;
+    }
+    case 'ownerTier': {
+      const code = ownerTierBuild(s);
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
       return;
     }
     case 'clearLanding': {

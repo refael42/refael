@@ -1060,4 +1060,9 @@ export const he: Record<TKey, string> = {
   'ver.ils.1': 'CAT I: משדר כיוון ומשדר שיפוע',
   'ver.ils.2': 'CAT II: אנטנות רחבות יותר ותורן בקרה',
   'ver.ils.3': 'CAT III: לשני הכיוונים',
+  'settings.owner': 'כלי בעלים',
+  'settings.ownerGift': '1T מטבעות ו-1,000 יהלומים',
+  'settings.ownerTier': 'לבנות עכשיו את השלב הבא (בלי דרישות)',
+  'settings.ownerGiftDone': 'נוסף. פתח שדרוגים וקנה מה שתרצה.',
+  'settings.ownerTierDone': 'בבנייה: השלב החדש ייפתח כשאין מטוסים על הקרקע.',
 };

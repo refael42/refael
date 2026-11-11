@@ -77,6 +77,28 @@ export default [
       await page.waitForTimeout(500);
     },
   },
+  // owner tools (owner request: lots of money to see the upgrades): five taps on the settings title
+  {
+    name: 'owner-tools',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=2&hook=1',
+    wait: 1500,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.getByRole('button', { name: /Settings|הגדרות/ }).first().click();
+      await page.waitForSelector('[data-testid="settings-title"]', { timeout: 5000 });
+      for (let i = 0; i < 5; i++) await page.click('[data-testid="settings-title"]');
+      await page.waitForSelector('[data-testid="owner-tools"]', { timeout: 5000 });
+      const before = await page.evaluate(() => window.__skyport.stats().money);
+      await page.click('[data-testid="owner-gift"]');
+      await page.waitForFunction((b) => window.__skyport.stats().money > b + 1e11, before, { timeout: 5000 });
+      await page.click('[data-testid="owner-tier"]');
+      await page.waitForFunction(() => window.__skyport.stats().tier === 2, null, { timeout: 30000 });
+      await page.evaluate(() => document.querySelector('[data-testid="owner-tools"]').scrollIntoView());
+      await page.waitForTimeout(400);
+    },
+  },
   { name: 'm2-crew-phone', viewport: { width: 844, height: 390 }, query: '/?seed=4&stands=3&crew=1&warp=150&speed=1', wait: 3000, touch: true },
   { name: 'm2-crew-landscape', viewport: { width: 844, height: 390 }, query: '/?seed=6&stands=3&crew=1&warp=210', wait: 3000, touch: true },
   { name: 'm2-staff-panel', viewport: { width: 844, height: 390 }, query: '/?seed=4&money=400&panel=staff', wait: 2000, touch: true },

@@ -730,6 +730,14 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### Owner tools (owner request: "lots of money to see the upgrades")
+- Hidden in the settings: tap the title "Settings" five times and an "Owner tools" section opens:
+  - 1T coins and 1,000 diamonds (command `ownerGift`);
+  - build the next stage now, its needs and cost waived (command `ownerTier`). It is built in
+    3 s and opens once no plane is on the ground, like any new stage.
+- The settings panel scrolls now (it overflowed on a landscape phone).
+- Tests: `owner.test.ts`. E2E: `owner-tools` (five taps, the gift, the next stage).
+
 ### The ILS on the map (owner request: more of what an airport needs, after the tower)
 The ILS line (landing in fog) was only a number. It now stands on the map (`ilsParts` in
 `tower.ts`, art in `objects.ts`):

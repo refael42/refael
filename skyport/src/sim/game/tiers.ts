@@ -47,6 +47,15 @@ export function startTierBuild(s: GameState): number {
   return 0;
 }
 
+/** Owner tools: the next tier is built in a few seconds, its needs and its cost waived. */
+export function ownerTierBuild(s: GameState): number {
+  const next = nextTier(s.tier);
+  if (!next?.layout || s.tierBuild !== null || s.tierSwitch) return REJECT.limit;
+  s.tierBuild = { to: next.id, remaining: 3, total: 3 };
+  pushEvent(s, 'tierBuildStart', 0, 0, next.id);
+  return 0;
+}
+
 /** True while a plane is on the ground or about to be (approach, runway, taxiways, stands). */
 function groundBusy(s: GameState): boolean {
   for (const f of s.flights) {

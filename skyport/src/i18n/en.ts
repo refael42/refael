@@ -1058,6 +1058,11 @@ export const en = {
   'ver.ils.1': 'CAT I: a localizer and a glideslope',
   'ver.ils.2': 'CAT II: wider antennas and a monitor',
   'ver.ils.3': 'CAT III: both ways',
+  'settings.owner': 'Owner tools',
+  'settings.ownerGift': '1T coins and 1,000 diamonds',
+  'settings.ownerTier': 'Build the next stage now (no needs)',
+  'settings.ownerGiftDone': 'Added. Open Upgrades to buy anything.',
+  'settings.ownerTierDone': 'Building: the new stage opens once no plane is on the ground.',
 } as const;
 
 export type TKey = keyof typeof en;

@@ -1573,6 +1573,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       {settings ? (
         <SettingsPanel
           onClose={() => setSettings(false)}
+          onOwner={(what) => ctrl.send({ type: what === 'gift' ? 'ownerGift' : 'ownerTier' })}
           onGallery={() => {
             setSettings(false);
             onGallery();
