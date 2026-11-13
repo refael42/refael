@@ -18,7 +18,7 @@ import { pushEvent } from './game/events';
 import { incomeRate } from './game/income';
 import { APPLICANT_LIFETIME, MAX_LEVEL, maxPerRole, MAX_APPLICANTS, marketWage, refreshApplicants, wagesPerDay, xpForLevel } from './game/staff';
 import { createGame } from './game/state';
-import type { AirlineOffer, Applicant, Build, CareerState, Contract, DailyState, FestState, GameState, GuideState, Person0, StaffMember } from './game/types';
+import type { AirlineOffer, Applicant, Build, CareerState, Contract, DailyState, FestState, GameState, LandState, GuideState, Person0, StaffMember } from './game/types';
 import { AIRLINE_KINDS, AIRLINES } from '../data/airlines';
 import { RECENT, REP_START, STRIKES_TO_LEAVE } from './game/airlines';
 import { applyStructural, effects } from './game/upgrades';
@@ -35,6 +35,8 @@ import { baseOf, editionAt, GUIDE_PARTS, newGuide, RIGHT_PICK, SUSPECTS } from '
 import { BOOST_SECONDS, newCareer, xpToNext } from './game/career';
 import { newDaily } from './game/daily';
 import { FESTIVALS, newFest } from './game/festival';
+import { newLand } from './game/land';
+import { FACILITIES, FACILITY_MAX } from '../data/land';
 import { ACHIEVEMENTS } from '../data/achievements';
 import { GUIDE_NOTES } from '../data/guideNotes';
 
@@ -86,6 +88,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     career: { ...s.career, seen: undefined },
     daily: { ...s.daily, now: undefined },
     fest: { ...s.fest, seen: undefined },
+    land: s.land,
     priceMul: s.priceMul,
     income: s.income,
     stats: s.stats,
@@ -365,6 +368,7 @@ export function cleanGame(raw: unknown): GameState | null {
   s.career = cleanCareer(raw.career, s);
   s.daily = cleanDaily(raw.daily);
   s.fest = cleanFest(raw.fest);
+  s.land = cleanLand(raw.land);
   const day = 1 + Math.floor((7 * 60 + (s.time * 1440) / DAY_SECONDS) / 1440);
   s.wageDay = int(raw.wageDay, day, 1, day);
   // airlines: v4 saves had no contracts, so they keep the starter one (and gain a tier-2 airline)
@@ -440,6 +444,28 @@ export function cleanGame(raw: unknown): GameState | null {
   s.events = [];
   s.queue = [];
   return s;
+}
+
+/** Land: the plots being cleared or owned, their facilities and what they hold. */
+function cleanLand(raw: unknown): LandState {
+  const l = newLand();
+  if (!isObj(raw) || !isObj(raw.plots)) return l;
+  for (const [k, v] of Object.entries(raw.plots)) {
+    const id = Number(k);
+    if (!Number.isInteger(id) || id < 0 || id > 10000 || !isObj(v)) continue;
+    const state = int(v.state, 0, 0, 2);
+    if (state !== 1 && state !== 2) continue;
+    const total = num(v.total, 0, 0, 1e6);
+    l.plots[id] = {
+      state,
+      left: num(v.left, 0, 0, total),
+      total,
+      f: int(v.f, -1, -1, FACILITIES.length - 1),
+      lv: int(v.lv, 0, 0, FACILITY_MAX),
+      store: num(v.store, 0, 0, 1e30),
+    };
+  }
+  return l;
 }
 
 /** Festivals and flash deals: the festival under way, its points and prizes, the trophies, the deal taken. */

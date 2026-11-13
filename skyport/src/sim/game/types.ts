@@ -142,7 +142,12 @@ export type GameEventKind =
   | 'festivalStart'
   /** x: coins, y: diamonds (not a place); a: FESTIVALS index, b: prize tier reached (1..3). */
   | 'festivalPrize'
-  | 'dealBought';
+  | 'dealBought'
+  | 'plotBought'
+  | 'plotCleared'
+  | 'facilityStart'
+  | 'facilityBuilt'
+  | 'collected';
 
 export interface GameEvent {
   id: number;
@@ -202,6 +207,11 @@ export type Command =
   | { type: 'setNow'; minutes: number }
   | { type: 'claimGift' }
   | { type: 'buyDeal' }
+  /** Land: buy and clear a plot, rush its job with diamonds, build or upgrade its facility, collect its coins. */
+  | { type: 'buyPlot'; plot: number }
+  | { type: 'rushPlot'; plot: number }
+  | { type: 'buildFacility'; plot: number; facility: number }
+  | { type: 'collectFacility'; plot: number }
   /** paid: for diamonds instead of the free spin. */
   | { type: 'spinWheel'; paid: boolean }
   /** Collect the medals an achievement (ACHIEVEMENTS index) has reached. */
@@ -547,6 +557,22 @@ export interface Review {
 }
 
 /** Festivals and flash deals (M13). */
+/** One plot of land: 0 wild (not stored), 1 being cleared, 2 the airport's. */
+export interface PlotState {
+  state: 1 | 2;
+  /** Seconds left of the job under way (clearing, or building the facility's next level), and its length. */
+  left: number;
+  total: number;
+  /** The facility on it (FACILITIES index, -1 none), its level (0 while the first is built), the coins it holds. */
+  f: number;
+  lv: number;
+  store: number;
+}
+
+export interface LandState {
+  plots: Record<number, PlotState>;
+}
+
 export interface FestState {
   /** The festival running (its number since the start, FESTIVALS index), its points and prize tiers paid. */
   n: number;
@@ -894,6 +920,8 @@ export interface GameState {
   daily: DailyState;
   /** Festivals and flash deals. */
   fest: FestState;
+  /** Land expansions south of the field and the facilities on them (see land.ts). */
+  land: LandState;
   /** The people mover (hub; transient). */
   apm: PeopleMover | null;
   stands: Stand[];

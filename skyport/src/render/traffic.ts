@@ -126,6 +126,143 @@ export function roadCars(L: TierLayout, time: number, road: readonly P2[] = L.ro
   return out;
 }
 
+/** The road's x at height y (the access road runs roughly north-south). */
+export function roadXAt(road: readonly P2[], y: number): number {
+  for (let i = 1; i < road.length; i++) {
+    const [ax, ay] = road[i - 1];
+    const [bx, by] = road[i];
+    if ((y - ay) * (y - by) <= 0 && ay !== by) return ax + ((bx - ax) * (y - ay)) / (by - ay);
+  }
+  return road[0][0];
+}
+
+/**
+ * The parking lot's way in (owner request: it was not joined to the road): a
+ * driveway from the access road along the lot's middle aisle. Its centre line
+ * height, the road's x there, and the lot's west edge.
+ */
+export function lotDriveway(L: TierLayout): { y: number; roadX: number; x0: number; half: number } {
+  const P = L.parking;
+  const y = (P.y0 + P.y1) / 2;
+  return { y, roadX: roadXAt(L.road, y), x0: P.x0, half: 0.36 };
+}
+
+/** The bays nearest the driveway are kept for the cars that come and go (the rest are filled by the served count). */
+const VISITOR_BAYS = [0, 1, 2];
+const LOT_PERIOD = 14;
+
+interface Leg {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  len: number;
+  /** Driven backwards (backing out of a bay). */
+  back: boolean;
+}
+
+function legsOf(pts: readonly (readonly [number, number])[], backFrom = Infinity): Leg[] {
+  const out: Leg[] = [];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    if (len > 1e-6) out.push({ x0, y0, x1, y1, len, back: i <= backFrom });
+  }
+  return out;
+}
+
+function onLegs(legs: readonly Leg[], d: number): { x: number; y: number; heading: number } {
+  let rest = d;
+  for (const g of legs) {
+    if (rest <= g.len || g === legs[legs.length - 1]) {
+      const t = Math.max(0, Math.min(1, rest / g.len));
+      const h = Math.atan2(g.y1 - g.y0, g.x1 - g.x0) + (g.back ? Math.PI : 0);
+      return { x: g.x0 + (g.x1 - g.x0) * t, y: g.y0 + (g.y1 - g.y0) * t, heading: h };
+    }
+    rest -= g.len;
+  }
+  return { x: 0, y: 0, heading: 0 };
+}
+
+const lotRoutes = new WeakMap<TierLayout, { inn: Leg[][]; out: Leg[][] }>();
+
+/** Each visitor bay's way in (down the road, into the driveway, along the aisle, into the bay) and out (backing out, back to the road, away). */
+function lotRoutesOf(L: TierLayout): { inn: Leg[][]; out: Leg[][] } {
+  const hit = lotRoutes.get(L);
+  if (hit) return hit;
+  const D = lotDriveway(L);
+  const bays = parkingBays(L);
+  // the road's two lanes: in (toward the curb, west side) and out (toward the map edge, east side)
+  const laneIn = offset(L.road.slice().reverse(), LANE).filter((p) => p[1] < D.y - 0.6);
+  const laneOut = offset(L.road, LANE).filter((p) => p[1] < D.y - 0.6);
+  const inn: Leg[][] = [];
+  const out: Leg[][] = [];
+  for (const k of VISITOR_BAYS) {
+    const b = bays[k];
+    if (!b) continue;
+    const top = b.y < D.y;
+    const aisle: [number, number] = [b.x, D.y + (top ? -0.12 : 0.12)];
+    inn.push(
+      legsOf([
+        ...laneIn,
+        [D.roadX - LANE, D.y - 0.45],
+        [D.roadX + 0.15, D.y - 0.12],
+        [D.x0 + 0.05, D.y],
+        [b.x - 0.25, D.y],
+        aisle,
+        [b.x, b.y],
+      ]),
+    );
+    const away: (readonly [number, number])[] = [
+      [b.x, b.y],
+      aisle,
+      [b.x - 0.25, D.y],
+      [D.x0 + 0.05, D.y + 0.1],
+      [D.roadX + LANE + 0.2, D.y - 0.15],
+      [D.roadX + LANE, D.y - 0.6],
+      ...laneOut,
+    ];
+    // (the first leg, out of the bay, is driven backwards)
+    out.push(legsOf(away, 1));
+  }
+  const r = { inn, out };
+  lotRoutes.set(L, r);
+  return r;
+}
+
+const total = (legs: readonly Leg[]) => legs.reduce((a, g) => a + g.len, 0);
+
+/** Cars that turn off the road into the lot, park in a visitor bay for a while, back out and drive away. */
+export function lotCars(L: TierLayout, time: number): CarPose[] {
+  const r = lotRoutesOf(L);
+  if (r.inn.length === 0) return [];
+  const out: CarPose[] = [];
+  const last = Math.floor(time / LOT_PERIOD);
+  for (let j = Math.max(0, last - 6); j <= last; j++) {
+    if (hash01(j * 37 + 5) < 0.25) continue;
+    const k = j % r.inn.length;
+    const inn = r.inn[k];
+    const away = r.out[k];
+    const tin = total(inn) / SPEED;
+    const stay = 12 + hash01(j * 37 + 9) * 14;
+    const tout = total(away) / SPEED;
+    const age = time - (j * LOT_PERIOD + hash01(j * 37 + 2) * 2);
+    if (age < 0 || age > tin + stay + tout) continue;
+    let p: { x: number; y: number; heading: number };
+    let stopped = false;
+    if (age < tin) p = onLegs(inn, age * SPEED);
+    else if (age < tin + stay) {
+      p = onLegs(inn, total(inn));
+      stopped = true;
+    } else p = onLegs(away, (age - tin - stay) * SPEED);
+    let variant = Math.floor(hash01(j * 37 + 13) * CAR_VARIANTS.length) % CAR_VARIANTS.length;
+    if (variant === BUS) variant = 0;
+    out.push({ x: p.x, y: p.y, heading: p.heading, variant, stopped: stopped || age < 0.2 });
+  }
+  return out;
+}
+
 /** Parking bays: two rows facing the middle aisle. */
 export function parkingBays(L: TierLayout): { x: number; y: number; heading: number }[] {
   const P = L.parking;
@@ -144,7 +281,8 @@ export function parkedCars(L: TierLayout, served: number): CarPose[] {
   const occ = Math.min(0.85, 0.4 + served / 150);
   const out: CarPose[] = [];
   parkingBays(L).forEach((b, i) => {
-    if (hash01(i * 13 + 5) >= occ) return;
+    // (the visitor bays by the driveway are for the cars that come and go)
+    if (VISITOR_BAYS.includes(i) || hash01(i * 13 + 5) >= occ) return;
     let variant = Math.floor(hash01(i * 17 + 3) * CAR_VARIANTS.length);
     if (variant === BUS) variant = 0;
     // not everyone parks perfectly straight

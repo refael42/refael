@@ -9,6 +9,8 @@ import type { Rail, Satellite, TierLayout } from '../data/tiers';
 import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { pierOf, routeLineUp } from '../sim/game/layout';
+import { lotDriveway } from './traffic';
+import { FACILITIES, PLOT_H, PLOT_ROW_STEP, PLOT_ROWS, PLOT_X0, PLOT_Y0, plotsFor, type PlotDef } from '../data/land';
 import { meteoSpotOf, towerSpotOf } from '../sim/game/tower';
 import { chaikin } from '../sim/game/path';
 import { GLYPHS } from './art/glyphs';
@@ -192,6 +194,141 @@ function paintText(c: SkCanvas, text: string, x: number, y: number, color: strin
     ox += 7;
   }
   c.restore();
+}
+
+/** The land roads (owner request: everything joined up): the lane south of the field from the west edge, and the one between the rows of plots. */
+export function landRoads(plots: readonly PlotDef[]): (readonly [number, number])[][] {
+  if (plots.length === 0) return [];
+  const east = Math.max(...plots.map((p) => p.box[2])) + 0.6;
+  const y1 = PLOT_Y0 - 0.6;
+  const roads: (readonly [number, number])[][] = [
+    [
+      [-1, y1],
+      [east, y1],
+    ],
+  ];
+  if (plots.some((p) => p.row === 1)) {
+    const y2 = PLOT_Y0 + PLOT_H + (PLOT_ROW_STEP - PLOT_H) / 2;
+    const xl = PLOT_X0 - 0.75;
+    roads.push([
+      [xl, y1],
+      [xl, y2],
+      [east, y2],
+    ]);
+  }
+  return roads;
+}
+
+/**
+ * The land south of the field (owner request: the airport grows to the sides): its roads, wild meadow with
+ * survey stakes on the plots not yet the airport's, a lawn on the ones that are, and the ground each facility
+ * stands on (asphalt, gravel, a grass strip...). `land` is "id:state:facility;..." for the plots bought.
+ */
+function paintLand(g: GroundPainter, plots: readonly PlotDef[], land: string, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
+  const owned = new Map<number, { state: number; f: number }>();
+  for (const part of land.split(';')) {
+    const [id, st, f] = part.split(':').map(Number);
+    if (Number.isFinite(id)) owned.set(id, { state: st, f });
+  }
+  // the roads first, with soft shadows and a dashed middle line
+  for (const road of landRoads(plots)) {
+    const pts: number[] = [];
+    for (const q of road) pts.push(q[0], q[1], 0);
+    g.mask(blur(4));
+    ribbon(g, pts, 0.95, 'rgba(40,70,50,0.25)');
+    g.mask(null);
+    ribbon(g, pts, 0.78, '#a7b0bb');
+    dashes(g, road, 0.3, 0.34, '#f8fafc', 1.4);
+  }
+  for (const pl of plots) {
+    const [x0, y0, x1, y1] = pl.box;
+    const o = owned.get(pl.id);
+    const north = pl.row === 0 ? PLOT_Y0 - 0.6 : PLOT_Y0 + PLOT_H + (PLOT_ROW_STEP - PLOT_H) / 2;
+    if (!o || o.state === 1) {
+      // wild: a deeper meadow with tall grass, stakes at the corners and a rope between them
+      g.mask(blur(5));
+      g.rect(x0 + 0.1, y0 + 0.1, x1 - 0.1, y1 - 0.1, 'rgba(53,104,40,0.45)');
+      g.mask(null);
+      for (let k = 0; k < 70; k++) {
+        const x = x0 + 0.2 + hash01(pl.id * 97 + k) * (x1 - x0 - 0.4);
+        const y = y0 + 0.2 + hash01(pl.id * 97 + k + 500) * (y1 - y0 - 0.4);
+        g.line(x, y, x + 0.03, y - 0.02, k % 3 ? '#3f7d24' : '#a3d65c', 1.2, 0.12);
+        g.line(x, y, x - 0.02, y - 0.03, '#4d8f2b', 1, 0.1);
+      }
+      const ring: (readonly [number, number])[] = [
+        [x0, y0],
+        [x1, y0],
+        [x1, y1],
+        [x0, y1],
+        [x0, y0],
+      ];
+      dashes(g, ring, 0.22, 0.18, 'rgba(255,255,255,0.75)', 1.2);
+      for (const [x, y] of ring.slice(0, 4)) g.ellipse(x, y, 0.07, 0.07, '#92400e');
+      continue;
+    }
+    // the airport's: a mown lawn with a low hedge round it and a drive from the road
+    g.mask(blur(3));
+    g.rect(x0 - 0.05, y0 - 0.05, x1 + 0.05, y1 + 0.05, 'rgba(40,70,50,0.22)');
+    g.mask(null);
+    g.rect(x0, y0, x1, y1, '#8fd16a');
+    for (let x = x0 + 0.5; x < x1; x += 1.0) g.rect(x, y0, Math.min(x1, x + 0.5), y1, 'rgba(255,255,255,0.06)');
+    for (const [ax, ay, bx, by] of [
+      [x0, y0, x1, y0],
+      [x1, y0, x1, y1],
+      [x1, y1, x0, y1],
+      [x0, y1, x0, y0],
+    ] as const)
+      g.line(ax, ay, bx, by, '#3f7d24', 2.6);
+    const cx = (x0 + x1) / 2;
+    g.rect(cx - 0.32, north + 0.3, cx + 0.32, y0 + 0.5, '#a7b0bb');
+    const pad = (a: number, b: number, c: number, d: number, color: string) => g.rect(a, b, c, d, color);
+    switch (FACILITIES[o.f]?.id) {
+      case 'rental':
+        pad(x0 + 1.9, y0 + 0.5, x1 - 0.3, y1 - 0.4, '#a7b0bb');
+        for (let x = x0 + 2.2; x < x1 - 0.4; x += 0.65) {
+          g.line(x, y0 + 0.6, x, y0 + 1.4, '#f1f5f9', 1.6);
+          g.line(x, y1 - 1.3, x, y1 - 0.5, '#f1f5f9', 1.6);
+        }
+        pad(cx - 0.32, y0, cx + 0.32, y0 + 0.6, '#a7b0bb');
+        break;
+      case 'parking':
+        pad(x0 + 0.3, y0 + 0.4, x1 - 0.3, y1 - 0.3, '#a7b0bb');
+        for (let x = x0 + 0.6; x < x1 - 0.4; x += 0.65) {
+          g.line(x, y0 + 0.5, x, y0 + 1.3, '#f1f5f9', 1.6);
+          g.line(x, (y0 + y1) / 2 + 0.1, x, (y0 + y1) / 2 + 0.9, '#f1f5f9', 1.6);
+          g.line(x, y1 - 1.1, x, y1 - 0.4, '#f1f5f9', 1.6);
+        }
+        break;
+      case 'solar':
+        pad(x0 + 0.25, y0 + 0.3, x1 - 0.25, y1 - 0.3, '#d6d3d1');
+        for (let k = 0; k < 40; k++) g.ellipse(x0 + 0.4 + hash01(pl.id * 5 + k) * (x1 - x0 - 0.8), y0 + 0.4 + hash01(pl.id * 5 + k + 99) * (y1 - y0 - 0.8), 0.04, 0.04, '#a8a29e', 6);
+        break;
+      case 'school':
+        // a grass strip with white edge marks, and a concrete apron by the hangar
+        pad(x0 + 0.4, y1 - 1.35, x1 - 0.4, y1 - 0.65, '#a3d977');
+        for (let x = x0 + 0.6; x < x1 - 0.5; x += 0.6) {
+          g.line(x, y1 - 1.33, x + 0.25, y1 - 1.33, '#ffffff', 1.4);
+          g.line(x, y1 - 0.67, x + 0.25, y1 - 0.67, '#ffffff', 1.4);
+        }
+        pad(x0 + 0.3, y0 + 0.4, x0 + 3.6, y0 + 2.3, '#cbd5e1');
+        break;
+      case 'logistics':
+        pad(x0 + 0.25, y0 + 0.35, x1 - 0.25, y1 - 0.3, '#cbd5e1');
+        for (let x = x0 + 0.6; x < x1 - 0.5; x += 0.9) g.line(x, y1 - 1.25, x + 0.5, y1 - 1.25, '#facc15', 1.6);
+        break;
+      case 'garden': {
+        // gravel paths crossing at the fountain
+        const cy = (y0 + y1) / 2;
+        pad(cx - 0.18, y0 + 0.2, cx + 0.18, y1 - 0.2, '#e7d8b5');
+        pad(x0 + 0.2, cy - 0.18, x1 - 0.2, cy + 0.18, '#e7d8b5');
+        g.ellipse(cx, cy, 0.8, 0.8, '#e7d8b5');
+        break;
+      }
+      default:
+        // freshly cleared: a few patches of bare earth
+        for (let k = 0; k < 6; k++) g.ellipse(x0 + 0.8 + hash01(pl.id * 7 + k) * (x1 - x0 - 1.6), y0 + 0.7 + hash01(pl.id * 7 + k + 50) * (y1 - y0 - 1.4), 0.35, 0.22, 'rgba(146,98,52,0.35)', 12);
+    }
+  }
 }
 
 /** A ribbon along a world polyline (flat [x, y, z...]) with constant world width. */
@@ -485,10 +622,11 @@ function buildingStatics(b: TerminalBuilding, sprites: SpriteSet, statics: Stati
 /** Painted ring radius of a stand by its size. */
 const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0, fenceLevel = 0, scanV = 1): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0, fenceLevel = 0, scanV = 1, land = ''): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
+  const plots = plotsFor(W, H);
   const hangarBays = L.stands.filter((st, i) => st.hangar && open[i]).length;
   const statics: StaticSprite[] = [];
   let towerAt: [number, number] | null = null;
@@ -538,6 +676,8 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
         [72, 40, 80, 47],
       );
     const clear = [L.t3, L.t4].flatMap((T) => (T ? [T.building.box, [T.garage[0] - 1, T.garage[1] - 1, T.garage[2] + 1, T.garage[3] + 1] as const] : []));
+    // (and the land south of the field)
+    if (plots.length > 0) clear.push([0, PLOT_Y0 - 1.5, W, H] as const);
     if (L.hotel) clear.push([L.hotel.box[0] - 1.5, L.hotel.box[1] - 1, L.hotel.box[2] + 1, L.hotel.box[3] + 1.5]);
     fields.forEach((f, i) => {
       if (clear.some((b) => f[0] < b[2] && f[2] > b[0] && f[1] < b[3] + 1.5 && f[3] > b[1] - 1.5)) return;
@@ -549,6 +689,8 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     g.ellipse(39.5, 31.5, 3.2, 2.2, '#4fb3d9');
     g.ellipse(39.3, 31.3, 2.6, 1.7, '#6cc8ea');
     g.ellipse(38.5, 30.8, 1.0, 0.45, '#b6e8fa');
+    // the land south of the field, its plots and roads
+    if (!crisp) paintLand(g, plots, land, blur);
 
     // the airfield: mowing stripes along the runway
     c.save();
@@ -609,6 +751,26 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
       g.line(x + 0.28, ym, x + 0.18, ym - 0.07, '#e2e8f0', 1.6);
       g.line(x + 0.28, ym, x + 0.18, ym + 0.07, '#e2e8f0', 1.6);
     }
+    // the driveway from the access road into the lot's aisle (owner request: the lot was not joined to the road),
+    // with its kerbs, a give-way line at the road and an arrow each way
+    const DW = lotDriveway(L);
+    const dx0 = DW.roadX + 0.3;
+    g.mask(blur(3));
+    g.rect(dx0, DW.y - DW.half - 0.08, DW.x0 + 0.05, DW.y + DW.half + 0.08, 'rgba(40,70,50,0.22)');
+    g.mask(null);
+    g.rect(dx0, DW.y - DW.half, DW.x0 + 0.05, DW.y + DW.half, '#a7b0bb');
+    for (const side of [-1, 1]) g.line(dx0 + 0.18, DW.y + side * DW.half, DW.x0, DW.y + side * DW.half, '#e5e7eb', 2.2);
+    for (let k = 0; k < 5; k++) {
+      const y0 = DW.y - DW.half + 0.06 + k * ((DW.half * 2 - 0.12) / 5);
+      g.line(dx0 + 0.24, y0, dx0 + 0.24, y0 + 0.08, '#f8fafc', 1.6);
+    }
+    const arrow = (x: number, y: number, dir: number) => {
+      g.line(x - 0.14 * dir, y, x + 0.14 * dir, y, '#f8fafc', 1.6);
+      g.line(x + 0.14 * dir, y, x + 0.06 * dir, y - 0.06, '#f8fafc', 1.6);
+      g.line(x + 0.14 * dir, y, x + 0.06 * dir, y + 0.06, '#f8fafc', 1.6);
+    };
+    arrow((dx0 + DW.x0) / 2 + 0.05, DW.y - DW.half * 0.45, 1);
+    arrow((dx0 + DW.x0) / 2 + 0.05, DW.y + DW.half * 0.45, -1);
 
     // terminal plaza: paving under check-in and security, rope posts along the queues
     const T = L.terminal;
@@ -1031,6 +1193,10 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const treeAt = (x: number, y: number, seed: number) => {
     if (x > px0 && x < px1 && y > py0 && y < py1) return;
     if (met && x > met[0] - 0.9 && x < met[0] + 2 && y > met[1] - 0.9 && y < met[1] + 2) return;
+    // (nor in the pond)
+    if (((x - 39.5) / 3.9) ** 2 + ((y - 31.5) / 2.9) ** 2 < 1) return;
+    // (nor on the land south of the field and its roads)
+    if (plots.length > 0 && y > PLOT_Y0 - 1.3 && y < PLOT_Y0 + PLOT_ROWS * PLOT_ROW_STEP && x > PLOT_X0 - 1.4 && x < Math.max(...plots.map((p) => p.box[2])) + 1) return;
     for (const T of [L.t3, L.t4]) if (T && x > Math.min(T.building.box[0], T.garage[0]) - 2 && x < Math.max(T.building.box[2], T.garage[2]) + 3.2 && y > T.garage[1] - 1.5 && y < T.building.box[3] + 0.5) return;
     if (L.rail && y < L.rail.y + 1.6 && y > L.rail.y - 1.4 && x > L.rail.portals[0] - 2 && x < L.rail.portals[1] + 2) return;
     if (L.rail && x > L.rail.platform[0] - 1 && x < L.rail.platform[2] + 1 && y < 7.6) return;

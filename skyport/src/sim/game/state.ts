@@ -11,6 +11,7 @@ import { newGuide } from './guide';
 import { newCareer } from './career';
 import { newDaily } from './daily';
 import { newFest } from './festival';
+import { newLand } from './land';
 import type { GameState } from './types';
 import { makeVehicle } from './vehicles';
 
@@ -39,6 +40,7 @@ export function createGame(seed: number): GameState {
     career: newCareer(),
     daily: newDaily(),
     fest: newFest(),
+    land: newLand(),
     apm: null,
     vehicles: [makeVehicle(1, 'fuel', L), makeVehicle(2, 'bags', L)],
     stands: L.stands.map(() => ({ occupant: 0, reserved: 0 })),

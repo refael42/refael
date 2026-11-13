@@ -17,6 +17,10 @@ import { tierDef } from '../../data/tiers';
 import { TierPanel } from './TierPanel';
 import { SupplyPanel } from './SupplyPanel';
 import { TowerPanel } from './TowerPanel';
+import { LandPanel } from './LandPanel';
+import { collectSpot } from '../../render/land';
+import { landPlots } from '../../sim/game/land';
+import { FACILITIES } from '../../data/land';
 import { pointAt } from '../../render/baggage';
 import { ilsParts, meteoSpot } from '../../sim/game/tower';
 import { towerTop } from '../../render/art/objects';
@@ -290,11 +294,13 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [openSig, setOpenSig] = useState(() => ctrl.state.standOpen.map((o) => (o ? '1' : '0')).join(''));
   // counters, lanes and the fuel farm size in one number (each a digit)
   // (and the fence's level and the scanners' version: digits above those)
+  // the land south of the field: which plots are bought, cleared and what stands on them (the ground is repainted when it changes)
+  const [landSig, setLandSig] = useState(() => landSignature(ctrl.state));
   const [stations, setStations] = useState(() => versionOf('scanner', ctrl.state.upg.scanner ?? 0) * 10000 + (ctrl.state.upg.fence ?? 0) * 1000 + (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
   const world = useMemo(
     () =>
-      buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100) % 10, Math.floor(stations / 1000) % 10, Math.max(1, Math.floor(stations / 10000))),
-    [L, sprites, tier, openSig, stations],
+      buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100) % 10, Math.floor(stations / 1000) % 10, Math.max(1, Math.floor(stations / 10000)), landSig),
+    [L, sprites, tier, openSig, stations, landSig],
   );
   const cam = useMemo(() => {
     const c = makeCamera(isoX(L.camera.center[0], L.camera.center[1]), isoY(L.camera.center[0], L.camera.center[1]), L.camera.zoom);
@@ -324,6 +330,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [now, setNow] = useState(0);
   const [settings, setSettings] = useState(false);
   const [panel, setPanel] = useState<string | null>(debug.panel);
+  /** The plot of land the land panel shows. */
+  const [landPlot, setLandPlot] = useState(0);
   /** A new edition of the Aviation Guide, for its ceremony. */
   const [guideNews, setGuideNews] = useState<GuideNews | null>(null);
   /** The wheel's last spin (it turns to it in the daily panel). */
@@ -747,6 +755,23 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
             if (e.x > 0) setBump(1);
             break;
           }
+          case 'plotCleared':
+            toast('diamond', t('land.cleared', { n: e.b }), 'good', undefined, true);
+            break;
+          case 'facilityBuilt': {
+            const fd = FACILITIES[e.b];
+            if (fd) toast('build', t('land.built', { name: t(`fac.${fd.id}` as TKey), n: e.c }), 'good', 'land' + e.a);
+            break;
+          }
+          case 'collected': {
+            const pl = landPlots(ctrl.state).find((q) => q.id === e.a);
+            if (pl) {
+              const cx = (pl.box[0] + pl.box[2]) / 2;
+              const cy = (pl.box[1] + pl.box[3]) / 2;
+              fx.money(isoX(cx, cy), isoY(cx, cy, 1.6), Big.fromNumber(e.b).m, Big.fromNumber(e.b).e);
+            }
+            break;
+          }
           case 'dealBought':
             toast('check', t('toast.dealBought'), 'good', undefined, true);
             break;
@@ -837,6 +862,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       setTier((old) => (old === st.tier ? old : st.tier));
       const sig = versionOf('scanner', st.upg.scanner ?? 0) * 10000 + (st.upg.fence ?? 0) * 1000 + (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
       setStations((old) => (old === sig ? old : sig));
+      const ls = landSignature(st);
+      setLandSig((old) => (old === ls ? old : ls));
       updateTutorial();
       setRev((r) => r + 1);
       // copies, so the panel re-renders when people change (polled, not every frame)
@@ -1007,6 +1034,14 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         }
       }
       const p = viewToWorld(cam, vx, vy);
+      // a facility's coin bubble: collect at once
+      for (const pl of landPlots(ctrl.state)) {
+        const b = collectSpot(ctrl.state, pl);
+        if (b && Math.hypot(p.x - b.x, p.y - b.y) * cam.zoom < 30) {
+          ctrl.send({ type: 'collectFacility', plot: pl.id });
+          return;
+        }
+      }
       // the inspector's day: a suspect (or the magnifier over one) opens the guide
       const visit = ctrl.state.guide.visit;
       if (visit && !visit.done) {
@@ -1077,6 +1112,15 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
           setPanel('tower');
           return;
         }
+      }
+      // a plot of the airport's land (or wild land for sale)
+      const wpt = screenToWorld(p.x, p.y);
+      const plot = landPlots(ctrl.state).find((q) => wpt.x > q.box[0] && wpt.x < q.box[2] && wpt.y > q.box[1] && wpt.y < q.box[3]);
+      if (plot) {
+        setSelected(0);
+        setLandPlot(plot.id);
+        setPanel('land');
+        return;
       }
       setSelected(0);
     },
@@ -1198,6 +1242,21 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         };
       },
       tower: () => world.tower,
+      // (screenshots: the land in this state: [plot, state, facility, level, coins held, seconds left of a job])
+      landSet: (rows: [number, 1 | 2, number, number, number, number][]) => {
+        for (const [id, state, f, lv, store, left] of rows) ctrl.state.land.plots[id] = { state, left, total: Math.max(left, 60), f, lv, store };
+        ctrl.state.upgRev++;
+      },
+      // (tests: the land's plots, their state and where to tap them)
+      land: () =>
+        landPlots(ctrl.state).map((q) => {
+          const st = ctrl.state.land.plots[q.id];
+          const cx = (q.box[0] + q.box[2]) / 2;
+          const cy = (q.box[1] + q.box[3]) / 2;
+          const b = collectSpot(ctrl.state, q);
+          const view = (x: number, y: number) => ({ vx: (x - cam.x) * cam.zoom + cam.viewW / 2, vy: (y - cam.y) * cam.zoom + cam.viewH / 2 });
+          return { id: q.id, row: q.row, x: cx, y: cy, state: st?.state ?? 0, f: st?.f ?? -1, lv: st?.lv ?? 0, left: st?.left ?? 0, store: st?.store ?? 0, tap: view(isoX(cx, cy), isoY(cx, cy)), bubble: b ? view(b.x, b.y) : null };
+        }),
       // (tests: passengers waiting at a baggage carousel)
       atClaim: () => ctrl.state.people.filter((q) => q.state === PST.atClaim).map((q) => ({ x: q.x, y: q.y, term: q.term })),
       // (tests: the bags riding the check-in conveyors, in world tiles)
@@ -1268,7 +1327,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // landscape phones: compact bar, and the best-value tip beside it when there is room
   const short = size.h > 0 && size.h < 500;
   const barRow = short && size.w >= 800 && !!offer;
-  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies' || panel === 'events' || panel === 'help' || panel === 'tower');
+  const sidePanel = wide && (panel === 'upgrades' || panel === 'staff' || panel === 'airlines' || panel === 'airport' || panel === 'supplies' || panel === 'events' || panel === 'help' || panel === 'tower' || panel === 'land');
   const barItems: BarItem[] = [
     { id: 'upgrades', icon: 'wrench', label: 'bar.upgrades', badge: !!offer },
     { id: 'staff', icon: 'team', label: 'bar.staff', badge: canHire },
@@ -1516,6 +1575,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       ) : null}
       {panel === 'daily' ? <DailyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} last={lastSpin} /> : null}
       {panel === 'career' || panel === 'achievements' ? <CareerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} initialTab={panel === 'achievements' ? 1 : 0} onClose={() => setPanel(null)} /> : null}
+      {panel === 'land' ? <LandPanel state={ctrl.state} rev={rev} plot={landPlot} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'tower' ? <TowerPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} onStaff={() => setPanel('staff')} /> : null}
       {panel === 'supplies' ? <SupplyPanel state={ctrl.state} rev={rev} send={(c) => ctrl.send(c)} onClose={() => setPanel(null)} /> : null}
       {panel === 'airport' ? <TierPanel state={ctrl.state} rev={rev} onBuild={() => ctrl.send({ type: 'upgradeTier' })} onClose={() => setPanel(null)} /> : null}
@@ -1728,3 +1788,12 @@ const styles = StyleSheet.create({
   skip: { position: 'absolute', right: 12, backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   skipText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 });
+
+/** The land's shape for the ground painting: each plot bought, its state and facility ("id:state:f;..."). */
+function landSignature(s: GameState): string {
+  return Object.keys(s.land.plots)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((id) => `${id}:${s.land.plots[id].state}:${s.land.plots[id].f}`)
+    .join(';');
+}

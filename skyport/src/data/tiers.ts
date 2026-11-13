@@ -295,7 +295,7 @@ export interface TierDef {
 }
 
 const DIRT_STRIP: TierLayout = {
-  world: { w: 46, h: 46 },
+  world: { w: 64, h: 52 },
   field: { x0: 11.5, y0: 17.2, x1: 32.5, y1: 28.8 },
   runway: { x0: 13, x1: 31, y: 26, width: 1.3, surface: 'dirt' },
   approach: {
@@ -434,7 +434,7 @@ const DIRT_STRIP: TierLayout = {
  */
 const SMALL_AIRFIELD: TierLayout = {
   ...DIRT_STRIP,
-  world: { w: 46, h: 46 },
+  world: { w: 64, h: 52 },
   field: { x0: 9.6, y0: 15.6, x1: 35.2, y1: 30.4 },
   runway: { x0: 12, x1: 34, y: 26, width: 1.5, surface: 'asphalt' },
   taxi: {

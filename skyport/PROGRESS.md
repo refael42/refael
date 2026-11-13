@@ -730,6 +730,72 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### The land: the airport grows to the sides (owner request, after the baggage)
+"The parking lot is not joined to the road. Make the field bigger to the sides, a game that grows
+in tycoon style, like Clash of Clans and Hay Day. Invest in everything; learn how first."
+- What I learned first (a quick read of what Supercell's games do):
+  - growth comes as land: you clear plots of obstacles (trees, rocks), for coins and time;
+  - buildings on the land make coins you come back to collect, and level up;
+  - the art keeps chunky shapes, few colours, clear silhouettes and one consistent style.
+- The parking lot by Terminal 1 is joined to the road now:
+  - a driveway from the access road into its middle aisle, with kerbs, a give-way line and arrows;
+  - the three bays by the driveway are for cars that turn in from the road, park for a while,
+    back out and drive away (`lotCars` in `traffic.ts`).
+- Land expansions (`data/land.ts`, `sim/game/land.ts`):
+  - south of the widest fence lies wild land in plots of 6 x 4.5 tiles, in two rows: 18 at the
+    small airports (their world is wider now: 64 x 52), 26 at the hub, 32 at the Mega hub and the
+    Skyport;
+  - a country road runs from the west edge along the land, and another between the rows;
+  - any plot of the first row can be bought, and a plot of the second once the one north of it is
+    the airport's. One plot is cleared at a time;
+  - a plot costs two minutes of the airport's income (at least 1,600 x the tier's pay), 45% more
+    for each plot owned. It takes 40 s to clear, 25 s more for each plot owned (10 min at
+    most). Diamonds rush it. Clearing finds 1 or 2 diamonds and gives the manager experience.
+- Facilities, one per cleared plot, levels 1 to 5 (each level 2.2x the price, 30 s more to
+  build):
+  - car rental (coins, more with more passengers served);
+  - long-term parking (slow, holds 30 min);
+  - solar farm (pays in by itself);
+  - flight school (coins and manager experience at each collection);
+  - logistics centre (the most coins, more with cargo work);
+  - passenger garden (no coins: +1.2% passenger mood a level).
+- Earnings: a level-1 facility makes about 6% of the airport's income, a level-5 one about 20%.
+  It fills up to its cap; tap its coin bubble to collect.
+- On the map (`render/land.ts`, art in `render/art/land.ts`):
+  - a wild plot is a deeper meadow with tall grass, survey stakes and a rope round it, and
+    obstacles: trees, pines, rocks, boulders, bushes, stumps, old sheds and straw bales. A sign
+    with the price stands on each plot for sale;
+  - while a plot is cleared, two workers go from obstacle to obstacle in dust, the obstacles go
+    one by one, and a bar shows how far it is;
+  - an owned plot is a mown lawn with a hedge and a drive from the road;
+  - each facility has its own ground (asphalt, gravel, a grass strip, paths) and pieces that
+    multiply with its level:
+    - car rental: an office with flags and rows of cars;
+    - parking: up to 24 cars and a ticket booth;
+    - solar farm: rows of panels;
+    - flight school: a hangar, trainers, and one flying circuits;
+    - logistics centre: warehouses and trucks;
+    - garden: a fountain, flower beds, trees and benches;
+  - a crane and a bar while a facility is built; a bobbing gold coin bubble when it has coins.
+- Tapping a plot opens its panel (`LandPanel.tsx`):
+  - wild: the price and time to clear, why it cannot be bought yet, the progress and a diamond
+    rush;
+  - owned: the six facilities to pick from;
+  - a facility: its level, coins a minute, what it holds, collect, and upgrade.
+  Messages: the land is cleared (+diamonds), a facility's level is ready, coins pop up when
+  collected.
+- Trees keep off the land, its roads and the pond (trees used to grow in the pond).
+- Tests: `land.test.ts`:
+  - where the plots lie at every tier;
+  - buying, clearing, diamonds and experience;
+  - the rush;
+  - building, upgrading, filling up, the cap and collecting;
+  - the solar farm and the garden;
+  - obstacles;
+  - the save.
+- E2E: `land-buy`, `land-pick`, `land-collect`, `land-overview`. The hook adds `land()` and
+  `landSet()`.
+
 ### Baggage in 3D, and what needs you stands out (owner request)
 "The conveyor looks very low quality and the animation is terrible; and make things a bit more
 emphasized so it is clear."

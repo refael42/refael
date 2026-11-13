@@ -69,6 +69,7 @@ import {
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { BAG_KINDS, BELT_FRAMES, drawBeltBag, drawBeltPiece, drawCarouselBase, drawCarouselIsland } from './art/baggage';
+import { drawBoulder, drawBoxTruck, drawBush, drawFlowerBed, drawGardenFountain, drawHay, drawLandSign, drawRentalOffice, drawSchoolHangar, drawShed, drawSolarRow, drawStump, drawTrainer, drawWarehouse } from './art/land';
 import { drawHotel, drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
 import {
@@ -286,6 +287,23 @@ export interface SpriteSet {
   lostBag: number;
   /** Baggage: the carousel's base (a frame of its turning plates) and island, a bag lying on a belt, a conveyor piece. */
   carouselBase: (frame: number) => number;
+  /** The land around the airport: obstacles, the sign on a plot for sale, and the facilities' pieces (by level or size). */
+  land: {
+    bush: number;
+    stump: number;
+    boulder: number;
+    shed: number;
+    hay: number;
+    sign: number;
+    rental: (lv: number) => number;
+    solar: number;
+    hangar: (lv: number) => number;
+    trainer: (k: number) => number;
+    warehouse: (size: number) => number;
+    truck: (k: number) => number;
+    fountain: (frame: number) => number;
+    flowers: (k: number) => number;
+  };
   carouselIsland: number;
   beltBag: (kind: number, alongY: boolean) => number;
   beltPiece: (alongY: boolean, frame: number, forward: boolean) => number;
@@ -575,6 +593,28 @@ export function buildSprites(content: Content): SpriteSet {
   const litterBase = b.size;
   for (let k = 0; k < LITTER_KINDS; k++) b.add(-0.18 * T, -0.22 * T, 0.18 * T, 0.14 * T, (c, ox, oy) => drawLitter(new IsoPen(c, ox, oy, S), k));
   const cleanCart = b.add(-0.3 * T, -0.6 * T, 0.3 * T, 0.25 * T, (c, ox, oy) => drawCleanCart(new IsoPen(c, ox, oy, S)));
+  const P = (draw: (p: IsoPen) => void) => (c: Parameters<Parameters<typeof b.add>[4]>[0], ox: number, oy: number) => draw(new IsoPen(c, ox, oy, S));
+  const landBush = b.add(-13 * S, -20 * S, 13 * S, 7 * S, P(drawBush));
+  const landStump = b.add(-11 * S, -10 * S, 11 * S, 9 * S, P(drawStump));
+  const landBoulder = b.add(-17 * S, -16 * S, 17 * S, 11 * S, P(drawBoulder));
+  const landShed = b.add(-19 * S, -26 * S, 19 * S, 13 * S, P(drawShed));
+  const landHay = b.add(-17 * S, -16 * S, 17 * S, 11 * S, P(drawHay));
+  const landSign = b.add(-10 * S, -20 * S, 10 * S, 7 * S, P(drawLandSign));
+  const rentalAt = b.size;
+  for (let lv = 1; lv <= 5; lv++) b.add(-33 * S, -38 * S, 33 * S, 19 * S, P((p) => drawRentalOffice(p, lv)));
+  const landSolar = b.add(-9 * S, -15 * S, 63 * S, 33 * S, P(drawSolarRow));
+  const hangarAt = b.size;
+  for (let lv = 1; lv <= 5; lv++) b.add(-43 * S, -43 * S, 43 * S, 23 * S, P((p) => drawSchoolHangar(p, lv)));
+  const trainerAt = b.size;
+  for (const col of ['#ef4444', '#2563eb', '#f59e0b']) b.add(-23 * S, -15 * S, 23 * S, 13 * S, P((p) => drawTrainer(p, col)));
+  const warehouseAt = b.size;
+  for (let size = 1; size <= 3; size++) b.add(-57 * S, -51 * S, 57 * S, 31 * S, P((p) => drawWarehouse(p, size)));
+  const truckAt = b.size;
+  for (const col of ['#0ea5e9', '#16a34a']) b.add(-15 * S, -15 * S, 15 * S, 11 * S, P((p) => drawBoxTruck(p, col)));
+  const fountainAt = b.size;
+  for (let f = 0; f < 2; f++) b.add(-23 * S, -27 * S, 23 * S, 15 * S, P((p) => drawGardenFountain(p, f)));
+  const flowersAt = b.size;
+  for (let k = 0; k < 3; k++) b.add(-15 * S, -11 * S, 15 * S, 11 * S, P((p) => drawFlowerBed(p, k)));
   const carouselBaseAt = b.size;
   for (let f = 0; f < BELT_FRAMES; f++) b.add(-28 * S, -20 * S, 28 * S, 18 * S, (c, ox, oy) => drawCarouselBase(new IsoPen(c, ox, oy, S), f));
   const carouselIsland = b.add(-16 * S, -28 * S, 16 * S, 10 * S, (c, ox, oy) => drawCarouselIsland(new IsoPen(c, ox, oy, S)));
@@ -841,6 +881,22 @@ export function buildSprites(content: Content): SpriteSet {
     litter: (k) => litterBase + (k % LITTER_KINDS),
     cleanCart,
     lostBag,
+    land: {
+      bush: landBush,
+      stump: landStump,
+      boulder: landBoulder,
+      shed: landShed,
+      hay: landHay,
+      sign: landSign,
+      rental: (lv) => rentalAt + Math.max(0, Math.min(4, lv - 1)),
+      solar: landSolar,
+      hangar: (lv) => hangarAt + Math.max(0, Math.min(4, lv - 1)),
+      trainer: (k) => trainerAt + (((k % 3) + 3) % 3),
+      warehouse: (size) => warehouseAt + Math.max(0, Math.min(2, size - 1)),
+      truck: (k) => truckAt + (((k % 2) + 2) % 2),
+      fountain: (f) => fountainAt + (((f % 2) + 2) % 2),
+      flowers: (k) => flowersAt + (((k % 3) + 3) % 3),
+    },
     carouselBase: (f) => carouselBaseAt + (((f % BELT_FRAMES) + BELT_FRAMES) % BELT_FRAMES),
     carouselIsland,
     beltBag: (k, alongY) => beltBagAt + (((k % BAG_KINDS) + BAG_KINDS) % BAG_KINDS) * 2 + (alongY ? 1 : 0),

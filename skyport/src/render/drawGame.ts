@@ -8,6 +8,7 @@ import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types'
 import { weather } from '../sim/game/weather';
 import { ilsParts, meteoSpot } from '../sim/game/tower';
 import { drawBaggage } from './baggage';
+import { drawLand } from './land';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
@@ -20,7 +21,7 @@ import { isoX, isoY, Z_PX } from './iso';
 import type { SnapWriter } from './scene';
 import { BEACON, CAR_VARIANTS } from './art/vehicles';
 import { dirIndex, DIRS, GLOW_COLORS, planeRes, VEHICLE_KINDS, VEHICLE_SCALE, type SpriteSet } from './sprites';
-import { parkedCars, roadCars, type CarPose } from './traffic';
+import { lotCars, parkedCars, roadCars, type CarPose } from './traffic';
 import { drawEventScenes, drawHolidayDecor } from './drawEvents';
 import { versionOf } from '../data/versions';
 import { noticeSeconds } from '../sim/game/security';
@@ -143,6 +144,9 @@ export function drawGame(
       if (tv >= 2 && Math.floor(o.time * 1.2) % 2 === 0) w.fx(sp.glow(GLOW_COLORS.red), sx, isoY(tx, ty, towerTop(tv)), 0.8, 0.9);
     }
   }
+
+  // the land south of the field: wild plots, the clearing crews, the facilities and their coins
+  drawLand(w, s, sp, o.time, inv, visible);
 
   // the ILS: localizers past the far ends of the runway, glideslopes by the touchdown zones
   const ilsLv = s.upg.ils ?? 0;
@@ -283,6 +287,8 @@ export function drawGame(
 
   // background traffic: parked cars and cars on the access road
   drawCars(w, sp, parkedCars(LL, s.stats.served), visible, o.time, false);
+  // (and the cars that turn into the lot, park a while and drive away)
+  drawCars(w, sp, lotCars(LL, s.time), visible, o.time, true, nightOf(s.time));
   drawCars(w, sp, roadCars(LL, s.time), visible, o.time, true, nightOf(s.time));
   // Terminal 3's road: cars, taxis and buses to its curb
   if (LL.t3) drawCars(w, sp, roadCars(LL, s.time * 1.3 + 3, LL.t3.road, 7), visible, o.time, true, nightOf(s.time));

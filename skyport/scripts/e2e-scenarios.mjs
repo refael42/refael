@@ -1001,6 +1001,106 @@ export default [
       await page.waitForTimeout(400);
     },
   },
+  // land expansions (owner request: grow to the sides like Hay Day / Clash of Clans)
+  {
+    name: 'land-buy',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=87&tier=3&full=1&crew=1&warp=60&auto=1&hook=1&money=100000000',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      const q = await page.evaluate(() => {
+        const h = window.__skyport;
+        const p = h.land().find((x) => x.row === 0 && x.id === 2);
+        h.lookAt(p.x, p.y, 1.1);
+        return p.id;
+      });
+      await page.waitForTimeout(600);
+      const tap = await page.evaluate((id) => window.__skyport.land().find((x) => x.id === id).tap, q);
+      await page.touchscreen.tap(tap.vx, tap.vy);
+      await page.waitForSelector('[data-testid="land-buy"]', { timeout: 5000 });
+      await page.click('[data-testid="land-buy"]');
+      await page.waitForFunction((id) => window.__skyport.land().find((x) => x.id === id).state === 1, q, { timeout: 5000 });
+      await page.waitForSelector('[data-testid="land-rush"]', { timeout: 5000 });
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'land-pick',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=87&tier=4&full=1&crew=1&warp=60&auto=1&hook=1&money=100000000',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.landSet([[1, 2, -1, 0, 0, 0]]);
+        const p = h.land().find((x) => x.id === 1);
+        h.lookAt(p.x, p.y, 1.1);
+      });
+      await page.waitForTimeout(800);
+      const tap = await page.evaluate(() => window.__skyport.land().find((x) => x.id === 1).tap);
+      await page.touchscreen.tap(tap.vx, tap.vy);
+      await page.waitForSelector('[data-testid="build-rental"]', { timeout: 5000 });
+      await page.click('[data-testid="build-rental"]');
+      await page.waitForFunction(() => window.__skyport.land().find((x) => x.id === 1).f === 0, null, { timeout: 5000 });
+      await page.waitForTimeout(500);
+    },
+  },
+  {
+    name: 'land-collect',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=87&tier=4&full=1&crew=1&warp=60&auto=1&hook=1&money=100000000',
+    wait: 900,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.landSet([[2, 2, 1, 3, 5e6, 0]]);
+        const p = h.land().find((x) => x.id === 2);
+        h.lookAt(p.x, p.y, 1.1);
+      });
+      await page.waitForFunction(() => !!window.__skyport.land().find((x) => x.id === 2).bubble, null, { timeout: 5000 });
+      await page.waitForTimeout(500);
+      const b = await page.evaluate(() => window.__skyport.land().find((x) => x.id === 2).bubble);
+      const before = await page.evaluate(() => window.__skyport.stats().money);
+      await page.touchscreen.tap(b.vx, b.vy);
+      await page.waitForFunction((m) => window.__skyport.stats().money > m + 1000, before, { timeout: 5000 });
+      // then the facility's own panel
+      const tap = await page.evaluate(() => window.__skyport.land().find((x) => x.id === 2).tap);
+      await page.touchscreen.tap(tap.vx, tap.vy + 30);
+      await page.waitForSelector('[data-testid="land-upgrade"]', { timeout: 5000 });
+      await page.waitForTimeout(400);
+    },
+  },
+  {
+    name: 'land-overview',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=87&tier=5&full=1&crew=1&warp=60&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.landSet([
+          [0, 2, 5, 4, 0, 0],
+          [1, 2, 0, 3, 9e9, 0],
+          [2, 2, 2, 5, 0, 0],
+          [3, 2, 4, 5, 0, 0],
+          [4, 1, -1, 0, 0, 40],
+          [100, 2, 3, 3, 0, 0],
+          [101, 2, 1, 4, 0, 0],
+        ]);
+        h.lookAt(15, 42, 0.75);
+      });
+      await page.waitForTimeout(2600);
+    },
+  },
   // the ILS on the map: the localizer past the far end, the glideslope by the touchdown zone (CAT III: both ways)
   ...[
     ['ils-cat1-loc', 3, 1, 'loc', 1],

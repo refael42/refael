@@ -13,6 +13,7 @@ import { layoutOf } from './layout';
 import { componentRates, incomeRate } from './income';
 import { REJECT, type GameState } from './types';
 import { makeVehicle } from './vehicles';
+import { gardenMood } from './land';
 
 export function level(s: GameState, id: string): number {
   return s.upg[id] ?? 0;
@@ -207,7 +208,8 @@ export function effects(s: GameState): Effects {
     bagSpeed: 1 + effectValue(s, 'bagSpeed'),
     taxiSpeed: 1 + effectValue(s, 'taxiSpeed'),
     runwayOps: 1 + effectValue(s, 'runwayOps'),
-    comfort: Math.min(0.5, effectValue(s, 'comfort')),
+    // (gardens on the airport's land cheer passengers up too)
+    comfort: Math.min(0.5, effectValue(s, 'comfort') + gardenMood(s)),
     staffSpeed: 1 + effectValue(s, 'staffSpeed'),
     offlineCapHours: 2 + effectValue(s, 'offlineCap'),
   };

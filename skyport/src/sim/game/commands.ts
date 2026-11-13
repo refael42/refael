@@ -14,6 +14,7 @@ import { pickSuspect } from './guide';
 import { claimMedals, openChest } from './career';
 import { claimGift, setNow, spinWheel } from './daily';
 import { buyDeal } from './festival';
+import { buildFacility, buyPlot, collectFacility, rushPlot } from './land';
 
 /** Owner tools: what the gift gives. */
 export const OWNER_COINS = 1e12;
@@ -145,6 +146,16 @@ export function applyCommand(s: GameState, cmd: Command): void {
     case 'setNow':
       setNow(s, Number(cmd.minutes));
       return;
+    case 'buyPlot':
+    case 'rushPlot':
+    case 'buildFacility':
+    case 'collectFacility': {
+      const id = Number(cmd.plot);
+      const code =
+        cmd.type === 'buyPlot' ? buyPlot(s, id) : cmd.type === 'rushPlot' ? rushPlot(s, id) : cmd.type === 'buildFacility' ? buildFacility(s, id, Number(cmd.facility)) : collectFacility(s, id);
+      if (code !== 0) pushEvent(s, 'cmdRejected', 0, 0, code, 0, 0);
+      return;
+    }
     case 'buyDeal':
       if (!buyDeal(s)) pushEvent(s, 'cmdRejected', 0, 0, REJECT.noMoney, 0, 0);
       return;
