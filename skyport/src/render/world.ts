@@ -686,9 +686,21 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     g.mask(blur(6));
     g.ellipse(39.5, 31.6, 3.5, 2.5, 'rgba(60,120,80,0.35)');
     g.mask(null);
+    // (a sandy shore round the pond, then the water, then lily pads)
+    g.ellipse(39.5, 31.5, 3.55, 2.5, '#e9dcae');
     g.ellipse(39.5, 31.5, 3.2, 2.2, '#4fb3d9');
     g.ellipse(39.3, 31.3, 2.6, 1.7, '#6cc8ea');
     g.ellipse(38.5, 30.8, 1.0, 0.45, '#b6e8fa');
+    for (const [lx, ly] of [
+      [40.9, 32.2],
+      [41.3, 31.7],
+      [37.9, 32.4],
+      [40.2, 32.9],
+    ] as const) {
+      g.ellipse(lx, ly, 0.2, 0.15, '#3f8a30', 12);
+      g.ellipse(lx + 0.03, ly - 0.02, 0.16, 0.11, '#65b84a', 12);
+    }
+    g.ellipse(41.3, 31.68, 0.05, 0.05, '#f9a8d4', 8);
     // the land south of the field, its plots and roads
     if (!crisp) paintLand(g, plots, land, blur);
 
@@ -700,6 +712,33 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     for (let y = F.y0; y < F.y1; y += 2.4) g.rect(F.x0, y, F.x1, Math.min(F.y1, y + 1.2), STRIPE_B);
     c.restore();
 
+    // tufts of taller grass, and little clusters of wild flowers, outside the field (the countryside reads alive up close)
+    if (!crisp) {
+      const inLand = (y: number) => plots.length > 0 && y > PLOT_Y0 - 1.2 && y < PLOT_Y0 + PLOT_ROWS * PLOT_ROW_STEP;
+      for (let i = 0; i < 520; i++) {
+        const x = hash01(i * 5 + 11) * W;
+        const y = hash01(i * 5 + 12) * H;
+        if ((x > F.x0 - 0.5 && x < F.x1 + 0.5 && y > F.y0 - 0.5 && y < F.y1 + 0.5) || inLand(y)) continue;
+        const dark = hash01(i * 5 + 13) < 0.6;
+        // (a clump: four blades fanning out)
+        for (let k = 0; k < 4; k++) {
+          const dx = (k - 1.5) * 0.045;
+          g.line(x + dx, y, x + dx * 2.2, y - 0.02, dark ? '#3f8a30' : '#9ad66a', 2.2, 0.16 + (k % 2) * 0.05);
+        }
+      }
+      const bloom = ['#ffffff', '#fde047', '#f9a8d4', '#c4b5fd'];
+      for (let i = 0; i < 170; i++) {
+        const x = hash01(i * 7 + 501) * W;
+        const y = hash01(i * 7 + 502) * H;
+        if ((x > F.x0 - 0.5 && x < F.x1 + 0.5 && y > F.y0 - 0.5 && y < F.y1 + 0.5) || inLand(y)) continue;
+        const col = bloom[Math.floor(hash01(i * 7 + 503) * bloom.length)];
+        for (let k = 0; k < 7; k++) {
+          const a = hash01(i * 7 + k * 13 + 504) * Math.PI * 2;
+          const r = 0.08 + hash01(i * 7 + k * 13 + 505) * 0.32;
+          g.ellipse(x + Math.cos(a) * r, y + Math.sin(a) * r, 0.065, 0.065, col, 8);
+        }
+      }
+    }
     // a few flowers outside the field
     const dotColors = ['#ffffff', '#fde047', '#f9a8d4'];
     const dots = dotColors.map(() => Skia.PathBuilder.Make());
@@ -1227,6 +1266,23 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   // a little grove near the hut
   if (L.runway.surface !== 'asphalt') treeAt(18.6, 17.9, 501);
   if (!L.depot || L.depot.farm[1] + 1.5 < 17.8) treeAt(28.4, 17.8, 503);
+  // bushes and small rocks dotted about the countryside (off the field, the land and the roads)
+  for (let i = 0; i < 150; i++) {
+    const x = 1 + hash01(6100 + i) * (W - 2);
+    const y = 1 + hash01(6200 + i) * (H - 2);
+    if (x > F.x0 - 1 && x < F.x1 + 1 && y > F.y0 - 1 && y < F.y1 + 1) continue;
+    if (plots.length > 0 && y > PLOT_Y0 - 1.3 && y < PLOT_Y0 + PLOT_ROWS * PLOT_ROW_STEP && x > PLOT_X0 - 1.4) continue;
+    if (x > px0 && x < px1 && y > py0 && y < py1) continue;
+    if ([L.road, ...landRoads(plots), ...[L.t3, L.t4].flatMap((T) => (T ? [T.road] : []))].some((r) => r.some((q, k) => k > 0 && segDist(x, y, r[k - 1], q) < 1.2))) continue;
+    if ([L.t3, L.t4].some((T) => T && x > T.building.box[0] - 2 && x < T.building.box[2] + 3 && y > T.garage[1] - 2 && y < T.building.box[3] + 1)) continue;
+    if (L.depot && x > L.depot.farm[0] - 3 && x < L.depot.store[0] + 3 && y > L.depot.farm[1] - 3 && y < L.depot.farm[1] + 3) continue;
+    if (L.hotel && x > L.hotel.box[0] - 1.5 && x < L.hotel.box[2] + 1.5 && y > L.hotel.box[1] - 1.5 && y < L.hotel.box[3] + 1.5) continue;
+    if (L.rail && y < L.rail.y + 2 && y > L.rail.y - 2) continue;
+    if (((x - 39.5) / 3.9) ** 2 + ((y - 31.5) / 2.9) ** 2 < 1) continue;
+    if (hash01(6300 + i) < 0.7) prop(sprites.land.bush, x, y, 0, 40);
+    else prop(sprites.rock, x, y, 0, 30);
+  }
+
   // scattered trees in the countryside
   for (let i = 0; i < 70; i++) {
     const x = hash01(2000 + i) * W;
@@ -1235,6 +1291,20 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
     if (Math.abs(x - 22) < 1.5 && y < F.y0) continue; // keep the road clear
     treeAt(x, y, 4000 + i);
   }
+
+  // a forest along the world's edges, two loose rows (owner request: the map should not just stop), clear of the roads out
+  const exits: (readonly (readonly [number, number])[])[] = [L.road, ...landRoads(plots)];
+  for (const T of [L.t3, L.t4]) if (T) exits.push(T.road);
+  const nearExit = (x: number, y: number) => exits.some((r) => r.some((q, i) => i > 0 && segDist(x, y, r[i - 1], q) < 1.5));
+  let fseed = 9000;
+  const edgeTree = (x: number, y: number) => {
+    const jx = (hash01(fseed * 3 + 1) - 0.5) * 0.5;
+    const jy = (hash01(fseed * 5 + 2) - 0.5) * 0.5;
+    if (hash01(fseed * 7 + 3) < 0.88 && !nearExit(x + jx, y + jy)) treeAt(x + jx, y + jy, fseed);
+    fseed++;
+  };
+  for (let x = 0.8; x < W - 0.5; x += 1.05) for (const y of [0.7, 1.75, H - 0.75, H - 1.8]) edgeTree(x, y);
+  for (let y = 2.8; y < H - 2.4; y += 1.05) for (const x of [0.7, 1.75, W - 0.75, W - 1.8]) edgeTree(x, y);
 
   // only tiles that touch the world diamond (|sx|/a + |sy-c|/b <= 1)
   const a = (W + H) * HALF_W * 0.5 + 64;

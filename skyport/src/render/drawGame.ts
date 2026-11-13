@@ -6,6 +6,7 @@ import { decorPos } from '../sim/game/tiers';
 import { layoutFor, type TierLayout } from '../data/tiers';
 import { FUEL, PST, WANT, type Flight, type GameState } from '../sim/game/types';
 import { weather } from '../sim/game/weather';
+import { hash01 } from '../sim/hash';
 import { ilsParts, meteoSpot } from '../sim/game/tower';
 import { drawBaggage } from './baggage';
 import { drawLand } from './land';
@@ -524,6 +525,8 @@ export function drawGame(
 
   // night: the world darkens and the lights come on
   const night = nightOf(s.time);
+  // the sky (owner request: the details): cloud shadows drifting with the wind, and now and then a flock of birds
+  drawSky(w, s, sp, LL, o.time, night, visible);
   w.dark = night * 0.42;
   if (night > 0.02) drawNightLights(w, s, sp, LL, world, o.time, night, visible);
   // the ground crew's equipment round each parked plane (under the planes' own drawing order)
@@ -621,6 +624,47 @@ function drawFlight(
   if (f.gWaiting && f.want === WANT.none) w.over(sp.icon('wait'), b.x, b.y - 4 * inv, 0.9 * inv);
   if ((f.phase === 'holding' || f.phase === 'inbound') && !f.landCleared && f.patience < 0.999) {
     w.bar(b.x, barY, 44, f.patience, f.patience < 0.35 ? 0xff6b5e : 0xffd23f);
+  }
+}
+
+/** Cloud shadows drift over everything with the wind; a flock of birds crosses the map every 40 s or so (by day). */
+function drawSky(w: SnapWriter, s: GameState, sp: SpriteSet, L: TierLayout, time: number, night: number, visible: (x: number, y: number, r: number) => boolean): void {
+  if (night > 0.6) return;
+  const { w: W, h: H } = L.world;
+  const wx = weather(s);
+  const speed = 0.18 + wx.speed * 0.012;
+  const ux = Math.cos(wx.windTo);
+  const uy = Math.sin(wx.windTo);
+  for (let k = 0; k < 5; k++) {
+    // (each wraps round the world as it drifts)
+    const x = (((hash01(k * 17 + 1) * W + ux * time * speed) % W) + W) % W;
+    const y = (((hash01(k * 17 + 2) * H + uy * time * speed) % H) + H) % H;
+    const sx = isoX(x, y);
+    const sy = isoY(x, y);
+    if (visible(sx, sy, 420)) w.fx(sp.blob, sx, sy, 10 + hash01(k * 17 + 3) * 6, 0.1 * (1 - night));
+  }
+  const PERIOD = 40;
+  const n = Math.floor(time / PERIOD);
+  const t = (time % PERIOD) / 22;
+  if (t > 1 || hash01(n * 3 + 1) < 0.35) return;
+  const y0 = 4 + hash01(n * 3 + 2) * (H - 8);
+  const y1 = y0 + (hash01(n * 3 + 3) - 0.5) * 14;
+  const fx = -4 + (W + 8) * t;
+  const fy = y0 + (y1 - y0) * t;
+  const hx = W + 8;
+  const hy = y1 - y0;
+  const hl = Math.hypot(hx, hy);
+  const ax = hx / hl;
+  const ay = hy / hl;
+  // a V of seven, the leader in front
+  for (let i = 0; i < 7; i++) {
+    const row = Math.ceil(i / 2);
+    const side = i === 0 ? 0 : i % 2 ? 1 : -1;
+    const bx = fx - ax * row * 0.55 - ay * side * row * 0.45;
+    const by = fy - ay * row * 0.55 + ax * side * row * 0.45;
+    const sx = isoX(bx, by);
+    const sy = isoY(bx, by, 5.5);
+    if (visible(sx, sy, 20)) w.sprite(sp.bird(Math.floor(time * 6 + i) % 2), sx, sy, 0.8, 3000 + bx + by);
   }
 }
 

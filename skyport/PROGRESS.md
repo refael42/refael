@@ -730,6 +730,19 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### A livelier world (owner request: "invest in the design", after the land)
+- A forest of two loose rows of trees runs round the world's edges, so the map no longer just
+  stops. It leaves gaps where roads leave the map.
+- The countryside has:
+  - clumps of tall grass;
+  - clusters of wild flowers (white, yellow, pink, lilac);
+  - bushes and small rocks;
+  - all kept off the field, the land, the roads, the buildings, the railway and the pond.
+- The pond has a sandy shore and lily pads, one in flower.
+- The sky:
+  - cloud shadows drift over everything with the wind, faster in a strong wind (by day);
+  - every 40 s or so a flock of seven birds may cross the map in a V, flapping.
+
 ### The land: the airport grows to the sides (owner request, after the baggage)
 "The parking lot is not joined to the road. Make the field bigger to the sides, a game that grows
 in tycoon style, like Clash of Clans and Hay Day. Invest in everything; learn how first."
