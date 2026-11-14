@@ -11,7 +11,7 @@ import { pushEvent } from './events';
 import type { GameState } from './types';
 
 /** Which button the "show me" hand points at. */
-export type GoalTarget = 'flight' | 'upgrades' | 'staff' | 'airlines' | 'airport' | 'supplies' | 'board' | null;
+export type GoalTarget = 'flight' | 'upgrades' | 'staff' | 'airlines' | 'airport' | 'supplies' | 'board' | 'land' | null;
 
 export interface GoalDef {
   id: string;
@@ -46,6 +46,10 @@ export const GOALS: readonly GoalDef[] = [
   { id: 'ils', reward: 150, target: 'upgrades', progress: (s) => one(upg(s, 'ils') > 0) },
   { id: 'fuelFarm', reward: 150, target: 'upgrades', progress: (s) => one(upg(s, 'fuelFarm') > 0) },
   { id: 'stands5', reward: 250, target: 'upgrades', progress: (s) => ({ have: Math.min(5, s.standsBuilt), need: 5 }) },
+  // the land south of the field (owner request: grow like Hay Day)
+  { id: 'firstPlot', reward: 250, target: 'land', progress: (s) => one(Object.values(s.land.plots).some((p) => p.state === 2)) },
+  { id: 'firstFacility', reward: 300, target: 'land', progress: (s) => one(Object.values(s.land.plots).some((p) => p.lv > 0)) },
+  { id: 'firstHarvest', reward: 200, target: 'land', progress: (s) => one((s.career.counts.harvest ?? 0) > 0) },
   { id: 'tier3', reward: 400, target: 'airport', progress: (s) => one(s.tier >= 3) },
   { id: 'mechanic', reward: 300, target: 'staff', progress: (s) => one(role(s, 'mechanic') > 0) },
   { id: 'mediumStand', reward: 300, target: 'upgrades', progress: (s) => one(upg(s, 'standMed') > 0) },
@@ -54,6 +58,7 @@ export const GOALS: readonly GoalDef[] = [
   { id: 'tier4', reward: 600, target: 'airport', progress: (s) => one(s.tier >= 4) },
   { id: 'gates', reward: 600, target: 'upgrades', progress: (s) => one(upg(s, 'gates') > 0) },
   { id: 'cargo', reward: 600, target: 'upgrades', progress: (s) => one(upg(s, 'cargoApron') > 0) },
+  { id: 'plots5', reward: 800, target: 'land', progress: (s) => ({ have: Math.min(5, Object.values(s.land.plots).filter((p) => p.state === 2).length), need: 5 }) },
   { id: 'tier5', reward: 1000, target: 'airport', progress: (s) => one(s.tier >= 5) },
   { id: 'helipad', reward: 800, target: 'upgrades', progress: (s) => one(upg(s, 'helipad') > 0) },
   { id: 'tier6', reward: 1500, target: 'airport', progress: (s) => one(s.tier >= 6) },

@@ -730,6 +730,26 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### Land goals, and a fix (after land II)
+- Four goals teach the land:
+  - between the small airfield and the regional airport: clear a plot of land, build a facility
+    on it, collect coins from a facility;
+  - before the international airport: own 5 plots.
+  "Show me" pans the map to the land and points at what to tap:
+  - a coin bubble, if one is waiting;
+  - else a cleared plot with nothing on it;
+  - else a plot for sale.
+- Goals are saved by id too, so new goals can go anywhere in the list. A save keeps its place;
+  goals added before it since are skipped.
+- Fix: with no land bought, the westernmost plot was painted as the airport's lawn under its
+  obstacles. An empty land signature read as "plot 0 owned". The signature now lives in
+  `render/landSig.ts`, pure and tested.
+- Fix: the toasts' strip swallowed taps on the map across the whole width while a toast showed.
+  For example, a coin bubble under a "goal done" toast could not be tapped. Taps go through it
+  now. The full browser run found this (`land-collect`).
+- Tests: goals by id; the land goals' place; the empty signature. E2E: `goal-land`. The hook
+  adds `goalSet(id)`.
+
 ### Land II (after the passenger services: "keep growing the game")
 - Two new facilities for the big airports:
   - airport hotel (international airport on): a cream tower whose floors grow with the level, a

@@ -19,7 +19,8 @@ import { SupplyPanel } from './SupplyPanel';
 import { TowerPanel } from './TowerPanel';
 import { LandPanel } from './LandPanel';
 import { collectSpot } from '../../render/land';
-import { landPlots } from '../../sim/game/land';
+import { landSignature } from '../../render/landSig';
+import { canBuyPlot, landPlots } from '../../sim/game/land';
 import { FACILITIES } from '../../data/land';
 import { pointAt } from '../../render/baggage';
 import { ilsParts, meteoSpot } from '../../sim/game/tower';
@@ -348,7 +349,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   const [hand, setHand] = useState<{ x: number; y: number; text: TKey } | null>(null);
   // the current goal (polled with the HUD) and the "show me" pointer for it
   const [goal, setGoal] = useState<GoalView | null>(null);
-  const showMe = useRef<{ target: GoalTarget; until: number } | null>(null);
+  const showMe = useRef<{ target: GoalTarget; until: number; panned?: boolean } | null>(null);
   // a new goal opens in full for a while, then folds into a chip (tap to open again)
   const goalOpen = useRef<{ id: string; until: number }>({ id: '', until: 0 });
   const barPos = useRef<Record<string, { x: number; y: number }>>({});
@@ -1247,6 +1248,11 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         for (const [id, state, f, lv, store, left] of rows) ctrl.state.land.plots[id] = { state, left, total: Math.max(left, 60), f, lv, store };
         ctrl.state.upgRev++;
       },
+      // (screenshots: jump to a goal by its id)
+      goalSet: (id: string) => {
+        const i = GOALS.findIndex((g) => g.id === id);
+        if (i >= 0) ctrl.state.goal = i;
+      },
       // (tests: the land's plots, their state and where to tap them)
       land: () =>
         landPlots(ctrl.state).map((q) => {
@@ -1371,6 +1377,25 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         const b = bubbleAnchor(any, cam.zoom);
         return setHand({ x: (b.x - cam.x) * cam.zoom + cam.viewW / 2, y: (b.y - cam.y) * cam.zoom + cam.viewH / 2 - 10, text: 'goal.waitBubble' });
       }
+      if (sm.target === 'land') {
+        // a coin bubble, else a cleared plot with nothing on it, else a plot for sale
+        const st = ctrl.state;
+        const plots = landPlots(st);
+        let spot: { x: number; y: number } | null = null;
+        for (const pl of plots) spot ??= collectSpot(st, pl);
+        if (!spot) {
+          const empty = plots.find((pl) => st.land.plots[pl.id]?.state === 2 && st.land.plots[pl.id].f < 0);
+          const sale = plots.find((pl) => canBuyPlot(st, pl.id));
+          const pl = empty ?? sale;
+          if (pl) spot = { x: isoX((pl.box[0] + pl.box[2]) / 2, (pl.box[1] + pl.box[3]) / 2), y: isoY((pl.box[0] + pl.box[2]) / 2, (pl.box[1] + pl.box[3]) / 2) };
+        }
+        if (!spot) return setHand(null);
+        if (!sm.panned) {
+          sm.panned = true;
+          cam.target = { x: spot.x, y: spot.y };
+        }
+        return setHand({ x: (spot.x - cam.x) * cam.zoom + cam.viewW / 2, y: (spot.y - cam.y) * cam.zoom + cam.viewH / 2 - 10, text: 'goal.tapLand' });
+      }
       if (sm.target) return atBar(sm.target, 'goal.tapHere');
       return setHand(null);
     }
@@ -1426,7 +1451,8 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
         </View>
         <View style={{ height: 8 }} />
         {/* with a side panel open, toasts move into the part of the map that is still visible */}
-        <View style={sidePanel ? { [rtl ? 'marginLeft' : 'marginRight']: sideWidth(size.w) } : null}>
+        {/* (taps go through the toasts' strip to the map: it used to swallow them across the whole width) */}
+        <View style={sidePanel ? { [rtl ? 'marginLeft' : 'marginRight']: sideWidth(size.w) } : null} pointerEvents="none">
           <Toasts items={toasts.filter((x) => now - x.at < TOAST_MS)} now={now} />
         </View>
         {showFps ? (
@@ -1788,12 +1814,3 @@ const styles = StyleSheet.create({
   skip: { position: 'absolute', right: 12, backgroundColor: 'rgba(15,23,42,0.6)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
   skipText: { color: '#fff', fontWeight: '700', fontSize: 12 },
 });
-
-/** The land's shape for the ground painting: each plot bought, its state and facility ("id:state:f;..."). */
-function landSignature(s: GameState): string {
-  return Object.keys(s.land.plots)
-    .map(Number)
-    .sort((a, b) => a - b)
-    .map((id) => `${id}:${s.land.plots[id].state}:${s.land.plots[id].f}`)
-    .join(';');
-}

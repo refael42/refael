@@ -1119,4 +1119,13 @@ export const he: Record<TKey, string> = {
   'ach.landlord.how': 'חלקות שפונו: {n}',
   'ach.harvest': 'קציר',
   'ach.harvest.how': 'מטבעות שנאספו מהמתקנים: {n}',
+  'goal.firstPlot': 'פנו חלקת שטח',
+  'goalHow.firstPlot': 'מדרום לשדה: לחצו על חלקה עם שלט מחיר ופנו אותה. השטח יהיה של השדה.',
+  'goal.firstFacility': 'בנו מתקן על השטח שלכם',
+  'goalHow.firstFacility': 'לחצו על החלקה המפונה ובחרו מה לבנות: הוא ירוויח לכם מטבעות.',
+  'goal.firstHarvest': 'אספו מטבעות ממתקן',
+  'goalHow.firstHarvest': 'כשמטבע זהב מרחף מעל מתקן, לחצו עליו.',
+  'goal.plots5': 'החזיקו 5 חלקות שטח',
+  'goalHow.plots5': 'כל חלקה היא מקום למתקן נוסף. השורה השנייה נפתחת מאחורי הראשונה.',
+  'goal.tapLand': 'לחצו כאן',
 };

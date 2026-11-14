@@ -171,3 +171,15 @@ describe('land expansions', () => {
     }
   });
 });
+
+describe('the land on the ground', () => {
+  it('an empty land signature means no plot is the airport\'s (it used to read as plot 0 owned)', async () => {
+    const { parseLandSig, landSignature } = await import('../src/render/landSig');
+    expect(parseLandSig('')).toEqual([]);
+    expect(parseLandSig(landSignature(airport(9)))).toEqual([]);
+    expect(parseLandSig('0:2:1;3:1:-1')).toEqual([
+      [0, 2, 1],
+      [3, 1, -1],
+    ]);
+  });
+});

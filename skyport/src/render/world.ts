@@ -10,6 +10,7 @@ import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { pierOf, routeLineUp } from '../sim/game/layout';
 import { lotDriveway } from './traffic';
+import { parseLandSig } from './landSig';
 import { AMENITY_LEVEL, T1_AMENITIES, T3_AMENITIES, T3_X0, type AmenitySpot } from '../data/amenities';
 import { FACILITIES, PLOT_H, PLOT_ROW_STEP, PLOT_ROWS, PLOT_X0, PLOT_Y0, plotsFor, type PlotDef } from '../data/land';
 import { meteoSpotOf, towerSpotOf } from '../sim/game/tower';
@@ -227,10 +228,7 @@ export function landRoads(plots: readonly PlotDef[]): (readonly [number, number]
  */
 function paintLand(g: GroundPainter, plots: readonly PlotDef[], land: string, blur: (r: number) => ReturnType<typeof Skia.MaskFilter.MakeBlur>): void {
   const owned = new Map<number, { state: number; f: number }>();
-  for (const part of land.split(';')) {
-    const [id, st, f] = part.split(':').map(Number);
-    if (Number.isFinite(id)) owned.set(id, { state: st, f });
-  }
+  for (const [id, state, f] of parseLandSig(land)) owned.set(id, { state, f });
   // the roads first, with soft shadows and a dashed middle line
   for (const road of landRoads(plots)) {
     const pts: number[] = [];

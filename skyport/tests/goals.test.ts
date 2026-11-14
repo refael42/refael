@@ -62,4 +62,23 @@ describe('goals', () => {
     const r = parseSave(serializeGame(s, 1000), 1000);
     expect(r.ok && r.state.goal).toBe(7);
   });
+
+  it('a save keeps the goal by id: goals added before it since are skipped', () => {
+    const s = createGame(9);
+    s.goal = GOALS.findIndex((g) => g.id === 'tier3');
+    const file = JSON.parse(serializeGame(s, 1000));
+    expect(file.game.goalId).toBe('tier3');
+    // (an older numbering: the index points somewhere else, the id wins)
+    file.game.goal = 3;
+    const r = parseSave(JSON.stringify(file), 1000);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(GOALS[r.state.goal].id).toBe('tier3');
+  });
+
+  it('the land has its goals, between the small airfield and the regional one', () => {
+    const ids = GOALS.map((g) => g.id);
+    for (const id of ['firstPlot', 'firstFacility', 'firstHarvest', 'plots5']) expect(ids).toContain(id);
+    expect(ids.indexOf('firstPlot')).toBeLessThan(ids.indexOf('tier3'));
+    expect(ids.indexOf('firstPlot')).toBeGreaterThan(ids.indexOf('tier2'));
+  });
 });

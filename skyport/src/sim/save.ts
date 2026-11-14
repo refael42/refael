@@ -78,6 +78,7 @@ export function serializeGame(s: GameState, savedAt: number): string {
     rep: Object.fromEntries(AIRLINES.map((a, i) => [a.id, s.rep[i] ?? REP_START])),
     nextOfferAt: s.nextOfferAt,
     goal: s.goal,
+    goalId: GOALS[s.goal]?.id ?? '',
     // what is still on its way was paid for: it is saved as if it had arrived
     stores: Object.fromEntries(STORE_KINDS.map((k) => [k, { stock: s.stores[k].stock + incoming(s, k), supplier: s.stores[k].supplier }])),
     upg: s.upg,
@@ -421,8 +422,12 @@ export function cleanGame(raw: unknown): GameState | null {
   s.upgRev = 1;
   applyStructural(s);
   // goals: a save from before them skips what is already done (no back pay)
-  if (typeof raw.goal === 'number') s.goal = int(raw.goal, 0, 0, GOALS.length);
-  else skipDoneGoals(s);
+  if (typeof raw.goal === 'number') {
+    s.goal = int(raw.goal, 0, 0, GOALS.length);
+    // (by id when the save has it: goals added since then before it are skipped)
+    const at = typeof raw.goalId === 'string' && raw.goalId ? GOALS.findIndex((g) => g.id === raw.goalId) : -1;
+    if (at >= 0) s.goal = at;
+  } else skipDoneGoals(s);
   ensureHoldArrays(s);
   if (s.applicants.length === 0) refreshApplicants(s);
   s.nextArrival = s.time + 3;

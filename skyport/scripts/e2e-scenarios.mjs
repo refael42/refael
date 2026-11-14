@@ -395,6 +395,21 @@ export default [
       await page.getByTestId('goal-chip').waitFor({ timeout: 3000 });
     },
   },
+  {
+    // a land goal: "show me" pans to the land and points at a plot for sale
+    name: 'goal-land',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=6&tier=2&stands=4&crew=1&warp=200&auto=1&hook=1&money=100000',
+    wait: 1500,
+    touch: true,
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.goalSet('firstPlot'));
+      await page.getByTestId('goal-card').waitFor({ timeout: 8000 });
+      await page.getByTestId('goal-show').click();
+      await page.waitForTimeout(1600);
+    },
+  },
   { name: 'm11-storm', viewport: { width: 844, height: 390 }, query: '/?seed=41&tier=2&stands=4&crew=1&warp=200&auto=1&inc=storm', wait: 2500, touch: true },
   { name: 'm11-fod', viewport: { width: 844, height: 390 }, query: '/?seed=42&tier=3&full=1&crew=1&warp=200&auto=1&inc=fod', wait: 2500, touch: true },
   { name: 'm11-emergency', viewport: { width: 844, height: 390 }, query: '/?seed=43&tier=3&full=1&crew=1&warp=200&auto=1&inc=emergency&panel=events', wait: 2500, touch: true },

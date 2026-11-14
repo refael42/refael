@@ -1117,6 +1117,15 @@ export const en = {
   'ach.landlord.how': 'Plots of land cleared: {n}',
   'ach.harvest': 'Harvest',
   'ach.harvest.how': 'Coins collected from the facilities: {n}',
+  'goal.firstPlot': 'Clear a plot of land',
+  'goalHow.firstPlot': 'South of the field: tap a plot with a price sign and clear it. The land becomes the airport\'s.',
+  'goal.firstFacility': 'Build a facility on your land',
+  'goalHow.firstFacility': 'Tap the cleared plot and pick what to build: it will earn coins for you.',
+  'goal.firstHarvest': 'Collect coins from a facility',
+  'goalHow.firstHarvest': 'When a gold coin floats over a facility, tap it.',
+  'goal.plots5': 'Own 5 plots of land',
+  'goalHow.plots5': 'Each plot is room for one more facility. The second row opens behind the first.',
+  'goal.tapLand': 'Tap here',
 } as const;
 
 export type TKey = keyof typeof en;
