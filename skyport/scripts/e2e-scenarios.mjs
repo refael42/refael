@@ -1121,6 +1121,50 @@ export default [
       await page.waitForTimeout(2600);
     },
   },
+  // land II: the hotel and the outlet mall at the hub, and the land lit at night
+  {
+    name: 'land-hotel-mall',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=88&tier=6&full=1&crew=1&warp=60&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.landSet([
+          [1, 2, 6, 3, 0, 0],
+          [2, 2, 7, 4, 0, 0],
+          [3, 2, 6, 5, 0, 0],
+        ]);
+        h.lookAt(20, 40.5, 1.0);
+      });
+      await page.waitForTimeout(2600);
+    },
+  },
+  {
+    name: 'land-night',
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=88&tier=6&full=1&crew=1&warp=420&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => {
+        const h = window.__skyport;
+        h.landSet([
+          [0, 2, 0, 3, 0, 0],
+          [1, 2, 6, 4, 0, 0],
+          [2, 2, 7, 3, 0, 0],
+          [3, 2, 1, 4, 0, 0],
+        ]);
+        h.lookAt(16, 40.5, 0.9);
+      });
+      await page.waitForTimeout(2600);
+    },
+  },
   // the ILS on the map: the localizer past the far end, the glideslope by the touchdown zone (CAT III: both ways)
   ...[
     ['ils-cat1-loc', 3, 1, 'loc', 1],

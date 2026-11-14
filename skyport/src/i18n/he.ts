@@ -1110,4 +1110,13 @@ export const he: Record<TKey, string> = {
   'ver.amenities.4': 'כורסאות עיסוי',
   'ver.amenities.5': 'תאי שינה',
   'ver.amenities.6': 'חדר תפילה וחדר הנקה',
+  'fac.hotel': 'מלון השדה',
+  'facDesc.hotel': 'חדרים לנוסעים בהמתנה ארוכה: אורחים עשירים ובריכה',
+  'fac.mall': 'קניון אאוטלט',
+  'facDesc.mall': 'חנויות תחת סוככים צבעוניים וחניון גדול: הכי הרבה מטבעות',
+  'land.opensAt': 'נפתח ב{tier}',
+  'ach.landlord': 'בעל אדמות',
+  'ach.landlord.how': 'חלקות שפונו: {n}',
+  'ach.harvest': 'קציר',
+  'ach.harvest.how': 'מטבעות שנאספו מהמתקנים: {n}',
 };

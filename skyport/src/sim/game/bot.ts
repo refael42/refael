@@ -10,6 +10,8 @@ import { MAX_PER_ROLE, staffCount } from './staff';
 import { checkTier } from './tiers';
 import { addedPerDay, airportCapacity, canExpand, contractSlots, flightsPerDay } from './airlines';
 import { bestOffer } from './upgrades';
+import { canBuyPlot, facilityCap, facilityCost, landPlots, plotCost } from './land';
+import { FACILITIES, FACILITY_MAX } from '../../data/land';
 import { WANT, type Command, type GameState } from './types';
 import { guardsNeeded } from './security';
 
@@ -116,6 +118,34 @@ export function botAirlines(s: GameState): Command[] {
     const best = fits.sort((a, b) => b.perDay * b.pay - a.perDay * a.pay)[0];
     if (best) out.push({ type: 'signOffer', offerId: best.id });
   }
+  return out;
+}
+
+/**
+ * The land (like a player would): collects a facility once it is half full, builds the best facility it can
+ * on a cleared plot, upgrades when it is cheap next to the money in hand, and buys the next plot when it is
+ * a small part of it. It saves up like botBuys when the next tier only waits for money.
+ */
+export function botLand(s: GameState): Command[] {
+  const out: Command[] = [];
+  for (const [k, p] of Object.entries(s.land.plots)) {
+    if (p.state === 2 && p.lv > 0 && p.store > 1 && p.store >= facilityCap(s, p) * 0.5) out.push({ type: 'collectFacility', plot: Number(k) });
+  }
+  const t = checkTier(s);
+  if (t.available && t.served && t.rating && !t.busy && !t.money) return out;
+  const money = s.money.toNumber();
+  // build on a cleared plot: the facility that pays most, open at this tier
+  const order = ['mall', 'hotel', 'logistics', 'rental', 'school', 'parking', 'solar'];
+  for (const [k, p] of Object.entries(s.land.plots)) {
+    if (p.state !== 2 || p.left > 0) continue;
+    const f = p.f >= 0 ? p.f : FACILITIES.findIndex((d) => d.id === order.find((id) => (FACILITIES.find((x) => x.id === id)?.tier ?? 1) <= s.tier));
+    if (f < 0 || p.lv >= FACILITY_MAX) continue;
+    const cost = facilityCost(s, f, p.lv);
+    if (money >= cost * (p.f < 0 ? 1.2 : 3)) return [...out, { type: 'buildFacility', plot: Number(k), facility: f }];
+  }
+  // the next plot (the first row west to east, then the second)
+  const next = landPlots(s).find((p) => canBuyPlot(s, p.id));
+  if (next && money >= plotCost(s) * 1.05) out.push({ type: 'buyPlot', plot: next.id });
   return out;
 }
 

@@ -71,7 +71,7 @@ import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { BAG_KINDS, BELT_FRAMES, drawBeltBag, drawBeltPiece, drawCarouselBase, drawCarouselIsland } from './art/baggage';
 import { drawCharging, drawExchange, drawMassageChairs, drawNursingRoom, drawPharmacy, drawPrayerRoom, drawSleepPods, SwapPen } from './art/amenities';
 import { AMENITY_KINDS, type AmenityKind } from '../data/amenities';
-import { drawBoulder, drawBoxTruck, drawBush, drawFlowerBed, drawGardenFountain, drawHay, drawLandSign, drawRentalOffice, drawSchoolHangar, drawShed, drawSolarRow, drawStump, drawTrainer, drawWarehouse } from './art/land';
+import { drawBoulder, drawBoxTruck, drawBush, drawFlowerBed, drawGardenFountain, drawHay, drawLandHotel, drawMall, drawLandSign, drawRentalOffice, drawSchoolHangar, drawShed, drawSolarRow, drawStump, drawTrainer, drawWarehouse } from './art/land';
 import { drawHotel, drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
 import {
@@ -307,6 +307,8 @@ export interface SpriteSet {
     truck: (k: number) => number;
     fountain: (frame: number) => number;
     flowers: (k: number) => number;
+    hotel: (lv: number) => number;
+    mall: (lv: number) => number;
   };
   carouselIsland: number;
   beltBag: (kind: number, alongY: boolean) => number;
@@ -635,6 +637,10 @@ export function buildSprites(content: Content): SpriteSet {
     }
   }
   const slimCharger = b.add(-12 * S, -30 * S, 12 * S, 12 * S, (c, ox, oy) => drawCharging(new IsoPen(c, ox, oy, S), false));
+  const landHotelAt = b.size;
+  for (let lv = 1; lv <= 5; lv++) b.add(-44 * S, -(40 + (lv + 1) * 9) * S - 20 * S, 44 * S, 30 * S, P((p) => drawLandHotel(p, lv + 1)));
+  const mallAt = b.size;
+  for (let lv = 1; lv <= 5; lv++) b.add(-(60 + lv * 9) * S, -48 * S, (60 + lv * 9) * S, 44 * S, P((p) => drawMall(p, lv)));
   const carouselBaseAt = b.size;
   for (let f = 0; f < BELT_FRAMES; f++) b.add(-28 * S, -20 * S, 28 * S, 18 * S, (c, ox, oy) => drawCarouselBase(new IsoPen(c, ox, oy, S), f));
   const carouselIsland = b.add(-16 * S, -28 * S, 16 * S, 10 * S, (c, ox, oy) => drawCarouselIsland(new IsoPen(c, ox, oy, S)));
@@ -916,6 +922,8 @@ export function buildSprites(content: Content): SpriteSet {
       truck: (k) => truckAt + (((k % 2) + 2) % 2),
       fountain: (f) => fountainAt + (((f % 2) + 2) % 2),
       flowers: (k) => flowersAt + (((k % 3) + 3) % 3),
+      hotel: (lv) => landHotelAt + Math.max(0, Math.min(4, lv - 1)),
+      mall: (lv) => mallAt + Math.max(0, Math.min(4, lv - 1)),
     },
     amenity: (kind, faceY, slim) => (slim && kind === 'charging' ? slimCharger : amenityAt + AMENITY_KINDS.indexOf(kind) * 2 + (faceY ? 1 : 0)),
     carouselBase: (f) => carouselBaseAt + (((f % BELT_FRAMES) + BELT_FRAMES) % BELT_FRAMES),

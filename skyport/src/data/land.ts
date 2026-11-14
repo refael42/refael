@@ -39,7 +39,7 @@ export function plotsFor(w: number, h: number): PlotDef[] {
   return out;
 }
 
-export type FacilityId = 'rental' | 'parking' | 'solar' | 'school' | 'logistics' | 'garden';
+export type FacilityId = 'rental' | 'parking' | 'solar' | 'school' | 'logistics' | 'garden' | 'hotel' | 'mall';
 
 export interface FacilityDef {
   id: FacilityId;
@@ -50,6 +50,8 @@ export interface FacilityDef {
   capMin: number;
   /** Its price, against the base price. */
   cost: number;
+  /** The airport tier it can be built from (1: any). */
+  tier?: number;
 }
 
 export const FACILITIES: readonly FacilityDef[] = [
@@ -65,6 +67,10 @@ export const FACILITIES: readonly FacilityDef[] = [
   { id: 'logistics', icon: 'bag', rate: 1.3, capMin: 10, cost: 1.7 },
   // a garden: passengers in a better mood (no coins)
   { id: 'garden', icon: 'star', rate: 0, capMin: 0, cost: 0.9 },
+  // a hotel for travellers: rich guests, from the international airport on
+  { id: 'hotel', icon: 'star', rate: 1.8, capMin: 15, cost: 2.4, tier: 5 },
+  // an outlet mall: the most of all, from the hub on
+  { id: 'mall', icon: 'ticket', rate: 2.4, capMin: 10, cost: 3.2, tier: 6 },
 ];
 
 export const FACILITY_MAX = 5;

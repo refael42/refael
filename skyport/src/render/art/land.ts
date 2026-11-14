@@ -185,3 +185,51 @@ export function drawFlowerBed(p: IsoPen, seed: number): void {
     p.circle(Math.cos(a) * r, Math.sin(a) * r, 0.09, 2.1, cols[(k + seed) % cols.length], false);
   }
 }
+
+/** The land hotel: a tower of floors (more with each level) on a lobby, rows of windows, a rooftop sign. */
+export function drawLandHotel(p: IsoPen, floors: number): void {
+  const fh = 0.26;
+  const top = 0.42 + floors * fh;
+  p.shadow(0.2, 0.2, 46, 18, 0.26);
+  // the lobby: glass all round, a canopy over the door
+  p.box(-0.85, -0.6, 0.85, 0.6, 0, 0.42, '#e2e8f0');
+  p.poly([0.85, -0.5, 0.04, 0.85, 0.5, 0.04, 0.85, 0.5, 0.36, 0.85, -0.5, 0.36], '#7dd3fc', false);
+  p.box(0.85, -0.25, 1.1, 0.25, 0.34, 0.38, '#b91c1c');
+  // the tower: cream floors with window bands
+  p.box(-0.7, -0.5, 0.7, 0.5, 0.42, top, '#fef3c7');
+  for (let k = 0; k < floors; k++) {
+    const z = 0.42 + k * fh + 0.07;
+    p.poly([0.701, -0.44, z, 0.701, 0.44, z, 0.701, 0.44, z + 0.13, 0.701, -0.44, z + 0.13], '#38bdf8', false);
+    p.poly([-0.64, 0.501, z, 0.64, 0.501, z, 0.64, 0.501, z + 0.13, -0.64, 0.501, z + 0.13], '#0ea5e9', false);
+    for (let w = 0; w < 4; w++) p.line(0.702, -0.44 + w * 0.29, z, 0.702, -0.44 + w * 0.29, z + 0.13, '#fef3c7', 1.2);
+  }
+  // the roof and its red sign with a gold star
+  p.box(-0.74, -0.54, 0.74, 0.54, top, top + 0.05, '#94a3b8');
+  p.box(-0.3, -0.04, 0.3, 0.04, top + 0.05, top + 0.3, '#dc2626');
+  p.poly([0.3, -0.03, top + 0.07, 0.3, 0.03, top + 0.07, 0.3, 0.03, top + 0.28, 0.3, -0.03, top + 0.28], '#ef4444', false);
+  p.circle(0.31, 0, top + 0.18, 3, '#facc15', false);
+}
+
+/** The outlet mall: a long low building with coloured shop fronts under striped awnings (longer at higher levels). */
+export function drawMall(p: IsoPen, size: number): void {
+  const L = 1.6 + 0.55 * size;
+  p.shadow(0.2, 0.2, 50 + 16 * size, 20, 0.24);
+  p.box(-L / 2, -0.7, L / 2, 0.7, 0, 0.5, '#f8fafc');
+  // shop fronts along the +y side, each its own colour, with an awning
+  const cols = ['#f43f5e', '#f59e0b', '#22c55e', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6'];
+  const n = Math.floor(L / 0.45);
+  for (let k = 0; k < n; k++) {
+    const x0 = -L / 2 + 0.06 + k * (L / n);
+    const x1 = x0 + L / n - 0.08;
+    const c = cols[k % cols.length];
+    p.poly([x0, 0.701, 0.04, x1, 0.701, 0.04, x1, 0.701, 0.32, x0, 0.701, 0.32], '#bae6fd', false);
+    p.poly([x0, 0.701, 0.33, x1, 0.701, 0.33, x1, 0.701, 0.42, x0, 0.701, 0.42], c, false);
+    p.poly([x0, 0.701, 0.42, x1, 0.701, 0.42, x1, 0.86, 0.34, x0, 0.86, 0.34], c, false);
+    p.poly([x0 + (x1 - x0) / 3, 0.702, 0.42, x0 + (2 * (x1 - x0)) / 3, 0.702, 0.42, x0 + (2 * (x1 - x0)) / 3, 0.86, 0.34, x0 + (x1 - x0) / 3, 0.86, 0.34], '#ffffff', false);
+  }
+  // the main entrance at the +x end: a tall glass box with a sign
+  p.box(L / 2 - 0.05, -0.35, L / 2 + 0.2, 0.35, 0, 0.72, '#e2e8f0');
+  p.poly([L / 2 + 0.201, -0.28, 0.04, L / 2 + 0.201, 0.28, 0.04, L / 2 + 0.201, 0.28, 0.6, L / 2 + 0.201, -0.28, 0.6], '#7dd3fc', false);
+  p.box(L / 2 - 0.05, -0.38, L / 2 + 0.22, 0.38, 0.72, 0.8, '#7c3aed');
+  p.box(-L / 2 - 0.02, -0.72, L / 2 + 0.02, 0.72, 0.5, 0.55, '#cbd5e1');
+}

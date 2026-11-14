@@ -317,6 +317,20 @@ function paintLand(g: GroundPainter, plots: readonly PlotDef[], land: string, bl
         pad(x0 + 0.25, y0 + 0.35, x1 - 0.25, y1 - 0.3, '#cbd5e1');
         for (let x = x0 + 0.6; x < x1 - 0.5; x += 0.9) g.line(x, y1 - 1.25, x + 0.5, y1 - 1.25, '#facc15', 1.6);
         break;
+      case 'hotel':
+        // a pool by the hotel and a car park for its guests
+        pad(x0 + 3.0, y0 + 0.45, x1 - 0.3, y1 - 0.4, '#a7b0bb');
+        g.rect(x0 + 0.5, y1 - 1.25, x0 + 2.6, y1 - 0.45, '#e2e8f0');
+        g.rect(x0 + 0.62, y1 - 1.15, x0 + 2.48, y1 - 0.55, '#38bdf8');
+        g.rect(x0 + 0.7, y1 - 1.1, x0 + 1.6, y1 - 0.85, 'rgba(255,255,255,0.35)');
+        break;
+      case 'mall':
+        pad(x0 + 0.3, y0 + 0.3, x1 - 0.3, y1 - 0.25, '#a7b0bb');
+        for (let x = x0 + 0.6; x < x1 - 0.5; x += 0.62) {
+          g.line(x, y1 - 1.95, x, y1 - 1.2, '#f1f5f9', 1.6);
+          g.line(x, y1 - 1.0, x, y1 - 0.3, '#f1f5f9', 1.6);
+        }
+        break;
       case 'garden': {
         // gravel paths crossing at the fountain
         const cy = (y0 + y1) / 2;

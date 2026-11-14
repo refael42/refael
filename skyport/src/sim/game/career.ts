@@ -199,6 +199,15 @@ export function updateCareer(s: GameState): void {
       case 'holiday':
         if (e.b === 1) bump(c, 'holidays');
         break;
+      case 'plotCleared':
+        bump(c, 'plots');
+        break;
+      case 'facilityBuilt':
+        gainXp(s, 4 * e.c);
+        break;
+      case 'collected':
+        bump(c, 'harvest', e.b);
+        break;
     }
   }
   // the best ever of what can go down again (a new airport later starts over)

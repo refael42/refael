@@ -190,6 +190,17 @@ function drawFacility(sp: SpriteSet, pl: PlotDef, p: PlotState, time: number, at
       for (let i = 0; i < lv; i++) at(L.truck(i), x0 + 0.9 + i * 1.0, y1 - 0.75);
       break;
     }
+    case 'hotel': {
+      at(L.hotel(lv), x0 + 1.6, cy - 0.3);
+      // guests' cars by the door, a taxi waiting
+      for (let k = 0; k < 2 + lv; k++) car(k, x0 + 3.3 + (k % 4) * 0.65, k < 4 ? y0 + 0.95 : y1 - 0.9, k < 4 ? -Math.PI / 2 : Math.PI / 2);
+      break;
+    }
+    case 'mall': {
+      at(L.mall(lv), cx - 0.3, y0 + 1.3);
+      for (let k = 0; k < 4 + 2 * lv; k++) car(k, x0 + 0.9 + (k % 8) * 0.62, k < 8 ? y1 - 1.55 : y1 - 0.6, k < 8 ? -Math.PI / 2 : Math.PI / 2);
+      break;
+    }
     case 'garden': {
       at(L.fountain(Math.floor(time * 3)), cx, cy);
       const beds: [number, number][] = [

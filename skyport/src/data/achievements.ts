@@ -23,7 +23,9 @@ export type AchMetric =
   | 'incidents'
   | 'holidays'
   | 'sales'
-  | 'level';
+  | 'level'
+  | 'plots'
+  | 'harvest';
 
 export interface AchievementDef {
   id: string;
@@ -58,4 +60,7 @@ export const ACHIEVEMENTS: readonly AchievementDef[] = [
   { id: 'festive', icon: 'party', metric: 'holidays', medals: [1, 3, 8, 20] },
   { id: 'shopkeeper', icon: 'ticket', metric: 'sales', medals: [1e4, 1e6, 1e8, 1e10] },
   { id: 'veteran', icon: 'up', metric: 'level', medals: [5, 15, 30, 50] },
+  // the land (owner request: grow like Hay Day)
+  { id: 'landlord', icon: 'build', metric: 'plots', medals: [1, 5, 12, 24] },
+  { id: 'harvest', icon: 'coin', metric: 'harvest', medals: [1e4, 1e6, 1e8, 1e10] },
 ];

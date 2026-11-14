@@ -4,8 +4,9 @@
  * curve. Usage: npm run balance -- --seed 1 [--minutes 90] [--reaction 1.5] [--quiet]
  */
 import { AIRLINES } from '../src/data/airlines';
-import { botAirlines, botBuys, botCommands, botHires, flightsPerDay, createGame, eventsSince, formatBig, incomeRate, queueCommand, stepGame } from '../src/sim';
+import { botAirlines, botBuys, botCommands, botHires, botLand, flightsPerDay, createGame, eventsSince, formatBig, incomeRate, queueCommand, stepGame } from '../src/sim';
 import { ACHIEVEMENTS } from '../src/data/achievements';
+import { FACILITIES } from '../src/data/land';
 import { medalsOf } from '../src/sim/game/career';
 
 function arg(name: string, def: number): number {
@@ -22,6 +23,8 @@ const quiet = process.argv.includes('--quiet');
 /** Human-like play: at most this many taps per minute (0 = unlimited). */
 const apm = arg('apm', 0);
 const noStaff = process.argv.includes('--no-staff');
+// (--land: the bot plays the land too; the regular run leaves it alone, so the runs stay comparable)
+const noLand = !process.argv.includes('--land');
 
 const s = createGame(seed);
 const started = Date.now();
@@ -54,7 +57,10 @@ for (let m = 1; m <= minutes; m++) {
         queueCommand(s, c);
       }
     }
-    if (i % 150 === 0) for (const c of [...(noStaff ? [] : botHires(s)), ...botAirlines(s), ...botBuys(s)]) queueCommand(s, c);
+    // (the land gets its own turn: two minutes in every six the upgrades wait, so money can build up for it)
+    const landTurn = !noLand && m % 6 >= 4;
+    if (i % 150 === 0) for (const c of [...(noStaff ? [] : botHires(s)), ...botAirlines(s), ...(landTurn ? [] : botBuys(s))]) queueCommand(s, c);
+    if (i % 150 === 75 && !noLand) for (const c of botLand(s)) queueCommand(s, c);
     stepGame(s);
     for (const e of eventsSince(s, lastEvent)) {
       lastEvent = e.id;
@@ -132,6 +138,7 @@ const report = {
   guideEditions: guide,
   inspectorVisits: inspector,
   levels: s.upg,
+  land: Object.entries(s.land.plots).map(([k, p]) => `${k}:${p.state === 2 ? (FACILITIES[p.f]?.id ?? 'empty') + p.lv : 'clearing'}`).join(' '),
   spent: formatBig(st.spent),
   wagesPaid: formatBig(st.wages),
   simSecondsPerRealSecond: Math.round((minutes * 60) / Math.max(0.001, (Date.now() - started) / 1000)),

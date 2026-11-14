@@ -1108,6 +1108,15 @@ export const en = {
   'ver.amenities.4': 'Massage chairs',
   'ver.amenities.5': 'Sleep pods',
   'ver.amenities.6': 'Prayer and nursing rooms',
+  'fac.hotel': 'Airport hotel',
+  'facDesc.hotel': 'Rooms for travellers on long layovers: rich guests, a pool',
+  'fac.mall': 'Outlet mall',
+  'facDesc.mall': 'Shops under striped awnings and a big car park: the most coins of all',
+  'land.opensAt': 'Opens at: {tier}',
+  'ach.landlord': 'Landlord',
+  'ach.landlord.how': 'Plots of land cleared: {n}',
+  'ach.harvest': 'Harvest',
+  'ach.harvest.how': 'Coins collected from the facilities: {n}',
 } as const;
 
 export type TKey = keyof typeof en;

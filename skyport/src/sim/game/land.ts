@@ -25,7 +25,7 @@ import { REJECT, type GameState, type LandState, type PlotState } from './types'
 
 /** Growth of the expansion price with each plot owned, and of a facility's price with each level. */
 export const PLOT_GROWTH = 1.45;
-export const LEVEL_GROWTH = 2.2;
+export const LEVEL_GROWTH = 1.8;
 /** Seconds of clearing for the first plot, and more for each plot owned (capped). */
 export const CLEAR_BASE = 40;
 export const CLEAR_STEP = 25;
@@ -140,7 +140,7 @@ export function rushPlot(s: GameState, id: number): number {
 /** What building (level 0 → 1) or upgrading a facility on this plot costs next. */
 export function facilityCost(s: GameState, f: number, level: number): number {
   const def = FACILITIES[f];
-  return def ? round2(1.5 * unit(s) * def.cost * Math.pow(LEVEL_GROWTH, level)) : 0;
+  return def ? round2(1.2 * unit(s) * def.cost * Math.pow(LEVEL_GROWTH, level)) : 0;
 }
 
 export function facilitySeconds(level: number): number {
@@ -153,6 +153,8 @@ export function buildFacility(s: GameState, id: number, f: number): number {
   if (!p || p.state !== 2 || p.left > 0) return REJECT.limit;
   if (p.f >= 0 && p.f !== f) return REJECT.limit;
   if (!FACILITIES[f] || p.lv >= FACILITY_MAX) return REJECT.limit;
+  // (the hotel and the mall wait for a bigger airport)
+  if ((FACILITIES[f].tier ?? 1) > s.tier) return REJECT.needs;
   const cost = Big.fromNumber(facilityCost(s, f, p.lv));
   if (s.money.lt(cost)) return REJECT.noMoney;
   s.money = s.money.sub(cost);
@@ -169,7 +171,7 @@ export function buildFacility(s: GameState, id: number, f: number): number {
 export function facilityRate(s: GameState, p: PlotState): number {
   const def = FACILITIES[p.f];
   if (!def || p.lv <= 0 || def.rate <= 0) return 0;
-  let r = 0.06 * unit(s) / 60 * def.rate * (1 + 0.6 * (p.lv - 1));
+  let r = ((0.1 * unit(s)) / 60) * def.rate * (1 + 0.6 * (p.lv - 1));
   // (the car rental is busier with more passengers; the logistics centre with cargo flights)
   if (def.id === 'rental') r *= 1 + Math.min(1, s.stats.served / 2000);
   if (def.id === 'logistics') r *= 1 + Math.min(1, (s.stats.checks + s.tier) / 20);

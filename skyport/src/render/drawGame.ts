@@ -10,6 +10,8 @@ import { hash01 } from '../sim/hash';
 import { ilsParts, meteoSpot } from '../sim/game/tower';
 import { drawBaggage } from './baggage';
 import { drawLand } from './land';
+import { landPlots } from '../sim/game/land';
+import { FACILITIES } from '../data/land';
 import { APM_CAR } from '../sim/game/apm';
 import { RAIL_CAR, RAIL_CARS, railTrain } from '../sim/game/rail';
 import { capacity, storeActive } from '../sim/game/supplies';
@@ -727,6 +729,20 @@ function drawNightLights(w: SnapWriter, s: GameState, sp: SpriteSet, L: TierLayo
       glow(masts >= 3 ? GLOW_COLORS.white : GLOW_COLORS.amber, m[0], m[1], MAST_H, 1.5, 1);
       glow(masts >= 3 ? GLOW_COLORS.white : GLOW_COLORS.amber, st.pos[0], st.pos[1], 0, 6, 0.16);
     });
+  }
+  // the land at night: a lamp by each drive, light in the facilities' windows, the parking lots lit
+  for (const pl of landPlots(s)) {
+    const lp = s.land.plots[pl.id];
+    if (!lp || lp.state !== 2) continue;
+    const [x0, y0, x1, y1] = pl.box;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    glow(GLOW_COLORS.amber, cx + 0.45, y0 + 0.2, 1.1, 1.3, 1);
+    if (lp.f < 0 || lp.lv <= 0) continue;
+    glow(GLOW_COLORS.amber, cx, cy, 0.3, 6, 0.1);
+    const id = FACILITIES[lp.f]?.id;
+    if (id === 'parking' || id === 'rental' || id === 'mall' || id === 'hotel') for (const dx of [-1.6, 1.6]) glow(GLOW_COLORS.white, cx + dx, cy, 1.4, 1.2, 0.9);
+    if (id === 'hotel') for (let k = 0; k < 4; k++) glow(GLOW_COLORS.amber, x0 + 2.3, cy - 0.6 + k * 0.3, 0.8 + lp.lv * 0.25, 0.8, 0.8);
   }
   // warm light in the halls
   for (const b of cleanAreas(L)) {

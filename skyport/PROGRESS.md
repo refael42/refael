@@ -730,6 +730,31 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### Land II (after the passenger services: "keep growing the game")
+- Two new facilities for the big airports:
+  - airport hotel (international airport on): a cream tower whose floors grow with the level, a
+    glass lobby with a red canopy, a rooftop sign, a pool and its guests' cars;
+  - outlet mall (hub on): a long building of coloured shop fronts under striped awnings, longer
+    with each level, and a big car park.
+  The land panel shows them locked, with the airport they open at, until then.
+- Facility economy, reworked after a land-playing bot run:
+  - a level-1 facility makes about 10% of the airport's income;
+  - the next level costs 1.8x (was 2.2x), the first 20% less.
+- Achievements:
+  - landlord: plots cleared, 1 / 5 / 12 / 24;
+  - harvest: coins collected from the facilities, 10K / 1M / 100M / 10B.
+  A facility's new level gives the manager experience.
+- At night a lamp lights each drive, the facilities glow, car parks have floodlights, and the
+  hotel's windows are lit.
+- The bot can play the land (`botLand`): it collects a facility once half full, builds the best
+  facility open at its tier, upgrades, and buys the next plot. `npm run balance -- --land` turns it
+  on, keeping two minutes in six for the land. The regular run leaves the land alone, so its
+  numbers stay comparable. With the land, 150 minutes on seed 1:
+  - 494 flights served, rating 5;
+  - 7.5M coins a minute;
+  - three logistics centres.
+- Tests: `land2.test.ts`. E2E: `land-hotel-mall`, `land-night`.
+
 ### Passenger services in the terminals (after the livelier world: "keep growing the game")
 A new comfort upgrade, passenger services (6 levels, each at once; +1.5% passenger mood a
 level). Each level puts a service in the terminals, on spots kept clear of the furniture, the

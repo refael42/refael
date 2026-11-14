@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { FACILITIES, FACILITY_MAX } from '../../data/land';
+import { tierDef } from '../../data/tiers';
 import { useDir, useT, type TKey } from '../../i18n';
 import type { IconName } from '../../render/art/icons';
 import { Big, formatBig, formatDuration, type Command, type GameState } from '../../sim';
@@ -92,6 +93,7 @@ export function LandPanel({ state, plot, send, onClose }: { state: GameState; re
       <Sheet title={t('land.owned')} subtitle={t('land.pick')} onClose={onClose}>
         {FACILITIES.map((f, i) => {
           const cost = facilityCost(state, i, 0);
+          const locked = (f.tier ?? 1) > state.tier;
           return (
             <View key={f.id} style={styles.card} testID={`fac-${f.id}`}>
               <View style={[styles.row, { flexDirection: dir.row }]}>
@@ -103,14 +105,18 @@ export function LandPanel({ state, plot, send, onClose }: { state: GameState; re
                   <Text style={[styles.note, ta]}>{t(`facDesc.${f.id}` as TKey)}</Text>
                 </View>
               </View>
-              <Btn
-                label={t('land.build')}
-                icon="coin"
-                sub={`${fmt(cost)} · ${formatDuration(facilitySeconds(0))}`}
-                disabled={state.money.lt(Big.fromNumber(cost))}
-                onPress={() => send({ type: 'buildFacility', plot, facility: i })}
-                testID={`build-${f.id}`}
-              />
+              {locked ? (
+                <Text style={[styles.warn, ta]}>{t('land.opensAt', { tier: t(`tier.${tierDef(f.tier ?? 1).key}` as TKey) })}</Text>
+              ) : (
+                <Btn
+                  label={t('land.build')}
+                  icon="coin"
+                  sub={`${fmt(cost)} · ${formatDuration(facilitySeconds(0))}`}
+                  disabled={state.money.lt(Big.fromNumber(cost))}
+                  onPress={() => send({ type: 'buildFacility', plot, facility: i })}
+                  testID={`build-${f.id}`}
+                />
+              )}
             </View>
           );
         })}
