@@ -10,6 +10,7 @@ import { hash01 } from '../sim/hash';
 import { graphOf, routeGeometry, type Graph } from '../sim/game/graph';
 import { pierOf, routeLineUp } from '../sim/game/layout';
 import { lotDriveway } from './traffic';
+import { AMENITY_LEVEL, T1_AMENITIES, T3_AMENITIES, T3_X0, type AmenitySpot } from '../data/amenities';
 import { FACILITIES, PLOT_H, PLOT_ROW_STEP, PLOT_ROWS, PLOT_X0, PLOT_Y0, plotsFor, type PlotDef } from '../data/land';
 import { meteoSpotOf, towerSpotOf } from '../sim/game/tower';
 import { chaikin } from '../sim/game/path';
@@ -622,7 +623,7 @@ function buildingStatics(b: TerminalBuilding, sprites: SpriteSet, statics: Stati
 /** Painted ring radius of a stand by its size. */
 const RING: Record<string, number> = { small: 0.78, fbo: 0.9, heli: 0.8, medium: 1.05, large: 1.3, cargo: 1.5, huge: 1.55, hugeX: 1.75 };
 
-export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0, fenceLevel = 0, scanV = 1, land = ''): World {
+export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: readonly boolean[] = [true], counters = 1, lanes = 1, farmLevel = 0, fenceLevel = 0, scanV = 1, land = '', amenities = 0): World {
   const W = L.world.w;
   const H = L.world.h;
   const F = L.field;
@@ -1179,9 +1180,20 @@ export function buildWorld(L: TierLayout, sprites: SpriteSet, tier = 1, open: re
   const T2 = L.terminal;
   T2.counters.slice(0, counters).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));
   T2.lanes.slice(0, lanes).forEach((c) => statics.push({ sprite: sprites.scannerV(scanV), x: isoX(c[0], c[1]), y: isoY(c[0], c[1]), depth: c[0] + c[1], r: 40 }));
+  // passenger services, by the level of the amenities upgrade (owner request: everything a real airport has)
+  const amenity = (spots: readonly AmenitySpot[], dx: number) => {
+    for (const a of spots) {
+      if (AMENITY_LEVEL[a.kind] > amenities) continue;
+      const x = a.at[0] + dx;
+      const y = a.at[1];
+      statics.push({ sprite: sprites.amenity(a.kind, !!a.faceY, a.slim), x: isoX(x, y), y: isoY(x, y), depth: x + y + 0.45, r: 60 });
+    }
+  };
+  if (L.building) amenity(T1_AMENITIES, 0);
   for (const T3 of [L.t3, L.t4]) {
     if (!T3) continue;
     buildingStatics(T3.building, sprites, statics, tier);
+    amenity(T3_AMENITIES, T3.building.box[0] - T3_X0);
     const st = T3.st;
     const n3 = Math.min(st.counters.length, counters * 2);
     st.counters.slice(0, n3).forEach((c) => statics.push({ sprite: sprites.desk, x: isoX(c[0] - 0.3, c[1] - 0.45), y: isoY(c[0] - 0.3, c[1] - 0.45), depth: c[0] + c[1] - 0.4, r: 40 }));

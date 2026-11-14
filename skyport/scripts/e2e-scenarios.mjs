@@ -1001,6 +1001,26 @@ export default [
       await page.waitForTimeout(400);
     },
   },
+  // passenger services in the terminals (owner request: everything a real airport has), all six levels
+  ...[
+    ['amenities-arrivals', 50.8, 9.5, 2.2],
+    ['amenities-concourse', 49.0, 16.0, 1.9],
+    ['amenities-passport', 40.8, 15.0, 2.4],
+  ].map(([name, x, y, zoom]) => ({
+    name,
+    viewport: { width: 844, height: 390 },
+    query: '/?seed=84&tier=5&full=1&crew=1&warp=100&auto=1&hook=1',
+    wait: 900,
+    touch: true,
+    langs: ['en'],
+    actions: async (page) => {
+      await page.waitForFunction(() => window.__skyport, null, { timeout: 60000 });
+      await page.evaluate(() => window.__skyport.setUpg({ amenities: 6 }));
+      await page.waitForTimeout(1500);
+      await page.evaluate(([x, y, zoom]) => window.__skyport.lookAt(x, y, zoom), [x, y, zoom]);
+      await page.waitForTimeout(1200);
+    },
+  })),
   // land expansions (owner request: grow to the sides like Hay Day / Clash of Clans)
   {
     name: 'land-buy',

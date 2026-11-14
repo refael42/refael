@@ -296,10 +296,10 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
   // (and the fence's level and the scanners' version: digits above those)
   // the land south of the field: which plots are bought, cleared and what stands on them (the ground is repainted when it changes)
   const [landSig, setLandSig] = useState(() => landSignature(ctrl.state));
-  const [stations, setStations] = useState(() => versionOf('scanner', ctrl.state.upg.scanner ?? 0) * 10000 + (ctrl.state.upg.fence ?? 0) * 1000 + (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
+  const [stations, setStations] = useState(() => Math.min(9, ctrl.state.upg.amenities ?? 0) * 100000 + versionOf('scanner', ctrl.state.upg.scanner ?? 0) * 10000 + (ctrl.state.upg.fence ?? 0) * 1000 + (ctrl.state.upg.fuelFarm ?? 0) * 100 + counterCount(ctrl.state) * 10 + laneCount(ctrl.state));
   const world = useMemo(
     () =>
-      buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100) % 10, Math.floor(stations / 1000) % 10, Math.max(1, Math.floor(stations / 10000)), landSig),
+      buildWorld(L, sprites, tier, openSig.split('').map((c) => c === '1'), Math.floor(stations / 10) % 10, stations % 10, Math.floor(stations / 100) % 10, Math.floor(stations / 1000) % 10, Math.max(1, Math.floor(stations / 10000) % 10), landSig, Math.floor(stations / 100000)),
     [L, sprites, tier, openSig, stations, landSig],
   );
   const cam = useMemo(() => {
@@ -860,7 +860,7 @@ export function GameScreen({ sprites: initialSprites, boot, onGallery }: { sprit
       const openNow = st.standOpen.map((o) => (o ? '1' : '0')).join('');
       setOpenSig((old) => (old === openNow ? old : openNow));
       setTier((old) => (old === st.tier ? old : st.tier));
-      const sig = versionOf('scanner', st.upg.scanner ?? 0) * 10000 + (st.upg.fence ?? 0) * 1000 + (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
+      const sig = Math.min(9, st.upg.amenities ?? 0) * 100000 + versionOf('scanner', st.upg.scanner ?? 0) * 10000 + (st.upg.fence ?? 0) * 1000 + (st.upg.fuelFarm ?? 0) * 100 + counterCount(st) * 10 + laneCount(st);
       setStations((old) => (old === sig ? old : sig));
       const ls = landSignature(st);
       setLandSig((old) => (old === ls ? old : ls));

@@ -730,6 +730,23 @@ Like a restaurant guide, for airports (`src/sim/game/guide.ts`).
   `m12-pylon-t3`, `m12-pylon-t1`. The hook adds `guide()`, `rumorNow()`, `publishNow()` and
   `guideSet(stars, edition)`.
 
+### Passenger services in the terminals (after the livelier world: "keep growing the game")
+A new comfort upgrade, passenger services (6 levels, each at once; +1.5% passenger mood a
+level). Each level puts a service in the terminals, on spots kept clear of the furniture, the
+desks, the queues, the passport booths and the walking routes (a test checks):
+1. charging stations: two pillars with benches between the seat rows of Terminal 3's
+   concourse, and a slim one in Terminal 1's departures lounge;
+2. a currency exchange booth on the arrivals hall's north wall, between the exits;
+3. a pharmacy beside it (a green cross, shelves of boxes);
+4. massage chairs in the business lounge;
+5. sleep pods (white capsules with blue windows) at the east end of the concourse;
+6. a prayer room and a nursing room in the quiet south-west corner of the passport hall.
+
+Terminal 4, built on Terminal 3's plan, gets them too. The pieces facing a north wall are drawn
+with the pen's x and y swapped (`SwapPen`).
+- Tests: `amenities.test.ts`. E2E: `amenities-arrivals`, `amenities-concourse`,
+  `amenities-passport`.
+
 ### A livelier world (owner request: "invest in the design", after the land)
 - A forest of two loose rows of trees runs round the world's edges, so the map no longer just
   stops. It leaves gaps where roads leave the map.

@@ -1102,4 +1102,12 @@ export const he: Record<TKey, string> = {
   'facDesc.logistics': 'מחסנים ומשאיות: הכי הרבה מטבעות, יותר עם מטען',
   'fac.garden': 'גן נוסעים',
   'facDesc.garden': 'עצים, מזרקה וספסלים: נוסעים במצב רוח טוב יותר',
+  'upg.amenities': 'שירותי נוסעים',
+  'upgDesc.amenities': 'עמדות טעינה, החלפת כספים, בית מרקחת, כורסאות עיסוי, תאי שינה, חדר תפילה וחדר הנקה: נוסעים מרוצים יותר',
+  'ver.amenities.1': 'עמדות טעינה',
+  'ver.amenities.2': 'החלפת כספים',
+  'ver.amenities.3': 'בית מרקחת',
+  'ver.amenities.4': 'כורסאות עיסוי',
+  'ver.amenities.5': 'תאי שינה',
+  'ver.amenities.6': 'חדר תפילה וחדר הנקה',
 };

@@ -1100,6 +1100,14 @@ export const en = {
   'facDesc.logistics': 'Warehouses and trucks: the most coins, more with cargo',
   'fac.garden': 'Passenger garden',
   'facDesc.garden': 'Trees, a fountain and benches: passengers in a better mood',
+  'upg.amenities': 'Passenger services',
+  'upgDesc.amenities': 'Charging stations, a currency exchange, a pharmacy, massage chairs, sleep pods, prayer and nursing rooms: happier passengers',
+  'ver.amenities.1': 'Charging stations',
+  'ver.amenities.2': 'Currency exchange',
+  'ver.amenities.3': 'Pharmacy',
+  'ver.amenities.4': 'Massage chairs',
+  'ver.amenities.5': 'Sleep pods',
+  'ver.amenities.6': 'Prayer and nursing rooms',
 } as const;
 
 export type TKey = keyof typeof en;

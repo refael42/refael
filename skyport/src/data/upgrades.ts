@@ -96,6 +96,8 @@ export const UPGRADES: readonly UpgradeDef[] = [
   { id: 'cargoApron', category: 'apron', unlockTier: 4, maxLevel: 2, baseCost: 500000, growth: 2000, effect: 'opens', per: 1, buildSeconds: [180, 300], levelTier: [4, 7], icon: 'bag' },
   { id: 'helipad', category: 'apron', unlockTier: 5, maxLevel: 1, baseCost: 4e6, growth: 1, effect: 'opens', per: 1, buildSeconds: [120], icon: 'plane' },
   { id: 'hangar', category: 'apron', unlockTier: 3, maxLevel: 2, baseCost: 40000, growth: 6, effect: 'opens', per: 1, buildSeconds: [150, 240], levelTier: [3, 4], icon: 'wrench' },
+  // passenger services in the terminals (owner request): charging, exchange, pharmacy, massage chairs, sleep pods, prayer and nursing rooms
+  { id: 'amenities', category: 'comfort', unlockTier: 2, maxLevel: 6, baseCost: 2500, growth: 4.5, effect: 'comfort', per: 0.015, levelTier: [2, 4, 4, 4, 5, 5], icon: 'pax' },
   { id: 'lounge', category: 'comfort', unlockTier: 4, maxLevel: 10, baseCost: 150000, growth: 1.6, effect: 'comfort', per: 0.02, icon: 'star' },
   // air traffic control
   // the control tower (owner request: part of the game): ten levels, abilities at 2, 4, 6, 8 and 10 (tower.ts)

@@ -69,6 +69,8 @@ import {
 } from './art/objects';
 import { drawPerson, OUTFITS, PERSON_BOX, PERSON_FRAMES } from './art/people';
 import { BAG_KINDS, BELT_FRAMES, drawBeltBag, drawBeltPiece, drawCarouselBase, drawCarouselIsland } from './art/baggage';
+import { drawCharging, drawExchange, drawMassageChairs, drawNursingRoom, drawPharmacy, drawPrayerRoom, drawSleepPods, SwapPen } from './art/amenities';
+import { AMENITY_KINDS, type AmenityKind } from '../data/amenities';
 import { drawBoulder, drawBoxTruck, drawBush, drawFlowerBed, drawGardenFountain, drawHay, drawLandSign, drawRentalOffice, drawSchoolHangar, drawShed, drawSolarRow, drawStump, drawTrainer, drawWarehouse } from './art/land';
 import { drawHotel, drawPlatformRoof, drawStationHall, drawTunnelPortal } from './art/rail';
 import { drawBunting, drawHolidayPiece, drawInfoSign, drawRope, drawStretcher, drawTicketBooth, drawTvCamera } from './art/events';
@@ -287,6 +289,8 @@ export interface SpriteSet {
   lostBag: number;
   /** Baggage: the carousel's base (a frame of its turning plates) and island, a bag lying on a belt, a conveyor piece. */
   carouselBase: (frame: number) => number;
+  /** Passenger services in the terminals (facing +x, or +y; the charging pillar alone when slim). */
+  amenity: (kind: AmenityKind, faceY: boolean, slim?: boolean) => number;
   /** The land around the airport: obstacles, the sign on a plot for sale, and the facilities' pieces (by level or size). */
   land: {
     bush: number;
@@ -615,6 +619,22 @@ export function buildSprites(content: Content): SpriteSet {
   for (let f = 0; f < 2; f++) b.add(-23 * S, -27 * S, 23 * S, 15 * S, P((p) => drawGardenFountain(p, f)));
   const flowersAt = b.size;
   for (let k = 0; k < 3; k++) b.add(-15 * S, -11 * S, 15 * S, 11 * S, P((p) => drawFlowerBed(p, k)));
+  const amenityAt = b.size;
+  const amenityDraw: Record<AmenityKind, (p: IsoPen) => void> = {
+    charging: (p) => drawCharging(p),
+    exchange: drawExchange,
+    pharmacy: drawPharmacy,
+    massage: drawMassageChairs,
+    pods: drawSleepPods,
+    prayer: drawPrayerRoom,
+    nursing: drawNursingRoom,
+  };
+  for (const kind of AMENITY_KINDS) {
+    for (const faceY of [false, true]) {
+      b.add(-36 * S, -34 * S, 36 * S, 34 * S, (c, ox, oy) => amenityDraw[kind](faceY ? new SwapPen(c, ox, oy, S) : new IsoPen(c, ox, oy, S)));
+    }
+  }
+  const slimCharger = b.add(-12 * S, -30 * S, 12 * S, 12 * S, (c, ox, oy) => drawCharging(new IsoPen(c, ox, oy, S), false));
   const carouselBaseAt = b.size;
   for (let f = 0; f < BELT_FRAMES; f++) b.add(-28 * S, -20 * S, 28 * S, 18 * S, (c, ox, oy) => drawCarouselBase(new IsoPen(c, ox, oy, S), f));
   const carouselIsland = b.add(-16 * S, -28 * S, 16 * S, 10 * S, (c, ox, oy) => drawCarouselIsland(new IsoPen(c, ox, oy, S)));
@@ -897,6 +917,7 @@ export function buildSprites(content: Content): SpriteSet {
       fountain: (f) => fountainAt + (((f % 2) + 2) % 2),
       flowers: (k) => flowersAt + (((k % 3) + 3) % 3),
     },
+    amenity: (kind, faceY, slim) => (slim && kind === 'charging' ? slimCharger : amenityAt + AMENITY_KINDS.indexOf(kind) * 2 + (faceY ? 1 : 0)),
     carouselBase: (f) => carouselBaseAt + (((f % BELT_FRAMES) + BELT_FRAMES) % BELT_FRAMES),
     carouselIsland,
     beltBag: (k, alongY) => beltBagAt + (((k % BAG_KINDS) + BAG_KINDS) % BAG_KINDS) * 2 + (alongY ? 1 : 0),
